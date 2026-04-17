@@ -1,0 +1,46 @@
+ºøexport type Vehicle = {
+  id: string;
+  userId: string;
+  name: string;
+  make?: string;
+  model?: string;
+  year?: number;
+  plate?: string;
+  createdAt?: unknown;
+  updatedAt?: unknown;
+};
+
+export type Compartment = {
+  id: string;
+  userId: string;
+  vehicleId: string;
+  name: string;
+  type?: string;
+  sortOrder?: number;
+  notes?: string;
+  createdAt?: unknown;
+  updatedAt?: unknown;
+};
+
+export type GearItem = {
+  id: string;
+  userId: string;
+  vehicleId: string;
+  vehicleName: string;
+  compartmentId: string;
+  compartmentName: string;
+  name: string;
+  nameLower: string;
+  category?: string;
+  quantity?: number;
+  notes?: string;
+  packed?: boolean;
+  missing?: boolean;
+  photoUrl?: string;
+  createdAt?: unknown;
+  updatedAt?: unknown;
+};
+
+
+
+

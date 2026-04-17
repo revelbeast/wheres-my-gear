@@ -6,9 +6,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import ScreenBackground from "../../components/ui/ScreenBackground";
 import { colors } from "../../theme/tokens";
 
-export default function LegacyExploreRedirectScreen() {
+export default function LegacyVehiclesRedirectScreen() {
   useEffect(() => {
-    router.replace("/profile");
+    router.replace("/inventory");
   }, []);
 
   return (
