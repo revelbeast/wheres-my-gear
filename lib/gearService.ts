@@ -5,11 +5,13 @@ import {
   doc,
   getDoc,
   getDocs,
+  query,
+  serverTimestamp,
   updateDoc,
+  where,
+  writeBatch,
 } from "firebase/firestore";
-import { db } from "../firebaseConfig";
-
-const DEMO_USER_ID = "demo-user-123";
+import { auth, db } from "../firebaseConfig";
 
 export type ItemStatus = "packed" | "missing";
 export type StorageSpaceCategory = "vehicle" | "storage";
@@ -17,18 +19,19 @@ export type StorageSpaceCategory = "vehicle" | "storage";
 export type StorageSpace = {
   id: string;
   name: string;
-  category: StorageSpaceCategory;
-  subtype: string;
+  category?: StorageSpaceCategory;
+  subtype?: string;
+  notes?: string;
   createdAt?: unknown;
+  updatedAt?: unknown;
 };
-
-export type Vehicle = StorageSpace;
 
 export type Compartment = {
   id: string;
   name: string;
   vehicleId: string;
   createdAt?: unknown;
+  updatedAt?: unknown;
 };
 
 export type Item = {
@@ -41,622 +44,322 @@ export type Item = {
   vehicleId?: string;
   vehicleName?: string;
   notes?: string;
-  packed?: boolean;
-  missing?: boolean;
+  source?: string;
+  itemPhotoUri?: string;
   createdAt?: unknown;
+  updatedAt?: unknown;
 };
 
-export type SearchResultItem = {
-  id: string;
-  name: string;
-  quantity: number;
-  compartmentId: string;
-  compartmentName: string;
-  vehicleId: string;
-  vehicleName: string;
-  notes?: string;
-  packed?: boolean;
-  missing?: boolean;
-};
+function getCurrentUserId() {
+  const userId = auth.currentUser?.uid;
 
-function toNumber(value: unknown, fallback = 1) {
-  const num = Number(value);
-  return Number.isFinite(num) ? num : fallback;
-}
-
-function normalizeStatus(value: unknown, packed?: unknown): ItemStatus {
-  if (typeof value === "string") {
-    const lower = value.toLowerCase().trim();
-    if (lower === "packed") return "packed";
-    if (lower === "missing") return "missing";
+  if (!userId) {
+    throw new Error("User is not authenticated.");
   }
 
-  if (typeof packed === "boolean") {
-    return packed ? "packed" : "missing";
-  }
-
-  return "missing";
+  return userId;
 }
 
-function normalizeCategory(value: unknown): StorageSpaceCategory {
-  const lower = String(value ?? "").toLowerCase().trim();
-  return lower === "storage" ? "storage" : "vehicle";
+function inventoryCol() {
+  return collection(db, "users", getCurrentUserId(), "inventoryItems");
 }
 
-function sortByName<T extends { name?: string }>(items: T[]) {
-  return [...items].sort((a, b) =>
-    (a.name ?? "").localeCompare(b.name ?? "", undefined, {
-      sensitivity: "base",
-    })
-  );
+function inventoryDoc(itemId: string) {
+  return doc(db, "users", getCurrentUserId(), "inventoryItems", itemId);
 }
 
-function mapStorageSpace(docSnap: any): StorageSpace {
-  const data = docSnap.data() ?? {};
-  return {
-    id: docSnap.id,
-    name: data.name ?? "",
-    category: normalizeCategory(data.category),
-    subtype: data.subtype ?? "",
-    createdAt: data.createdAt,
-  };
+function storageSpacesCol() {
+  return collection(db, "users", getCurrentUserId(), "storageSpaces");
 }
 
-function mapCompartment(docSnap: any, fallbackVehicleId = ""): Compartment {
-  const data = docSnap.data() ?? {};
-  return {
-    id: docSnap.id,
-    name: data.name ?? "",
-    vehicleId: data.vehicleId ?? fallbackVehicleId,
-    createdAt: data.createdAt,
-  };
+function storageSpaceDoc(storageId: string) {
+  return doc(db, "users", getCurrentUserId(), "storageSpaces", storageId);
 }
 
-function mapItem(
-  docSnap: any,
-  fallbackCompartmentId = "",
-  fallbackVehicleId = ""
-): Item {
-  const data = docSnap.data() ?? {};
-  const status = normalizeStatus(data.status, data.packed);
-
-  return {
-    id: docSnap.id,
-    name: data.name ?? "",
-    quantity: toNumber(data.quantity, 1),
-    status,
-    compartmentId: data.compartmentId ?? fallbackCompartmentId,
-    vehicleId: data.vehicleId ?? fallbackVehicleId,
-    notes: data.notes ?? "",
-    packed: status === "packed",
-    missing: status === "missing",
-    createdAt: data.createdAt,
-  };
+function compartmentsCol() {
+  return collection(db, "users", getCurrentUserId(), "compartments");
 }
 
-async function getCollectionDocsIfAny(pathParts: string[]) {
-  const snapshot = await getDocs(collection(db, ...pathParts));
-  return snapshot.docs;
+function compartmentDoc(compartmentId: string) {
+  return doc(db, "users", getCurrentUserId(), "compartments", compartmentId);
 }
 
-async function getStorageSpaceDocs() {
-  const userStorageDocs = await getCollectionDocsIfAny([
-    "users",
-    DEMO_USER_ID,
-    "storageSpaces",
-  ]);
-  if (userStorageDocs.length > 0) return userStorageDocs;
-
-  const rootStorageDocs = await getCollectionDocsIfAny(["storageSpaces"]);
-  if (rootStorageDocs.length > 0) return rootStorageDocs;
-
-  const userVehicleDocs = await getCollectionDocsIfAny([
-    "users",
-    DEMO_USER_ID,
-    "vehicles",
-  ]);
-  if (userVehicleDocs.length > 0) return userVehicleDocs;
-
-  const rootVehicleDocs = await getCollectionDocsIfAny(["vehicles"]);
-  return rootVehicleDocs;
-}
-
-async function getFlatCompartmentDocs() {
-  const userDocs = await getCollectionDocsIfAny([
-    "users",
-    DEMO_USER_ID,
-    "compartments",
-  ]);
-  if (userDocs.length > 0) return userDocs;
-
-  const rootDocs = await getCollectionDocsIfAny(["compartments"]);
-  return rootDocs;
-}
-
-async function getFlatItemDocs() {
-  const userDocs = await getCollectionDocsIfAny(["users", DEMO_USER_ID, "items"]);
-  if (userDocs.length > 0) return userDocs;
-
-  const rootDocs = await getCollectionDocsIfAny(["items"]);
-  return rootDocs;
+function normalizeName(value: string) {
+  return value.trim().toLowerCase();
 }
 
 export async function getStorageSpaces(): Promise<StorageSpace[]> {
-  const docs = await getStorageSpaceDocs();
-  return sortByName(docs.map(mapStorageSpace));
+  const snapshot = await getDocs(storageSpacesCol());
+
+  return snapshot.docs.map((d) => ({
+    id: d.id,
+    ...d.data(),
+  })) as StorageSpace[];
 }
 
 export async function getStorageSpaceById(
   storageId: string
 ): Promise<StorageSpace | null> {
-  const userDoc = await getDoc(
-    doc(db, "users", DEMO_USER_ID, "storageSpaces", storageId)
-  );
-  if (userDoc.exists()) return mapStorageSpace(userDoc);
+  const snapshot = await getDoc(storageSpaceDoc(storageId));
 
-  const rootStorageDoc = await getDoc(doc(db, "storageSpaces", storageId));
-  if (rootStorageDoc.exists()) return mapStorageSpace(rootStorageDoc);
+  if (!snapshot.exists()) return null;
 
-  const userVehicleDoc = await getDoc(
-    doc(db, "users", DEMO_USER_ID, "vehicles", storageId)
-  );
-  if (userVehicleDoc.exists()) return mapStorageSpace(userVehicleDoc);
-
-  const rootVehicleDoc = await getDoc(doc(db, "vehicles", storageId));
-  if (rootVehicleDoc.exists()) return mapStorageSpace(rootVehicleDoc);
-
-  return null;
+  return {
+    id: snapshot.id,
+    ...snapshot.data(),
+  } as StorageSpace;
 }
 
-export async function createStorageSpace(data: {
+export async function createStorageSpace(input: {
   name: string;
-  category: string;
-  subtype: string;
+  category?: StorageSpaceCategory;
+  subtype?: string;
+  notes?: string;
 }) {
-  const trimmedName = data.name.trim();
-  const trimmedSubtype = data.subtype.trim();
-
-  if (!trimmedName) throw new Error("Storage space name is required.");
-  if (!trimmedSubtype) throw new Error("Storage space subtype is required.");
+  const trimmedName = input.name.trim();
+  if (!trimmedName) {
+    throw new Error("Storage space name is required.");
+  }
 
   const payload = {
     name: trimmedName,
-    category: normalizeCategory(data.category),
-    subtype: trimmedSubtype,
-    createdAt: new Date().toISOString(),
+    category: input.category ?? "vehicle",
+    subtype: input.subtype ?? "",
+    notes: input.notes ?? "",
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
   };
 
-  const ref = await addDoc(
-    collection(db, "users", DEMO_USER_ID, "storageSpaces"),
-    payload
-  );
-
+  const ref = await addDoc(storageSpacesCol(), payload);
   return ref.id;
 }
 
 export async function updateStorageSpace(
-  id: string,
+  storageId: string,
   updates: Partial<{
     name: string;
     category: StorageSpaceCategory;
     subtype: string;
+    notes: string;
   }>
 ) {
-  const payload: Record<string, unknown> = { ...updates };
+  const payload: Record<string, unknown> = {
+    ...updates,
+    updatedAt: serverTimestamp(),
+  };
 
-  if (typeof updates.category === "string") {
-    payload.category = normalizeCategory(updates.category);
+  if (typeof updates.name === "string") {
+    const trimmed = updates.name.trim();
+    if (!trimmed) {
+      throw new Error("Storage space name is required.");
+    }
+    payload.name = trimmed;
   }
 
-  const ref = doc(db, "users", DEMO_USER_ID, "storageSpaces", id);
-  await updateDoc(ref, payload);
+  await updateDoc(storageSpaceDoc(storageId), payload);
 }
 
-export async function deleteStorageSpace(id: string) {
-  const ref = doc(db, "users", DEMO_USER_ID, "storageSpaces", id);
-  await deleteDoc(ref);
+export async function updateStorageSpaceNotes(
+  storageId: string,
+  notes: string
+) {
+  await updateDoc(storageSpaceDoc(storageId), {
+    notes: notes ?? "",
+    updatedAt: serverTimestamp(),
+  });
 }
 
-export async function getVehicles(): Promise<Vehicle[]> {
-  return getStorageSpaces();
+export async function deleteStorageSpace(storageId: string) {
+  const trimmedStorageId = storageId.trim();
+
+  if (!trimmedStorageId) {
+    throw new Error("Storage space ID is required.");
+  }
+
+  const relatedCompartmentsQuery = query(
+    compartmentsCol(),
+    where("vehicleId", "==", trimmedStorageId)
+  );
+
+  const relatedItemsByStorageQuery = query(
+    inventoryCol(),
+    where("vehicleId", "==", trimmedStorageId)
+  );
+
+  const [compartmentsSnapshot, itemsByStorageSnapshot] = await Promise.all([
+    getDocs(relatedCompartmentsQuery),
+    getDocs(relatedItemsByStorageQuery),
+  ]);
+
+  const relatedCompartmentIds = new Set(
+    compartmentsSnapshot.docs.map((compartmentSnapshot) => compartmentSnapshot.id)
+  );
+
+  const itemRefsById = new Map<string, ReturnType<typeof doc>>();
+
+  itemsByStorageSnapshot.docs.forEach((itemSnapshot) => {
+    itemRefsById.set(itemSnapshot.id, itemSnapshot.ref as ReturnType<typeof doc>);
+  });
+
+  if (relatedCompartmentIds.size > 0) {
+    const allItemsSnapshot = await getDocs(inventoryCol());
+
+    allItemsSnapshot.docs.forEach((itemSnapshot) => {
+      const item = itemSnapshot.data() as Item;
+      const compartmentId = item.compartmentId ?? "";
+
+      if (relatedCompartmentIds.has(compartmentId)) {
+        itemRefsById.set(itemSnapshot.id, itemSnapshot.ref as ReturnType<typeof doc>);
+      }
+    });
+  }
+
+  const batch = writeBatch(db);
+
+  itemRefsById.forEach((itemRef) => {
+    batch.delete(itemRef);
+  });
+
+  compartmentsSnapshot.docs.forEach((compartmentSnapshot) => {
+    batch.delete(compartmentSnapshot.ref);
+  });
+
+  batch.delete(storageSpaceDoc(trimmedStorageId));
+
+  await batch.commit();
+}
+
+export async function createCompartment(name: string, vehicleId: string) {
+  const trimmedName = name.trim();
+  const trimmedVehicleId = vehicleId.trim();
+
+  if (!trimmedName) {
+    throw new Error("Compartment name is required.");
+  }
+
+  if (!trimmedVehicleId) {
+    throw new Error("Vehicle ID is required.");
+  }
+
+  const ref = await addDoc(compartmentsCol(), {
+    name: trimmedName,
+    vehicleId: trimmedVehicleId,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
+  return ref.id;
+}
+
+export async function updateCompartment(
+  compartmentId: string,
+  updates: Partial<{
+    name: string;
+    vehicleId: string;
+  }>
+) {
+  const payload: Record<string, unknown> = {
+    ...updates,
+    updatedAt: serverTimestamp(),
+  };
+
+  if (typeof updates.name === "string") {
+    const trimmed = updates.name.trim();
+    if (!trimmed) {
+      throw new Error("Compartment name is required.");
+    }
+    payload.name = trimmed;
+  }
+
+  if (typeof updates.vehicleId === "string") {
+    const trimmedVehicleId = updates.vehicleId.trim();
+    if (!trimmedVehicleId) {
+      throw new Error("Vehicle ID is required.");
+    }
+    payload.vehicleId = trimmedVehicleId;
+  }
+
+  await updateDoc(compartmentDoc(compartmentId), payload);
+}
+
+export async function deleteCompartment(compartmentId: string) {
+  await deleteDoc(compartmentDoc(compartmentId));
+}
+
+export async function getAllCompartments(): Promise<Compartment[]> {
+  const snapshot = await getDocs(compartmentsCol());
+
+  return snapshot.docs.map((d) => ({
+    id: d.id,
+    ...d.data(),
+  })) as Compartment[];
 }
 
 export async function getCompartmentsByVehicle(
   vehicleId: string
 ): Promise<Compartment[]> {
-  const results: Compartment[] = [];
+  const q = query(compartmentsCol(), where("vehicleId", "==", vehicleId));
+  const snapshot = await getDocs(q);
 
-  const flatDocs = await getFlatCompartmentDocs();
-  const flatMatches = flatDocs
-    .map((d) => mapCompartment(d))
-    .filter((c) => c.vehicleId === vehicleId);
-
-  results.push(...flatMatches);
-
-  if (results.length === 0) {
-    const nestedUserStorageDocs = await getCollectionDocsIfAny([
-      "users",
-      DEMO_USER_ID,
-      "storageSpaces",
-      vehicleId,
-      "compartments",
-    ]);
-
-    if (nestedUserStorageDocs.length > 0) {
-      results.push(
-        ...nestedUserStorageDocs.map((d) => mapCompartment(d, vehicleId))
-      );
-    }
-  }
-
-  if (results.length === 0) {
-    const nestedRootStorageDocs = await getCollectionDocsIfAny([
-      "storageSpaces",
-      vehicleId,
-      "compartments",
-    ]);
-
-    if (nestedRootStorageDocs.length > 0) {
-      results.push(
-        ...nestedRootStorageDocs.map((d) => mapCompartment(d, vehicleId))
-      );
-    }
-  }
-
-  if (results.length === 0) {
-    const nestedUserVehicleDocs = await getCollectionDocsIfAny([
-      "users",
-      DEMO_USER_ID,
-      "vehicles",
-      vehicleId,
-      "compartments",
-    ]);
-
-    if (nestedUserVehicleDocs.length > 0) {
-      results.push(
-        ...nestedUserVehicleDocs.map((d) => mapCompartment(d, vehicleId))
-      );
-    }
-  }
-
-  if (results.length === 0) {
-    const nestedRootVehicleDocs = await getCollectionDocsIfAny([
-      "vehicles",
-      vehicleId,
-      "compartments",
-    ]);
-
-    if (nestedRootVehicleDocs.length > 0) {
-      results.push(
-        ...nestedRootVehicleDocs.map((d) => mapCompartment(d, vehicleId))
-      );
-    }
-  }
-
-  return sortByName(results);
+  return snapshot.docs.map((d) => ({
+    id: d.id,
+    ...d.data(),
+  })) as Compartment[];
 }
 
-export async function getCompartments(vehicleId: string): Promise<Compartment[]> {
+export async function getCompartments(
+  vehicleId: string
+): Promise<Compartment[]> {
   return getCompartmentsByVehicle(vehicleId);
 }
 
 export async function getCompartmentById(
   compartmentId: string
 ): Promise<Compartment | null> {
-  const userDoc = await getDoc(
-    doc(db, "users", DEMO_USER_ID, "compartments", compartmentId)
-  );
-  if (userDoc.exists()) return mapCompartment(userDoc);
+  const snapshot = await getDoc(compartmentDoc(compartmentId));
 
-  const rootDoc = await getDoc(doc(db, "compartments", compartmentId));
-  if (rootDoc.exists()) return mapCompartment(rootDoc);
-
-  return null;
-}
-
-export async function createCompartment(name: string, vehicleId: string) {
-  const trimmed = name.trim();
-  if (!trimmed) throw new Error("Compartment name is required.");
-  if (!vehicleId) throw new Error("vehicleId is required.");
-
-  const ref = await addDoc(
-    collection(db, "users", DEMO_USER_ID, "compartments"),
-    {
-      name: trimmed,
-      vehicleId,
-      createdAt: new Date().toISOString(),
-    }
-  );
-
-  return ref.id;
-}
-
-export async function updateCompartment(
-  id: string,
-  updates: Partial<Compartment>
-) {
-  const ref = doc(db, "users", DEMO_USER_ID, "compartments", id);
-  await updateDoc(ref, { ...updates });
-}
-
-export async function deleteCompartment(id: string) {
-  const ref = doc(db, "users", DEMO_USER_ID, "compartments", id);
-  await deleteDoc(ref);
-}
-
-async function getVehiclesMap() {
-  const vehicles = await getVehicles();
-  return new Map(vehicles.map((v) => [v.id, v]));
-}
-
-async function getAllCompartmentsResolved(): Promise<Compartment[]> {
-  const vehicles = await getVehicles();
-  const flatDocs = await getFlatCompartmentDocs();
-
-  const flatCompartments = flatDocs.map((d) => mapCompartment(d));
-  if (flatCompartments.length > 0) {
-    return sortByName(flatCompartments);
-  }
-
-  const nested: Compartment[] = [];
-
-  for (const vehicle of vehicles) {
-    const userStorageNestedDocs = await getCollectionDocsIfAny([
-      "users",
-      DEMO_USER_ID,
-      "storageSpaces",
-      vehicle.id,
-      "compartments",
-    ]);
-
-    nested.push(
-      ...userStorageNestedDocs.map((d) => mapCompartment(d, vehicle.id))
-    );
-
-    const rootStorageNestedDocs = await getCollectionDocsIfAny([
-      "storageSpaces",
-      vehicle.id,
-      "compartments",
-    ]);
-
-    nested.push(
-      ...rootStorageNestedDocs.map((d) => mapCompartment(d, vehicle.id))
-    );
-
-    const userVehicleNestedDocs = await getCollectionDocsIfAny([
-      "users",
-      DEMO_USER_ID,
-      "vehicles",
-      vehicle.id,
-      "compartments",
-    ]);
-
-    nested.push(
-      ...userVehicleNestedDocs.map((d) => mapCompartment(d, vehicle.id))
-    );
-
-    const rootVehicleNestedDocs = await getCollectionDocsIfAny([
-      "vehicles",
-      vehicle.id,
-      "compartments",
-    ]);
-
-    nested.push(
-      ...rootVehicleNestedDocs.map((d) => mapCompartment(d, vehicle.id))
-    );
-  }
-
-  return sortByName(nested);
-}
-
-async function getCompartmentsMap() {
-  const compartments = await getAllCompartmentsResolved();
-  return new Map(compartments.map((c) => [c.id, c]));
-}
-
-function enrichItem(
-  item: Item,
-  compartmentsMap: Map<string, Compartment>,
-  vehiclesMap: Map<string, Vehicle>
-): Item {
-  const compartment = item.compartmentId
-    ? compartmentsMap.get(item.compartmentId)
-    : undefined;
-
-  const resolvedVehicleId = item.vehicleId || compartment?.vehicleId || "";
-  const vehicle = resolvedVehicleId ? vehiclesMap.get(resolvedVehicleId) : undefined;
+  if (!snapshot.exists()) return null;
 
   return {
-    ...item,
-    compartmentId: item.compartmentId ?? "",
-    compartmentName: compartment?.name ?? "",
-    vehicleId: resolvedVehicleId,
-    vehicleName: vehicle?.name ?? "",
-    packed: item.status === "packed",
-    missing: item.status === "missing",
-  };
+    id: snapshot.id,
+    ...snapshot.data(),
+  } as Compartment;
 }
 
 export async function getAllItems(): Promise<Item[]> {
-  const [vehiclesMap, compartmentsMap] = await Promise.all([
-    getVehiclesMap(),
-    getCompartmentsMap(),
-  ]);
+  const snapshot = await getDocs(inventoryCol());
 
-  const flatDocs = await getFlatItemDocs();
-  let items: Item[] = flatDocs.map((d) => mapItem(d));
-
-  if (items.length === 0) {
-    const compartments = await getAllCompartmentsResolved();
-    const nestedItems: Item[] = [];
-
-    for (const compartment of compartments) {
-      const userNestedDocs = await getCollectionDocsIfAny([
-        "users",
-        DEMO_USER_ID,
-        "compartments",
-        compartment.id,
-        "items",
-      ]);
-
-      nestedItems.push(
-        ...userNestedDocs.map((d) =>
-          mapItem(d, compartment.id, compartment.vehicleId)
-        )
-      );
-
-      const rootNestedDocs = await getCollectionDocsIfAny([
-        "compartments",
-        compartment.id,
-        "items",
-      ]);
-
-      nestedItems.push(
-        ...rootNestedDocs.map((d) =>
-          mapItem(d, compartment.id, compartment.vehicleId)
-        )
-      );
-
-      const userStorageVehicleNestedDocs = await getCollectionDocsIfAny([
-        "users",
-        DEMO_USER_ID,
-        "storageSpaces",
-        compartment.vehicleId,
-        "compartments",
-        compartment.id,
-        "items",
-      ]);
-
-      nestedItems.push(
-        ...userStorageVehicleNestedDocs.map((d) =>
-          mapItem(d, compartment.id, compartment.vehicleId)
-        )
-      );
-
-      const rootStorageVehicleNestedDocs = await getCollectionDocsIfAny([
-        "storageSpaces",
-        compartment.vehicleId,
-        "compartments",
-        compartment.id,
-        "items",
-      ]);
-
-      nestedItems.push(
-        ...rootStorageVehicleNestedDocs.map((d) =>
-          mapItem(d, compartment.id, compartment.vehicleId)
-        )
-      );
-
-      const userVehicleNestedDocs = await getCollectionDocsIfAny([
-        "users",
-        DEMO_USER_ID,
-        "vehicles",
-        compartment.vehicleId,
-        "compartments",
-        compartment.id,
-        "items",
-      ]);
-
-      nestedItems.push(
-        ...userVehicleNestedDocs.map((d) =>
-          mapItem(d, compartment.id, compartment.vehicleId)
-        )
-      );
-
-      const rootVehicleNestedDocs = await getCollectionDocsIfAny([
-        "vehicles",
-        compartment.vehicleId,
-        "compartments",
-        compartment.id,
-        "items",
-      ]);
-
-      nestedItems.push(
-        ...rootVehicleNestedDocs.map((d) =>
-          mapItem(d, compartment.id, compartment.vehicleId)
-        )
-      );
-    }
-
-    items = nestedItems;
-  }
-
-  const enriched = items.map((item) =>
-    enrichItem(item, compartmentsMap, vehiclesMap)
-  );
-
-  return sortByName(enriched);
+  return snapshot.docs.map((d) => ({
+    id: d.id,
+    ...d.data(),
+  })) as Item[];
 }
 
 export async function getItemsByCompartment(
   compartmentId: string
 ): Promise<Item[]> {
-  const allItems = await getAllItems();
-  return allItems.filter((item) => item.compartmentId === compartmentId);
-}
+  const q = query(inventoryCol(), where("compartmentId", "==", compartmentId));
+  const snapshot = await getDocs(q);
 
-export async function getItemById(itemId: string): Promise<Item | null> {
-  const userDoc = await getDoc(doc(db, "users", DEMO_USER_ID, "items", itemId));
-  if (userDoc.exists()) return mapItem(userDoc);
-
-  const rootDoc = await getDoc(doc(db, "items", itemId));
-  if (rootDoc.exists()) return mapItem(rootDoc);
-
-  return null;
+  return snapshot.docs.map((d) => ({
+    id: d.id,
+    ...d.data(),
+  })) as Item[];
 }
 
 export async function getItemsByStatus(
   status: ItemStatus | string
 ): Promise<Item[]> {
-  const normalized = String(status).toLowerCase().trim();
-  const allItems = await getAllItems();
+  const normalizedStatus =
+    String(status).toLowerCase().trim() === "packed" ? "packed" : "missing";
 
-  return allItems.filter((item) => item.status === normalized);
-}
+  const q = query(inventoryCol(), where("status", "==", normalizedStatus));
+  const snapshot = await getDocs(q);
 
-export async function searchItems(searchText: string): Promise<Item[]> {
-  const term = searchText.trim().toLowerCase();
-  const allItems = await getAllItems();
-
-  if (!term) {
-    return sortByName(allItems);
-  }
-
-  return sortByName(
-    allItems.filter((item) => {
-      const name = item.name?.toLowerCase() ?? "";
-      const notes = item.notes?.toLowerCase() ?? "";
-      const compartmentName = item.compartmentName?.toLowerCase() ?? "";
-      const vehicleName = item.vehicleName?.toLowerCase() ?? "";
-
-      return (
-        name.includes(term) ||
-        notes.includes(term) ||
-        compartmentName.includes(term) ||
-        vehicleName.includes(term)
-      );
-    })
-  );
-}
-
-export async function searchItemsForUser(
-  _userId: string,
-  searchText: string
-): Promise<SearchResultItem[]> {
-  const items = await searchItems(searchText);
-
-  return items.map((item) => ({
-    id: item.id,
-    name: item.name,
-    quantity: item.quantity,
-    compartmentId: item.compartmentId ?? "",
-    compartmentName: item.compartmentName ?? "",
-    vehicleId: item.vehicleId ?? "",
-    vehicleName: item.vehicleName ?? "",
-    notes: item.notes ?? "",
-    packed: item.status === "packed",
-    missing: item.status === "missing",
-  }));
+  return snapshot.docs.map((d) => ({
+    id: d.id,
+    ...d.data(),
+  })) as Item[];
 }
 
 export async function createItem(input: {
@@ -664,25 +367,32 @@ export async function createItem(input: {
   quantity?: number;
   status?: ItemStatus;
   compartmentId?: string;
+  compartmentName?: string;
   vehicleId?: string;
+  vehicleName?: string;
   notes?: string;
+  source?: string;
+  itemPhotoUri?: string;
 }) {
   const trimmed = input.name.trim();
   if (!trimmed) throw new Error("Item name is required.");
 
-  const status = normalizeStatus(input.status);
-
-  const ref = await addDoc(collection(db, "users", DEMO_USER_ID, "items"), {
+  const payload = {
     name: trimmed,
-    quantity: toNumber(input.quantity, 1),
-    status,
-    packed: status === "packed",
+    quantity: Math.max(1, Number(input.quantity ?? 1)),
+    status: input.status ?? "missing",
     compartmentId: input.compartmentId ?? "",
+    compartmentName: input.compartmentName ?? "",
     vehicleId: input.vehicleId ?? "",
+    vehicleName: input.vehicleName ?? "",
     notes: input.notes ?? "",
-    createdAt: new Date().toISOString(),
-  });
+    source: input.source ?? "manual",
+    itemPhotoUri: input.itemPhotoUri ?? "",
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
 
+  const ref = await addDoc(inventoryCol(), payload);
   return ref.id;
 }
 
@@ -693,32 +403,224 @@ export async function updateItem(
     quantity: number;
     status: ItemStatus;
     compartmentId: string;
+    compartmentName: string;
     vehicleId: string;
+    vehicleName: string;
     notes: string;
-    packed: boolean;
+    source: string;
+    itemPhotoUri: string;
   }>
 ) {
   const payload: Record<string, unknown> = {
     ...updates,
+    updatedAt: serverTimestamp(),
   };
 
-  if (typeof updates.status === "string") {
-    const normalizedStatus = normalizeStatus(updates.status);
-    payload.status = normalizedStatus;
-    payload.packed = normalizedStatus === "packed";
+  if (typeof updates.name === "string") {
+    const trimmed = updates.name.trim();
+    if (!trimmed) throw new Error("Item name is required.");
+    payload.name = trimmed;
   }
 
-  if (typeof updates.packed === "boolean" && !updates.status) {
-    payload.status = updates.packed ? "packed" : "missing";
+  if (typeof updates.quantity === "number") {
+    payload.quantity = Math.max(1, Number(updates.quantity));
   }
 
-  const ref = doc(db, "users", DEMO_USER_ID, "items", id);
-  await updateDoc(ref, payload);
+  await updateDoc(inventoryDoc(id), payload);
+}
+
+export async function updateItemPhoto(id: string, itemPhotoUri: string) {
+  await updateItem(id, {
+    itemPhotoUri: itemPhotoUri ?? "",
+  });
 }
 
 export async function deleteItem(id: string) {
-  const ref = doc(db, "users", DEMO_USER_ID, "items", id);
-  await deleteDoc(ref);
+  await deleteDoc(inventoryDoc(id));
+}
+
+export async function createOrUpdateInventoryItemFromChecklist(
+  item: {
+    name: string;
+    quantity: number;
+  },
+  compartment: {
+    id: string;
+    name: string;
+    vehicleId: string;
+  }
+) {
+  const allItems = await getAllItems();
+
+  const existing = allItems.find(
+    (existingItem) =>
+      normalizeName(existingItem.name) === normalizeName(item.name) &&
+      existingItem.compartmentId === compartment.id
+  );
+
+  if (existing) {
+    await updateItem(existing.id, {
+      quantity:
+        Math.max(1, Number(existing.quantity ?? 1)) +
+        Math.max(1, Number(item.quantity ?? 1)),
+      status: existing.status ?? "missing",
+      compartmentId: compartment.id,
+      compartmentName: compartment.name,
+      vehicleId: compartment.vehicleId,
+      source: "checklist",
+    });
+
+    return existing.id;
+  }
+
+  return createItem({
+    name: item.name,
+    quantity: item.quantity ?? 1,
+    status: "missing",
+    compartmentId: compartment.id,
+    compartmentName: compartment.name,
+    vehicleId: compartment.vehicleId,
+    source: "checklist",
+  });
+}
+
+export async function removeOrDecrementInventoryItemFromChecklist(
+  item: {
+    name: string;
+    quantity: number;
+  },
+  compartmentId: string
+) {
+  const allItems = await getAllItems();
+
+  const existing = allItems.find(
+    (existingItem) =>
+      normalizeName(existingItem.name) === normalizeName(item.name) &&
+      existingItem.compartmentId === compartmentId
+  );
+
+  if (!existing) return;
+
+  const currentQuantity = Math.max(1, Number(existing.quantity ?? 1));
+  const removalQuantity = Math.max(1, Number(item.quantity ?? 1));
+  const nextQuantity = currentQuantity - removalQuantity;
+
+  if (nextQuantity <= 0) {
+    await deleteItem(existing.id);
+    return;
+  }
+
+  await updateItem(existing.id, {
+    quantity: nextQuantity,
+  });
+}
+
+export async function syncInventoryItemStatusFromChecklist(
+  item: {
+    name: string;
+    quantity: number;
+    packed: boolean;
+    compartmentId?: string;
+    compartmentName?: string;
+    vehicleId?: string;
+  }
+) {
+  const allItems = await getAllItems();
+
+  const matches = allItems.filter((existingItem) => {
+    const sameName =
+      normalizeName(existingItem.name) === normalizeName(item.name);
+
+    const sameCompartmentId =
+      !!item.compartmentId && existingItem.compartmentId === item.compartmentId;
+
+    const sameCompartmentName =
+      !!item.compartmentName &&
+      existingItem.compartmentName === item.compartmentName;
+
+    return sameName && (sameCompartmentId || sameCompartmentName);
+  });
+
+  if (matches.length > 0) {
+    await Promise.all(
+      matches.map((existing) =>
+        updateItem(existing.id, {
+          status: item.packed ? "packed" : "missing",
+        })
+      )
+    );
+    return;
+  }
+
+  if (!item.compartmentId) return;
+
+  const compartment = await getCompartmentById(item.compartmentId);
+  if (!compartment) return;
+
+  await createItem({
+    name: item.name,
+    quantity: item.quantity ?? 1,
+    status: item.packed ? "packed" : "missing",
+    compartmentId: compartment.id,
+    compartmentName: compartment.name,
+    vehicleId: item.vehicleId ?? compartment.vehicleId,
+    source: "checklist",
+  });
+}
+
+export async function searchItemsForUser(
+  userId: string,
+  searchTerm: string
+): Promise<
+  Array<{
+    id: string;
+    name: string;
+    compartmentId: string;
+    compartmentName: string;
+    vehicleId: string;
+    vehicleName: string;
+    missing?: boolean;
+    packed?: boolean;
+  }>
+> {
+  const snapshot = await getDocs(
+    collection(db, "users", userId, "inventoryItems")
+  );
+
+  const term = searchTerm.trim().toLowerCase();
+  if (!term) return [];
+
+  const allItems = snapshot.docs.map((d) => ({
+    id: d.id,
+    ...d.data(),
+  })) as Item[];
+
+  const storageSnapshot = await getDocs(
+    collection(db, "users", userId, "storageSpaces")
+  );
+
+  const storageSpaces = storageSnapshot.docs.map((d) => ({
+    id: d.id,
+    ...d.data(),
+  })) as StorageSpace[];
+
+  const vehicleNameById = new Map(storageSpaces.map((s) => [s.id, s.name]));
+
+  return allItems
+    .filter((item) => normalizeName(item.name).includes(term))
+    .map((item) => ({
+      id: item.id,
+      name: item.name,
+      compartmentId: item.compartmentId ?? "",
+      compartmentName: item.compartmentName ?? "",
+      vehicleId: item.vehicleId ?? "",
+      vehicleName:
+        item.vehicleName ||
+        vehicleNameById.get(item.vehicleId ?? "") ||
+        "Unknown",
+      missing: item.status === "missing",
+      packed: item.status === "packed",
+    }));
 }
 
 const gearService = {
@@ -726,23 +628,26 @@ const gearService = {
   getStorageSpaceById,
   createStorageSpace,
   updateStorageSpace,
+  updateStorageSpaceNotes,
   deleteStorageSpace,
-  getVehicles,
-  getCompartmentsByVehicle,
-  getCompartments,
-  getCompartmentById,
   createCompartment,
   updateCompartment,
   deleteCompartment,
+  getAllCompartments,
+  getCompartmentsByVehicle,
+  getCompartments,
+  getCompartmentById,
   getAllItems,
   getItemsByCompartment,
-  getItemById,
   getItemsByStatus,
-  searchItems,
-  searchItemsForUser,
   createItem,
   updateItem,
+  updateItemPhoto,
   deleteItem,
+  createOrUpdateInventoryItemFromChecklist,
+  removeOrDecrementInventoryItemFromChecklist,
+  syncInventoryItemStatusFromChecklist,
+  searchItemsForUser,
 };
 
 export default gearService;

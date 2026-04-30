@@ -1,54 +1,61 @@
-import React from "react";
-import { StyleSheet, Text, View, Pressable } from "react-native";
-import { ArrowLeft } from "lucide-react-native";
+import { BlurView } from "expo-blur";
 import { router } from "expo-router";
+import { ArrowLeft } from "lucide-react-native";
+import React from "react";
+import { Pressable, StyleSheet, View } from "react-native";
 
-import { colors } from "../../theme/tokens";
+import { ThemedText, useThemedValues } from "./Themed";
 
-type Props = {
-  title?: string;
-  showBackButton?: boolean;
-  onBackPress?: () => void;
-  rightContent?: React.ReactNode;
-};
+const LABEL_WHITE = "#FFFFFF";
 
 export default function AppHeader({
   title,
   showBackButton = false,
-  onBackPress,
   rightContent,
-}: Props) {
-  function handleBackPress() {
-    if (onBackPress) {
-      onBackPress();
-      return;
-    }
-
-    router.back();
-  }
+}: {
+  title: string;
+  showBackButton?: boolean;
+  rightContent?: React.ReactNode;
+}) {
+  const theme = useThemedValues();
 
   return (
     <View style={styles.container}>
-      <View style={styles.left}>
+      <View style={styles.inner}>
         {showBackButton ? (
-          <Pressable style={styles.backButton} onPress={handleBackPress}>
-            <ArrowLeft size={20} color={colors.text} />
+          <Pressable
+            style={[
+              styles.iconButton,
+              {
+                backgroundColor: theme.isLight
+                  ? "rgba(255,255,255,0.35)"
+                  : "rgba(255,255,255,0.08)",
+                borderColor: theme.colors.border,
+              },
+            ]}
+            onPress={() => router.back()}
+          >
+            <ArrowLeft size={20} color={LABEL_WHITE} />
           </Pressable>
         ) : (
-          <View style={styles.sideSpacer} />
+          <View style={styles.iconSpacer} />
         )}
-      </View>
 
-      <View style={styles.center}>
-        {!!title && (
-          <Text style={styles.title} numberOfLines={1}>
+        <View style={styles.titleWrap}>
+          <ThemedText
+            variant="title"
+            numberOfLines={1}
+            style={[styles.title, { color: LABEL_WHITE }]}
+          >
             {title}
-          </Text>
-        )}
-      </View>
+          </ThemedText>
+        </View>
 
-      <View style={styles.right}>
-        {rightContent ? rightContent : <View style={styles.sideSpacer} />}
+        {rightContent ? (
+          <View style={styles.rightWrap}>{rightContent}</View>
+        ) : (
+          <View style={styles.iconSpacer} />
+        )}
       </View>
     </View>
   );
@@ -56,45 +63,43 @@ export default function AppHeader({
 
 const styles = StyleSheet.create({
   container: {
-    minHeight: 48,
+    marginBottom: 12,
+  },
+
+  inner: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 16,
+    height: 52,
   },
-  left: {
-    width: 48,
-    alignItems: "flex-start",
+
+  iconButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
+    alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
   },
-  center: {
+
+  iconSpacer: {
+    width: 42,
+    height: 42,
+  },
+
+  titleWrap: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
   },
-  right: {
-    width: 48,
+
+  title: {
+    fontWeight: "800",
+    textAlign: "center",
+  },
+
+  rightWrap: {
     alignItems: "flex-end",
     justifyContent: "center",
-  },
-  sideSpacer: {
-    width: 40,
-    height: 40,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(12,24,50,0.9)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
-  },
-  title: {
-    color: colors.text,
-    fontSize: 20,
-    fontWeight: "700",
-    textAlign: "center",
   },
 });

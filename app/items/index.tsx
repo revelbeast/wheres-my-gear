@@ -1,67 +1,135 @@
 import React, { useEffect, useState } from "react";
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 
+import { useAuth } from "../../components/auth/AuthProvider";
 import ScreenBackground from "../../components/ui/ScreenBackground";
 import AppHeader from "../../components/ui/AppHeader";
 import { colors } from "../../theme/tokens";
-import { getItemsByStatus } from "../../lib/gearService";
+import {
+  AssignedChecklistItemSummary,
+  getAssignedChecklistItems,
+} from "../../lib/checklistsService";
 
 export default function ItemsScreen() {
+  const { user } = useAuth();
   const { status } = useLocalSearchParams<{ status: string }>();
-  const [items, setItems] = useState<any[]>([]);
+  const [items, setItems] = useState<AssignedChecklistItemSummary[]>([]);
 
   useEffect(() => {
+    if (!user) {
+      setItems([]);
+      return;
+    }
+
     loadItems();
-  }, []);
+  }, [status, user]);
 
   async function loadItems() {
-    const data = await getItemsByStatus(status);
-    setItems(data);
+    if (!user) {
+      setItems([]);
+      return;
+    }
+
+    try {
+      const packed = String(status).toLowerCase().trim() === "packed";
+      const data = await getAssignedChecklistItems(user.uid, { packed });
+      setItems(data);
+    } catch (err) {
+      console.error("Failed to load items:", err);
+      setItems([]);
+    }
   }
 
   return (
     <ScreenBackground>
-      <SafeAreaView style={styles.safe}>
-        <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.content}
+        contentInsetAdjustmentBehavior="never"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.headerWrap}>
           <AppHeader
             title={status === "packed" ? "Packed Items" : "Missing Items"}
             showBackButton
           />
+        </View>
 
-          {items.map((item) => (
-            <View key={item.id} style={styles.card}>
+        {items.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyTitle}>No items found</Text>
+            <Text style={styles.emptyText}>
+              There are no {status === "packed" ? "packed" : "missing"} assigned checklist items right now.
+            </Text>
+          </View>
+        ) : (
+          items.map((item) => (
+            <View key={`${item.checklistId}-${item.id}`} style={styles.card}>
               <Text style={styles.cardTitle}>{item.name}</Text>
-              <Text style={styles.cardMeta}>{item.compartmentName}</Text>
+              <Text style={styles.cardMeta}>
+                {item.compartmentName} • {item.checklistName}
+              </Text>
+              <Text style={styles.cardSubMeta}>
+                Qty: {item.quantity}
+              </Text>
             </View>
-          ))}
-        </ScrollView>
-      </SafeAreaView>
+          ))
+        )}
+      </ScrollView>
     </ScreenBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
-  content: { padding: 16 },
+  scroll: {
+    flex: 1,
+  },
+  content: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 24,
+  },
+  headerWrap: {
+    marginBottom: 8,
+  },
   card: {
     padding: 16,
     borderRadius: 16,
     marginBottom: 10,
-    backgroundColor: "rgba(12,24,50,0.9)",
+    backgroundColor: "rgba(12,24,50,0.72)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
   },
   cardTitle: {
     color: colors.text,
     fontWeight: "600",
     marginBottom: 4,
+    fontSize: 16,
   },
   cardMeta: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    marginBottom: 4,
+  },
+  cardSubMeta: {
+    color: colors.textMuted,
+    fontSize: 12,
+  },
+  emptyCard: {
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: "rgba(12,24,50,0.72)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+  emptyTitle: {
+    color: colors.text,
+    fontWeight: "700",
+    fontSize: 16,
+    marginBottom: 4,
+  },
+  emptyText: {
     color: colors.textSecondary,
     fontSize: 13,
   },

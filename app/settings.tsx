@@ -35,7 +35,9 @@ function SettingRow({ icon, title, subtitle, onPress }: SettingRowProps) {
           <Text style={styles.rowSubtitle}>{subtitle}</Text>
         </View>
       </View>
-      <ChevronRight size={18} color={colors.textSecondary} />
+      <View style={styles.chevronWrap}>
+        <ChevronRight size={18} color={colors.textSecondary} />
+      </View>
     </Pressable>
   );
 }
@@ -59,17 +61,21 @@ export default function SettingsScreen() {
             </View>
 
             <View style={styles.profileTextWrap}>
+              <Text style={styles.profileEyebrow}>Account</Text>
               <Text style={styles.profileTitle}>Profile</Text>
               <Text style={styles.profileSubtitle}>
                 Account basics and appearance settings
               </Text>
             </View>
 
-            <ChevronRight size={18} color={colors.textSecondary} />
+            <View style={styles.chevronWrap}>
+              <ChevronRight size={18} color={colors.textSecondary} />
+            </View>
           </Pressable>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Security</Text>
+            <Text style={styles.sectionEyebrow}>Security</Text>
+            <Text style={styles.sectionTitle}>Account access</Text>
 
             <SettingRow
               icon={<Shield size={18} color={colors.text} />}
@@ -80,6 +86,7 @@ export default function SettingsScreen() {
           </View>
 
           <View style={styles.noteCard}>
+            <Text style={styles.noteEyebrow}>Current scope</Text>
             <Text style={styles.noteTitle}>Simplified for now</Text>
             <Text style={styles.noteText}>
               Communication, privacy, professional details, and activity logs
@@ -96,17 +103,20 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
   },
+
   content: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 16,
     paddingBottom: 140,
   },
+
   profileCard: {
     marginBottom: 18,
     padding: 16,
-    borderRadius: 18,
-    backgroundColor: "rgba(12,24,50,0.9)",
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.03)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: "rgba(255,255,255,0.10)",
     flexDirection: "row",
     alignItems: "center",
   },
@@ -117,38 +127,61 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(255,255,255,0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
     marginRight: 14,
   },
   profileTextWrap: {
     flex: 1,
     paddingRight: 10,
   },
+  profileEyebrow: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    marginBottom: 4,
+  },
   profileTitle: {
     color: colors.text,
     fontSize: 20,
     fontWeight: "700",
     marginBottom: 4,
+    lineHeight: 26,
   },
   profileSubtitle: {
     color: colors.textSecondary,
     fontSize: 14,
+    lineHeight: 20,
   },
+
   section: {
     marginBottom: 18,
+  },
+  sectionEyebrow: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    marginBottom: 4,
   },
   sectionTitle: {
     color: colors.text,
     fontSize: 16,
     fontWeight: "700",
     marginBottom: 10,
+    lineHeight: 20,
   },
+
   rowCard: {
     marginBottom: 10,
     padding: 16,
-    borderRadius: 18,
-    backgroundColor: "rgba(12,24,50,0.9)",
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.03)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: "rgba(255,255,255,0.10)",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -166,6 +199,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(255,255,255,0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
     marginRight: 12,
   },
   textWrap: {
@@ -174,25 +209,42 @@ const styles = StyleSheet.create({
   rowTitle: {
     color: colors.text,
     fontSize: 15,
-    fontWeight: "600",
+    fontWeight: "700",
     marginBottom: 3,
+    lineHeight: 20,
   },
   rowSubtitle: {
     color: colors.textSecondary,
     fontSize: 13,
+    lineHeight: 18,
   },
+  chevronWrap: {
+    width: 24,
+    alignItems: "flex-end",
+    justifyContent: "center",
+  },
+
   noteCard: {
     padding: 16,
-    borderRadius: 18,
-    backgroundColor: "rgba(12,24,50,0.9)",
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.03)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: "rgba(255,255,255,0.10)",
+  },
+  noteEyebrow: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    marginBottom: 4,
   },
   noteTitle: {
     color: colors.text,
     fontSize: 16,
     fontWeight: "700",
     marginBottom: 6,
+    lineHeight: 22,
   },
   noteText: {
     color: colors.textSecondary,

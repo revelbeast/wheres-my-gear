@@ -1,21 +1,26 @@
-import React, { useEffect, useState } from "react";
+import * as ImagePicker from "expo-image-picker";
+import { Check, ImagePlus, LogOut, UserCircle2 } from "lucide-react-native";
+import React, { useEffect, useMemo, useState } from "react";
 import {
+  Alert,
+  Image,
+  Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
-  TextInput,
-  Pressable,
-  Image,
-  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Check, UserCircle2, ImagePlus } from "lucide-react-native";
-import * as ImagePicker from "expo-image-picker";
 
-import ScreenBackground from "../components/ui/ScreenBackground";
+import { useAuth } from "../components/auth/AuthProvider";
 import AppHeader from "../components/ui/AppHeader";
-import { colors } from "../theme/tokens";
+import ScreenBackground from "../components/ui/ScreenBackground";
+import {
+  ThemedButton,
+  ThemedCard,
+  ThemedInput,
+  ThemedText,
+  useThemedValues,
+} from "../components/ui/Themed";
 import {
   AppProfile,
   getProfileSettings,
@@ -52,34 +57,55 @@ function LabeledInput({
 }) {
   return (
     <View style={styles.fieldWrap}>
-      <Text style={styles.label}>{label}</Text>
-      <TextInput
+      <ThemedText variant="small" style={styles.label}>
+        {label}
+      </ThemedText>
+
+      <ThemedInput
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={colors.textMuted}
-        style={[styles.input, !editable && styles.inputDisabled]}
         keyboardType={keyboardType}
         autoCapitalize={autoCapitalize}
         editable={editable}
+        style={!editable && styles.inputDisabled}
       />
     </View>
   );
 }
 
 export default function ProfileSettingsScreen() {
+  const { user, signOutUser } = useAuth();
+  const theme = useThemedValues();
+
   const [profile, setProfile] = useState<AppProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [pickingImage, setPickingImage] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     loadProfile();
-  }, []);
+  }, [user]);
+
+  const displayName = useMemo(() => {
+    if (!profile) return "";
+
+    const fullName = `${profile.firstName || ""} ${profile.lastName || ""}`.trim();
+
+    return fullName || profile.username || "Profile";
+  }, [profile]);
 
   async function loadProfile() {
+    if (!user) {
+      setProfile(null);
+      setLoading(false);
+      return;
+    }
+
     try {
-      const data = await getProfileSettings();
+      setLoading(true);
+      const data = await getProfileSettings(user.uid);
       setProfile(data);
     } catch (err) {
       console.error("Failed to load profile settings:", err);
@@ -89,20 +115,22 @@ export default function ProfileSettingsScreen() {
   }
 
   async function handleSave() {
-    if (!profile) return;
+    if (!profile || !user) return;
 
     try {
       setSaving(true);
-      await saveProfileSettings(profile);
+      await saveProfileSettings(user.uid, profile);
+      Alert.alert("Saved", "Your profile has been updated.");
     } catch (err) {
       console.error("Failed to save profile settings:", err);
+      Alert.alert("Error", "Failed to save profile.");
     } finally {
       setSaving(false);
     }
   }
 
   async function handlePickProfilePhoto() {
-    if (!profile) return;
+    if (!profile || !user) return;
 
     try {
       setPickingImage(true);
@@ -113,9 +141,7 @@ export default function ProfileSettingsScreen() {
         quality: 0.8,
       });
 
-      if (result.canceled) {
-        return;
-      }
+      if (result.canceled) return;
 
       const asset = result.assets?.[0];
       if (!asset?.uri) {
@@ -129,13 +155,81 @@ export default function ProfileSettingsScreen() {
       };
 
       setProfile(nextProfile);
-      await saveProfileSettings(nextProfile);
+      await saveProfileSettings(user.uid, nextProfile);
     } catch (err) {
       console.error("Failed to pick profile photo:", err);
       Alert.alert("Photo upload failed", "Please try selecting a photo again.");
     } finally {
       setPickingImage(false);
     }
+  }
+
+  async function handlePickBackgroundPhoto() {
+    if (!profile || !user) return;
+
+    try {
+      setPickingImage(true);
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (result.canceled) return;
+
+      const asset = result.assets?.[0];
+      if (!asset?.uri) {
+        Alert.alert("Photo not selected", "No valid image was returned.");
+        return;
+      }
+
+      const nextProfile = {
+        ...profile,
+        backgroundPhotoUri: asset.uri,
+      };
+
+      setProfile(nextProfile);
+      await saveProfileSettings(user.uid, nextProfile);
+    } catch (err) {
+      console.error(err);
+      Alert.alert("Failed", "Could not set background.");
+    } finally {
+      setPickingImage(false);
+    }
+  }
+
+  async function handleRemoveBackground() {
+    if (!profile || !user) return;
+
+    const nextProfile = {
+      ...profile,
+      backgroundPhotoUri: "",
+    };
+
+    setProfile(nextProfile);
+    await saveProfileSettings(user.uid, nextProfile);
+  }
+
+  async function handleSignOut() {
+    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Sign Out",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            setSigningOut(true);
+            await signOutUser();
+          } catch (err) {
+            console.error("Failed to sign out:", err);
+            Alert.alert("Error", "Failed to sign out.");
+          } finally {
+            setSigningOut(false);
+          }
+        },
+      },
+    ]);
   }
 
   function updateField<K extends keyof AppProfile>(key: K, value: AppProfile[K]) {
@@ -148,7 +242,7 @@ export default function ProfileSettingsScreen() {
         <SafeAreaView style={styles.safe}>
           <View style={styles.container}>
             <AppHeader title="Profile Settings" showBackButton />
-            <Text style={styles.helperText}>Loading profile...</Text>
+            <ThemedText color="secondary">Loading profile...</ThemedText>
           </View>
         </SafeAreaView>
       </ScreenBackground>
@@ -161,31 +255,52 @@ export default function ProfileSettingsScreen() {
         <ScrollView contentContainerStyle={styles.content}>
           <AppHeader title="Profile Settings" showBackButton />
 
-          <View style={styles.heroCard}>
-            <View style={styles.heroPhotoWrap}>
-              {profile.profilePhotoUri ? (
-                <Image source={{ uri: profile.profilePhotoUri }} style={styles.heroPhoto} />
-              ) : (
-                <View style={styles.heroPhotoFallback}>
-                  <UserCircle2 size={42} color={colors.text} />
-                </View>
-              )}
+          <ThemedCard style={styles.heroCard} contentStyle={styles.heroCardContent}>
+            <View style={styles.heroRow}>
+              <View style={styles.heroPhotoWrap}>
+                {profile.profilePhotoUri ? (
+                  <Image
+                    source={{ uri: profile.profilePhotoUri }}
+                    style={styles.heroPhoto}
+                  />
+                ) : (
+                  <View
+                    style={[
+                      styles.heroPhotoFallback,
+                      { backgroundColor: theme.colors.iconSurface },
+                    ]}
+                  >
+                    <UserCircle2 size={34} color={theme.colors.text} />
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.heroTextWrap}>
+                <ThemedText
+                  variant="title"
+                  color="blue"
+                  style={styles.heroTitle}
+                >
+                  {displayName}
+                </ThemedText>
+
+                <ThemedText color="secondary" style={styles.heroSubtitle}>
+                  {user?.email ?? "Account basics only for now"}
+                </ThemedText>
+              </View>
             </View>
+          </ThemedCard>
 
-            <View style={styles.heroTextWrap}>
-              <Text style={styles.heroTitle}>
-                {profile.firstName || profile.username}
-              </Text>
-              <Text style={styles.heroSubtitle}>
-                Account basics only for now
-              </Text>
-            </View>
-          </View>
+          <ThemedCard style={styles.formCard} contentStyle={styles.formCardContent}>
+            <ThemedText variant="bodyStrong" style={styles.sectionTitle}>
+              Account Basics
+            </ThemedText>
 
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Account Basics</Text>
-
-            <LabeledInput label="Username" value={profile.username} editable={false} />
+            <LabeledInput
+              label="Username"
+              value={profile.username}
+              editable={false}
+            />
 
             <LabeledInput
               label="First Name"
@@ -216,41 +331,91 @@ export default function ProfileSettingsScreen() {
               keyboardType="phone-pad"
             />
 
-            <View style={styles.photoCard}>
+            <View
+              style={[
+                styles.photoCard,
+                {
+                  backgroundColor: theme.colors.iconSurface,
+                  borderColor: theme.colors.border,
+                },
+              ]}
+            >
               <View style={styles.photoHeader}>
-                <ImagePlus size={18} color={colors.text} />
-                <Text style={styles.photoTitle}>Profile Photo</Text>
+                <ImagePlus size={18} color={theme.colors.text} />
+                <ThemedText variant="bodyStrong">Profile Photo</ThemedText>
               </View>
 
-              <Text style={styles.photoText}>
+              <ThemedText color="secondary" style={styles.photoText}>
                 Select a photo from your device library.
-              </Text>
+              </ThemedText>
 
-              <Pressable
-                style={[
-                  styles.photoButton,
-                  pickingImage && styles.photoButtonDisabled,
-                ]}
+              <ThemedButton
                 onPress={handlePickProfilePhoto}
                 disabled={pickingImage}
+                style={styles.photoButton}
               >
-                <Text style={styles.photoButtonText}>
+                <ThemedText style={styles.buttonText}>
                   {pickingImage ? "Opening..." : "Choose Photo"}
-                </Text>
-              </Pressable>
+                </ThemedText>
+              </ThemedButton>
             </View>
-          </View>
 
-          <Pressable
-            style={[styles.saveButton, saving && styles.saveButtonDisabled]}
-            onPress={handleSave}
-            disabled={saving}
-          >
+            <View
+              style={[
+                styles.photoCard,
+                {
+                  backgroundColor: theme.colors.iconSurface,
+                  borderColor: theme.colors.border,
+                },
+              ]}
+            >
+              <View style={styles.photoHeader}>
+                <ImagePlus size={18} color={theme.colors.text} />
+                <ThemedText variant="bodyStrong">App Background</ThemedText>
+              </View>
+
+              <ThemedText color="secondary" style={styles.photoText}>
+                Customize the background across the entire app.
+              </ThemedText>
+
+              <ThemedButton
+                onPress={handlePickBackgroundPhoto}
+                disabled={pickingImage}
+                style={styles.photoButton}
+              >
+                <ThemedText style={styles.buttonText}>
+                  {pickingImage ? "Opening..." : "Choose Background"}
+                </ThemedText>
+              </ThemedButton>
+
+              {profile.backgroundPhotoUri ? (
+                <Pressable onPress={handleRemoveBackground}>
+                  <ThemedText color="secondary" style={styles.cancelText}>
+                    Remove Custom Background
+                  </ThemedText>
+                </Pressable>
+              ) : null}
+            </View>
+          </ThemedCard>
+
+          <ThemedButton onPress={handleSave} disabled={saving}>
             <Check size={18} color="#fff" />
-            <Text style={styles.saveButtonText}>
+            <ThemedText style={styles.buttonText}>
               {saving ? "Saving..." : "Save Profile"}
-            </Text>
-          </Pressable>
+            </ThemedText>
+          </ThemedButton>
+
+          <ThemedButton
+            destructive
+            onPress={handleSignOut}
+            disabled={signingOut}
+            style={styles.signOutButton}
+          >
+            <LogOut size={18} color="#fff" />
+            <ThemedText style={styles.buttonText}>
+              {signingOut ? "Signing Out..." : "Sign Out"}
+            </ThemedText>
+          </ThemedButton>
         </ScrollView>
       </SafeAreaView>
     </ScreenBackground>
@@ -264,11 +429,16 @@ const styles = StyleSheet.create({
 
   heroCard: {
     marginBottom: 16,
-    padding: 16,
-    borderRadius: 18,
-    backgroundColor: "rgba(12,24,50,0.9)",
+  },
+
+  heroCardContent: {
+    padding: 14,
+  },
+
+  heroRow: {
     flexDirection: "row",
     alignItems: "center",
+    minHeight: 58,
   },
 
   heroPhotoWrap: {
@@ -276,18 +446,17 @@ const styles = StyleSheet.create({
   },
 
   heroPhoto: {
-    width: 64,
-    height: 64,
-    borderRadius: 18,
+    width: 52,
+    height: 52,
+    borderRadius: 16,
   },
 
   heroPhotoFallback: {
-    width: 64,
-    height: 64,
-    borderRadius: 18,
+    width: 52,
+    height: 52,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.06)",
   },
 
   heroTextWrap: {
@@ -295,25 +464,22 @@ const styles = StyleSheet.create({
   },
 
   heroTitle: {
-    color: colors.text,
-    fontSize: 20,
-    fontWeight: "700",
+    fontWeight: "800",
   },
 
   heroSubtitle: {
-    color: colors.textSecondary,
+    marginTop: 2,
   },
 
-  card: {
+  formCard: {
     marginBottom: 16,
-    padding: 16,
-    borderRadius: 18,
-    backgroundColor: "rgba(12,24,50,0.9)",
+  },
+
+  formCardContent: {
+    padding: 14,
   },
 
   sectionTitle: {
-    color: colors.text,
-    fontWeight: "700",
     marginBottom: 10,
   },
 
@@ -322,15 +488,8 @@ const styles = StyleSheet.create({
   },
 
   label: {
-    color: colors.text,
+    fontWeight: "600",
     marginBottom: 4,
-  },
-
-  input: {
-    backgroundColor: "rgba(7,20,44,0.7)",
-    borderRadius: 12,
-    padding: 12,
-    color: colors.text,
   },
 
   inputDisabled: {
@@ -341,7 +500,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     padding: 12,
     borderRadius: 12,
-    backgroundColor: "rgba(255,255,255,0.05)",
+    borderWidth: 1,
   },
 
   photoHeader: {
@@ -351,53 +510,26 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
 
-  photoTitle: {
-    color: colors.text,
-    fontWeight: "600",
-  },
-
   photoText: {
-    color: colors.textSecondary,
     marginBottom: 10,
   },
 
   photoButton: {
-    backgroundColor: "rgba(55,130,245,0.95)",
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    alignItems: "center",
+    minHeight: 46,
   },
 
-  photoButtonDisabled: {
-    opacity: 0.6,
+  cancelText: {
+    textAlign: "center",
+    marginTop: 10,
   },
 
-  photoButtonText: {
+  signOutButton: {
+    marginTop: 12,
+    marginBottom: 16,
+  },
+
+  buttonText: {
     color: "#fff",
     fontWeight: "700",
-  },
-
-  saveButton: {
-    height: 50,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(55,130,245,0.95)",
-    flexDirection: "row",
-    gap: 8,
-  },
-
-  saveButtonDisabled: {
-    opacity: 0.6,
-  },
-
-  saveButtonText: {
-    color: "#fff",
-    fontWeight: "700",
-  },
-
-  helperText: {
-    color: colors.textSecondary,
   },
 });

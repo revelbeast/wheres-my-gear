@@ -15,10 +15,14 @@ export default function GlassCard({ children, style, ...rest }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 18,
-    backgroundColor: "rgba(255,255,255,0.06)",   // 🔥 much lighter
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+
+    backgroundColor: "rgba(255,255,255,0.03)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",       // subtle edge
+    borderColor: "rgba(255,255,255,0.10)",
+
     overflow: "hidden",
   },
 });

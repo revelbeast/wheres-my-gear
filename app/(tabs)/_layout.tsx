@@ -6,22 +6,32 @@ import {
   ClipboardList,
   UserCircle2,
 } from "lucide-react-native";
-import { colors } from "../../theme/tokens";
+
+import { useTheme } from "../../lib/useTheme";
 
 export default function TabsLayout() {
+  const theme = useTheme();
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
+
         tabBarStyle: {
-          backgroundColor: "rgba(7, 20, 44, 0.98)",
-          borderTopColor: "rgba(255,255,255,0.08)",
+          backgroundColor: theme.isLight
+            ? "rgba(255,255,255,0.95)"
+            : "rgba(7, 20, 44, 0.98)",
+
+          borderTopColor: theme.colors.border,
+
           height: 88,
           paddingTop: 8,
           paddingBottom: 22,
         },
-        tabBarActiveTintColor: colors.text,
-        tabBarInactiveTintColor: colors.textSecondary,
+
+        tabBarActiveTintColor: theme.colors.primary,
+        tabBarInactiveTintColor: theme.colors.textSecondary,
+
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: "600",

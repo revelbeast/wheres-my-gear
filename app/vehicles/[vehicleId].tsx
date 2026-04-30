@@ -1,15 +1,24 @@
+import { BlurView } from "expo-blur";
 import React, { useEffect, useState } from "react";
 import {
+  Alert,
+  Keyboard,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  Pressable,
-  View,
   TextInput,
-  Alert,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ChevronRight, Plus, X, Trash2, Pencil, Check } from "lucide-react-native";
+import {
+  Check,
+  ChevronRight,
+  Pencil,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { Swipeable } from "react-native-gesture-handler";
 
@@ -18,9 +27,11 @@ import AppHeader from "../../components/ui/AppHeader";
 import { colors } from "../../theme/tokens";
 import {
   Compartment,
+  StorageSpace,
   createCompartment,
   deleteCompartment,
   getCompartments,
+  getStorageSpaceById,
   updateCompartment,
 } from "../../lib/gearService";
 
@@ -30,6 +41,7 @@ export default function VehicleDetailScreen() {
     ? params.vehicleId[0]
     : params.vehicleId;
 
+  const [storageSpace, setStorageSpace] = useState<StorageSpace | null>(null);
   const [compartments, setCompartments] = useState<Compartment[]>([]);
   const [showCreateBox, setShowCreateBox] = useState(false);
   const [newCompartmentName, setNewCompartmentName] = useState("");
@@ -39,10 +51,25 @@ export default function VehicleDetailScreen() {
   const [editingCompartmentName, setEditingCompartmentName] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
 
+  const headerTitle = storageSpace?.name
+    ? `${storageSpace.name} Compartments`
+    : "Compartments";
+
   useEffect(() => {
     if (!vehicleId) return;
+    loadStorageSpace();
     loadCompartments();
   }, [vehicleId]);
+
+  async function loadStorageSpace() {
+    try {
+      const data = await getStorageSpaceById(String(vehicleId));
+      setStorageSpace(data);
+    } catch (err) {
+      console.error("Failed to load storage space:", err);
+      setStorageSpace(null);
+    }
+  }
 
   async function loadCompartments() {
     try {
@@ -54,6 +81,17 @@ export default function VehicleDetailScreen() {
     }
   }
 
+  function toggleCreateBox() {
+    Keyboard.dismiss();
+    setShowCreateBox((prev) => {
+      const next = !prev;
+      if (!next) {
+        setNewCompartmentName("");
+      }
+      return next;
+    });
+  }
+
   async function handleCreateCompartment() {
     if (!vehicleId) return;
 
@@ -62,6 +100,7 @@ export default function VehicleDetailScreen() {
 
     try {
       setIsCreating(true);
+      Keyboard.dismiss();
       await createCompartment(trimmed, String(vehicleId));
       setNewCompartmentName("");
       setShowCreateBox(false);
@@ -74,6 +113,7 @@ export default function VehicleDetailScreen() {
   }
 
   function startEditing(compartment: Compartment) {
+    Keyboard.dismiss();
     setEditingCompartmentId(compartment.id);
     setEditingCompartmentName(compartment.name);
   }
@@ -89,6 +129,7 @@ export default function VehicleDetailScreen() {
 
     try {
       setSavingEdit(true);
+      Keyboard.dismiss();
       await updateCompartment(compartmentId, { name: trimmed });
       setEditingCompartmentId(null);
       setEditingCompartmentName("");
@@ -139,25 +180,14 @@ export default function VehicleDetailScreen() {
   function handleOpenCompartment(compartmentId: string) {
     if (!vehicleId || !compartmentId) return;
 
-    router.push(
-      `/vehicles/${encodeURIComponent(String(vehicleId))}/compartments/${encodeURIComponent(
-        String(compartmentId)
-      )}`
-    );
+    router.push({
+      pathname: "/vehicles/[vehicleId]/compartments/[compartmentId]",
+      params: {
+        vehicleId: String(vehicleId),
+        compartmentId: String(compartmentId),
+      },
+    });
   }
-
-  const headerRight = (
-    <Pressable
-      style={styles.headerActionButton}
-      onPress={() => setShowCreateBox((prev) => !prev)}
-    >
-      {showCreateBox ? (
-        <X size={18} color={colors.text} />
-      ) : (
-        <Plus size={18} color={colors.text} />
-      )}
-    </Pressable>
-  );
 
   return (
     <ScreenBackground>
@@ -166,15 +196,34 @@ export default function VehicleDetailScreen() {
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
         >
-          <AppHeader
-            title="Compartments"
-            showBackButton
-            rightContent={headerRight}
-          />
+          <AppHeader title={headerTitle} showBackButton />
+
+          <BlurView intensity={18} tint="dark" style={styles.topActionCard}>
+            <View style={styles.topActionTextWrap}>
+              <Text style={styles.topActionTitle}>Add Compartment</Text>
+              <Text style={styles.topActionSubtitle}>
+                Create a compartment inside this storage space for better organization.
+              </Text>
+            </View>
+
+            <Pressable style={styles.topActionButton} onPress={toggleCreateBox}>
+              <BlurView intensity={18} tint="dark" style={styles.topActionButtonInner}>
+                {showCreateBox ? (
+                  <Text style={styles.topActionButtonText}>Close</Text>
+                ) : (
+                  <>
+                    <Plus size={16} color="#fff" />
+                    <Text style={styles.topActionButtonText}>Add</Text>
+                  </>
+                )}
+              </BlurView>
+            </Pressable>
+          </BlurView>
 
           {showCreateBox && (
-            <View style={styles.createCard}>
+            <BlurView intensity={18} tint="dark" style={styles.createCard}>
               <Text style={styles.createTitle}>Create Compartment</Text>
 
               <View style={styles.createRow}>
@@ -200,16 +249,24 @@ export default function VehicleDetailScreen() {
                   <Plus size={18} color="#fff" />
                 </Pressable>
               </View>
-            </View>
+            </BlurView>
           )}
 
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>
+              {compartments.length === 0
+                ? "No compartments yet"
+                : `Compartments (${compartments.length})`}
+            </Text>
+          </View>
+
           {compartments.length === 0 ? (
-            <View style={styles.emptyCard}>
+            <BlurView intensity={18} tint="dark" style={styles.emptyCard}>
               <Text style={styles.emptyTitle}>No compartments found</Text>
               <Text style={styles.emptyText}>
-                Create your first compartment using the plus button above.
+                Add your first compartment for this storage space to start organizing items.
               </Text>
-            </View>
+            </BlurView>
           ) : (
             compartments.map((compartment) => {
               const isEditing = editingCompartmentId === compartment.id;
@@ -221,7 +278,7 @@ export default function VehicleDetailScreen() {
                   overshootRight={false}
                   enabled={!isEditing}
                 >
-                  <View style={styles.card}>
+                  <BlurView intensity={18} tint="dark" style={styles.card}>
                     {isEditing ? (
                       <View style={styles.editWrap}>
                         <TextInput
@@ -283,7 +340,7 @@ export default function VehicleDetailScreen() {
                         </View>
                       </>
                     )}
-                  </View>
+                  </BlurView>
                 </Swipeable>
               );
             })
@@ -300,23 +357,61 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 140,
   },
-  headerActionButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(12,24,50,0.9)",
+  topActionCard: {
+    marginBottom: 16,
+    padding: 16,
+    borderRadius: 18,
+    overflow: "hidden",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(12,24,50,0.20)",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  topActionTextWrap: {
+    flex: 1,
+  },
+  topActionTitle: {
+    color: colors.text,
+    fontSize: 17,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  topActionSubtitle: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  topActionButton: {
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  topActionButtonInner: {
+    minWidth: 86,
+    height: 42,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: "rgba(55,130,245,0.95)",
+  },
+  topActionButtonText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "700",
   },
   createCard: {
     marginBottom: 16,
     padding: 16,
     borderRadius: 18,
-    backgroundColor: "rgba(12,24,50,0.9)",
+    overflow: "hidden",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(12,24,50,0.20)",
   },
   createTitle: {
     color: colors.text,
@@ -338,7 +433,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.08)",
-    backgroundColor: "rgba(7, 20, 44, 0.7)",
+    backgroundColor: "rgba(7,20,44,0.55)",
   },
   createButton: {
     width: 46,
@@ -346,17 +441,26 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(55, 130, 245, 0.95)",
+    backgroundColor: "rgba(55,130,245,0.95)",
   },
   createButtonDisabled: {
     opacity: 0.5,
   },
+  sectionHeader: {
+    marginBottom: 10,
+  },
+  sectionTitle: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: "700",
+  },
   emptyCard: {
     padding: 16,
     borderRadius: 18,
-    backgroundColor: "rgba(12,24,50,0.9)",
+    overflow: "hidden",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(12,24,50,0.20)",
   },
   emptyTitle: {
     color: colors.text,
@@ -367,12 +471,16 @@ const styles = StyleSheet.create({
   emptyText: {
     color: colors.textSecondary,
     fontSize: 14,
+    lineHeight: 20,
   },
   card: {
     padding: 16,
     borderRadius: 16,
+    overflow: "hidden",
     marginBottom: 10,
-    backgroundColor: "rgba(12,24,50,0.9)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(12,24,50,0.20)",
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
@@ -410,7 +518,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.08)",
-    backgroundColor: "rgba(7, 20, 44, 0.7)",
+    backgroundColor: "rgba(7,20,44,0.55)",
     marginBottom: 10,
   },
   editActions: {
@@ -425,7 +533,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 12,
-    backgroundColor: "rgba(55, 130, 245, 0.95)",
+    backgroundColor: "rgba(55,130,245,0.95)",
   },
   saveEditText: {
     color: "#fff",
@@ -450,7 +558,7 @@ const styles = StyleSheet.create({
     width: 110,
     marginBottom: 10,
     borderRadius: 16,
-    backgroundColor: "rgba(180, 40, 40, 0.95)",
+    backgroundColor: "rgba(180,40,40,0.95)",
     alignItems: "center",
     justifyContent: "center",
     gap: 6,

@@ -1,57 +1,88 @@
-import React, { useCallback, useMemo, useState } from "react";
+import { BlurView } from "expo-blur";
+import * as TrackingTransparency from "expo-tracking-transparency";
+import { collection, getDocs } from "firebase/firestore";
+import { router, useFocusEffect } from "expo-router";
 import {
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  FileText,
+  ListChecks,
+  MapPin,
+  Plus,
+  Search,
+  UserCircle2,
+} from "lucide-react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Image,
+  Pressable,
   ScrollView,
   StyleSheet,
-  Text,
+  TextInput,
   View,
- TextInput,
-  Pressable,
-  Modal,
-  Image,
 } from "react-native";
+import {
+  BannerAd,
+  BannerAdSize,
+  TestIds,
+} from "react-native-google-mobile-ads";
+import mobileAds from "react-native-google-mobile-ads";
 import { SafeAreaView } from "react-native-safe-area-context";
-import {
-  MapPin,
-  UserCircle2,
-  Search,
-  ChevronRight,
-  ChevronDown,
-  User,
-  Settings,
-  Lock,
-  X,
-  Box,
-  CheckCircle2,
-  AlertCircle,
-} from "lucide-react-native";
-import { router, useFocusEffect } from "expo-router";
-import { BlurView } from "expo-blur";
 
+import { useAuth } from "../../components/auth/AuthProvider";
 import ScreenBackground from "../../components/ui/ScreenBackground";
-import { colors } from "../../theme/tokens";
 import {
-  getStorageSpaces,
-  getCompartments,
-  getAllItems,
-  searchItemsForUser,
-  StorageSpace,
+  ThemedButton,
+  ThemedCard,
+  ThemedText,
+  useThemedValues,
+} from "../../components/ui/Themed";
+import { db } from "../../firebaseConfig";
+import {
   Compartment,
+  getAllItems,
+  getCompartments,
+  getStorageSpaces,
   Item,
+  StorageSpace,
 } from "../../lib/gearService";
 import { getProfileSettings } from "../../lib/settingsService";
+import type { Checklist } from "../../types/checklists";
 
-const DEMO_USER_ID = "demo-user-123";
-
-type SearchResultItem = {
-  id: string;
-  name: string;
-  compartmentId: string;
-  compartmentName: string;
-  vehicleId: string;
-  vehicleName: string;
-  missing?: boolean;
-  packed?: boolean;
-};
+type SearchResultItem =
+  | {
+      type: "item";
+      id: string;
+      name: string;
+      subtitle: string;
+      statusLabel: "Packed" | "To Pack";
+      compartmentId: string;
+      vehicleId: string;
+    }
+  | {
+      type: "storage";
+      id: string;
+      name: string;
+      subtitle: string;
+      vehicleId: string;
+    }
+  | {
+      type: "compartment";
+      id: string;
+      name: string;
+      subtitle: string;
+      compartmentId: string;
+      vehicleId: string;
+    }
+  | {
+      type: "checklist";
+      id: string;
+      name: string;
+      subtitle: string;
+      checklistId: string;
+      statusLabel: "Packed" | "To Pack";
+    };
 
 type QuickCompartment = {
   id: string;
@@ -59,12 +90,9 @@ type QuickCompartment = {
   itemCount: number;
 };
 
-type ProfileMenuRowProps = {
-  icon: React.ReactNode;
-  title: string;
-  subtitle: string;
-  onPress: () => void;
-};
+type StatTone = "default" | "success" | "danger";
+
+const LABEL_WHITE = "#FFFFFF";
 
 function FrostedCard({
   children,
@@ -73,29 +101,61 @@ function FrostedCard({
   children: React.ReactNode;
   style?: any;
 }) {
+  const theme = useThemedValues();
+
   return (
-    <BlurView intensity={35} tint="dark" style={[styles.frostedCard, style]}>
+    <BlurView
+      intensity={theme.isLight ? 18 : 35}
+      tint={theme.isLight ? "light" : "dark"}
+      style={[
+        styles.frostedCard,
+        {
+          borderColor: theme.colors.border,
+          backgroundColor: theme.colors.card,
+        },
+        style,
+      ]}
+    >
       {children}
     </BlurView>
   );
 }
 
-function ProfileMenuRow({
+function NoteCard({
   icon,
   title,
-  subtitle,
   onPress,
-}: ProfileMenuRowProps) {
+}: {
+  icon: React.ReactNode;
+  title: string;
+  onPress: () => void;
+}) {
   return (
-    <Pressable style={styles.menuRow} onPress={onPress}>
-      <View style={styles.menuRowLeft}>
-        <View style={styles.menuIconWrap}>{icon}</View>
-        <View style={styles.menuTextWrap}>
-          <Text style={styles.menuTitle}>{title}</Text>
-          <Text style={styles.menuSubtitle}>{subtitle}</Text>
+    <Pressable style={styles.statPressable} onPress={onPress}>
+      <BlurView
+        intensity={20}
+        tint="dark"
+        style={[
+          styles.statCard,
+          {
+            borderColor: "rgba(255,220,120,0.45)",
+            backgroundColor: "rgba(250,204,21,0.28)",
+          },
+        ]}
+      >
+        <View style={styles.statInner}>
+          <View style={[styles.statIconWrap, styles.noteIconWrap]}>{icon}</View>
+
+          <View style={styles.statTextWrap}>
+            <ThemedText
+              variant="small"
+              style={[styles.noteTitle, styles.statTextWhite]}
+            >
+              {title}
+            </ThemedText>
+          </View>
         </View>
-      </View>
-      <ChevronRight size={18} color={colors.textSecondary} />
+      </BlurView>
     </Pressable>
   );
 }
@@ -104,78 +164,368 @@ function StatCard({
   icon,
   value,
   label,
+  tone = "default",
   onPress,
 }: {
   icon: React.ReactNode;
   value: number;
   label: string;
+  tone?: StatTone;
   onPress: () => void;
 }) {
+  const toneStyles =
+    tone === "success"
+      ? {
+          card: styles.statCardSuccess,
+          iconWrap: styles.statIconWrapSuccess,
+        }
+      : tone === "danger"
+        ? {
+            card: styles.statCardDanger,
+            iconWrap: styles.statIconWrapDanger,
+          }
+        : {
+            card: styles.statCardDefault,
+            iconWrap: styles.statIconWrapDefault,
+          };
+
+  const cardOverride =
+    tone === "success"
+      ? {
+          borderColor: "rgba(34,197,94,0.45)",
+          backgroundColor: "rgba(34,197,94,0.24)",
+        }
+      : tone === "danger"
+        ? {
+            borderColor: "rgba(239,68,68,0.45)",
+            backgroundColor: "rgba(239,68,68,0.24)",
+          }
+        : null;
+
   return (
     <Pressable style={styles.statPressable} onPress={onPress}>
-      <BlurView intensity={35} tint="dark" style={styles.statCard}>
-        <View style={styles.statIconWrap}>{icon}</View>
-        <Text style={styles.statValue}>{value}</Text>
-        <Text style={styles.statLabel}>{label}</Text>
+      <BlurView
+        intensity={20}
+        tint="dark"
+        style={[styles.statCard, toneStyles.card, cardOverride]}
+      >
+        <View style={styles.statInner}>
+          <View style={[styles.statIconWrap, toneStyles.iconWrap]}>{icon}</View>
+
+          <View style={styles.statTextWrap}>
+            <ThemedText
+              variant="header"
+              style={[styles.statValue, styles.statTextWhite]}
+            >
+              {value}
+            </ThemedText>
+
+            <ThemedText
+              variant="small"
+              style={[styles.statLabel, styles.statTextWhite]}
+            >
+              {label}
+            </ThemedText>
+          </View>
+        </View>
       </BlurView>
     </Pressable>
   );
 }
 
+function getItemQuantity(item: Item) {
+  const qty = Number(item.quantity ?? 1);
+  return Number.isFinite(qty) && qty > 0 ? qty : 1;
+}
+
+function isPackedItem(item: Item) {
+  return item.status === "packed";
+}
+
+function normalizeSearchValue(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function searchIncludes(query: string, values: Array<string | undefined | null>) {
+  return values.some((value) =>
+    normalizeSearchValue(String(value ?? "")).includes(query)
+  );
+}
+
 export default function DashboardScreen() {
+  const { user, initializing, signInWithApple } = useAuth();
+  const theme = useThemedValues();
+
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResultItem[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [isSigningIn, setIsSigningIn] = useState(false);
 
   const [storageSpaces, setStorageSpaces] = useState<StorageSpace[]>([]);
   const [selectedStorageId, setSelectedStorageId] = useState<string | null>(null);
   const [showStorageDropdown, setShowStorageDropdown] = useState(false);
 
   const [allItems, setAllItems] = useState<Item[]>([]);
+  const [allCompartments, setAllCompartments] = useState<Compartment[]>([]);
+  const [allChecklists, setAllChecklists] = useState<Checklist[]>([]);
   const [selectedCompartments, setSelectedCompartments] = useState<Compartment[]>([]);
   const [quickCompartments, setQuickCompartments] = useState<QuickCompartment[]>([]);
 
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [profilePhotoUri, setProfilePhotoUri] = useState("");
+  const [profilePhotoFailed, setProfilePhotoFailed] = useState(false);
 
   const selectedStorage = useMemo(
     () => storageSpaces.find((space) => space.id === selectedStorageId) ?? null,
     [storageSpaces, selectedStorageId]
   );
 
-  const storageItems = useMemo(
-    () => allItems.filter((item) => item.vehicleId === selectedStorageId),
+  const sortedStorageSpaces = useMemo(
+    () => [...storageSpaces].sort((a, b) => a.name.localeCompare(b.name)),
+    [storageSpaces]
+  );
+
+  const storageNameById = useMemo(() => {
+    return new Map(storageSpaces.map((space) => [space.id, space.name]));
+  }, [storageSpaces]);
+
+  const selectedStorageItems = useMemo(
+    () =>
+      selectedStorageId
+        ? allItems.filter((item) => item.vehicleId === selectedStorageId)
+        : [],
     [allItems, selectedStorageId]
   );
 
   const packedCount = useMemo(
-    () => storageItems.filter((item) => item.status === "packed").length,
-    [storageItems]
+    () =>
+      selectedStorageItems
+        .filter((item) => isPackedItem(item))
+        .reduce((total, item) => total + getItemQuantity(item), 0),
+    [selectedStorageItems]
   );
 
-  const missingCount = useMemo(
-    () => storageItems.filter((item) => item.status === "missing").length,
-    [storageItems]
+  const toPackCount = useMemo(
+    () =>
+      selectedStorageItems
+        .filter((item) => !isPackedItem(item))
+        .reduce((total, item) => total + getItemQuantity(item), 0),
+    [selectedStorageItems]
   );
+
+  useEffect(() => {
+    async function initializeAds() {
+      try {
+        await TrackingTransparency.requestTrackingPermissionsAsync();
+        await mobileAds().initialize();
+      } catch (err) {
+        console.error("Failed to initialize ads:", err);
+      }
+    }
+
+    initializeAds();
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
+      if (initializing || !user) {
+        return;
+      }
+
       loadDashboardData();
       loadProfilePhoto();
-    }, [])
+    }, [initializing, user, selectedStorageId])
   );
 
-  async function loadProfilePhoto() {
+  useEffect(() => {
+    const runSearch = async () => {
+      const trimmed = normalizeSearchValue(searchQuery);
+
+      if (initializing || !user) {
+        setSearchResults([]);
+        setIsSearching(false);
+        return;
+      }
+
+      if (!trimmed) {
+        setSearchResults([]);
+        setIsSearching(false);
+        return;
+      }
+
+      try {
+        setIsSearching(true);
+
+        const itemResults: SearchResultItem[] = allItems
+          .filter((item) =>
+            searchIncludes(trimmed, [
+              item.name,
+              item.status === "packed" ? "packed items packed" : "to pack missing",
+              item.compartmentName,
+              item.vehicleName,
+              storageNameById.get(item.vehicleId ?? ""),
+            ])
+          )
+          .map((item) => ({
+            type: "item",
+            id: item.id,
+            name: item.name,
+            subtitle: `${item.compartmentName || "Unassigned compartment"} • ${
+              item.vehicleName ||
+              storageNameById.get(item.vehicleId ?? "") ||
+              "Unknown storage space"
+            }`,
+            statusLabel: item.status === "packed" ? "Packed" : "To Pack",
+            compartmentId: item.compartmentId ?? "",
+            vehicleId: item.vehicleId ?? "",
+          }));
+
+        const storageResults: SearchResultItem[] = storageSpaces
+          .filter((space) =>
+            searchIncludes(trimmed, [
+              space.name,
+              space.category,
+              space.category === "vehicle" ? "vehicle" : "storage",
+              space.subtype,
+            ])
+          )
+          .map((space) => ({
+            type: "storage",
+            id: space.id,
+            name: space.name,
+            subtitle: `${space.category === "vehicle" ? "Vehicle" : "Storage"}${
+              space.subtype ? ` • ${space.subtype}` : ""
+            }`,
+            vehicleId: space.id,
+          }));
+
+        const compartmentResults: SearchResultItem[] = allCompartments
+          .filter((compartment) =>
+            searchIncludes(trimmed, [
+              compartment.name,
+              storageNameById.get(compartment.vehicleId),
+              "compartment",
+            ])
+          )
+          .map((compartment) => ({
+            type: "compartment",
+            id: compartment.id,
+            name: compartment.name,
+            subtitle:
+              storageNameById.get(compartment.vehicleId) || "Unknown storage space",
+            compartmentId: compartment.id,
+            vehicleId: compartment.vehicleId,
+          }));
+
+        const checklistResults: SearchResultItem[] = allChecklists
+          .filter(
+            (checklist) =>
+              !checklist.isArchived &&
+              searchIncludes(trimmed, [
+                checklist.name,
+                "checklist",
+                (checklist.missingCount ?? 0) > 0 ? "to pack missing" : "packed",
+              ])
+          )
+          .map((checklist) => ({
+            type: "checklist",
+            id: checklist.id,
+            name: checklist.name,
+            subtitle: `${checklist.packedCount ?? 0} packed • ${
+              checklist.missingCount ?? 0
+            } to pack`,
+            checklistId: checklist.id,
+            statusLabel: (checklist.missingCount ?? 0) > 0 ? "To Pack" : "Packed",
+          }));
+
+        setSearchResults([
+          ...itemResults,
+          ...storageResults,
+          ...compartmentResults,
+          ...checklistResults,
+        ]);
+      } catch (error) {
+        console.error("Search failed:", error);
+        setSearchResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    };
+
+    const timeout = setTimeout(runSearch, 250);
+    return () => clearTimeout(timeout);
+  }, [
+    searchQuery,
+    initializing,
+    user,
+    allItems,
+    storageSpaces,
+    allCompartments,
+    allChecklists,
+    storageNameById,
+  ]);
+
+  useEffect(() => {
+    if (initializing) {
+      return;
+    }
+
+    if (!user) {
+      setSearchResults([]);
+      setIsSearching(false);
+      setStorageSpaces([]);
+      setSelectedStorageId(null);
+      setShowStorageDropdown(false);
+      setAllItems([]);
+      setAllCompartments([]);
+      setAllChecklists([]);
+      setSelectedCompartments([]);
+      setQuickCompartments([]);
+      setProfilePhotoUri("");
+      setProfilePhotoFailed(false);
+    }
+  }, [initializing, user]);
+
+  async function handleSignIn() {
     try {
-      const profile = await getProfileSettings();
+      setIsSigningIn(true);
+      await signInWithApple();
+    } catch (error) {
+      console.error("Apple sign-in failed:", error);
+    } finally {
+      setIsSigningIn(false);
+    }
+  }
+
+  async function loadProfilePhoto() {
+    if (!user) {
+      setProfilePhotoUri("");
+      setProfilePhotoFailed(false);
+      return;
+    }
+
+    try {
+      const profile = await getProfileSettings(user.uid);
       setProfilePhotoUri(profile.profilePhotoUri ?? "");
+      setProfilePhotoFailed(false);
     } catch (err) {
       console.error("Failed to load profile photo:", err);
       setProfilePhotoUri("");
+      setProfilePhotoFailed(false);
     }
   }
 
   async function loadDashboardData() {
+    if (!user) {
+      setStorageSpaces([]);
+      setSelectedStorageId(null);
+      setAllItems([]);
+      setAllCompartments([]);
+      setAllChecklists([]);
+      setSelectedCompartments([]);
+      setQuickCompartments([]);
+      return;
+    }
+
     try {
       const spaces = await getStorageSpaces();
       setStorageSpaces(spaces);
@@ -187,8 +537,26 @@ export default function DashboardScreen() {
 
       setSelectedStorageId(chosenId);
 
-      const items = await getAllItems();
-      setAllItems(items);
+      const all = await getAllItems();
+      setAllItems(all);
+
+      const compartmentsSnapshot = await getDocs(
+        collection(db, "users", user.uid, "compartments")
+      );
+      const compartments = compartmentsSnapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data(),
+      })) as Compartment[];
+      setAllCompartments(compartments);
+
+      const checklistsSnapshot = await getDocs(
+        collection(db, "users", user.uid, "checklists")
+      );
+      const checklists = checklistsSnapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data(),
+      })) as Checklist[];
+      setAllChecklists(checklists);
 
       if (!chosenId) {
         setSelectedCompartments([]);
@@ -196,14 +564,18 @@ export default function DashboardScreen() {
         return;
       }
 
-      const compartments = await getCompartments(chosenId);
-      setSelectedCompartments(compartments);
+      const scopedItems = all.filter((item) => item.vehicleId === chosenId);
 
-      const quickData = compartments
+      const scopedCompartments = await getCompartments(chosenId);
+      setSelectedCompartments(scopedCompartments);
+
+      const quickData = scopedCompartments
         .map((compartment) => ({
           id: compartment.id,
           name: compartment.name,
-          itemCount: items.filter((item) => item.compartmentId === compartment.id).length,
+          itemCount: scopedItems
+            .filter((item) => item.compartmentId === compartment.id)
+            .reduce((total, item) => total + getItemQuantity(item), 0),
         }))
         .sort((a, b) => b.itemCount - a.itemCount || a.name.localeCompare(b.name))
         .slice(0, 4);
@@ -214,12 +586,18 @@ export default function DashboardScreen() {
       setStorageSpaces([]);
       setSelectedStorageId(null);
       setAllItems([]);
+      setAllCompartments([]);
+      setAllChecklists([]);
       setSelectedCompartments([]);
       setQuickCompartments([]);
     }
   }
 
   async function handleSelectStorage(space: StorageSpace) {
+    if (!user) {
+      return;
+    }
+
     try {
       setSelectedStorageId(space.id);
       setShowStorageDropdown(false);
@@ -227,11 +605,15 @@ export default function DashboardScreen() {
       const compartments = await getCompartments(space.id);
       setSelectedCompartments(compartments);
 
+      const scopedItems = allItems.filter((item) => item.vehicleId === space.id);
+
       const quickData = compartments
         .map((compartment) => ({
           id: compartment.id,
           name: compartment.name,
-          itemCount: allItems.filter((item) => item.compartmentId === compartment.id).length,
+          itemCount: scopedItems
+            .filter((item) => item.compartmentId === compartment.id)
+            .reduce((total, item) => total + getItemQuantity(item), 0),
         }))
         .sort((a, b) => b.itemCount - a.itemCount || a.name.localeCompare(b.name))
         .slice(0, 4);
@@ -242,58 +624,63 @@ export default function DashboardScreen() {
     }
   }
 
-  React.useEffect(() => {
-    const runSearch = async () => {
-      const trimmed = searchQuery.trim();
-
-      if (!trimmed) {
-        setSearchResults([]);
-        setIsSearching(false);
+  function handleSearchResultPress(item: SearchResultItem) {
+    if (item.type === "item") {
+      if (!item.vehicleId || !item.compartmentId) {
         return;
       }
 
-      try {
-        setIsSearching(true);
-        const results = await searchItemsForUser(DEMO_USER_ID, trimmed);
-        setSearchResults(results);
-      } catch (error) {
-        console.error("Search failed:", error);
-        setSearchResults([]);
-      } finally {
-        setIsSearching(false);
-      }
-    };
+      router.push({
+        pathname: "/vehicles/[vehicleId]/compartments/[compartmentId]",
+        params: {
+          vehicleId: item.vehicleId,
+          compartmentId: item.compartmentId,
+        },
+      });
+      return;
+    }
 
-    const timeout = setTimeout(runSearch, 250);
-    return () => clearTimeout(timeout);
-  }, [searchQuery]);
+    if (item.type === "storage") {
+      router.push({
+        pathname: "/vehicles/[vehicleId]/compartments",
+        params: {
+          vehicleId: item.vehicleId,
+        },
+      });
+      return;
+    }
 
-  function handleSearchResultPress(item: SearchResultItem) {
-    router.push({
-      pathname: "/vehicles/[vehicleId]/compartments/[compartmentId]",
-      params: {
-        vehicleId: item.vehicleId,
-        compartmentId: item.compartmentId,
-      },
-    });
-  }
+    if (item.type === "compartment") {
+      router.push({
+        pathname: "/vehicles/[vehicleId]/compartments/[compartmentId]",
+        params: {
+          vehicleId: item.vehicleId,
+          compartmentId: item.compartmentId,
+        },
+      });
+      return;
+    }
 
-  function handleOpenInventory() {
-    router.navigate("/inventory");
+    if (item.type === "checklist") {
+      router.push({
+        pathname: "/checklists/[checklistId]",
+        params: {
+          checklistId: item.checklistId,
+        },
+      });
+    }
   }
 
   function handleOpenPackedItems() {
-    setShowProfileMenu(false);
     router.push({
-      pathname: "/items",
+      pathname: "/(tabs)/inventory",
       params: { status: "packed" },
     });
   }
 
-  function handleOpenMissingItems() {
-    setShowProfileMenu(false);
+  function handleOpenToPack() {
     router.push({
-      pathname: "/items",
+      pathname: "/(tabs)/inventory",
       params: { status: "missing" },
     });
   }
@@ -310,69 +697,49 @@ export default function DashboardScreen() {
     });
   }
 
+  function handleOpenAllCompartments() {
+    if (!selectedStorageId) return;
+
+    router.push({
+      pathname: "/vehicles/[vehicleId]/compartments",
+      params: {
+        vehicleId: selectedStorageId,
+      },
+    });
+  }
+
+  function handleAddCompartment() {
+    if (!selectedStorageId) return;
+
+    router.push({
+      pathname: "/vehicles/[vehicleId]/compartments/create",
+      params: {
+        vehicleId: selectedStorageId,
+      },
+    });
+  }
+
+  function handleOpenNotes() {
+    router.push({
+      pathname: "/notes",
+      params: {
+        storageId: selectedStorageId ?? "",
+        storageName: selectedStorage?.name ?? "",
+      },
+    });
+  }
+
+  function handleAddStorageSpace() {
+    router.push("/storage/create");
+  }
+
   function handleOpenProfile() {
-    setShowProfileMenu(false);
-    router.push("/profile-settings");
-  }
-
-  function handleOpenSettings() {
-    setShowProfileMenu(false);
-    router.push("/settings");
-  }
-
-  function handleOpenPasswordManagement() {
-    setShowProfileMenu(false);
-    router.push("/password-management");
+    router.push("/(tabs)/profile");
   }
 
   return (
     <ScreenBackground>
       <SafeAreaView style={styles.safe}>
-        <Modal
-          visible={showProfileMenu}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setShowProfileMenu(false)}
-        >
-          <Pressable
-            style={styles.menuOverlay}
-            onPress={() => setShowProfileMenu(false)}
-          >
-            <BlurView intensity={35} tint="dark" style={styles.menuCard}>
-              <View style={styles.menuHeader}>
-                <Text style={styles.menuHeaderTitle}>Account Menu</Text>
-                <Pressable
-                  style={styles.menuCloseButton}
-                  onPress={() => setShowProfileMenu(false)}
-                >
-                  <X size={18} color={colors.text} />
-                </Pressable>
-              </View>
-
-              <ProfileMenuRow
-                icon={<User size={18} color={colors.text} />}
-                title="Profile"
-                subtitle="Account basics and profile details"
-                onPress={handleOpenProfile}
-              />
-
-              <ProfileMenuRow
-                icon={<Settings size={18} color={colors.text} />}
-                title="Settings"
-                subtitle="App and account settings"
-                onPress={handleOpenSettings}
-              />
-
-              <ProfileMenuRow
-                icon={<Lock size={18} color={colors.text} />}
-                title="Password Management"
-                subtitle="Update password and security settings"
-                onPress={handleOpenPasswordManagement}
-              />
-            </BlurView>
-          </Pressable>
-        </Modal>
-
         <ScrollView
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
@@ -380,174 +747,353 @@ export default function DashboardScreen() {
         >
           <View style={styles.headerRow}>
             <View style={styles.brandRow}>
-              <MapPin size={22} color={colors.text} />
-              <Text style={styles.brandText}>Where&apos;s My Gear</Text>
+              <MapPin size={22} color={LABEL_WHITE} />
+              <ThemedText
+                variant="header"
+                style={[styles.brandText, styles.whiteLabel]}
+              >
+                Where&apos;s My Gear
+              </ThemedText>
             </View>
 
-            <Pressable
-              onPress={() => setShowProfileMenu(true)}
-              style={styles.profileButton}
-            >
-              {profilePhotoUri ? (
-                <Image source={{ uri: profilePhotoUri }} style={styles.profileAvatar} />
+            <Pressable style={styles.profileButton} onPress={handleOpenProfile}>
+              {profilePhotoUri.trim().length > 0 && !profilePhotoFailed ? (
+                <Image
+                  source={{ uri: profilePhotoUri }}
+                  style={styles.profileAvatar}
+                  onError={() => setProfilePhotoFailed(true)}
+                />
               ) : (
-                <UserCircle2 size={30} color={colors.text} />
+                <UserCircle2 size={32} color={LABEL_WHITE} />
               )}
             </Pressable>
           </View>
 
           <FrostedCard style={styles.searchCard}>
             <View style={styles.searchInputWrap}>
-              <Search size={20} color={colors.textMuted} />
+              <Search size={20} color={theme.colors.textMuted} />
+
               <TextInput
                 value={searchQuery}
                 onChangeText={setSearchQuery}
-                placeholder="Search gear..."
-                placeholderTextColor={colors.textMuted}
-                style={styles.searchInput}
+                placeholder="Search gear, spaces, compartments, checklists..."
+                placeholderTextColor={theme.colors.textMuted}
+                style={[
+                  styles.searchInput,
+                  {
+                    color: theme.colors.text,
+                    fontSize: theme.fontSizes.body,
+                  },
+                ]}
                 autoCapitalize="none"
                 autoCorrect={false}
                 returnKeyType="search"
+                editable={!initializing && !!user}
               />
+
+              {searchQuery.length > 0 && (
+                <Pressable
+                  onPress={() => setSearchQuery("")}
+                  style={styles.clearSearchButton}
+                  hitSlop={10}
+                >
+                  <ThemedText color="secondary" style={styles.clearSearchButtonText}>
+                    ✕
+                  </ThemedText>
+                </Pressable>
+              )}
             </View>
           </FrostedCard>
 
-          {searchQuery.trim().length > 0 && (
-            <View style={styles.searchResultsWrap}>
-              <Text style={styles.sectionTitle}>
-                {isSearching ? "Searching..." : "Results"}
-              </Text>
+          {initializing ? (
+            <ThemedCard style={styles.emptyCard}>
+              <ThemedText variant="bodyStrong" style={styles.emptyTitle}>
+                Loading account
+              </ThemedText>
+              <ThemedText color="secondary" style={styles.emptyText}>
+                Restoring your signed-in session.
+              </ThemedText>
+            </ThemedCard>
+          ) : !user ? (
+            <ThemedCard style={styles.emptyCard}>
+              <ThemedText variant="bodyStrong" style={styles.emptyTitle}>
+                Sign in required
+              </ThemedText>
+              <ThemedText color="secondary" style={styles.emptyText}>
+                Please sign in to view your gear data.
+              </ThemedText>
 
-              {!isSearching && searchResults.length === 0 ? (
-                <FrostedCard style={styles.emptyCard}>
-                  <Text style={styles.emptyText}>No items found</Text>
-                </FrostedCard>
-              ) : (
-                searchResults.map((item) => (
-                  <FrostedCard
-                    key={`${item.vehicleId}:${item.compartmentId}:${item.id}`}
-                    style={styles.searchResultCard}
-                  >
-                    <Pressable onPress={() => handleSearchResultPress(item)}>
-                      <Text style={styles.searchTitle}>{item.name}</Text>
-                      <Text style={styles.searchLocation}>
-                        {item.compartmentName} • {item.vehicleName}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.searchStatus,
-                          item.missing ? styles.missing : styles.packed,
-                        ]}
-                      >
-                        {item.missing ? "Missing" : "Packed"}
-                      </Text>
-                    </Pressable>
-                  </FrostedCard>
-                ))
-              )}
-            </View>
-          )}
-
-          <View style={styles.selectorWrap}>
-            <Text style={styles.selectorLabel}>Selected Storage Space</Text>
-
-            <Pressable
-              style={styles.selectorPressable}
-              onPress={() => setShowStorageDropdown((prev) => !prev)}
-            >
-              <BlurView intensity={35} tint="dark" style={styles.selectorButton}>
-                <Text style={styles.selectorButtonText}>
-                  {selectedStorage?.name ?? "Select a storage space"}
-                </Text>
-                <ChevronDown size={18} color={colors.textSecondary} />
-              </BlurView>
-            </Pressable>
-
-            {showStorageDropdown && (
-              <BlurView intensity={35} tint="dark" style={styles.dropdownCard}>
-                {storageSpaces.length === 0 ? (
-                  <Text style={styles.dropdownEmpty}>No storage spaces found.</Text>
-                ) : (
-                  storageSpaces.map((space) => (
-                    <Pressable
-                      key={space.id}
-                      style={styles.dropdownRow}
-                      onPress={() => handleSelectStorage(space)}
-                    >
-                      <View style={styles.dropdownRowLeft}>
-                        <Text style={styles.dropdownRowTitle}>{space.name}</Text>
-                        <Text style={styles.dropdownRowMeta}>
-                          {space.category === "vehicle" ? "Vehicle" : "Storage"} • {space.subtype}
-                        </Text>
-                      </View>
-                    </Pressable>
-                  ))
-                )}
-              </BlurView>
-            )}
-          </View>
-
-          <View style={styles.statsRow}>
-            <StatCard
-              icon={<Box size={24} color={colors.text} />}
-              value={selectedCompartments.length}
-              label="Compartments"
-              onPress={handleOpenInventory}
-            />
-
-            <StatCard
-              icon={<CheckCircle2 size={24} color={colors.text} />}
-              value={packedCount}
-              label="Items Packed"
-              onPress={handleOpenPackedItems}
-            />
-
-            <StatCard
-              icon={<AlertCircle size={24} color={colors.text} />}
-              value={missingCount}
-              label="Items Missing"
-              onPress={handleOpenMissingItems}
-            />
-          </View>
-
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionHeaderTitle}>Compartment Quick View</Text>
-            <Pressable onPress={handleOpenInventory}>
-              <Text style={styles.viewAllText}>View All</Text>
-            </Pressable>
-          </View>
-
-          {selectedStorageId == null ? (
-            <FrostedCard style={styles.emptyCard}>
-              <Text style={styles.emptyTitle}>No storage space selected</Text>
-              <Text style={styles.emptyText}>
-                Add a storage space in Inventory to start tracking gear.
-              </Text>
-            </FrostedCard>
-          ) : quickCompartments.length === 0 ? (
-            <FrostedCard style={styles.emptyCard}>
-              <Text style={styles.emptyTitle}>No compartments yet</Text>
-              <Text style={styles.emptyText}>
-                Create compartments inside this storage space to see them here.
-              </Text>
-            </FrostedCard>
+              <ThemedButton
+                style={styles.signInButton}
+                onPress={handleSignIn}
+                disabled={isSigningIn}
+              >
+                <ThemedText style={styles.signInButtonText}>
+                  {isSigningIn ? "Signing in..." : "Sign in with Apple"}
+                </ThemedText>
+              </ThemedButton>
+            </ThemedCard>
           ) : (
-            quickCompartments.map((compartment) => (
-              <FrostedCard key={compartment.id} style={styles.quickCard}>
+            <>
+              {searchQuery.trim().length > 0 && (
+                <View style={styles.searchResultsWrap}>
+                  <ThemedText style={[styles.sectionTitle, styles.whiteLabel]}>
+                    {isSearching ? "Searching..." : "Results"}
+                  </ThemedText>
+
+                  {!isSearching && searchResults.length === 0 ? (
+                    <ThemedCard style={styles.emptyCard}>
+                      <ThemedText color="secondary" style={styles.emptyText}>
+                        No results found
+                      </ThemedText>
+                    </ThemedCard>
+                  ) : (
+                    searchResults.map((item) => (
+                      <ThemedCard
+                        key={`${item.type}:${item.id}`}
+                        style={styles.searchResultCard}
+                      >
+                        <Pressable onPress={() => handleSearchResultPress(item)}>
+                          <ThemedText variant="bodyStrong" style={styles.searchTitle}>
+                            {item.name}
+                          </ThemedText>
+                          <ThemedText color="muted" style={styles.searchLocation}>
+                            {item.subtitle}
+                          </ThemedText>
+
+                          {"statusLabel" in item && (
+                            <ThemedText
+                              color={
+                                item.statusLabel === "To Pack"
+                                  ? "danger"
+                                  : "primary"
+                              }
+                              style={[
+                                styles.searchStatus,
+                                item.statusLabel !== "To Pack" && {
+                                  color: theme.colors.success,
+                                },
+                              ]}
+                            >
+                              {item.statusLabel}
+                            </ThemedText>
+                          )}
+                        </Pressable>
+                      </ThemedCard>
+                    ))
+                  )}
+                </View>
+              )}
+
+              <View style={styles.selectorWrap}>
+                <View style={styles.selectorHeaderRow}>
+                  <Pressable
+                    style={styles.selectorAddButton}
+                    onPress={handleAddStorageSpace}
+                  >
+                    <Plus size={18} color={LABEL_WHITE} />
+                  </Pressable>
+
+                  <ThemedText
+                    variant="bodyStrong"
+                    style={[styles.selectorLabel, styles.whiteLabel]}
+                  >
+                    Selected Storage Space
+                  </ThemedText>
+                </View>
+
                 <Pressable
-                  style={styles.quickRow}
-                  onPress={() => handleOpenCompartment(compartment.id)}
+                  style={styles.selectorPressable}
+                  onPress={() => setShowStorageDropdown((prev) => !prev)}
                 >
-                  <View style={styles.quickLeft}>
-                    <Text style={styles.quickTitle}>{compartment.name}</Text>
-                    <Text style={styles.quickMeta}>
-                      {compartment.itemCount} {compartment.itemCount === 1 ? "item" : "items"}
-                    </Text>
-                  </View>
-                  <ChevronRight size={18} color={colors.textSecondary} />
+                  <BlurView
+                    intensity={theme.isLight ? 18 : 35}
+                    tint={theme.isLight ? "light" : "dark"}
+                    style={[
+                      styles.selectorButton,
+                      {
+                        borderColor: theme.colors.border,
+                        backgroundColor: theme.colors.card,
+                      },
+                    ]}
+                  >
+                    <ThemedText
+                      variant="bodyStrong"
+                      style={styles.selectorButtonText}
+                      numberOfLines={1}
+                    >
+                      {selectedStorage?.name ?? "Select a storage space"}
+                    </ThemedText>
+                    <ChevronDown size={18} color={theme.colors.textSecondary} />
+                  </BlurView>
                 </Pressable>
-              </FrostedCard>
-            ))
+
+                {showStorageDropdown && (
+                  <BlurView
+                    intensity={theme.isLight ? 18 : 35}
+                    tint={theme.isLight ? "light" : "dark"}
+                    style={[
+                      styles.dropdownCard,
+                      {
+                        borderColor: theme.colors.border,
+                        backgroundColor: theme.colors.card,
+                      },
+                    ]}
+                  >
+                    {sortedStorageSpaces.length === 0 ? (
+                      <ThemedText color="secondary" style={styles.dropdownEmpty}>
+                        No storage spaces found.
+                      </ThemedText>
+                    ) : (
+                      <ScrollView showsVerticalScrollIndicator={false}>
+                        {sortedStorageSpaces.map((space, index) => (
+                          <Pressable
+                            key={space.id}
+                            style={[
+                              styles.dropdownRow,
+                              {
+                                borderBottomColor: theme.colors.border,
+                              },
+                              index === sortedStorageSpaces.length - 1 &&
+                                styles.dropdownRowLast,
+                            ]}
+                            onPress={() => handleSelectStorage(space)}
+                          >
+                            <View style={styles.dropdownRowLeft}>
+                              <ThemedText
+                                variant="bodyStrong"
+                                style={styles.dropdownRowTitle}
+                              >
+                                {space.name}
+                              </ThemedText>
+                              <ThemedText
+                                color="secondary"
+                                style={styles.dropdownRowMeta}
+                              >
+                                {space.category === "vehicle" ? "Vehicle" : "Storage"}
+                                {space.subtype ? ` • ${space.subtype}` : ""}
+                              </ThemedText>
+                            </View>
+                          </Pressable>
+                        ))}
+                      </ScrollView>
+                    )}
+                  </BlurView>
+                )}
+              </View>
+
+              <View style={styles.statsRow}>
+                <NoteCard
+                  icon={<FileText size={20} color={LABEL_WHITE} />}
+                  title="Notes"
+                  onPress={handleOpenNotes}
+                />
+
+                <StatCard
+                  icon={<CheckCircle2 size={22} color={LABEL_WHITE} />}
+                  value={packedCount}
+                  label="Items Packed"
+                  tone="success"
+                  onPress={handleOpenPackedItems}
+                />
+
+                <StatCard
+                  icon={<ListChecks size={22} color={LABEL_WHITE} />}
+                  value={toPackCount}
+                  label="To Pack"
+                  tone="danger"
+                  onPress={handleOpenToPack}
+                />
+              </View>
+
+              <View style={styles.sectionHeaderRow}>
+                <View style={styles.sectionHeaderLeft}>
+                  <Pressable
+                    style={[
+                      styles.compartmentAddButton,
+                      !selectedStorageId && styles.compartmentAddButtonDisabled,
+                    ]}
+                    onPress={handleAddCompartment}
+                    disabled={!selectedStorageId}
+                  >
+                    <Plus size={18} color={LABEL_WHITE} />
+                  </Pressable>
+
+                  <ThemedText
+                    variant="title"
+                    style={[styles.sectionHeaderTitle, styles.whiteLabel]}
+                  >
+                    Compartment Quick View
+                  </ThemedText>
+                </View>
+
+                <Pressable onPress={handleOpenAllCompartments}>
+                  <ThemedText style={[styles.viewAllText, styles.whiteLabelMuted]}>
+                    View All
+                  </ThemedText>
+                </Pressable>
+              </View>
+
+              {selectedStorageId == null ? (
+                <ThemedCard style={styles.emptyCard}>
+                  <ThemedText variant="bodyStrong" style={styles.emptyTitle}>
+                    No storage space selected
+                  </ThemedText>
+                  <ThemedText color="secondary" style={styles.emptyText}>
+                    Add a storage space in Inventory to start tracking gear.
+                  </ThemedText>
+                </ThemedCard>
+              ) : quickCompartments.length === 0 ? (
+                <ThemedCard style={styles.emptyCard}>
+                  <ThemedText variant="bodyStrong" style={styles.emptyTitle}>
+                    No compartments yet
+                  </ThemedText>
+                  <ThemedText color="secondary" style={styles.emptyText}>
+                    Create compartments inside this storage space to see them here.
+                  </ThemedText>
+                </ThemedCard>
+              ) : (
+                <View style={styles.quickGrid}>
+                  {quickCompartments.map((compartment) => (
+                    <ThemedCard
+                      key={compartment.id}
+                      style={styles.quickGridCard}
+                      contentStyle={styles.quickGridCardContent}
+                    >
+                      <Pressable
+                        style={styles.quickGridRow}
+                        onPress={() => handleOpenCompartment(compartment.id)}
+                      >
+                        <View style={styles.quickGridLeft}>
+                          <ThemedText
+                            variant="bodyStrong"
+                            style={styles.quickGridTitle}
+                            numberOfLines={2}
+                          >
+                            {compartment.name}
+                          </ThemedText>
+                          <ThemedText color="secondary" style={styles.quickGridMeta}>
+                            {compartment.itemCount}{" "}
+                            {compartment.itemCount === 1 ? "item" : "items"}
+                          </ThemedText>
+                        </View>
+                        <ChevronRight size={16} color={theme.colors.textSecondary} />
+                      </Pressable>
+                    </ThemedCard>
+                  ))}
+                </View>
+              )}
+
+              <View style={styles.adContainer}>
+                <BannerAd
+                  unitId={TestIds.BANNER}
+                  size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
+                  requestOptions={{
+                    requestNonPersonalizedAdsOnly: true,
+                  }}
+                />
+              </View>
+            </>
           )}
         </ScrollView>
       </SafeAreaView>
@@ -560,325 +1106,400 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "transparent",
   },
+
   content: {
-    padding: 16,
-    paddingBottom: 140,
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 160,
+  },
+
+  whiteLabel: {
+    color: LABEL_WHITE,
+  },
+
+  whiteLabelMuted: {
+    color: LABEL_WHITE,
+    opacity: 0.82,
   },
 
   frostedCard: {
     overflow: "hidden",
-    borderRadius: 18,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
-    backgroundColor: "rgba(255,255,255,0.03)",
   },
 
   headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 14,
   },
+
   brandRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+    marginTop: -10,
+    flex: 1,
+    paddingRight: 12,
   },
+
   brandText: {
-    color: colors.text,
-    fontSize: 22,
     fontWeight: "700",
   },
+
   profileButton: {
-    padding: 4,
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.10)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
   },
+
   profileAvatar: {
     width: 36,
     height: 36,
     borderRadius: 18,
   },
 
-  menuOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.35)",
-    paddingTop: 70,
-    paddingHorizontal: 16,
-    alignItems: "flex-end",
-  },
-  menuCard: {
-    width: "88%",
-    maxWidth: 360,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
-    overflow: "hidden",
-    padding: 14,
-  },
-  menuHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+  searchCard: {
     marginBottom: 10,
   },
-  menuHeaderTitle: {
-    color: colors.text,
-    fontSize: 17,
-    fontWeight: "700",
-  },
-  menuCloseButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.06)",
-  },
-  menuRow: {
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.06)",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  menuRowLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-    paddingRight: 10,
-  },
-  menuIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.08)",
-    marginRight: 12,
-  },
-  menuTextWrap: {
-    flex: 1,
-  },
-  menuTitle: {
-    color: colors.text,
-    fontSize: 15,
-    fontWeight: "600",
-    marginBottom: 3,
-  },
-  menuSubtitle: {
-    color: colors.textSecondary,
-    fontSize: 13,
-  },
 
-  searchCard: {
-    marginBottom: 12,
-  },
   searchInputWrap: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
+
   searchInput: {
     flex: 1,
-    color: colors.text,
-    fontSize: 16,
     marginLeft: 10,
   },
 
-  searchResultsWrap: {
-    marginBottom: 20,
+  clearSearchButton: {
+    marginLeft: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
-  sectionTitle: {
-    color: colors.textSecondary,
+
+  clearSearchButtonText: {
     fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 10,
-  },
-  searchResultCard: {
-    marginBottom: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  searchTitle: {
-    color: colors.text,
     fontWeight: "700",
-    fontSize: 18,
-    marginBottom: 4,
   },
-  searchLocation: {
-    color: colors.textMuted,
-    fontSize: 14,
+
+  searchResultsWrap: {
+    marginBottom: 16,
+  },
+
+  sectionTitle: {
+    fontWeight: "600",
     marginBottom: 8,
   },
+
+  searchResultCard: {
+    marginBottom: 8,
+  },
+
+  searchTitle: {
+    marginBottom: 3,
+  },
+
+  searchLocation: {
+    marginBottom: 6,
+  },
+
   searchStatus: {
-    fontSize: 14,
     fontWeight: "700",
-  },
-  packed: {
-    color: colors.success,
-  },
-  missing: {
-    color: colors.danger,
   },
 
   selectorWrap: {
-    marginBottom: 16,
+    marginBottom: 12,
+    alignItems: "flex-start",
+    position: "relative",
+    zIndex: 50,
   },
-  selectorLabel: {
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: "600",
+
+  selectorHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 6,
   },
-  selectorPressable: {
-    borderRadius: 14,
+
+  selectorAddButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 14,
+    backgroundColor: "rgba(255,255,255,0.14)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.16)",
   },
+
+  selectorLabel: {},
+
+  selectorPressable: {
+    alignSelf: "flex-start",
+    borderRadius: 14,
+    zIndex: 60,
+  },
+
   selectorButton: {
+    alignSelf: "flex-start",
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
     overflow: "hidden",
     paddingHorizontal: 14,
-    paddingVertical: 14,
+    paddingVertical: 12,
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    gap: 10,
   },
-  selectorButtonText: {
-    color: colors.text,
-    fontSize: 15,
-    fontWeight: "600",
-    flex: 1,
-    paddingRight: 10,
-  },
+
+  selectorButtonText: {},
+
   dropdownCard: {
-    marginTop: 8,
-    borderRadius: 16,
+    position: "absolute",
+    top: 78,
+    left: 0,
+    minWidth: 280,
+    maxHeight: 260,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
     overflow: "hidden",
+    alignSelf: "flex-start",
+    zIndex: 100,
   },
+
   dropdownEmpty: {
-    color: colors.textSecondary,
-    padding: 14,
+    padding: 12,
   },
+
   dropdownRow: {
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.06)",
+    minHeight: 58,
+    justifyContent: "center",
   },
+
+  dropdownRowLast: {
+    borderBottomWidth: 0,
+  },
+
   dropdownRowLeft: {
-    flex: 1,
+    justifyContent: "center",
   },
+
   dropdownRowTitle: {
-    color: colors.text,
-    fontSize: 15,
-    fontWeight: "600",
     marginBottom: 2,
   },
-  dropdownRowMeta: {
-    color: colors.textSecondary,
-    fontSize: 13,
-  },
+
+  dropdownRowMeta: {},
 
   statsRow: {
     flexDirection: "row",
-    gap: 10,
-    marginBottom: 18,
+    gap: 8,
+    marginBottom: 14,
   },
+
   statPressable: {
     flex: 1,
-    borderRadius: 18,
+    borderRadius: 14,
+    overflow: "hidden",
   },
+
   statCard: {
-    minHeight: 138,
-    borderRadius: 18,
+    minHeight: 112,
+    borderRadius: 14,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
-    padding: 14,
-    justifyContent: "space-between",
-    backgroundColor: "rgba(255,255,255,0.03)",
+    paddingHorizontal: 10,
+    paddingVertical: 10,
   },
-  statIconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
+
+  statCardDefault: {
+    borderColor: "rgba(255,255,255,0.10)",
+    backgroundColor: "rgba(20,28,48,0.12)",
+  },
+
+  statCardSuccess: {
+    borderColor: "rgba(120,255,190,0.14)",
+    backgroundColor: "rgba(40,120,80,0.18)",
+  },
+
+  statCardDanger: {
+    borderColor: "rgba(255,140,140,0.14)",
+    backgroundColor: "rgba(140,40,50,0.18)",
+  },
+
+  statInner: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.08)",
   },
+
+  statTextWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  statTextWhite: {
+    color: LABEL_WHITE,
+  },
+
+  statIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+
+  noteIconWrap: {
+    backgroundColor: "rgba(255,255,255,0.14)",
+    borderColor: "rgba(255,255,255,0.18)",
+  },
+
+  statIconWrapDefault: {
+    backgroundColor: "rgba(255,255,255,0.07)",
+    borderColor: "rgba(255,255,255,0.05)",
+  },
+
+  statIconWrapSuccess: {
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderColor: "rgba(220,255,235,0.16)",
+  },
+
+  statIconWrapDanger: {
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderColor: "rgba(255,220,220,0.16)",
+  },
+
+  noteTitle: {
+    lineHeight: 14,
+    textAlign: "center",
+  },
+
   statValue: {
-    color: colors.text,
-    fontSize: 28,
-    fontWeight: "800",
-    marginTop: 16,
+    marginBottom: 4,
+    lineHeight: 24,
   },
+
   statLabel: {
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: "600",
-    lineHeight: 18,
-    marginTop: 6,
+    lineHeight: 14,
+    textAlign: "center",
   },
 
   sectionHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 10,
+    marginBottom: 8,
   },
+
+  sectionHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    paddingRight: 12,
+  },
+
+  compartmentAddButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+    backgroundColor: "rgba(255,255,255,0.14)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.16)",
+  },
+
+  compartmentAddButtonDisabled: {
+    opacity: 0.45,
+  },
+
   sectionHeaderTitle: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: "700",
+    flex: 1,
   },
+
   viewAllText: {
-    color: colors.textSecondary,
-    fontSize: 14,
     fontWeight: "600",
   },
 
   emptyCard: {
-    marginBottom: 20,
-    padding: 16,
-  },
-  emptyTitle: {
-    color: colors.text,
-    fontSize: 17,
-    fontWeight: "700",
-    marginBottom: 6,
-  },
-  emptyText: {
-    color: colors.textSecondary,
-    fontSize: 14,
+    marginBottom: 14,
   },
 
-  quickCard: {
-    marginBottom: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+  emptyTitle: {
+    marginBottom: 4,
   },
-  quickRow: {
-    minHeight: 62,
+
+  emptyText: {
+    lineHeight: 17,
+  },
+
+  signInButton: {
+    marginTop: 12,
+  },
+
+  signInButtonText: {
+    color: "#fff",
+    fontWeight: "700",
+  },
+
+  quickGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+
+  quickGridCard: {
+    width: "48.5%",
+    marginBottom: 8,
+  },
+
+  quickGridCardContent: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+
+  quickGridRow: {
+    minHeight: 56,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  quickLeft: {
+
+  quickGridLeft: {
     flex: 1,
-    paddingRight: 10,
+    paddingRight: 8,
   },
-  quickTitle: {
-    color: colors.text,
-    fontSize: 17,
-    fontWeight: "700",
-    marginBottom: 4,
+
+  quickGridTitle: {
+    marginBottom: 3,
+    lineHeight: 17,
   },
-  quickMeta: {
-    color: colors.textSecondary,
-    fontSize: 14,
+
+  quickGridMeta: {},
+
+  adContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 12,
+    marginBottom: 8,
+    minHeight: 60,
   },
 });

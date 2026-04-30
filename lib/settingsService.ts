@@ -1,7 +1,17 @@
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 
-const DEMO_USER_ID = "demo-user-123";
+export type AppTheme = "dark" | "light";
+export type AppFontSize = "small" | "medium" | "large";
+
+export type AppAddress = {
+  streetAddress: string;
+  apartmentSuite: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  country: string;
+};
 
 export type AppProfile = {
   username: string;
@@ -9,8 +19,20 @@ export type AppProfile = {
   lastName: string;
   email: string;
   phoneNumber: string;
-  theme: "dark" | "light";
+  theme: AppTheme;
+  fontSize: AppFontSize;
   profilePhotoUri: string;
+  backgroundPhotoUri?: string;
+  address: AppAddress;
+};
+
+const defaultAddress: AppAddress = {
+  streetAddress: "",
+  apartmentSuite: "",
+  city: "",
+  state: "",
+  zipCode: "",
+  country: "United States",
 };
 
 const defaultProfile: AppProfile = {
@@ -20,27 +42,39 @@ const defaultProfile: AppProfile = {
   email: "",
   phoneNumber: "",
   theme: "dark",
+  fontSize: "medium",
   profilePhotoUri: "",
+  backgroundPhotoUri: "",
+  address: defaultAddress,
 };
 
-function profileDoc() {
-  return doc(db, "users", DEMO_USER_ID, "settings", "profile");
+function profileDoc(userId: string) {
+  return doc(db, "users", userId, "settings", "profile");
 }
 
-export async function getProfileSettings(): Promise<AppProfile> {
-  const snapshot = await getDoc(profileDoc());
+export async function getProfileSettings(userId: string): Promise<AppProfile> {
+  const snapshot = await getDoc(profileDoc(userId));
 
   if (!snapshot.exists()) {
-    await setDoc(profileDoc(), defaultProfile);
+    await setDoc(profileDoc(userId), defaultProfile);
     return defaultProfile;
   }
 
+  const data = snapshot.data() as Partial<AppProfile>;
+
   return {
     ...defaultProfile,
-    ...(snapshot.data() as Partial<AppProfile>),
+    ...data,
+    address: {
+      ...defaultAddress,
+      ...(data.address ?? {}),
+    },
   };
 }
 
-export async function saveProfileSettings(profile: AppProfile) {
-  await setDoc(profileDoc(), profile, { merge: true });
+export async function saveProfileSettings(
+  userId: string,
+  profile: AppProfile
+) {
+  await setDoc(profileDoc(userId), profile, { merge: true });
 }

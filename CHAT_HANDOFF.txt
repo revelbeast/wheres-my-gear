@@ -1,0 +1,58 @@
+PROJECT: Where’s My Gear (React Native + Expo)
+
+CURRENT STATE (STABLE BUILD)
+- Dashboard UI aligned with frosted glass card style
+- Selected Storage Space dropdown working (shows all spaces)
+- Storage Spaces:
+  - Create
+  - Edit (with subtype dropdown + “Other” option)
+  - Delete
+  - Alphabetical sorting
+- Inventory:
+  - Aggregates all items across all storage spaces
+- Compartments:
+  - Quick View (Dashboard) → View All → Compartment list
+  - Compartment detail screen (items inside)
+  - Card styling matches dashboard (frosted cards)
+- Items:
+  - Create
+  - Edit name
+  - Quantity +/-
+  - Delete (swipe)
+
+KNOWN ISSUES / GAPS
+1. No way to create compartments yet
+2. Dashboard metrics (Packed / Missing / Count) not fully reactive
+3. Item status (Packed vs Missing) not toggleable yet
+4. Inventory filtering not implemented
+5. Notes card exists but does not navigate or open
+6. Navigation still needs polish between flows
+
+DATA MODEL (IMPORTANT – DO NOT CHANGE)
+- Storage Space
+  → Compartments
+    → Items
+
+Inventory = all items across all storage spaces
+
+DESIGN SYSTEM (DO NOT BREAK)
+- Frosted glass cards (BlurView)
+- Rounded corners (16 radius)
+- Minimal padding (tight UI)
+- Cards hug content (no tall blocks)
+- Consistent icon buttons (square, soft background)
+- Dark translucent theme
+
+NEXT PRIORITY (ORDERED)
+1. Create compartment flow (from View All screen)
+2. Fix dashboard metrics (live updates)
+3. Add item status toggle (Missing ↔ Packed)
+4. Add inventory filtering
+5. Clean navigation flow (no wrong routing)
+6. Fix Notes card navigation (open editable notes screen)
+
+IMPORTANT RULES
+- Always provide full files for updates
+- Do not partially modify components
+- Do not break existing working flows
+- Preserve styling consistency across all screens

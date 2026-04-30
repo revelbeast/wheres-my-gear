@@ -1,101 +1,61 @@
 import React from "react";
-import { StyleSheet, Text, View, Pressable } from "react-native";
-import { Archive, CheckCircle2, AlertCircle } from "lucide-react-native";
+import { StyleSheet, Text, View } from "react-native";
 import GlassCard from "../ui/GlassCard";
-import { colors } from "../../theme/tokens";
 
 type Props = {
   compartments: number;
-  packedItems: number;
-  missingItems: number;
-  onPressCompartments?: () => void;
-  onPressPackedItems?: () => void;
-  onPressMissingItems?: () => void;
+  packed: number;
+  missing: number;
 };
-
-function StatCard({
-  label,
-  value,
-  icon,
-  backgroundColor,
-  onPress,
-}: {
-  label: string;
-  value: number;
-  icon: React.ReactNode;
-  backgroundColor: string;
-  onPress?: () => void;
-}) {
-  return (
-    <Pressable onPress={onPress} style={styles.pressable}>
-      <GlassCard style={[styles.card, { backgroundColor }]}>
-        <View style={styles.iconWrap}>{icon}</View>
-        <Text style={styles.value}>{value}</Text>
-        <Text style={styles.label}>{label}</Text>
-      </GlassCard>
-    </Pressable>
-  );
-}
 
 export default function DashboardStats({
   compartments,
-  packedItems,
-  missingItems,
-  onPressCompartments,
-  onPressPackedItems,
-  onPressMissingItems,
+  packed,
+  missing,
 }: Props) {
   return (
-    <View style={styles.row}>
-      <StatCard
-        label="Compartments"
-        value={compartments}
-        icon={<Archive size={22} color={colors.text} />}
-        backgroundColor="rgba(30, 41, 59, 0.70)"
-        onPress={onPressCompartments}
-      />
-      <StatCard
-        label="Items Packed"
-        value={packedItems}
-        icon={<CheckCircle2 size={22} color={colors.text} />}
-        backgroundColor="rgba(20, 83, 45, 0.72)"
-        onPress={onPressPackedItems}
-      />
-      <StatCard
-        label="Items Missing"
-        value={missingItems}
-        icon={<AlertCircle size={22} color={colors.text} />}
-        backgroundColor="rgba(127, 29, 29, 0.75)"
-        onPress={onPressMissingItems}
-      />
+    <View style={styles.container}>
+      <GlassCard style={styles.card}>
+        <Text style={styles.value}>{compartments}</Text>
+        <Text style={styles.label}>Compartments</Text>
+      </GlassCard>
+
+      <GlassCard style={styles.card}>
+        <Text style={styles.value}>{packed}</Text>
+        <Text style={styles.label}>Items Packed</Text>
+      </GlassCard>
+
+      <GlassCard style={styles.card}>
+        <Text style={styles.value}>{missing}</Text>
+        <Text style={styles.label}>Items Missing</Text>
+      </GlassCard>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  row: {
+  container: {
     flexDirection: "row",
-    gap: 10,
-    marginBottom: 20,
+    gap: 12,
   },
-  pressable: {
-    flex: 1,
-  },
+
   card: {
     flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 90,
   },
-  iconWrap: {
-    marginBottom: 12,
-  },
+
   value: {
-    color: colors.text,
-    fontSize: 24,
-    fontWeight: "800",
-    marginBottom: 4,
+    fontSize: 26,
+    fontWeight: "700",
+    color: "#FFFFFF",
   },
+
   label: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    fontWeight: "600",
+    fontSize: 12,
+    color: "rgba(255,255,255,0.7)",
+    marginTop: 4,
+    textAlign: "center",
   },
 });

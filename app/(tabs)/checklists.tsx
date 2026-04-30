@@ -1,33 +1,223 @@
-import React, { useEffect, useState } from "react";
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  Pressable,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { BlurView } from "expo-blur";
 import { router } from "expo-router";
-import { ChevronRight, Plus } from "lucide-react-native";
+import {
+  CheckCircle2,
+  ChevronRight,
+  FilePlus2,
+  FolderCog,
+  ListChecks,
+} from "lucide-react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useAuth } from "../../components/auth/AuthProvider";
 import ScreenBackground from "../../components/ui/ScreenBackground";
-import { colors } from "../../theme/tokens";
+import {
+  ThemedCard,
+  ThemedText,
+  useThemedValues,
+} from "../../components/ui/Themed";
 import { subscribeToChecklists } from "../../lib/checklistsService";
+import type { Checklist, ChecklistCategory } from "../../types/checklists";
 
-import type { Checklist } from "../../types/checklists";
+const LABEL_WHITE = "#FFFFFF";
 
-const DEMO_USER_ID = "demo-user-123";
+function getCategoryLabel(
+  category: ChecklistCategory,
+  customCategoryLabel?: string
+) {
+  if (category === "custom") {
+    return customCategoryLabel?.trim() || "Other";
+  }
+
+  switch (category) {
+    case "trip":
+      return "Trip";
+    case "camping":
+      return "Camping";
+    case "hunting":
+      return "Hunting";
+    case "fishing":
+      return "Fishing";
+    case "clothing":
+      return "Clothing";
+    case "electronics":
+      return "Electronics";
+    case "medical":
+      return "Medical";
+    case "tools":
+      return "Tools";
+    case "food":
+      return "Food";
+    default:
+      return "Checklist";
+  }
+}
+
+function StatCard({
+  icon,
+  value,
+  label,
+  onPress,
+}: {
+  icon: React.ReactNode;
+  value: number;
+  label: string;
+  onPress?: () => void;
+}) {
+  const theme = useThemedValues();
+
+  const content = (
+    <BlurView
+      intensity={theme.isLight ? 20 : 18}
+      tint={theme.isLight ? "light" : "dark"}
+      style={[
+        styles.statCard,
+        {
+          borderColor: theme.colors.border,
+          backgroundColor: theme.colors.card,
+        },
+      ]}
+    >
+      <View
+        style={[
+          styles.statIconWrap,
+          {
+            backgroundColor: theme.colors.iconSurface,
+            borderColor: theme.colors.border,
+          },
+        ]}
+      >
+        {icon}
+      </View>
+
+      <ThemedText variant="title" style={styles.statValue}>
+        {value}
+      </ThemedText>
+
+      <ThemedText color="secondary" style={styles.statLabel}>
+        {label}
+      </ThemedText>
+    </BlurView>
+  );
+
+  if (!onPress) {
+    return <View style={styles.statCardWrap}>{content}</View>;
+  }
+
+  return (
+    <Pressable onPress={onPress} style={styles.statCardWrap}>
+      {content}
+    </Pressable>
+  );
+}
+
+function ActionCard({
+  icon,
+  title,
+  subtitle,
+  onPress,
+  highlight = false,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  onPress: () => void;
+  highlight?: boolean;
+}) {
+  const theme = useThemedValues();
+
+  const actionCardStyle = highlight
+    ? {
+        borderColor: theme.isLight
+          ? "rgba(59,130,246,0.40)"
+          : "rgba(55,130,245,0.35)",
+        backgroundColor: theme.isLight
+          ? "rgba(255,255,255,0.72)"
+          : "rgba(55,130,245,0.14)",
+      }
+    : {
+        borderColor: theme.colors.border,
+        backgroundColor: theme.colors.card,
+      };
+
+  return (
+    <Pressable onPress={onPress} style={styles.actionPressable}>
+      <BlurView
+        intensity={theme.isLight ? 22 : 24}
+        tint={theme.isLight ? "light" : "dark"}
+        style={[styles.actionCard, actionCardStyle]}
+      >
+        <View style={styles.actionLeft}>
+          <View
+            style={[
+              styles.actionIconWrap,
+              {
+                backgroundColor: theme.isLight
+                  ? "rgba(15,23,42,0.08)"
+                  : theme.colors.iconSurface,
+                borderColor: theme.colors.border,
+              },
+            ]}
+          >
+            {icon}
+          </View>
+
+          <View style={styles.actionTextWrap}>
+            <ThemedText variant="title" style={styles.actionTitle}>
+              {title}
+            </ThemedText>
+            <ThemedText color="secondary" style={styles.actionSubtitle}>
+              {subtitle}
+            </ThemedText>
+          </View>
+        </View>
+
+        <ChevronRight size={20} color={theme.colors.textSecondary} />
+      </BlurView>
+    </Pressable>
+  );
+}
 
 export default function ChecklistsTabScreen() {
+  const { user, initializing } = useAuth();
+  const theme = useThemedValues();
+
   const [checklists, setChecklists] = useState<Checklist[]>([]);
 
   useEffect(() => {
-    const unsubscribe = subscribeToChecklists(DEMO_USER_ID, (items) => {
+    if (initializing) {
+      return;
+    }
+
+    if (!user) {
+      setChecklists([]);
+      return;
+    }
+
+    const unsubscribe = subscribeToChecklists(user.uid, (items) => {
       setChecklists(items.filter((item) => !item.isArchived));
     });
 
     return unsubscribe;
-  }, []);
+  }, [initializing, user]);
+
+  const activeChecklistCount = useMemo(() => checklists.length, [checklists]);
+
+  const packedCount = useMemo(() => {
+    return checklists.reduce(
+      (sum, checklist) => sum + (checklist.packedCount ?? 0),
+      0
+    );
+  }, [checklists]);
+
+  const toPackCount = useMemo(() => {
+    return checklists.reduce(
+      (sum, checklist) => sum + (checklist.missingCount ?? 0),
+      0
+    );
+  }, [checklists]);
 
   function handleOpenChecklist(checklistId: string) {
     router.push({
@@ -36,8 +226,26 @@ export default function ChecklistsTabScreen() {
     });
   }
 
-  function handleCreateChecklist() {
-    router.push("/checklists/create");
+  function handleCreateBlankChecklist() {
+    router.push("/checklists/new");
+  }
+
+  function handleManageTemplates() {
+    router.push("/checklists/templates");
+  }
+
+  function handleOpenPackedItems() {
+    router.push({
+      pathname: "/checklists/items",
+      params: { status: "packed" },
+    });
+  }
+
+  function handleOpenToPackItems() {
+    router.push({
+      pathname: "/checklists/items",
+      params: { status: "to_pack" },
+    });
   }
 
   return (
@@ -47,44 +255,154 @@ export default function ChecklistsTabScreen() {
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.headerRow}>
-            <Text style={styles.headerTitle}>Checklists</Text>
-
-            <Pressable style={styles.addButton} onPress={handleCreateChecklist}>
-              <Plus size={16} color="#fff" />
-              <Text style={styles.addButtonText}>New</Text>
-            </Pressable>
+          <View style={styles.headerWrap}>
+            <ThemedText
+              variant="header"
+              style={[styles.headerTitle, styles.whiteLabel]}
+            >
+              Checklists
+            </ThemedText>
           </View>
 
-          {checklists.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <Text style={styles.emptyTitle}>No checklists yet</Text>
-              <Text style={styles.emptyText}>
-                Create your first checklist to start tracking gear.
-              </Text>
-            </View>
+          <View style={styles.heroSection}>
+            <ThemedText style={[styles.eyebrow, styles.whiteLabelMuted]}>
+              Packing System
+            </ThemedText>
+
+            <ThemedText
+              variant="header"
+              style={[styles.heroTitle, styles.whiteLabel]}
+            >
+              Build and manage your checklists
+            </ThemedText>
+
+            <ThemedText style={[styles.heroSubtitle, styles.whiteLabelMuted]}>
+              Start from a blank checklist or a template, track progress, and keep your gear organized.
+            </ThemedText>
+          </View>
+
+          <View style={styles.statsRow}>
+            <StatCard
+              icon={<ListChecks size={18} color={theme.colors.text} />}
+              value={activeChecklistCount}
+              label="Active"
+            />
+
+            <StatCard
+              icon={<CheckCircle2 size={18} color={theme.colors.text} />}
+              value={packedCount}
+              label="Packed"
+              onPress={handleOpenPackedItems}
+            />
+
+            <StatCard
+              icon={<ListChecks size={18} color={theme.colors.text} />}
+              value={toPackCount}
+              label="To Pack"
+              onPress={handleOpenToPackItems}
+            />
+          </View>
+
+          <View style={styles.sectionWrap}>
+            <ThemedText style={[styles.sectionEyebrow, styles.whiteLabelMuted]}>
+              Create
+            </ThemedText>
+
+            <ThemedText
+              variant="title"
+              style={[styles.sectionTitle, styles.whiteLabel]}
+            >
+              Start a Checklist
+            </ThemedText>
+
+            <ThemedText style={[styles.sectionSubtitle, styles.whiteLabelMuted]}>
+              Create a blank checklist or start from one of your saved templates.
+            </ThemedText>
+          </View>
+
+          <ActionCard
+            icon={<FilePlus2 size={22} color={theme.colors.text} />}
+            title="New Blank Checklist"
+            subtitle="Start from scratch and add your own items"
+            onPress={handleCreateBlankChecklist}
+            highlight
+          />
+
+          <ActionCard
+            icon={<FolderCog size={22} color={theme.colors.text} />}
+            title="Manage Templates"
+            subtitle="Rename and delete your saved checklist templates"
+            onPress={handleManageTemplates}
+          />
+
+          <View style={styles.sectionWrap}>
+            <ThemedText style={[styles.sectionEyebrow, styles.whiteLabelMuted]}>
+              Your Checklists
+            </ThemedText>
+
+            <ThemedText
+              variant="title"
+              style={[styles.sectionTitle, styles.whiteLabel]}
+            >
+              Active Checklists ({activeChecklistCount})
+            </ThemedText>
+          </View>
+
+          {initializing ? (
+            <ThemedCard>
+              <ThemedText variant="title" style={styles.emptyTitle}>
+                Loading checklists...
+              </ThemedText>
+            </ThemedCard>
+          ) : !user ? (
+            <ThemedCard>
+              <ThemedText variant="title" style={styles.emptyTitle}>
+                Sign in required
+              </ThemedText>
+              <ThemedText color="secondary" style={styles.emptyText}>
+                Please sign in to view your checklists.
+              </ThemedText>
+            </ThemedCard>
+          ) : checklists.length === 0 ? (
+            <ThemedCard>
+              <ThemedText variant="title" style={styles.emptyTitle}>
+                No checklists yet
+              </ThemedText>
+              <ThemedText color="secondary" style={styles.emptyText}>
+                Create your first checklist to start organizing and tracking your gear.
+              </ThemedText>
+            </ThemedCard>
           ) : (
             checklists.map((checklist) => (
-              <View key={checklist.id} style={styles.card}>
+              <ThemedCard key={checklist.id}>
                 <Pressable
                   style={styles.row}
                   onPress={() => handleOpenChecklist(checklist.id)}
                 >
                   <View style={styles.left}>
-                    <Text style={styles.title}>{checklist.name}</Text>
+                    <ThemedText variant="title" style={styles.title}>
+                      {checklist.name}
+                    </ThemedText>
 
-                    <Text style={styles.meta}>
+                    <ThemedText variant="small" style={styles.categoryText}>
+                      {getCategoryLabel(
+                        checklist.category,
+                        checklist.customCategoryLabel
+                      )}
+                    </ThemedText>
+
+                    <ThemedText color="secondary" style={styles.meta}>
                       {checklist.packedCount} / {checklist.totalCount} packed
-                    </Text>
+                    </ThemedText>
 
-                    <Text style={styles.subMeta}>
-                      {checklist.missingCount} missing
-                    </Text>
+                    <ThemedText color="muted" style={styles.subMeta}>
+                      {checklist.missingCount} to pack
+                    </ThemedText>
                   </View>
 
-                  <ChevronRight size={18} color={colors.textSecondary} />
+                  <ChevronRight size={18} color={theme.colors.textSecondary} />
                 </Pressable>
-              </View>
+              </ThemedCard>
             ))
           )}
         </ScrollView>
@@ -94,68 +412,157 @@ export default function ChecklistsTabScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
+  safe: {
+    flex: 1,
+  },
+
   content: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 12,
     paddingBottom: 120,
   },
 
-  headerRow: {
+  whiteLabel: {
+    color: LABEL_WHITE,
+  },
+
+  whiteLabelMuted: {
+    color: LABEL_WHITE,
+    opacity: 0.82,
+  },
+
+  headerWrap: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 18,
+  },
+
+  headerTitle: {},
+
+  heroSection: {
     marginBottom: 16,
   },
 
-  headerTitle: {
-    color: colors.text,
-    fontSize: 22,
+  eyebrow: {
     fontWeight: "700",
-  },
-
-  addButton: {
-    backgroundColor: "rgba(55,130,245,0.95)",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-
-  addButtonText: {
-    color: "#fff",
-    fontWeight: "700",
-  },
-
-  emptyCard: {
-    padding: 16,
-    borderRadius: 18,
-    backgroundColor: "rgba(12,24,50,0.9)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
-  },
-
-  emptyTitle: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
     marginBottom: 6,
   },
 
-  emptyText: {
-    color: colors.textSecondary,
-    fontSize: 14,
+  heroTitle: {
+    lineHeight: 30,
+    marginBottom: 8,
   },
 
-  card: {
-    marginBottom: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+  heroSubtitle: {
+    lineHeight: 20,
+  },
+
+  statsRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 20,
+  },
+
+  statCardWrap: {
+    flex: 1,
     borderRadius: 18,
-    backgroundColor: "rgba(12,24,50,0.9)",
+    overflow: "hidden",
+  },
+
+  statCard: {
+    minHeight: 106,
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    justifyContent: "center",
+  },
+
+  statIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    marginBottom: 10,
+  },
+
+  statValue: {
+    marginBottom: 2,
+  },
+
+  statLabel: {
+    fontWeight: "600",
+  },
+
+  sectionWrap: {
+    marginBottom: 12,
+  },
+
+  sectionEyebrow: {
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    marginBottom: 6,
+  },
+
+  sectionTitle: {
+    lineHeight: 24,
+    marginBottom: 4,
+  },
+
+  sectionSubtitle: {
+    lineHeight: 20,
+  },
+
+  actionPressable: {
+    borderRadius: 20,
+    overflow: "hidden",
+    marginBottom: 14,
+  },
+
+  actionCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+
+  actionLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    paddingRight: 10,
+  },
+
+  actionIconWrap: {
+    width: 58,
+    height: 58,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    marginRight: 14,
+  },
+
+  actionTextWrap: {
+    flex: 1,
+  },
+
+  actionTitle: {
+    marginBottom: 4,
+    lineHeight: 22,
+  },
+
+  actionSubtitle: {
+    lineHeight: 20,
   },
 
   row: {
@@ -171,20 +578,27 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    color: colors.text,
-    fontSize: 17,
-    fontWeight: "700",
     marginBottom: 4,
+    lineHeight: 22,
+  },
+
+  categoryText: {
+    fontWeight: "600",
+    marginBottom: 4,
+    opacity: 0.9,
   },
 
   meta: {
-    color: colors.textSecondary,
-    fontSize: 14,
     marginBottom: 2,
   },
 
-  subMeta: {
-    color: colors.textMuted,
-    fontSize: 13,
+  subMeta: {},
+
+  emptyTitle: {
+    marginBottom: 6,
+  },
+
+  emptyText: {
+    lineHeight: 20,
   },
 });

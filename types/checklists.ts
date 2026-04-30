@@ -1,9 +1,13 @@
 export type ChecklistCategory =
   | "trip"
-  | "water"
-  | "electronics"
+  | "camping"
+  | "hunting"
+  | "fishing"
   | "clothing"
-  | "weapons"
+  | "electronics"
+  | "medical"
+  | "tools"
+  | "food"
   | "custom";
 
 export type ChecklistStatus = "active" | "completed" | "archived";
@@ -13,6 +17,7 @@ export type ChecklistTemplate = {
   name: string;
   category: ChecklistCategory;
   description?: string;
+  customCategoryLabel?: string;
   isDefault: boolean;
   itemCount: number;
   createdAt?: any;
@@ -25,6 +30,7 @@ export type ChecklistTemplateItem = {
   notes?: string;
   quantity: number;
   sortOrder: number;
+  itemPhotoUri?: string;
   createdAt?: any;
 };
 
@@ -33,6 +39,7 @@ export type Checklist = {
   name: string;
   templateId?: string | null;
   category: ChecklistCategory;
+  customCategoryLabel?: string;
   status: ChecklistStatus;
   packedCount: number;
   totalCount: number;
@@ -53,6 +60,7 @@ export type ChecklistItem = {
   packedAt?: any | null;
   sortOrder: number;
   sourceTemplateItemId?: string | null;
+  itemPhotoUri?: string;
   createdAt?: any;
   updatedAt?: any;
 };

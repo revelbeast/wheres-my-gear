@@ -1,16 +1,33 @@
+import { BlurView } from "expo-blur";
+import { KeyRound, Lock } from "lucide-react-native";
 import React from "react";
 import {
+  Pressable,
   StyleSheet,
   Text,
   View,
-  Pressable,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Lock, KeyRound } from "lucide-react-native";
 
-import ScreenBackground from "../components/ui/ScreenBackground";
 import AppHeader from "../components/ui/AppHeader";
+import ScreenBackground from "../components/ui/ScreenBackground";
 import { colors } from "../theme/tokens";
+
+function FrostedCard({
+  children,
+  style,
+}: {
+  children: React.ReactNode;
+  style?: any;
+}) {
+  return (
+    <View style={[styles.cardShell, style]}>
+      <BlurView intensity={35} tint="dark" style={styles.cardBlur}>
+        {children}
+      </BlurView>
+    </View>
+  );
+}
 
 export default function PasswordManagementScreen() {
   return (
@@ -19,7 +36,7 @@ export default function PasswordManagementScreen() {
         <View style={styles.container}>
           <AppHeader title="Password Management" showBackButton />
 
-          <View style={styles.card}>
+          <FrostedCard style={styles.card}>
             <View style={styles.row}>
               <Lock size={18} color={colors.text} />
               <Text style={styles.title}>Password Settings</Text>
@@ -38,7 +55,7 @@ export default function PasswordManagementScreen() {
               To make this fully functional, we need to connect it to your actual
               authentication flow.
             </Text>
-          </View>
+          </FrostedCard>
         </View>
       </SafeAreaView>
     </ScreenBackground>
@@ -49,34 +66,48 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
   },
+
   container: {
     flex: 1,
     padding: 16,
   },
-  card: {
-    padding: 16,
+
+  cardShell: {
+    overflow: "hidden",
     borderRadius: 18,
-    backgroundColor: "rgba(12,24,50,0.9)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: "rgba(255,255,255,0.10)",
+    backgroundColor: "rgba(255,255,255,0.02)",
   },
+
+  cardBlur: {
+    padding: 16,
+  },
+
+  card: {
+    marginTop: 10,
+  },
+
   row: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
     marginBottom: 10,
   },
+
   title: {
     color: colors.text,
     fontSize: 18,
     fontWeight: "700",
   },
+
   text: {
     color: colors.textSecondary,
     fontSize: 14,
     lineHeight: 20,
     marginBottom: 16,
   },
+
   actionButton: {
     height: 46,
     borderRadius: 14,
@@ -87,11 +118,13 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 12,
   },
+
   actionButtonText: {
     color: "#fff",
     fontSize: 15,
     fontWeight: "700",
   },
+
   note: {
     color: colors.textMuted,
     fontSize: 13,
