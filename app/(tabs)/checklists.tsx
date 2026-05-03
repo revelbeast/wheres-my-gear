@@ -6,6 +6,7 @@ import {
   FilePlus2,
   FolderCog,
   ListChecks,
+  SquarePen,
 } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
@@ -298,6 +299,10 @@ export default function ChecklistsTabScreen() {
     router.push("/checklists/new");
   }
 
+  function handleCreateTemplate() {
+    router.push("/checklists/create-template");
+  }
+
   function handleManageTemplates() {
     router.push("/checklists/templates");
   }
@@ -389,20 +394,29 @@ export default function ChecklistsTabScreen() {
             </ThemedText>
           </View>
 
-          <ActionCard
-            icon={<FilePlus2 size={22} color={theme.colors.text} />}
-            title="New Blank Checklist"
-            subtitle="Start from scratch and add your own items"
-            onPress={handleCreateBlankChecklist}
-            highlight
-          />
+          <View style={styles.createGroup}>
+            <ActionCard
+              icon={<FilePlus2 size={22} color={theme.colors.text} />}
+              title="New Blank Checklist"
+              subtitle="Start from scratch and add your own items"
+              onPress={handleCreateBlankChecklist}
+              highlight
+            />
 
-          <ActionCard
-            icon={<FolderCog size={22} color={theme.colors.text} />}
-            title="Manage Templates"
-            subtitle="Rename and delete your saved checklist templates"
-            onPress={handleManageTemplates}
-          />
+            <ActionCard
+              icon={<SquarePen size={22} color={theme.colors.text} />}
+              title="Create Template"
+              subtitle="Build reusable checklist templates"
+              onPress={handleCreateTemplate}
+            />
+
+            <ActionCard
+              icon={<FolderCog size={22} color={theme.colors.text} />}
+              title="Manage Templates"
+              subtitle="Rename and delete your saved checklist templates"
+              onPress={handleManageTemplates}
+            />
+          </View>
 
           <View style={styles.sectionWrap}>
             <ThemedText style={[styles.sectionEyebrow, styles.whiteLabelMuted]}>
@@ -582,6 +596,10 @@ const styles = StyleSheet.create({
 
   sectionSubtitle: {
     lineHeight: 20,
+  },
+
+  createGroup: {
+    marginBottom: 16,
   },
 
   actionPressable: {

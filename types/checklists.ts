@@ -3,6 +3,7 @@ export type ChecklistCategory =
   | "camping"
   | "hunting"
   | "fishing"
+  | "boating"
   | "clothing"
   | "electronics"
   | "medical"

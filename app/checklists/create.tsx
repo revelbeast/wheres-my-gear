@@ -2,6 +2,7 @@ import { BlurView } from "expo-blur";
 import { router } from "expo-router";
 import {
   Backpack,
+  Check,
   ChevronRight,
   Cross,
   Fish,
@@ -33,7 +34,7 @@ import ScreenBackground from "../../components/ui/ScreenBackground";
 import { useThemedValues } from "../../components/ui/Themed";
 import {
   createChecklist,
-  createChecklistFromTemplate,
+  createChecklistFromSelectedTemplateItems,
   deleteChecklistTemplate,
   getChecklistTemplateItems,
   getChecklistTemplates,
@@ -121,6 +122,9 @@ export default function CreateChecklistScreen() {
   const [previewTemplate, setPreviewTemplate] = useState<any | null>(null);
   const [manageTemplate, setManageTemplate] = useState<any | null>(null);
   const [templateItems, setTemplateItems] = useState<any[]>([]);
+  const [selectedTemplateItemIds, setSelectedTemplateItemIds] = useState<
+    string[]
+  >([]);
   const [loadingPreviewItems, setLoadingPreviewItems] = useState(false);
   const [renameModalVisible, setRenameModalVisible] = useState(false);
   const [renameValue, setRenameValue] = useState("");
@@ -151,6 +155,17 @@ export default function CreateChecklistScreen() {
     });
   }, [templateItems]);
 
+  const selectedTemplateItems = useMemo(() => {
+    const selectedIdSet = new Set(selectedTemplateItemIds);
+
+    return sortedTemplateItems.filter((item, index) => {
+      const itemId = getTemplateItemSelectionId(item, index);
+      return selectedIdSet.has(itemId);
+    });
+  }, [selectedTemplateItemIds, sortedTemplateItems]);
+
+  const selectedTemplateItemCount = selectedTemplateItems.length;
+
   useEffect(() => {
     if (initializing) {
       return;
@@ -176,6 +191,10 @@ export default function CreateChecklistScreen() {
     }
   }
 
+  function getTemplateItemSelectionId(item: any, index: number) {
+    return String(item.id ?? `${item.name ?? "template-item"}-${index}`);
+  }
+
   async function openPreview(template: any) {
     if (!user) {
       Alert.alert("Sign in required", "Please sign in to view templates.");
@@ -185,16 +204,40 @@ export default function CreateChecklistScreen() {
     try {
       setPreviewTemplate(template);
       setTemplateItems([]);
+      setSelectedTemplateItemIds([]);
       setLoadingPreviewItems(true);
 
       const items = await getChecklistTemplateItems(user.uid, template.id);
       setTemplateItems(items);
+
+      const sortedItems = [...items].sort((a, b) => {
+        const aName = String(a.name ?? "").toLowerCase();
+        const bName = String(b.name ?? "").toLowerCase();
+
+        return aName.localeCompare(bName);
+      });
+
+      setSelectedTemplateItemIds(
+        sortedItems.map((item, index) => getTemplateItemSelectionId(item, index))
+      );
     } catch (error) {
       console.error("Failed to load template preview:", error);
       Alert.alert("Error", "Failed to load template preview.");
     } finally {
       setLoadingPreviewItems(false);
     }
+  }
+
+  function toggleTemplateItem(item: any, index: number) {
+    const itemId = getTemplateItemSelectionId(item, index);
+
+    setSelectedTemplateItemIds((current) => {
+      if (current.includes(itemId)) {
+        return current.filter((id) => id !== itemId);
+      }
+
+      return [...current, itemId];
+    });
   }
 
   function openTemplateActions(template: any) {
@@ -220,6 +263,7 @@ export default function CreateChecklistScreen() {
             if (previewTemplate?.id === template.id) {
               setPreviewTemplate(null);
               setTemplateItems([]);
+              setSelectedTemplateItemIds([]);
             }
           } catch (error) {
             console.error("Failed to delete template:", error);
@@ -268,15 +312,25 @@ export default function CreateChecklistScreen() {
   async function handleCreateChecklist() {
     if (!previewTemplate || !user) return;
 
+    if (selectedTemplateItemCount === 0) {
+      Alert.alert(
+        "No items selected",
+        "Please select at least one item before creating a checklist."
+      );
+      return;
+    }
+
     try {
       setCreatingChecklist(true);
-      const checklistId = await createChecklistFromTemplate(
+      const checklistId = await createChecklistFromSelectedTemplateItems(
         user.uid,
-        previewTemplate
+        previewTemplate,
+        selectedTemplateItems
       );
 
       setPreviewTemplate(null);
       setTemplateItems([]);
+      setSelectedTemplateItemIds([]);
       router.replace(`/checklists/${checklistId}`);
     } catch (error) {
       console.error("Failed to create checklist:", error);
@@ -333,6 +387,7 @@ export default function CreateChecklistScreen() {
   function closePreview() {
     setPreviewTemplate(null);
     setTemplateItems([]);
+    setSelectedTemplateItemIds([]);
     setLoadingPreviewItems(false);
   }
 
@@ -605,8 +660,8 @@ export default function CreateChecklistScreen() {
                       { color: theme.colors.textSecondary },
                     ]}
                   >
-                    Review the template items below, then create a checklist when
-                    ready.
+                    Select the items you want to include, then create your
+                    checklist.
                   </Text>
                 </FrostedCard>
 
@@ -633,25 +688,61 @@ export default function CreateChecklistScreen() {
                     </Text>
                   </FrostedCard>
                 ) : (
-                  sortedTemplateItems.map((item, index) => (
-                    <FrostedCard key={`${item.id ?? item.name}-${index}`}>
-                      <Text style={[styles.itemText, { color: theme.colors.text }]}>
-                        {item.name}
-                      </Text>
-                    </FrostedCard>
-                  ))
+                  sortedTemplateItems.map((item, index) => {
+                    const itemId = getTemplateItemSelectionId(item, index);
+                    const selected = selectedTemplateItemIds.includes(itemId);
+
+                    return (
+                      <FrostedCard key={itemId}>
+                        <Pressable
+                          style={styles.templateItemRow}
+                          onPress={() => toggleTemplateItem(item, index)}
+                        >
+                          <View
+                            style={[
+                              styles.checkbox,
+                              {
+                                borderColor: selected
+                                  ? "rgba(55,130,245,0.95)"
+                                  : theme.colors.border,
+                                backgroundColor: selected
+                                  ? "rgba(55,130,245,0.95)"
+                                  : theme.colors.iconSurface,
+                              },
+                            ]}
+                          >
+                            {selected ? <Check size={16} color="#fff" /> : null}
+                          </View>
+
+                          <Text
+                            style={[
+                              styles.itemText,
+                              { color: theme.colors.text },
+                            ]}
+                          >
+                            {item.name}
+                          </Text>
+                        </Pressable>
+                      </FrostedCard>
+                    );
+                  })
                 )}
 
                 <Pressable
                   style={[
                     styles.primaryButton,
-                    creatingChecklist && styles.primaryButtonDisabled,
+                    (creatingChecklist || selectedTemplateItemCount === 0) &&
+                      styles.primaryButtonDisabled,
                   ]}
                   onPress={handleCreateChecklist}
-                  disabled={creatingChecklist}
+                  disabled={creatingChecklist || selectedTemplateItemCount === 0}
                 >
                   <Text style={styles.primaryButtonText}>
-                    {creatingChecklist ? "Creating..." : "Create Checklist"}
+                    {creatingChecklist
+                      ? "Creating..."
+                      : `Create Checklist (${selectedTemplateItemCount} ${
+                          selectedTemplateItemCount === 1 ? "item" : "items"
+                        })`}
                   </Text>
                 </Pressable>
 
@@ -823,7 +914,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
 
+  templateItemRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  checkbox: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+
   itemText: {
+    flex: 1,
     fontSize: 15,
     fontWeight: "600",
   },

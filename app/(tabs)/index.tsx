@@ -2,6 +2,7 @@ import { BlurView } from "expo-blur";
 import { collection, getDocs } from "firebase/firestore";
 import { router, useFocusEffect } from "expo-router";
 import {
+  CalendarDays,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
@@ -83,6 +84,12 @@ type QuickCompartment = {
   id: string;
   name: string;
   itemCount: number;
+};
+
+type UpcomingTrip = {
+  id: string;
+  name: string;
+  date: Date;
 };
 
 type StatTone = "default" | "success" | "danger";
@@ -247,6 +254,67 @@ function searchIncludes(query: string, values: Array<string | undefined | null>)
   );
 }
 
+function parseTripDate(value: unknown): Date | null {
+  if (!value) {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  if (typeof value === "number") {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  if (typeof value === "string") {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    "toDate" in value &&
+    typeof (value as { toDate?: unknown }).toDate === "function"
+  ) {
+    const parsed = (value as { toDate: () => Date }).toDate();
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  return null;
+}
+
+function getStartOfDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function getTripCountdownText(date: Date) {
+  const today = getStartOfDay(new Date());
+  const tripDay = getStartOfDay(date);
+  const diffMs = tripDay.getTime() - today.getTime();
+  const diffDays = Math.round(diffMs / 86400000);
+
+  if (diffDays === 0) {
+    return "Today";
+  }
+
+  if (diffDays === 1) {
+    return "Tomorrow";
+  }
+
+  return `In ${diffDays} days`;
+}
+
+function formatTripDate(date: Date) {
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 export default function DashboardScreen() {
   const { user, initializing } = useAuth();
   const theme = useThemedValues();
@@ -270,9 +338,12 @@ export default function DashboardScreen() {
   const [quickCompartments, setQuickCompartments] = useState<QuickCompartment[]>(
     []
   );
+  const [upcomingTrips, setUpcomingTrips] = useState<UpcomingTrip[]>([]);
 
   const [profilePhotoUri, setProfilePhotoUri] = useState("");
   const [profilePhotoFailed, setProfilePhotoFailed] = useState(false);
+
+  const nextUpcomingTrip = upcomingTrips[0] ?? null;
 
   const selectedStorage = useMemo(
     () => storageSpaces.find((space) => space.id === selectedStorageId) ?? null,
@@ -501,6 +572,7 @@ export default function DashboardScreen() {
       setAllChecklists([]);
       setSelectedCompartments([]);
       setQuickCompartments([]);
+      setUpcomingTrips([]);
       setProfilePhotoUri("");
       setProfilePhotoFailed(false);
     }
@@ -533,6 +605,7 @@ export default function DashboardScreen() {
       setAllChecklists([]);
       setSelectedCompartments([]);
       setQuickCompartments([]);
+      setUpcomingTrips([]);
       return;
     }
 
@@ -568,6 +641,48 @@ export default function DashboardScreen() {
       })) as Checklist[];
       setAllChecklists(checklists);
 
+      const tripsSnapshot = await getDocs(
+        collection(db, "users", user.uid, "trips")
+      );
+      const today = getStartOfDay(new Date());
+
+      const trips = tripsSnapshot.docs
+        .map((docSnap) => {
+          const data = docSnap.data();
+          const tripDate =
+            parseTripDate(data.startDate) ??
+            parseTripDate(data.tripDate) ??
+            parseTripDate(data.date) ??
+            parseTripDate(data.departureDate);
+
+          if (!tripDate) {
+            return null;
+          }
+
+          const tripName =
+            typeof data.name === "string" && data.name.trim().length > 0
+              ? data.name.trim()
+              : typeof data.title === "string" && data.title.trim().length > 0
+                ? data.title.trim()
+                : "Upcoming Trip";
+
+          return {
+            id: docSnap.id,
+            name: tripName,
+            date: tripDate,
+          };
+        })
+        .filter((trip): trip is UpcomingTrip => {
+          if (!trip) {
+            return false;
+          }
+
+          return getStartOfDay(trip.date).getTime() >= today.getTime();
+        })
+        .sort((a, b) => a.date.getTime() - b.date.getTime());
+
+      setUpcomingTrips(trips);
+
       if (!chosenId) {
         setSelectedCompartments([]);
         setQuickCompartments([]);
@@ -600,6 +715,7 @@ export default function DashboardScreen() {
       setAllChecklists([]);
       setSelectedCompartments([]);
       setQuickCompartments([]);
+      setUpcomingTrips([]);
     }
   }
 
@@ -741,6 +857,18 @@ export default function DashboardScreen() {
 
   function handleAddStorageSpace() {
     router.push("/storage/create");
+  }
+
+  function handleOpenTrips() {
+    router.push("/trips");
+  }
+
+  function handleOpenTrip(tripId: string) {
+    router.push(`/trips/${tripId}`);
+  }
+
+  function handleAddTrip() {
+    router.push("/trips/create");
   }
 
   function handleOpenProfile() {
@@ -1157,6 +1285,80 @@ export default function DashboardScreen() {
                       ))}
                     </View>
                   )}
+
+                  <View style={styles.upcomingTripsSection}>
+                    <View style={styles.upcomingTripsHeaderRow}>
+                      <View style={styles.sectionHeaderLeft}>
+                        <Pressable
+                          style={styles.upcomingTripsAddButton}
+                          onPress={handleAddTrip}
+                        >
+                          <Plus size={18} color={LABEL_WHITE} />
+                        </Pressable>
+
+                        <ThemedText
+                          variant="title"
+                          style={[styles.sectionHeaderTitle, styles.whiteLabel]}
+                        >
+                          Upcoming Trips
+                        </ThemedText>
+                      </View>
+
+                      <Pressable onPress={handleOpenTrips}>
+                        <ThemedText style={[styles.viewAllText, styles.whiteLabelMuted]}>
+                          View All
+                        </ThemedText>
+                      </Pressable>
+                    </View>
+
+                    {!nextUpcomingTrip ? (
+                      <FrostedCard style={styles.upcomingTripEmptyCard}>
+                        <ThemedText
+                          variant="bodyStrong"
+                          style={styles.upcomingTripTitle}
+                        >
+                          No upcoming trips
+                        </ThemedText>
+                        <ThemedText
+                          color="secondary"
+                          style={styles.upcomingTripEmptyText}
+                        >
+                          Create a trip later to see countdowns and packing reminders
+                          here.
+                        </ThemedText>
+                      </FrostedCard>
+                    ) : (
+                      <Pressable
+                        onPress={() => handleOpenTrip(nextUpcomingTrip.id)}
+                      >
+                        <FrostedCard style={styles.upcomingTripCard}>
+                          <View style={styles.upcomingTripRow}>
+                            <View style={styles.upcomingTripLeft}>
+                              <ThemedText
+                                variant="bodyStrong"
+                                style={styles.upcomingTripTitle}
+                                numberOfLines={1}
+                              >
+                                {nextUpcomingTrip.name}
+                              </ThemedText>
+                              <ThemedText
+                                color="secondary"
+                                style={styles.upcomingTripDate}
+                              >
+                                {formatTripDate(nextUpcomingTrip.date)}
+                              </ThemedText>
+                            </View>
+
+                            <View style={styles.upcomingTripCountdownPill}>
+                              <ThemedText style={styles.upcomingTripCountdownText}>
+                                {getTripCountdownText(nextUpcomingTrip.date)}
+                              </ThemedText>
+                            </View>
+                          </View>
+                        </FrostedCard>
+                      </Pressable>
+                    )}
+                  </View>
                 </>
               )}
             </>
@@ -1486,6 +1688,77 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
+  upcomingTripsSection: {
+    marginBottom: 14,
+  },
+
+  upcomingTripsHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+
+  upcomingTripsAddButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+    backgroundColor: "rgba(255,255,255,0.14)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.16)",
+  },
+
+  upcomingTripCard: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+
+  upcomingTripEmptyCard: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+
+  upcomingTripRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+
+  upcomingTripLeft: {
+    flex: 1,
+  },
+
+  upcomingTripTitle: {
+    marginBottom: 3,
+  },
+
+  upcomingTripDate: {
+    lineHeight: 18,
+  },
+
+  upcomingTripEmptyText: {
+    lineHeight: 19,
+  },
+
+  upcomingTripCountdownPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.14)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.16)",
+  },
+
+  upcomingTripCountdownText: {
+    color: LABEL_WHITE,
+    fontWeight: "700",
+    fontSize: 12,
+  },
+
   sectionHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -1598,7 +1871,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
-    marginBottom: 8,
+    marginBottom: 14,
   },
 
   quickGridCard: {

@@ -157,6 +157,76 @@ export async function getChecklistTemplateItems(
   })) as ChecklistTemplateItem[];
 }
 
+export async function createChecklistTemplateWithItems(
+  userId: string,
+  data: {
+    name: string;
+    category: ChecklistCategory;
+    customCategoryLabel?: string | null;
+    items: {
+      name: string;
+      notes?: string;
+      quantity?: number;
+    }[];
+  }
+) {
+  const trimmedName = data.name.trim();
+
+  if (!trimmedName) {
+    throw new Error("Template name is required.");
+  }
+
+  const trimmedCustomCategoryLabel = data.customCategoryLabel?.trim() ?? "";
+
+  if (data.category === "custom" && !trimmedCustomCategoryLabel) {
+    throw new Error("Custom category is required.");
+  }
+
+  const safeItems = data.items
+    .map((item) => ({
+      name: String(item.name ?? "").trim(),
+      notes: item.notes ?? "",
+      quantity: Math.max(1, Number(item.quantity ?? 1) || 1),
+    }))
+    .filter((item) => item.name.length > 0);
+
+  if (safeItems.length === 0) {
+    throw new Error("At least one template item is required.");
+  }
+
+  const templateRef = await addDoc(templatesCol(userId), {
+    name: trimmedName,
+    category: data.category,
+    customCategoryLabel:
+      data.category === "custom" ? trimmedCustomCategoryLabel : "",
+    description: "",
+    isDefault: false,
+    itemCount: safeItems.length,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
+  const batch = writeBatch(db);
+
+  safeItems.forEach((item, index) => {
+    const itemRef = doc(templateItemsCol(userId, templateRef.id));
+
+    batch.set(itemRef, {
+      name: item.name,
+      notes: item.notes,
+      quantity: item.quantity,
+      sortOrder: index + 1,
+      itemPhotoUri: "",
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  });
+
+  await batch.commit();
+
+  return templateRef.id;
+}
+
 export async function getChecklist(
   userId: string,
   checklistId: string
@@ -242,6 +312,64 @@ export async function createChecklistFromTemplate(
       packedAt: null,
       sortOrder: item.sortOrder ?? 0,
       sourceTemplateItemId: item.id,
+      itemPhotoUri: item.itemPhotoUri ?? "",
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  });
+
+  await batch.commit();
+
+  return checklistRef.id;
+}
+
+export async function createChecklistFromSelectedTemplateItems(
+  userId: string,
+  template: ChecklistTemplate,
+  selectedItems: ChecklistTemplateItem[]
+) {
+  if (!template?.id) {
+    throw new Error("Template is required.");
+  }
+
+  const safeSelectedItems = selectedItems.filter((item) => {
+    return String(item?.name ?? "").trim().length > 0;
+  });
+
+  const checklistRef = await addDoc(checklistsCol(userId), {
+    name: template.name,
+    category: template.category,
+    customCategoryLabel: template.customCategoryLabel ?? "",
+    templateId: template.id,
+    status: "active",
+    packedCount: 0,
+    totalCount: safeSelectedItems.length,
+    missingCount: safeSelectedItems.length,
+    vehicleId: null,
+    tripId: null,
+    notes: "",
+    isArchived: false,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
+  if (safeSelectedItems.length === 0) {
+    return checklistRef.id;
+  }
+
+  const batch = writeBatch(db);
+
+  safeSelectedItems.forEach((item, index) => {
+    const itemRef = doc(checklistItemsCol(userId, checklistRef.id));
+
+    batch.set(itemRef, {
+      name: String(item.name ?? "").trim(),
+      notes: item.notes ?? "",
+      quantity: Math.max(1, Number(item.quantity ?? 1)),
+      packed: false,
+      packedAt: null,
+      sortOrder: index + 1,
+      sourceTemplateItemId: item.id ?? null,
       itemPhotoUri: item.itemPhotoUri ?? "",
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -675,6 +803,9 @@ export async function saveChecklistAsTemplate(
     name: checklist.name,
     category: checklist.category ?? "trip",
     customCategoryLabel: checklist.customCategoryLabel ?? "",
+    description: "",
+    isDefault: false,
+    itemCount: itemsSnapshot.docs.length,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });

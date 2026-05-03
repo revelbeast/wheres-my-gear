@@ -70,7 +70,11 @@ export default function ScreenBackground({
     }, [user, initializing])
   );
 
-  const useSavedBackground = backgroundUri && !backgroundLoadFailed;
+  const useSavedBackground =
+    typeof backgroundUri === "string" &&
+    backgroundUri.trim().length > 0 &&
+    !backgroundLoadFailed;
+
   const imageSource = useSavedBackground
     ? { uri: backgroundUri }
     : DEFAULT_BACKGROUND;
@@ -86,6 +90,7 @@ export default function ScreenBackground({
         if (useSavedBackground) {
           console.log("Saved background image failed to load. Using default.");
           setBackgroundLoadFailed(true);
+          setBackgroundUri(null);
         }
       }}
     >
