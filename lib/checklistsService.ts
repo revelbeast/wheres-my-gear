@@ -50,6 +50,18 @@ function templateItemsCol(userId: string, templateId: string) {
   );
 }
 
+function templateItemDoc(userId: string, templateId: string, itemId: string) {
+  return doc(
+    db,
+    "users",
+    requireUserId(userId),
+    "checklistTemplates",
+    templateId,
+    "items",
+    itemId
+  );
+}
+
 function checklistsCol(userId: string) {
   return collection(db, "users", requireUserId(userId), "checklists");
 }
@@ -115,6 +127,22 @@ function normalizeChecklistItem(
   } as ChecklistItem;
 }
 
+function normalizeTemplateItem(
+  id: string,
+  data: Record<string, any>
+): ChecklistTemplateItem {
+  return {
+    id,
+    name: String(data.name ?? "Untitled Item"),
+    notes: data.notes ?? "",
+    quantity: Math.max(1, Number(data.quantity ?? 1)),
+    sortOrder: Number(data.sortOrder ?? 0),
+    itemPhotoUri: data.itemPhotoUri ?? "",
+    createdAt: data.createdAt,
+    updatedAt: data.updatedAt,
+  } as ChecklistTemplateItem;
+}
+
 export type AssignedChecklistItemSummary = ChecklistItem & {
   checklistId: string;
   checklistName: string;
@@ -144,6 +172,22 @@ export async function getChecklistTemplates(
   })) as ChecklistTemplate[];
 }
 
+export async function getChecklistTemplate(
+  userId: string,
+  templateId: string
+): Promise<ChecklistTemplate | null> {
+  const snapshot = await getDoc(templateDoc(userId, templateId));
+
+  if (!snapshot.exists()) {
+    return null;
+  }
+
+  return {
+    id: snapshot.id,
+    ...snapshot.data(),
+  } as ChecklistTemplate;
+}
+
 export async function getChecklistTemplateItems(
   userId: string,
   templateId: string
@@ -151,10 +195,7 @@ export async function getChecklistTemplateItems(
   const q = query(templateItemsCol(userId, templateId), orderBy("sortOrder"));
   const snapshot = await getDocs(q);
 
-  return snapshot.docs.map((d) => ({
-    id: d.id,
-    ...d.data(),
-  })) as ChecklistTemplateItem[];
+  return snapshot.docs.map((d) => normalizeTemplateItem(d.id, d.data()));
 }
 
 export async function createChecklistTemplateWithItems(
@@ -225,6 +266,93 @@ export async function createChecklistTemplateWithItems(
   await batch.commit();
 
   return templateRef.id;
+}
+
+export async function addChecklistTemplateItem(
+  userId: string,
+  templateId: string,
+  name: string
+) {
+  const trimmedName = name.trim();
+
+  if (!trimmedName) {
+    throw new Error("Template item name is required.");
+  }
+
+  const itemsSnapshot = await getDocs(templateItemsCol(userId, templateId));
+  const existingItems = itemsSnapshot.docs.map((d) =>
+    normalizeTemplateItem(d.id, d.data())
+  );
+
+  const nextSortOrder =
+    existingItems.length > 0
+      ? Math.max(...existingItems.map((item) => item.sortOrder ?? 0)) + 1
+      : 1;
+
+  await addDoc(templateItemsCol(userId, templateId), {
+    name: trimmedName,
+    notes: "",
+    quantity: 1,
+    sortOrder: nextSortOrder,
+    itemPhotoUri: "",
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
+  await recomputeChecklistTemplateItemCount(userId, templateId);
+}
+
+export async function updateChecklistTemplateItemName(
+  userId: string,
+  templateId: string,
+  itemId: string,
+  name: string
+) {
+  const trimmedName = name.trim();
+
+  if (!trimmedName) {
+    throw new Error("Template item name is required.");
+  }
+
+  await updateDoc(templateItemDoc(userId, templateId, itemId), {
+    name: trimmedName,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function updateChecklistTemplateItemQuantity(
+  userId: string,
+  templateId: string,
+  itemId: string,
+  quantity: number
+) {
+  const safeQuantity = Math.max(1, Number(quantity) || 1);
+
+  await updateDoc(templateItemDoc(userId, templateId, itemId), {
+    quantity: safeQuantity,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function deleteChecklistTemplateItem(
+  userId: string,
+  templateId: string,
+  itemId: string
+) {
+  await deleteDoc(templateItemDoc(userId, templateId, itemId));
+  await recomputeChecklistTemplateItemCount(userId, templateId);
+}
+
+export async function recomputeChecklistTemplateItemCount(
+  userId: string,
+  templateId: string
+) {
+  const snapshot = await getDocs(templateItemsCol(userId, templateId));
+
+  await updateDoc(templateDoc(userId, templateId), {
+    itemCount: snapshot.docs.length,
+    updatedAt: serverTimestamp(),
+  });
 }
 
 export async function getChecklist(

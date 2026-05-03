@@ -32,10 +32,11 @@ export default function ScreenBackground({
       async function loadBackground() {
         if (initializing) return;
 
+        setBackgroundLoadFailed(false);
+
         if (!user) {
           if (!isActive) return;
           setBackgroundUri(null);
-          setBackgroundLoadFailed(false);
           return;
         }
 
@@ -47,10 +48,8 @@ export default function ScreenBackground({
 
           if (isValidBackgroundUri(savedBackgroundUri)) {
             setBackgroundUri(savedBackgroundUri.trim());
-            setBackgroundLoadFailed(false);
           } else {
             setBackgroundUri(null);
-            setBackgroundLoadFailed(false);
           }
         } catch (err) {
           console.log("Failed to load saved background. Using default.", err);
@@ -58,7 +57,6 @@ export default function ScreenBackground({
           if (!isActive) return;
 
           setBackgroundUri(null);
-          setBackgroundLoadFailed(false);
         }
       }
 
@@ -70,30 +68,34 @@ export default function ScreenBackground({
     }, [user, initializing])
   );
 
-  const useSavedBackground =
-    typeof backgroundUri === "string" &&
-    backgroundUri.trim().length > 0 &&
-    !backgroundLoadFailed;
+  const shouldUseSavedBackground =
+    isValidBackgroundUri(backgroundUri) && !backgroundLoadFailed;
 
-  const imageSource = useSavedBackground
-    ? { uri: backgroundUri }
+  const imageSource = shouldUseSavedBackground
+    ? { uri: backgroundUri as string }
     : DEFAULT_BACKGROUND;
 
   return (
     <ImageBackground
-      key={useSavedBackground ? backgroundUri : "default-background"}
       source={imageSource}
       style={styles.background}
       imageStyle={styles.image}
       resizeMode="cover"
       onError={() => {
-        if (useSavedBackground) {
+        if (shouldUseSavedBackground) {
           console.log("Saved background image failed to load. Using default.");
           setBackgroundLoadFailed(true);
           setBackgroundUri(null);
         }
       }}
     >
+      <ImageBackground
+        source={DEFAULT_BACKGROUND}
+        style={styles.defaultFallback}
+        imageStyle={styles.image}
+        resizeMode="cover"
+      />
+
       <View style={styles.baseOverlay} />
       <View style={styles.topGlow} />
       <View style={styles.bottomShade} />
@@ -109,6 +111,10 @@ const styles = StyleSheet.create({
   background: {
     flex: 1,
     backgroundColor: "#05070C",
+  },
+
+  defaultFallback: {
+    ...StyleSheet.absoluteFillObject,
   },
 
   image: {

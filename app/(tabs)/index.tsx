@@ -35,6 +35,12 @@ import {
 } from "../../components/ui/Themed";
 import { db } from "../../firebaseConfig";
 import {
+  getAssignedChecklistItems,
+  getChecklistTemplateItems,
+  getChecklistTemplates,
+  type AssignedChecklistItemSummary,
+} from "../../lib/checklistsService";
+import {
   Compartment,
   getAllItems,
   getCompartments,
@@ -44,7 +50,16 @@ import {
 } from "../../lib/gearService";
 import { getOfferings, isPremiumUser } from "../../lib/revenuecat";
 import { getProfileSettings } from "../../lib/settingsService";
-import type { Checklist } from "../../types/checklists";
+import type {
+  Checklist,
+  ChecklistTemplate,
+  ChecklistTemplateItem,
+} from "../../types/checklists";
+
+type TemplateSearchItem = ChecklistTemplateItem & {
+  templateId: string;
+  templateName: string;
+};
 
 type SearchResultItem =
   | {
@@ -55,6 +70,21 @@ type SearchResultItem =
       statusLabel: "Packed" | "To Pack";
       compartmentId: string;
       vehicleId: string;
+    }
+  | {
+      type: "checklistItem";
+      id: string;
+      name: string;
+      subtitle: string;
+      checklistId: string;
+      statusLabel: "Packed" | "To Pack";
+    }
+  | {
+      type: "templateItem";
+      id: string;
+      name: string;
+      subtitle: string;
+      templateId: string;
     }
   | {
       type: "storage";
@@ -332,6 +362,13 @@ export default function DashboardScreen() {
   const [allItems, setAllItems] = useState<Item[]>([]);
   const [allCompartments, setAllCompartments] = useState<Compartment[]>([]);
   const [allChecklists, setAllChecklists] = useState<Checklist[]>([]);
+  const [allChecklistItems, setAllChecklistItems] = useState<
+    AssignedChecklistItemSummary[]
+  >([]);
+  const [allTemplates, setAllTemplates] = useState<ChecklistTemplate[]>([]);
+  const [allTemplateItems, setAllTemplateItems] = useState<TemplateSearchItem[]>(
+    []
+  );
   const [selectedCompartments, setSelectedCompartments] = useState<Compartment[]>(
     []
   );
@@ -469,6 +506,42 @@ export default function DashboardScreen() {
             vehicleId: item.vehicleId ?? "",
           }));
 
+        const checklistItemResults: SearchResultItem[] = allChecklistItems
+          .filter((item) =>
+            searchIncludes(trimmed, [
+              item.name,
+              item.notes,
+              item.checklistName,
+              item.packed ? "packed checklist item" : "to pack missing checklist item",
+              "checklist item",
+            ])
+          )
+          .map((item) => ({
+            type: "checklistItem",
+            id: item.id,
+            name: item.name,
+            subtitle: `${item.checklistName} • Checklist item`,
+            checklistId: item.checklistId,
+            statusLabel: item.packed ? "Packed" : "To Pack",
+          }));
+
+        const templateItemResults: SearchResultItem[] = allTemplateItems
+          .filter((item) =>
+            searchIncludes(trimmed, [
+              item.name,
+              item.notes,
+              item.templateName,
+              "template item checklist template",
+            ])
+          )
+          .map((item) => ({
+            type: "templateItem",
+            id: item.id,
+            name: item.name,
+            subtitle: `${item.templateName} • Template item`,
+            templateId: item.templateId,
+          }));
+
         const storageResults: SearchResultItem[] = storageSpaces
           .filter((space) =>
             searchIncludes(trimmed, [
@@ -529,6 +602,8 @@ export default function DashboardScreen() {
 
         setSearchResults([
           ...itemResults,
+          ...checklistItemResults,
+          ...templateItemResults,
           ...storageResults,
           ...compartmentResults,
           ...checklistResults,
@@ -548,6 +623,8 @@ export default function DashboardScreen() {
     initializing,
     user,
     allItems,
+    allChecklistItems,
+    allTemplateItems,
     storageSpaces,
     allCompartments,
     allChecklists,
@@ -570,6 +647,9 @@ export default function DashboardScreen() {
       setAllItems([]);
       setAllCompartments([]);
       setAllChecklists([]);
+      setAllChecklistItems([]);
+      setAllTemplates([]);
+      setAllTemplateItems([]);
       setSelectedCompartments([]);
       setQuickCompartments([]);
       setUpcomingTrips([]);
@@ -603,6 +683,9 @@ export default function DashboardScreen() {
       setAllItems([]);
       setAllCompartments([]);
       setAllChecklists([]);
+      setAllChecklistItems([]);
+      setAllTemplates([]);
+      setAllTemplateItems([]);
       setSelectedCompartments([]);
       setQuickCompartments([]);
       setUpcomingTrips([]);
@@ -640,6 +723,26 @@ export default function DashboardScreen() {
         ...docSnap.data(),
       })) as Checklist[];
       setAllChecklists(checklists);
+
+      const assignedChecklistItems = await getAssignedChecklistItems(user.uid);
+      setAllChecklistItems(assignedChecklistItems);
+
+      const templates = await getChecklistTemplates(user.uid);
+      setAllTemplates(templates);
+
+      const templateItemsNested = await Promise.all(
+        templates.map(async (template) => {
+          const items = await getChecklistTemplateItems(user.uid, template.id);
+
+          return items.map((item) => ({
+            ...item,
+            templateId: template.id,
+            templateName: template.name,
+          }));
+        })
+      );
+
+      setAllTemplateItems(templateItemsNested.flat());
 
       const tripsSnapshot = await getDocs(
         collection(db, "users", user.uid, "trips")
@@ -713,6 +816,9 @@ export default function DashboardScreen() {
       setAllItems([]);
       setAllCompartments([]);
       setAllChecklists([]);
+      setAllChecklistItems([]);
+      setAllTemplates([]);
+      setAllTemplateItems([]);
       setSelectedCompartments([]);
       setQuickCompartments([]);
       setUpcomingTrips([]);
@@ -761,6 +867,26 @@ export default function DashboardScreen() {
         params: {
           vehicleId: item.vehicleId,
           compartmentId: item.compartmentId,
+        },
+      });
+      return;
+    }
+
+    if (item.type === "checklistItem") {
+      router.push({
+        pathname: "/checklists/[checklistId]",
+        params: {
+          checklistId: item.checklistId,
+        },
+      });
+      return;
+    }
+
+    if (item.type === "templateItem") {
+      router.push({
+        pathname: "/checklists/template-items",
+        params: {
+          templateId: item.templateId,
         },
       });
       return;
@@ -918,7 +1044,7 @@ export default function DashboardScreen() {
               <TextInput
                 value={searchQuery}
                 onChangeText={setSearchQuery}
-                placeholder="Search gear, spaces, compartments, checklists..."
+                placeholder="Search gear, checklist items, templates..."
                 placeholderTextColor={theme.colors.textMuted}
                 style={[
                   styles.searchInput,
@@ -970,8 +1096,8 @@ export default function DashboardScreen() {
                         No results found
                       </ThemedText>
                       <ThemedText color="secondary" style={styles.emptyText}>
-                        Try searching by item name, storage space, compartment, or
-                        checklist.
+                        Try searching by item name, storage space, compartment,
+                        checklist, or template.
                       </ThemedText>
                     </ThemedCard>
                   ) : (

@@ -1,5 +1,5 @@
 import { BlurView } from "expo-blur";
-import { useFocusEffect } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { Pencil, Trash2 } from "lucide-react-native";
 import React, { useCallback, useState } from "react";
 import {
@@ -117,6 +117,10 @@ export default function ManageTemplatesScreen() {
     }
   }
 
+  function handleEditTemplateItems(template: ChecklistTemplate) {
+    router.push(`/checklists/template-items?templateId=${template.id}`);
+  }
+
   function handleOpenRename(template: ChecklistTemplate) {
     setSelectedTemplate(template);
     setRenameValue(template.name);
@@ -207,14 +211,20 @@ export default function ManageTemplatesScreen() {
                       {template.name}
                     </Text>
 
-                    <Pressable onPress={() => handlePreviewTemplate(template)}>
-                      <Text style={styles.previewText}>Preview</Text>
-                    </Pressable>
+                    <View style={styles.templateLinks}>
+                      <Pressable onPress={() => handlePreviewTemplate(template)}>
+                        <Text style={styles.previewText}>Preview</Text>
+                      </Pressable>
+
+                      <Pressable onPress={() => handleOpenRename(template)}>
+                        <Text style={styles.renameText}>Rename</Text>
+                      </Pressable>
+                    </View>
                   </View>
 
                   <View style={styles.templateActions}>
                     <Pressable
-                      onPress={() => handleOpenRename(template)}
+                      onPress={() => handleEditTemplateItems(template)}
                       style={[
                         styles.iconButton,
                         {
@@ -359,7 +369,19 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
 
+  templateLinks: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  },
+
   previewText: {
+    color: "#2f80ed",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+
+  renameText: {
     color: "#2f80ed",
     fontSize: 14,
     fontWeight: "700",
