@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 
@@ -16,6 +16,17 @@ export default function ItemsScreen() {
   const { status } = useLocalSearchParams<{ status: string }>();
   const [items, setItems] = useState<AssignedChecklistItemSummary[]>([]);
 
+  const isPackedView = String(status).toLowerCase().trim() === "packed";
+
+  const sortedItems = useMemo(() => {
+    return [...items].sort((a, b) => {
+      const aName = String(a.name ?? "").toLowerCase();
+      const bName = String(b.name ?? "").toLowerCase();
+
+      return aName.localeCompare(bName);
+    });
+  }, [items]);
+
   useEffect(() => {
     if (!user) {
       setItems([]);
@@ -32,8 +43,9 @@ export default function ItemsScreen() {
     }
 
     try {
-      const packed = String(status).toLowerCase().trim() === "packed";
-      const data = await getAssignedChecklistItems(user.uid, { packed });
+      const data = await getAssignedChecklistItems(user.uid, {
+        packed: isPackedView,
+      });
       setItems(data);
     } catch (err) {
       console.error("Failed to load items:", err);
@@ -51,28 +63,27 @@ export default function ItemsScreen() {
       >
         <View style={styles.headerWrap}>
           <AppHeader
-            title={status === "packed" ? "Packed Items" : "Missing Items"}
+            title={isPackedView ? "Packed Items" : "To Pack Items"}
             showBackButton
           />
         </View>
 
-        {items.length === 0 ? (
+        {sortedItems.length === 0 ? (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>No items found</Text>
             <Text style={styles.emptyText}>
-              There are no {status === "packed" ? "packed" : "missing"} assigned checklist items right now.
+              There are no {isPackedView ? "packed" : "to pack"} assigned
+              checklist items right now.
             </Text>
           </View>
         ) : (
-          items.map((item) => (
+          sortedItems.map((item) => (
             <View key={`${item.checklistId}-${item.id}`} style={styles.card}>
               <Text style={styles.cardTitle}>{item.name}</Text>
               <Text style={styles.cardMeta}>
                 {item.compartmentName} • {item.checklistName}
               </Text>
-              <Text style={styles.cardSubMeta}>
-                Qty: {item.quantity}
-              </Text>
+              <Text style={styles.cardSubMeta}>Qty: {item.quantity}</Text>
             </View>
           ))
         )}

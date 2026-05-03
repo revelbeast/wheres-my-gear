@@ -27,7 +27,7 @@ export default function DashboardStats({
 
       <GlassCard style={styles.card}>
         <Text style={styles.value}>{missing}</Text>
-        <Text style={styles.label}>Items Missing</Text>
+        <Text style={styles.label}>To Pack</Text>
       </GlassCard>
     </View>
   );

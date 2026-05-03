@@ -1,9 +1,11 @@
 import * as ImagePicker from "expo-image-picker";
 import { Check, ImagePlus, LogOut, UserCircle2 } from "lucide-react-native";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Image,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -46,6 +48,7 @@ function LabeledInput({
   keyboardType,
   autoCapitalize = "sentences",
   editable = true,
+  onFocus,
 }: {
   label: string;
   value: string;
@@ -54,6 +57,7 @@ function LabeledInput({
   keyboardType?: "default" | "email-address" | "phone-pad";
   autoCapitalize?: "none" | "sentences" | "words" | "characters";
   editable?: boolean;
+  onFocus?: () => void;
 }) {
   return (
     <View style={styles.fieldWrap}>
@@ -68,6 +72,8 @@ function LabeledInput({
         keyboardType={keyboardType}
         autoCapitalize={autoCapitalize}
         editable={editable}
+        onFocus={onFocus}
+        returnKeyType="done"
         style={!editable && styles.inputDisabled}
       />
     </View>
@@ -77,6 +83,7 @@ function LabeledInput({
 export default function ProfileSettingsScreen() {
   const { user, signOutUser } = useAuth();
   const theme = useThemedValues();
+  const scrollViewRef = useRef<ScrollView | null>(null);
 
   const [profile, setProfile] = useState<AppProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -95,6 +102,15 @@ export default function ProfileSettingsScreen() {
 
     return fullName || "Profile";
   }, [profile]);
+
+  function scrollToFocusedInput(y: number) {
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({
+        y,
+        animated: true,
+      });
+    }, Platform.OS === "ios" ? 120 : 80);
+  }
 
   async function loadProfile() {
     if (!user) {
@@ -252,165 +268,182 @@ export default function ProfileSettingsScreen() {
   return (
     <ScreenBackground>
       <SafeAreaView style={styles.safe}>
-        <ScrollView contentContainerStyle={styles.content}>
-          <AppHeader title="Profile Settings" showBackButton />
-
-          <ThemedCard style={styles.heroCard} contentStyle={styles.heroCardContent}>
-            <View style={styles.heroRow}>
-              <View style={styles.heroPhotoWrap}>
-                {profile.profilePhotoUri ? (
-                  <Image
-                    source={{ uri: profile.profilePhotoUri }}
-                    style={styles.heroPhoto}
-                  />
-                ) : (
-                  <View
-                    style={[
-                      styles.heroPhotoFallback,
-                      { backgroundColor: theme.colors.iconSurface },
-                    ]}
-                  >
-                    <UserCircle2 size={34} color={theme.colors.text} />
-                  </View>
-                )}
-              </View>
-
-              <View style={styles.heroTextWrap}>
-                <ThemedText
-                  variant="title"
-                  color="blue"
-                  style={styles.heroTitle}
-                >
-                  {displayName}
-                </ThemedText>
-
-                <ThemedText color="secondary" style={styles.heroSubtitle}>
-                  {user?.email ?? "Account basics only for now"}
-                </ThemedText>
-              </View>
-            </View>
-          </ThemedCard>
-
-          <ThemedCard style={styles.formCard} contentStyle={styles.formCardContent}>
-            <ThemedText variant="bodyStrong" style={styles.sectionTitle}>
-              Account Basics
-            </ThemedText>
-
-            <LabeledInput
-              label="First Name"
-              value={profile.firstName}
-              onChangeText={(t) => updateField("firstName", t)}
-            />
-
-            <LabeledInput
-              label="Last Name"
-              value={profile.lastName}
-              onChangeText={(t) => updateField("lastName", t)}
-            />
-
-            <LabeledInput
-              label="Email"
-              value={profile.email}
-              onChangeText={(t) => updateField("email", t)}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-
-            <LabeledInput
-              label="Phone"
-              value={profile.phoneNumber}
-              onChangeText={(t) =>
-                updateField("phoneNumber", formatPhoneNumber(t))
-              }
-              keyboardType="phone-pad"
-            />
-
-            <View
-              style={[
-                styles.photoCard,
-                {
-                  backgroundColor: theme.colors.iconSurface,
-                  borderColor: theme.colors.border,
-                },
-              ]}
-            >
-              <View style={styles.photoHeader}>
-                <ImagePlus size={18} color={theme.colors.text} />
-                <ThemedText variant="bodyStrong">Profile Photo</ThemedText>
-              </View>
-
-              <ThemedText color="secondary" style={styles.photoText}>
-                Select a photo from your device library.
-              </ThemedText>
-
-              <ThemedButton
-                onPress={handlePickProfilePhoto}
-                disabled={pickingImage}
-                style={styles.photoButton}
-              >
-                <ThemedText style={styles.buttonText}>
-                  {pickingImage ? "Opening..." : "Choose Photo"}
-                </ThemedText>
-              </ThemedButton>
-            </View>
-
-            <View
-              style={[
-                styles.photoCard,
-                {
-                  backgroundColor: theme.colors.iconSurface,
-                  borderColor: theme.colors.border,
-                },
-              ]}
-            >
-              <View style={styles.photoHeader}>
-                <ImagePlus size={18} color={theme.colors.text} />
-                <ThemedText variant="bodyStrong">App Background</ThemedText>
-              </View>
-
-              <ThemedText color="secondary" style={styles.photoText}>
-                Customize the background across the entire app.
-              </ThemedText>
-
-              <ThemedButton
-                onPress={handlePickBackgroundPhoto}
-                disabled={pickingImage}
-                style={styles.photoButton}
-              >
-                <ThemedText style={styles.buttonText}>
-                  {pickingImage ? "Opening..." : "Choose Background"}
-                </ThemedText>
-              </ThemedButton>
-
-              {profile.backgroundPhotoUri ? (
-                <Pressable onPress={handleRemoveBackground}>
-                  <ThemedText color="secondary" style={styles.cancelText}>
-                    Remove Custom Background
-                  </ThemedText>
-                </Pressable>
-              ) : null}
-            </View>
-          </ThemedCard>
-
-          <ThemedButton onPress={handleSave} disabled={saving}>
-            <Check size={18} color="#fff" />
-            <ThemedText style={styles.buttonText}>
-              {saving ? "Saving..." : "Save Profile"}
-            </ThemedText>
-          </ThemedButton>
-
-          <ThemedButton
-            destructive
-            onPress={handleSignOut}
-            disabled={signingOut}
-            style={styles.signOutButton}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
+          style={styles.keyboardAvoidingView}
+        >
+          <ScrollView
+            ref={scrollViewRef}
+            contentContainerStyle={styles.content}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
+            showsVerticalScrollIndicator={false}
           >
-            <LogOut size={18} color="#fff" />
-            <ThemedText style={styles.buttonText}>
-              {signingOut ? "Signing Out..." : "Sign Out"}
-            </ThemedText>
-          </ThemedButton>
-        </ScrollView>
+            <AppHeader title="Profile Settings" showBackButton />
+
+            <ThemedCard style={styles.heroCard} contentStyle={styles.heroCardContent}>
+              <View style={styles.heroRow}>
+                <View style={styles.heroPhotoWrap}>
+                  {profile.profilePhotoUri ? (
+                    <Image
+                      source={{ uri: profile.profilePhotoUri }}
+                      style={styles.heroPhoto}
+                    />
+                  ) : (
+                    <View
+                      style={[
+                        styles.heroPhotoFallback,
+                        { backgroundColor: theme.colors.iconSurface },
+                      ]}
+                    >
+                      <UserCircle2 size={34} color={theme.colors.text} />
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.heroTextWrap}>
+                  <ThemedText
+                    variant="title"
+                    color="blue"
+                    style={styles.heroTitle}
+                  >
+                    {displayName}
+                  </ThemedText>
+
+                  <ThemedText color="secondary" style={styles.heroSubtitle}>
+                    {user?.email ?? "Account basics only for now"}
+                  </ThemedText>
+                </View>
+              </View>
+            </ThemedCard>
+
+            <ThemedCard style={styles.formCard} contentStyle={styles.formCardContent}>
+              <ThemedText variant="bodyStrong" style={styles.sectionTitle}>
+                Account Basics
+              </ThemedText>
+
+              <LabeledInput
+                label="First Name"
+                value={profile.firstName}
+                onChangeText={(t) => updateField("firstName", t)}
+                onFocus={() => scrollToFocusedInput(90)}
+              />
+
+              <LabeledInput
+                label="Last Name"
+                value={profile.lastName}
+                onChangeText={(t) => updateField("lastName", t)}
+                onFocus={() => scrollToFocusedInput(140)}
+              />
+
+              <LabeledInput
+                label="Email"
+                value={profile.email}
+                onChangeText={(t) => updateField("email", t)}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                onFocus={() => scrollToFocusedInput(190)}
+              />
+
+              <LabeledInput
+                label="Phone"
+                value={profile.phoneNumber}
+                onChangeText={(t) =>
+                  updateField("phoneNumber", formatPhoneNumber(t))
+                }
+                keyboardType="phone-pad"
+                onFocus={() => scrollToFocusedInput(240)}
+              />
+
+              <View
+                style={[
+                  styles.photoCard,
+                  {
+                    backgroundColor: theme.colors.iconSurface,
+                    borderColor: theme.colors.border,
+                  },
+                ]}
+              >
+                <View style={styles.photoHeader}>
+                  <ImagePlus size={18} color={theme.colors.text} />
+                  <ThemedText variant="bodyStrong">Profile Photo</ThemedText>
+                </View>
+
+                <ThemedText color="secondary" style={styles.photoText}>
+                  Select a photo from your device library.
+                </ThemedText>
+
+                <ThemedButton
+                  onPress={handlePickProfilePhoto}
+                  disabled={pickingImage}
+                  style={styles.photoButton}
+                >
+                  <ThemedText style={styles.buttonText}>
+                    {pickingImage ? "Opening..." : "Choose Photo"}
+                  </ThemedText>
+                </ThemedButton>
+              </View>
+
+              <View
+                style={[
+                  styles.photoCard,
+                  {
+                    backgroundColor: theme.colors.iconSurface,
+                    borderColor: theme.colors.border,
+                  },
+                ]}
+              >
+                <View style={styles.photoHeader}>
+                  <ImagePlus size={18} color={theme.colors.text} />
+                  <ThemedText variant="bodyStrong">App Background</ThemedText>
+                </View>
+
+                <ThemedText color="secondary" style={styles.photoText}>
+                  Customize the background across the entire app.
+                </ThemedText>
+
+                <ThemedButton
+                  onPress={handlePickBackgroundPhoto}
+                  disabled={pickingImage}
+                  style={styles.photoButton}
+                >
+                  <ThemedText style={styles.buttonText}>
+                    {pickingImage ? "Opening..." : "Choose Background"}
+                  </ThemedText>
+                </ThemedButton>
+
+                {profile.backgroundPhotoUri ? (
+                  <Pressable onPress={handleRemoveBackground}>
+                    <ThemedText color="secondary" style={styles.cancelText}>
+                      Remove Custom Background
+                    </ThemedText>
+                  </Pressable>
+                ) : null}
+              </View>
+            </ThemedCard>
+
+            <ThemedButton onPress={handleSave} disabled={saving}>
+              <Check size={18} color="#fff" />
+              <ThemedText style={styles.buttonText}>
+                {saving ? "Saving..." : "Save Profile"}
+              </ThemedText>
+            </ThemedButton>
+
+            <ThemedButton
+              destructive
+              onPress={handleSignOut}
+              disabled={signingOut}
+              style={styles.signOutButton}
+            >
+              <LogOut size={18} color="#fff" />
+              <ThemedText style={styles.buttonText}>
+                {signingOut ? "Signing Out..." : "Sign Out"}
+              </ThemedText>
+            </ThemedButton>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </ScreenBackground>
   );
@@ -419,7 +452,16 @@ export default function ProfileSettingsScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   container: { flex: 1, padding: 16 },
-  content: { padding: 16, paddingBottom: 140 },
+
+  keyboardAvoidingView: {
+    flex: 1,
+  },
+
+  content: {
+    flexGrow: 1,
+    padding: 16,
+    paddingBottom: 220,
+  },
 
   heroCard: {
     marginBottom: 16,

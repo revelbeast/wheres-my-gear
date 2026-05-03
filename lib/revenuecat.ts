@@ -2,130 +2,87 @@ import Constants from "expo-constants";
 import { Platform } from "react-native";
 import Purchases, {
   CustomerInfo,
-  LOG_LEVEL,
+  PurchasesOffering,
   PurchasesPackage,
 } from "react-native-purchases";
 
-const REVENUECAT_IOS_KEY = Constants.expoConfig?.extra?.revenueCatIosKey;
-const PREMIUM_ENTITLEMENT_IDS = ["Premium", "premium"];
+const PREMIUM_ENTITLEMENT_ID = "premium";
 
+let configurePromise: Promise<boolean> | null = null;
 let isConfigured = false;
-let configurePromise: Promise<void> | null = null;
-let loggedInUserId: string | null = null;
 
-export function hasActivePremiumEntitlement(customerInfo: CustomerInfo | null) {
-  if (!customerInfo?.entitlements?.active) {
-    return false;
+function getRevenueCatApiKey() {
+  const extra = Constants.expoConfig?.extra ?? {};
+
+  if (Platform.OS === "ios") {
+    return extra.revenueCatIosKey ?? extra.REVENUECAT_IOS_KEY ?? null;
   }
 
-  return PREMIUM_ENTITLEMENT_IDS.some(
-    (entitlementId) => !!customerInfo.entitlements.active[entitlementId]
-  );
+  if (Platform.OS === "android") {
+    return extra.revenueCatAndroidKey ?? extra.REVENUECAT_ANDROID_KEY ?? null;
+  }
+
+  return null;
 }
 
-async function assumeAlreadyConfiguredIfPossible() {
-  try {
-    await Purchases.getCustomerInfo();
-    isConfigured = true;
+export async function configureRevenueCat(userId?: string | null) {
+  if (isConfigured) {
+    if (userId) {
+      await Purchases.logIn(userId);
+    }
+
     return true;
-  } catch {
-    return false;
-  }
-}
-
-export async function initRevenueCat(userId?: string) {
-  if (Platform.OS !== "ios") {
-    return;
-  }
-
-  if (!REVENUECAT_IOS_KEY) {
-    console.log("RevenueCat skipped: missing iOS API key.");
-    return;
   }
 
   if (configurePromise) {
-    await configurePromise;
-  }
+    const configured = await configurePromise;
 
-  if (!isConfigured) {
-    const alreadyConfigured = await assumeAlreadyConfiguredIfPossible();
-
-    if (!alreadyConfigured) {
-      configurePromise = Promise.resolve()
-        .then(async () => {
-          Purchases.setLogLevel(__DEV__ ? LOG_LEVEL.DEBUG : LOG_LEVEL.ERROR);
-
-          Purchases.configure({
-            apiKey: REVENUECAT_IOS_KEY,
-          });
-
-          isConfigured = true;
-        })
-        .catch((error) => {
-          configurePromise = null;
-          isConfigured = false;
-          console.log("RevenueCat configuration failed:", error);
-        });
-
-      await configurePromise;
-    }
-  }
-
-  if (!isConfigured) {
-    return;
-  }
-
-  if (userId && loggedInUserId !== userId) {
-    try {
+    if (configured && userId) {
       await Purchases.logIn(userId);
-      loggedInUserId = userId;
-    } catch (error) {
-      console.log("RevenueCat login failed:", error);
-    }
-  }
-}
-
-async function ensureRevenueCatConfigured() {
-  await initRevenueCat();
-}
-
-export async function getCustomerInfo(): Promise<CustomerInfo | null> {
-  try {
-    await ensureRevenueCatConfigured();
-
-    if (!isConfigured) {
-      return null;
     }
 
-    return await Purchases.getCustomerInfo();
-  } catch (e) {
-    console.log("RevenueCat customer info unavailable:", e);
-    return null;
+    return configured;
   }
-}
 
-export async function isPremiumUser() {
-  try {
-    await ensureRevenueCatConfigured();
+  configurePromise = (async () => {
+    try {
+      const apiKey = getRevenueCatApiKey();
 
-    if (!isConfigured) {
+      if (!apiKey) {
+        console.log("RevenueCat API key missing. Skipping configuration.");
+        return false;
+      }
+
+      Purchases.configure({ apiKey });
+
+      isConfigured = true;
+      console.log("RevenueCat configured.");
+
+      if (userId) {
+        await Purchases.logIn(userId);
+      }
+
+      return true;
+    } catch (e) {
+      console.log("RevenueCat configuration failed:", e);
+      isConfigured = false;
+      configurePromise = null;
       return false;
     }
+  })();
 
-    const info = await Purchases.getCustomerInfo();
+  return configurePromise;
+}
 
-    return hasActivePremiumEntitlement(info);
-  } catch (e) {
-    console.log("RevenueCat premium check unavailable:", e);
-    return false;
-  }
+export async function initRevenueCat(userId?: string | null) {
+  return configureRevenueCat(userId);
 }
 
 export async function getOfferings() {
   try {
-    await ensureRevenueCatConfigured();
+    const configured = await configureRevenueCat();
 
-    if (!isConfigured) {
+    if (!configured) {
       return null;
     }
 
@@ -136,36 +93,73 @@ export async function getOfferings() {
   }
 }
 
-export async function purchasePackage(pkg: PurchasesPackage) {
+export async function getCustomerInfo() {
   try {
-    await ensureRevenueCatConfigured();
+    const configured = await configureRevenueCat();
 
-    if (!isConfigured) {
+    if (!configured) {
       return null;
     }
 
-    const { customerInfo } = await Purchases.purchasePackage(pkg);
-    return customerInfo;
-  } catch (e: any) {
-    if (!e?.userCancelled) {
-      console.log("RevenueCat purchase unavailable:", e);
+    return await Purchases.getCustomerInfo();
+  } catch (e) {
+    console.log("RevenueCat customer info unavailable:", e);
+    return null;
+  }
+}
+
+export function hasActivePremiumEntitlement(customerInfo: CustomerInfo | null) {
+  if (!customerInfo) {
+    return false;
+  }
+
+  return Boolean(customerInfo.entitlements.active[PREMIUM_ENTITLEMENT_ID]);
+}
+
+export async function isPremiumUser() {
+  try {
+    const customerInfo = await getCustomerInfo();
+    return hasActivePremiumEntitlement(customerInfo);
+  } catch (e) {
+    console.log("RevenueCat premium check unavailable:", e);
+    return false;
+  }
+}
+
+export async function purchasePackage(packageToPurchase: PurchasesPackage) {
+  try {
+    const configured = await configureRevenueCat();
+
+    if (!configured) {
+      return null;
     }
 
+    const purchaseResult = await Purchases.purchasePackage(packageToPurchase);
+    return purchaseResult.customerInfo;
+  } catch (e: any) {
+    if (e?.userCancelled) {
+      return null;
+    }
+
+    console.log("RevenueCat purchase failed:", e);
     return null;
   }
 }
 
 export async function restorePurchases() {
   try {
-    await ensureRevenueCatConfigured();
+    const configured = await configureRevenueCat();
 
-    if (!isConfigured) {
+    if (!configured) {
       return null;
     }
 
     return await Purchases.restorePurchases();
   } catch (e) {
-    console.log("RevenueCat restore unavailable:", e);
+    console.log("RevenueCat restore failed:", e);
     return null;
   }
 }
+
+export type RevenueCatOffering = PurchasesOffering;
+export type RevenueCatPackage = PurchasesPackage;

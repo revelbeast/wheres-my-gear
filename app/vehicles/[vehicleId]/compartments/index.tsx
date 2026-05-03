@@ -1,14 +1,26 @@
 import { useFocusEffect } from "@react-navigation/native";
 import { BlurView } from "expo-blur";
 import { router, useLocalSearchParams } from "expo-router";
-import { ArrowLeft, ChevronRight, Plus, Trash2 } from "lucide-react-native";
-import React, { useCallback, useMemo, useState } from "react";
+import {
+  ArrowLeft,
+  Check,
+  ChevronRight,
+  Pencil,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react-native";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
+  TextInput,
   View,
 } from "react-native";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
@@ -24,6 +36,7 @@ import {
   getCompartmentsByVehicle,
   getItemsByCompartment,
   getStorageSpaceById,
+  updateCompartment,
   type Compartment,
   type Item,
   type StorageSpace,
@@ -77,10 +90,18 @@ export default function CompartmentsScreen() {
   const { vehicleId } = useLocalSearchParams<{ vehicleId: string }>();
   const theme = useThemedValues();
 
+  const scrollRef = useRef<ScrollView | null>(null);
+
   const [rows, setRows] = useState<CompartmentRow[]>([]);
   const [storageSpace, setStorageSpace] = useState<StorageSpace | null>(null);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const [editingCompartmentId, setEditingCompartmentId] = useState<string | null>(
+    null
+  );
+  const [editingCompartmentName, setEditingCompartmentName] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const hasVehicleId = useMemo(
     () => typeof vehicleId === "string" && vehicleId.trim().length > 0,
@@ -146,8 +167,16 @@ export default function CompartmentsScreen() {
     }, [loadCompartments])
   );
 
+  function scrollToBottom(delay = 140) {
+    setTimeout(() => {
+      scrollRef.current?.scrollToEnd({ animated: true });
+    }, delay);
+  }
+
   function handleOpenCompartment(compartmentId: string) {
     if (!vehicleId) return;
+
+    Keyboard.dismiss();
 
     router.push({
       pathname: "/vehicles/[vehicleId]/compartments/[compartmentId]",
@@ -161,12 +190,53 @@ export default function CompartmentsScreen() {
   function handleCreateCompartment() {
     if (!vehicleId) return;
 
+    Keyboard.dismiss();
+
     router.push({
       pathname: "/vehicles/[vehicleId]/compartments/create",
       params: {
         vehicleId,
       },
     });
+  }
+
+  function startEditingCompartment(compartment: CompartmentRow) {
+    setEditingCompartmentId(compartment.id);
+    setEditingCompartmentName(compartment.name);
+    scrollToBottom(180);
+  }
+
+  function cancelEditingCompartment() {
+    Keyboard.dismiss();
+    setEditingCompartmentId(null);
+    setEditingCompartmentName("");
+  }
+
+  async function saveEditingCompartment(compartmentId: string) {
+    if (savingEdit) return;
+
+    const trimmedName = editingCompartmentName.trim();
+
+    if (!trimmedName) {
+      Alert.alert("Required name", "Please enter a compartment name.");
+      return;
+    }
+
+    try {
+      setSavingEdit(true);
+      Keyboard.dismiss();
+
+      await updateCompartment(compartmentId, { name: trimmedName });
+
+      setEditingCompartmentId(null);
+      setEditingCompartmentName("");
+      await loadCompartments();
+    } catch (error) {
+      console.error("Failed to update compartment:", error);
+      Alert.alert("Unable to update compartment", "Please try again.");
+    } finally {
+      setSavingEdit(false);
+    }
   }
 
   function confirmDeleteCompartment(compartment: CompartmentRow) {
@@ -218,34 +288,13 @@ export default function CompartmentsScreen() {
   return (
     <ScreenBackground>
       <SafeAreaView style={styles.safe}>
-        <View style={styles.container}>
-          <View style={styles.headerWrap}>
-            <Pressable
-              style={[
-                styles.headerIconButton,
-                {
-                  backgroundColor: theme.isLight
-                    ? "rgba(15,23,42,0.16)"
-                    : "rgba(255,255,255,0.08)",
-                  borderColor: theme.colors.border,
-                },
-              ]}
-              onPress={() => router.back()}
-            >
-              <ArrowLeft size={20} color={LABEL_WHITE} />
-            </Pressable>
-
-            <View style={styles.headerTitleWrap}>
-              <ThemedText
-                variant="title"
-                style={[styles.headerTitle, styles.whiteLabel]}
-                numberOfLines={1}
-              >
-                {headerTitle}
-              </ThemedText>
-            </View>
-
-            {hasVehicleId ? (
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
+          style={styles.keyboardWrap}
+        >
+          <View style={styles.container}>
+            <View style={styles.headerWrap}>
               <Pressable
                 style={[
                   styles.headerIconButton,
@@ -256,76 +305,236 @@ export default function CompartmentsScreen() {
                     borderColor: theme.colors.border,
                   },
                 ]}
-                onPress={handleCreateCompartment}
+                onPress={() => {
+                  Keyboard.dismiss();
+                  router.back();
+                }}
               >
-                <Plus size={20} color={LABEL_WHITE} />
+                <ArrowLeft size={20} color={LABEL_WHITE} />
               </Pressable>
-            ) : (
-              <View style={styles.headerSpacer} />
-            )}
-          </View>
 
-          <ScrollView
-            contentContainerStyle={styles.content}
-            showsVerticalScrollIndicator={false}
-          >
-            {!hasVehicleId ? (
-              <FrostedCard style={styles.emptyCard}>
-                <ThemedText variant="title" style={styles.emptyTitle}>
-                  No storage space selected
-                </ThemedText>
-                <ThemedText color="secondary" style={styles.emptyText}>
-                  Go back and choose a storage space first.
-                </ThemedText>
-              </FrostedCard>
-            ) : loading ? (
-              <FrostedCard style={styles.loadingCard}>
-                <ActivityIndicator size="small" color={theme.colors.text} />
-              </FrostedCard>
-            ) : rows.length === 0 ? (
-              <FrostedCard style={styles.emptyCard}>
-                <ThemedText variant="title" style={styles.emptyTitle}>
-                  No compartments yet
-                </ThemedText>
-                <ThemedText color="secondary" style={styles.emptyText}>
-                  Tap + to create your first compartment.
-                </ThemedText>
-              </FrostedCard>
-            ) : (
-              rows.map((compartment) => (
-                <Swipeable
-                  key={compartment.id}
-                  renderRightActions={() => renderRightActions(compartment)}
-                  overshootRight={false}
-                  rightThreshold={40}
+              <View style={styles.headerTitleWrap}>
+                <ThemedText
+                  variant="title"
+                  style={[styles.headerTitle, styles.whiteLabel]}
+                  numberOfLines={1}
                 >
-                  <FrostedCard style={styles.card}>
-                    <Pressable
-                      style={styles.row}
-                      onPress={() => handleOpenCompartment(compartment.id)}
+                  {headerTitle}
+                </ThemedText>
+              </View>
+
+              {hasVehicleId ? (
+                <Pressable
+                  style={[
+                    styles.headerIconButton,
+                    {
+                      backgroundColor: theme.isLight
+                        ? "rgba(15,23,42,0.16)"
+                        : "rgba(255,255,255,0.08)",
+                      borderColor: theme.colors.border,
+                    },
+                  ]}
+                  onPress={handleCreateCompartment}
+                >
+                  <Plus size={20} color={LABEL_WHITE} />
+                </Pressable>
+              ) : (
+                <View style={styles.headerSpacer} />
+              )}
+            </View>
+
+            <ScrollView
+              ref={scrollRef}
+              contentContainerStyle={styles.content}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="interactive"
+              automaticallyAdjustKeyboardInsets
+            >
+              {!hasVehicleId ? (
+                <FrostedCard style={styles.emptyCard}>
+                  <ThemedText variant="title" style={styles.emptyTitle}>
+                    No storage space selected
+                  </ThemedText>
+                  <ThemedText color="secondary" style={styles.emptyText}>
+                    Go back and choose a storage space first.
+                  </ThemedText>
+                </FrostedCard>
+              ) : loading ? (
+                <FrostedCard style={styles.loadingCard}>
+                  <ActivityIndicator size="small" color={theme.colors.text} />
+                </FrostedCard>
+              ) : rows.length === 0 ? (
+                <FrostedCard style={styles.emptyCard}>
+                  <ThemedText variant="title" style={styles.emptyTitle}>
+                    No compartments yet
+                  </ThemedText>
+                  <ThemedText color="secondary" style={styles.emptyText}>
+                    Tap + to create your first compartment.
+                  </ThemedText>
+                </FrostedCard>
+              ) : (
+                rows.map((compartment) => {
+                  const isEditing = editingCompartmentId === compartment.id;
+
+                  return (
+                    <Swipeable
+                      key={compartment.id}
+                      renderRightActions={() =>
+                        renderRightActions(compartment)
+                      }
+                      overshootRight={false}
+                      rightThreshold={40}
+                      enabled={!isEditing}
                     >
-                      <View style={styles.left}>
-                        <ThemedText variant="title" style={styles.title}>
-                          {compartment.name}
-                        </ThemedText>
+                      <FrostedCard style={styles.card}>
+                        {isEditing ? (
+                          <View style={styles.editWrap}>
+                            <ThemedText
+                              color="secondary"
+                              style={styles.editLabel}
+                            >
+                              Edit compartment name
+                            </ThemedText>
 
-                        <ThemedText color="secondary" style={styles.meta}>
-                          {compartment.itemCount}{" "}
-                          {compartment.itemCount === 1 ? "item" : "items"}
-                        </ThemedText>
-                      </View>
+                            <TextInput
+                              value={editingCompartmentName}
+                              onChangeText={setEditingCompartmentName}
+                              placeholder="Compartment name"
+                              placeholderTextColor={theme.colors.textMuted}
+                              style={[
+                                styles.editInput,
+                                {
+                                  color: theme.colors.text,
+                                  borderColor: theme.colors.border,
+                                  backgroundColor: theme.colors.inputSurface,
+                                },
+                              ]}
+                              autoFocus
+                              selectTextOnFocus
+                              returnKeyType="done"
+                              editable={!savingEdit}
+                              onFocus={() => scrollToBottom(180)}
+                              onSubmitEditing={() =>
+                                saveEditingCompartment(compartment.id)
+                              }
+                            />
 
-                      <ChevronRight
-                        size={18}
-                        color={theme.colors.textSecondary}
-                      />
-                    </Pressable>
-                  </FrostedCard>
-                </Swipeable>
-              ))
-            )}
-          </ScrollView>
-        </View>
+                            <View style={styles.editActions}>
+                              <Pressable
+                                style={[
+                                  styles.saveEditButton,
+                                  (!editingCompartmentName.trim() ||
+                                    savingEdit) &&
+                                    styles.actionDisabled,
+                                ]}
+                                onPress={() =>
+                                  saveEditingCompartment(compartment.id)
+                                }
+                                disabled={
+                                  !editingCompartmentName.trim() || savingEdit
+                                }
+                              >
+                                <Check size={16} color="#fff" />
+                                <ThemedText style={styles.saveEditText}>
+                                  {savingEdit ? "Saving..." : "Save"}
+                                </ThemedText>
+                              </Pressable>
+
+                              <Pressable
+                                style={[
+                                  styles.cancelEditButton,
+                                  {
+                                    borderColor: theme.colors.border,
+                                    backgroundColor: theme.isLight
+                                      ? "rgba(15,23,42,0.06)"
+                                      : "rgba(255,255,255,0.06)",
+                                  },
+                                ]}
+                                onPress={cancelEditingCompartment}
+                                disabled={savingEdit}
+                              >
+                                <X size={16} color={theme.colors.text} />
+                                <ThemedText
+                                  style={[
+                                    styles.cancelEditText,
+                                    { color: theme.colors.text },
+                                  ]}
+                                >
+                                  Cancel
+                                </ThemedText>
+                              </Pressable>
+                            </View>
+                          </View>
+                        ) : (
+                          <View style={styles.row}>
+                            <Pressable
+                              style={styles.left}
+                              onPress={() =>
+                                handleOpenCompartment(compartment.id)
+                              }
+                            >
+                              <ThemedText variant="title" style={styles.title}>
+                                {compartment.name}
+                              </ThemedText>
+
+                              <ThemedText color="secondary" style={styles.meta}>
+                                {compartment.itemCount}{" "}
+                                {compartment.itemCount === 1 ? "item" : "items"}
+                              </ThemedText>
+                            </Pressable>
+
+                            <View style={styles.rowActions}>
+                              <Pressable
+                                style={[
+                                  styles.iconButton,
+                                  {
+                                    backgroundColor: theme.isLight
+                                      ? "rgba(15,23,42,0.08)"
+                                      : "rgba(255,255,255,0.06)",
+                                    borderColor: theme.colors.border,
+                                  },
+                                ]}
+                                onPress={() =>
+                                  startEditingCompartment(compartment)
+                                }
+                              >
+                                <Pencil
+                                  size={16}
+                                  color={theme.colors.textSecondary}
+                                />
+                              </Pressable>
+
+                              <Pressable
+                                style={[
+                                  styles.iconButton,
+                                  {
+                                    backgroundColor: theme.isLight
+                                      ? "rgba(15,23,42,0.08)"
+                                      : "rgba(255,255,255,0.06)",
+                                    borderColor: theme.colors.border,
+                                  },
+                                ]}
+                                onPress={() =>
+                                  handleOpenCompartment(compartment.id)
+                                }
+                              >
+                                <ChevronRight
+                                  size={18}
+                                  color={theme.colors.textSecondary}
+                                />
+                              </Pressable>
+                            </View>
+                          </View>
+                        )}
+                      </FrostedCard>
+                    </Swipeable>
+                  );
+                })
+              )}
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </ScreenBackground>
   );
@@ -335,6 +544,10 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: "transparent",
+  },
+
+  keyboardWrap: {
+    flex: 1,
   },
 
   container: {
@@ -382,7 +595,7 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 16,
     paddingTop: 8,
-    paddingBottom: 140,
+    paddingBottom: 180,
   },
 
   frostedCard: {
@@ -419,6 +632,85 @@ const styles = StyleSheet.create({
 
   meta: {
     lineHeight: 18,
+  },
+
+  rowActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+
+  iconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+
+  editWrap: {
+    width: "100%",
+  },
+
+  editLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: 8,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+
+  editInput: {
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderWidth: 1,
+    fontSize: 15,
+    marginBottom: 12,
+  },
+
+  editActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+
+  saveEditButton: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 12,
+    backgroundColor: "rgba(55,130,245,0.95)",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+
+  saveEditText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+
+  cancelEditButton: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+
+  cancelEditText: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+
+  actionDisabled: {
+    opacity: 0.55,
   },
 
   emptyCard: {

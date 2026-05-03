@@ -248,14 +248,14 @@ function searchIncludes(query: string, values: Array<string | undefined | null>)
 }
 
 export default function DashboardScreen() {
-  const { user, initializing, signInWithApple } = useAuth();
+  const { user, initializing } = useAuth();
   const theme = useThemedValues();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResultItem[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [isSigningIn, setIsSigningIn] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
+  const [isPremiumLoading, setIsPremiumLoading] = useState(true);
 
   const [storageSpaces, setStorageSpaces] = useState<StorageSpace[]>([]);
   const [selectedStorageId, setSelectedStorageId] = useState<string | null>(null);
@@ -312,9 +312,19 @@ export default function DashboardScreen() {
     [selectedStorageItems]
   );
 
+  const hasStorageSpaces = storageSpaces.length > 0;
+
+  useEffect(() => {
+    if (!initializing && !user) {
+      router.replace("/sign-in");
+    }
+  }, [initializing, user]);
+
   useEffect(() => {
     async function testRevenueCat() {
       try {
+        setIsPremiumLoading(true);
+
         const offerings = await getOfferings();
         console.log("RevenueCat offerings:", offerings);
 
@@ -324,6 +334,8 @@ export default function DashboardScreen() {
       } catch (error) {
         console.error("RevenueCat dashboard test failed:", error);
         setIsPremium(false);
+      } finally {
+        setIsPremiumLoading(false);
       }
     }
 
@@ -480,6 +492,7 @@ export default function DashboardScreen() {
       setSearchResults([]);
       setIsSearching(false);
       setIsPremium(false);
+      setIsPremiumLoading(false);
       setStorageSpaces([]);
       setSelectedStorageId(null);
       setShowStorageDropdown(false);
@@ -492,17 +505,6 @@ export default function DashboardScreen() {
       setProfilePhotoFailed(false);
     }
   }, [initializing, user]);
-
-  async function handleSignIn() {
-    try {
-      setIsSigningIn(true);
-      await signInWithApple();
-    } catch (error) {
-      console.error("Apple sign-in failed:", error);
-    } finally {
-      setIsSigningIn(false);
-    }
-  }
 
   async function loadProfilePhoto() {
     if (!user) {
@@ -745,6 +747,10 @@ export default function DashboardScreen() {
     router.push("/(tabs)/profile");
   }
 
+  if (!initializing && !user) {
+    return null;
+  }
+
   return (
     <ScreenBackground>
       <SafeAreaView style={styles.safe}>
@@ -822,25 +828,6 @@ export default function DashboardScreen() {
                 Restoring your signed-in session.
               </ThemedText>
             </ThemedCard>
-          ) : !user ? (
-            <ThemedCard style={styles.emptyCard}>
-              <ThemedText variant="bodyStrong" style={styles.emptyTitle}>
-                Sign in required
-              </ThemedText>
-              <ThemedText color="secondary" style={styles.emptyText}>
-                Please sign in to view your gear data.
-              </ThemedText>
-
-              <ThemedButton
-                style={styles.signInButton}
-                onPress={handleSignIn}
-                disabled={isSigningIn}
-              >
-                <ThemedText style={styles.signInButtonText}>
-                  {isSigningIn ? "Signing in..." : "Sign in with Apple"}
-                </ThemedText>
-              </ThemedButton>
-            </ThemedCard>
           ) : (
             <>
               {searchQuery.trim().length > 0 && (
@@ -851,8 +838,12 @@ export default function DashboardScreen() {
 
                   {!isSearching && searchResults.length === 0 ? (
                     <ThemedCard style={styles.emptyCard}>
-                      <ThemedText color="secondary" style={styles.emptyText}>
+                      <ThemedText variant="bodyStrong" style={styles.emptyTitle}>
                         No results found
+                      </ThemedText>
+                      <ThemedText color="secondary" style={styles.emptyText}>
+                        Try searching by item name, storage space, compartment, or
+                        checklist.
                       </ThemedText>
                     </ThemedCard>
                   ) : (
@@ -893,210 +884,289 @@ export default function DashboardScreen() {
                 </View>
               )}
 
-              <View style={styles.selectorWrap}>
-                <View style={styles.selectorHeaderRow}>
-                  <Pressable
-                    style={styles.selectorAddButton}
+              {!hasStorageSpaces ? (
+                <ThemedCard style={styles.firstRunCard}>
+                  <ThemedText variant="title" style={styles.firstRunTitle}>
+                    Start by adding a storage space
+                  </ThemedText>
+                  <ThemedText color="secondary" style={styles.firstRunText}>
+                    Add your van, truck, garage, shed, trailer, or other storage
+                    space. Then create compartments and add the gear you want to
+                    track.
+                  </ThemedText>
+
+                  <View style={styles.firstRunSteps}>
+                    <View style={styles.firstRunStep}>
+                      <ThemedText style={styles.firstRunStepNumber}>1</ThemedText>
+                      <ThemedText color="secondary" style={styles.firstRunStepText}>
+                        Add a storage space
+                      </ThemedText>
+                    </View>
+
+                    <View style={styles.firstRunStep}>
+                      <ThemedText style={styles.firstRunStepNumber}>2</ThemedText>
+                      <ThemedText color="secondary" style={styles.firstRunStepText}>
+                        Create compartments
+                      </ThemedText>
+                    </View>
+
+                    <View style={styles.firstRunStep}>
+                      <ThemedText style={styles.firstRunStepNumber}>3</ThemedText>
+                      <ThemedText color="secondary" style={styles.firstRunStepText}>
+                        Add items and photos
+                      </ThemedText>
+                    </View>
+                  </View>
+
+                  <ThemedButton
+                    style={styles.firstRunButton}
                     onPress={handleAddStorageSpace}
                   >
-                    <Plus size={18} color={LABEL_WHITE} />
-                  </Pressable>
-
-                  <ThemedText
-                    variant="bodyStrong"
-                    style={[styles.selectorLabel, styles.whiteLabel]}
-                  >
-                    Selected Storage Space
-                  </ThemedText>
-                </View>
-
-                <Pressable
-                  style={styles.selectorPressable}
-                  onPress={() => setShowStorageDropdown((prev) => !prev)}
-                >
-                  <BlurView
-                    intensity={theme.isLight ? 18 : 35}
-                    tint={theme.isLight ? "light" : "dark"}
-                    style={[
-                      styles.selectorButton,
-                      {
-                        borderColor: theme.colors.border,
-                        backgroundColor: theme.colors.card,
-                      },
-                    ]}
-                  >
-                    <ThemedText
-                      variant="bodyStrong"
-                      style={styles.selectorButtonText}
-                      numberOfLines={1}
-                    >
-                      {selectedStorage?.name ?? "Select a storage space"}
+                    <ThemedText style={styles.signInButtonText}>
+                      Add Storage Space
                     </ThemedText>
-                    <ChevronDown size={18} color={theme.colors.textSecondary} />
-                  </BlurView>
-                </Pressable>
+                  </ThemedButton>
+                </ThemedCard>
+              ) : (
+                <>
+                  <View style={styles.selectorWrap}>
+                    <View style={styles.selectorHeaderRow}>
+                      <Pressable
+                        style={styles.selectorAddButton}
+                        onPress={handleAddStorageSpace}
+                      >
+                        <Plus size={18} color={LABEL_WHITE} />
+                      </Pressable>
 
-                {showStorageDropdown && (
-                  <BlurView
-                    intensity={theme.isLight ? 18 : 35}
-                    tint={theme.isLight ? "light" : "dark"}
-                    style={[
-                      styles.dropdownCard,
-                      {
-                        borderColor: theme.colors.border,
-                        backgroundColor: theme.colors.card,
-                      },
-                    ]}
-                  >
-                    {sortedStorageSpaces.length === 0 ? (
-                      <ThemedText color="secondary" style={styles.dropdownEmpty}>
-                        No storage spaces found.
+                      <ThemedText
+                        variant="bodyStrong"
+                        style={[styles.selectorLabel, styles.whiteLabel]}
+                      >
+                        Selected Storage Space
                       </ThemedText>
-                    ) : (
-                      <ScrollView showsVerticalScrollIndicator={false}>
-                        {sortedStorageSpaces.map((space, index) => (
+                    </View>
+
+                    <Pressable
+                      style={styles.selectorPressable}
+                      onPress={() => setShowStorageDropdown((prev) => !prev)}
+                    >
+                      <BlurView
+                        intensity={theme.isLight ? 18 : 35}
+                        tint={theme.isLight ? "light" : "dark"}
+                        style={[
+                          styles.selectorButton,
+                          {
+                            borderColor: theme.colors.border,
+                            backgroundColor: theme.colors.card,
+                          },
+                        ]}
+                      >
+                        <ThemedText
+                          variant="bodyStrong"
+                          style={styles.selectorButtonText}
+                          numberOfLines={1}
+                        >
+                          {selectedStorage?.name ?? "Select a storage space"}
+                        </ThemedText>
+                        <ChevronDown
+                          size={18}
+                          color={theme.colors.textSecondary}
+                        />
+                      </BlurView>
+                    </Pressable>
+
+                    {showStorageDropdown && (
+                      <BlurView
+                        intensity={theme.isLight ? 18 : 35}
+                        tint={theme.isLight ? "light" : "dark"}
+                        style={[
+                          styles.dropdownCard,
+                          {
+                            borderColor: theme.colors.border,
+                            backgroundColor: theme.colors.card,
+                          },
+                        ]}
+                      >
+                        {sortedStorageSpaces.length === 0 ? (
+                          <ThemedText color="secondary" style={styles.dropdownEmpty}>
+                            No storage spaces found.
+                          </ThemedText>
+                        ) : (
+                          <ScrollView showsVerticalScrollIndicator={false}>
+                            {sortedStorageSpaces.map((space, index) => (
+                              <Pressable
+                                key={space.id}
+                                style={[
+                                  styles.dropdownRow,
+                                  {
+                                    borderBottomColor: theme.colors.border,
+                                  },
+                                  index === sortedStorageSpaces.length - 1 &&
+                                    styles.dropdownRowLast,
+                                ]}
+                                onPress={() => handleSelectStorage(space)}
+                              >
+                                <View style={styles.dropdownRowLeft}>
+                                  <ThemedText
+                                    variant="bodyStrong"
+                                    style={styles.dropdownRowTitle}
+                                  >
+                                    {space.name}
+                                  </ThemedText>
+                                  <ThemedText
+                                    color="secondary"
+                                    style={styles.dropdownRowMeta}
+                                  >
+                                    {space.category === "vehicle"
+                                      ? "Vehicle"
+                                      : "Storage"}
+                                    {space.subtype ? ` • ${space.subtype}` : ""}
+                                  </ThemedText>
+                                </View>
+                              </Pressable>
+                            ))}
+                          </ScrollView>
+                        )}
+                      </BlurView>
+                    )}
+                  </View>
+
+                  <View style={styles.statsRow}>
+                    <NoteCard
+                      icon={<FileText size={20} color={LABEL_WHITE} />}
+                      title="Notes"
+                      onPress={handleOpenNotes}
+                    />
+
+                    <StatCard
+                      icon={<CheckCircle2 size={22} color={LABEL_WHITE} />}
+                      value={packedCount}
+                      label="Items Packed"
+                      tone="success"
+                      onPress={handleOpenPackedItems}
+                    />
+
+                    <StatCard
+                      icon={<ListChecks size={22} color={LABEL_WHITE} />}
+                      value={toPackCount}
+                      label="To Pack"
+                      tone="danger"
+                      onPress={handleOpenToPack}
+                    />
+                  </View>
+
+                  <View style={styles.sectionHeaderRow}>
+                    <View style={styles.sectionHeaderLeft}>
+                      <Pressable
+                        style={[
+                          styles.compartmentAddButton,
+                          !selectedStorageId && styles.compartmentAddButtonDisabled,
+                        ]}
+                        onPress={handleAddCompartment}
+                        disabled={!selectedStorageId}
+                      >
+                        <Plus size={18} color={LABEL_WHITE} />
+                      </Pressable>
+
+                      <ThemedText
+                        variant="title"
+                        style={[styles.sectionHeaderTitle, styles.whiteLabel]}
+                      >
+                        Compartment Quick View
+                      </ThemedText>
+                    </View>
+
+                    <Pressable
+                      onPress={handleOpenAllCompartments}
+                      disabled={!selectedStorageId}
+                    >
+                      <ThemedText
+                        style={[
+                          styles.viewAllText,
+                          styles.whiteLabelMuted,
+                          !selectedStorageId && styles.disabledText,
+                        ]}
+                      >
+                        View All
+                      </ThemedText>
+                    </Pressable>
+                  </View>
+
+                  {selectedStorageId == null ? (
+                    <ThemedCard style={styles.emptyCard}>
+                      <ThemedText variant="bodyStrong" style={styles.emptyTitle}>
+                        Select a storage space
+                      </ThemedText>
+                      <ThemedText color="secondary" style={styles.emptyText}>
+                        Choose a storage space above to view compartments and gear.
+                      </ThemedText>
+                    </ThemedCard>
+                  ) : quickCompartments.length === 0 ? (
+                    <ThemedCard style={styles.emptyCard}>
+                      <ThemedText variant="bodyStrong" style={styles.emptyTitle}>
+                        No compartments yet
+                      </ThemedText>
+                      <ThemedText color="secondary" style={styles.emptyText}>
+                        Create compartments such as rear drawer, side cabinet,
+                        garage shelf, or under-seat storage to organize your gear.
+                      </ThemedText>
+
+                      <ThemedButton
+                        style={styles.emptyActionButton}
+                        onPress={handleAddCompartment}
+                      >
+                        <ThemedText style={styles.signInButtonText}>
+                          Add Compartment
+                        </ThemedText>
+                      </ThemedButton>
+                    </ThemedCard>
+                  ) : (
+                    <View style={styles.quickGrid}>
+                      {quickCompartments.map((compartment) => (
+                        <ThemedCard
+                          key={compartment.id}
+                          style={styles.quickGridCard}
+                          contentStyle={styles.quickGridCardContent}
+                        >
                           <Pressable
-                            key={space.id}
-                            style={[
-                              styles.dropdownRow,
-                              {
-                                borderBottomColor: theme.colors.border,
-                              },
-                              index === sortedStorageSpaces.length - 1 &&
-                                styles.dropdownRowLast,
-                            ]}
-                            onPress={() => handleSelectStorage(space)}
+                            style={styles.quickGridRow}
+                            onPress={() => handleOpenCompartment(compartment.id)}
                           >
-                            <View style={styles.dropdownRowLeft}>
+                            <View style={styles.quickGridLeft}>
                               <ThemedText
                                 variant="bodyStrong"
-                                style={styles.dropdownRowTitle}
+                                style={styles.quickGridTitle}
+                                numberOfLines={2}
                               >
-                                {space.name}
+                                {compartment.name}
                               </ThemedText>
                               <ThemedText
                                 color="secondary"
-                                style={styles.dropdownRowMeta}
+                                style={styles.quickGridMeta}
                               >
-                                {space.category === "vehicle" ? "Vehicle" : "Storage"}
-                                {space.subtype ? ` • ${space.subtype}` : ""}
+                                {compartment.itemCount}{" "}
+                                {compartment.itemCount === 1 ? "item" : "items"}
                               </ThemedText>
                             </View>
+                            <ChevronRight
+                              size={16}
+                              color={theme.colors.textSecondary}
+                            />
                           </Pressable>
-                        ))}
-                      </ScrollView>
-                    )}
-                  </BlurView>
-                )}
-              </View>
-
-              <View style={styles.statsRow}>
-                <NoteCard
-                  icon={<FileText size={20} color={LABEL_WHITE} />}
-                  title="Notes"
-                  onPress={handleOpenNotes}
-                />
-
-                <StatCard
-                  icon={<CheckCircle2 size={22} color={LABEL_WHITE} />}
-                  value={packedCount}
-                  label="Items Packed"
-                  tone="success"
-                  onPress={handleOpenPackedItems}
-                />
-
-                <StatCard
-                  icon={<ListChecks size={22} color={LABEL_WHITE} />}
-                  value={toPackCount}
-                  label="To Pack"
-                  tone="danger"
-                  onPress={handleOpenToPack}
-                />
-              </View>
-
-              <View style={styles.sectionHeaderRow}>
-                <View style={styles.sectionHeaderLeft}>
-                  <Pressable
-                    style={[
-                      styles.compartmentAddButton,
-                      !selectedStorageId && styles.compartmentAddButtonDisabled,
-                    ]}
-                    onPress={handleAddCompartment}
-                    disabled={!selectedStorageId}
-                  >
-                    <Plus size={18} color={LABEL_WHITE} />
-                  </Pressable>
-
-                  <ThemedText
-                    variant="title"
-                    style={[styles.sectionHeaderTitle, styles.whiteLabel]}
-                  >
-                    Compartment Quick View
-                  </ThemedText>
-                </View>
-
-                <Pressable onPress={handleOpenAllCompartments}>
-                  <ThemedText style={[styles.viewAllText, styles.whiteLabelMuted]}>
-                    View All
-                  </ThemedText>
-                </Pressable>
-              </View>
-
-              {selectedStorageId == null ? (
-                <ThemedCard style={styles.emptyCard}>
-                  <ThemedText variant="bodyStrong" style={styles.emptyTitle}>
-                    No storage space selected
-                  </ThemedText>
-                  <ThemedText color="secondary" style={styles.emptyText}>
-                    Add a storage space in Inventory to start tracking gear.
-                  </ThemedText>
-                </ThemedCard>
-              ) : quickCompartments.length === 0 ? (
-                <ThemedCard style={styles.emptyCard}>
-                  <ThemedText variant="bodyStrong" style={styles.emptyTitle}>
-                    No compartments yet
-                  </ThemedText>
-                  <ThemedText color="secondary" style={styles.emptyText}>
-                    Create compartments inside this storage space to see them here.
-                  </ThemedText>
-                </ThemedCard>
-              ) : (
-                <View style={styles.quickGrid}>
-                  {quickCompartments.map((compartment) => (
-                    <ThemedCard
-                      key={compartment.id}
-                      style={styles.quickGridCard}
-                      contentStyle={styles.quickGridCardContent}
-                    >
-                      <Pressable
-                        style={styles.quickGridRow}
-                        onPress={() => handleOpenCompartment(compartment.id)}
-                      >
-                        <View style={styles.quickGridLeft}>
-                          <ThemedText
-                            variant="bodyStrong"
-                            style={styles.quickGridTitle}
-                            numberOfLines={2}
-                          >
-                            {compartment.name}
-                          </ThemedText>
-                          <ThemedText color="secondary" style={styles.quickGridMeta}>
-                            {compartment.itemCount}{" "}
-                            {compartment.itemCount === 1 ? "item" : "items"}
-                          </ThemedText>
-                        </View>
-                        <ChevronRight size={16} color={theme.colors.textSecondary} />
-                      </Pressable>
-                    </ThemedCard>
-                  ))}
-                </View>
+                        </ThemedCard>
+                      ))}
+                    </View>
+                  )}
+                </>
               )}
             </>
           )}
         </ScrollView>
 
         <View style={styles.bottomAdWrap}>
-          <SafeBannerAd enabled={!initializing && !!user && !isPremium} />
+          <SafeBannerAd
+            enabled={!initializing && !!user && !isPremiumLoading && !isPremium}
+          />
         </View>
       </SafeAreaView>
     </ScreenBackground>
@@ -1132,6 +1202,10 @@ const styles = StyleSheet.create({
   whiteLabelMuted: {
     color: LABEL_WHITE,
     opacity: 0.82,
+  },
+
+  disabledText: {
+    opacity: 0.45,
   },
 
   frostedCard: {
@@ -1459,7 +1533,11 @@ const styles = StyleSheet.create({
   },
 
   emptyText: {
-    lineHeight: 17,
+    lineHeight: 19,
+  },
+
+  emptyActionButton: {
+    marginTop: 12,
   },
 
   signInButton: {
@@ -1469,6 +1547,51 @@ const styles = StyleSheet.create({
   signInButtonText: {
     color: "#fff",
     fontWeight: "700",
+  },
+
+  firstRunCard: {
+    marginTop: 4,
+    marginBottom: 16,
+  },
+
+  firstRunTitle: {
+    marginBottom: 8,
+  },
+
+  firstRunText: {
+    lineHeight: 20,
+    marginBottom: 14,
+  },
+
+  firstRunSteps: {
+    gap: 10,
+    marginBottom: 16,
+  },
+
+  firstRunStep: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  firstRunStepNumber: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    textAlign: "center",
+    lineHeight: 26,
+    overflow: "hidden",
+    marginRight: 10,
+    color: "#fff",
+    fontWeight: "700",
+    backgroundColor: "rgba(55,130,245,0.95)",
+  },
+
+  firstRunStepText: {
+    flex: 1,
+  },
+
+  firstRunButton: {
+    marginTop: 2,
   },
 
   quickGrid: {

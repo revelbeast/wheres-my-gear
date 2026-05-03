@@ -1,14 +1,14 @@
 import { BlurView } from "expo-blur";
-import React from "react";
+import React, { forwardRef } from "react";
 import {
-    Pressable,
-    StyleSheet,
-    Text,
-    TextInput,
-    TextInputProps,
-    TextProps,
-    View,
-    ViewStyle,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  TextInputProps,
+  TextProps,
+  View,
+  ViewStyle,
 } from "react-native";
 
 import { useTheme } from "../../lib/useTheme";
@@ -101,30 +101,29 @@ export function ThemedCard({
   );
 }
 
-export function ThemedInput({
-  style,
-  placeholderTextColor,
-  ...rest
-}: TextInputProps) {
-  const theme = useTheme();
+export const ThemedInput = forwardRef<TextInput, TextInputProps>(
+  function ThemedInput({ style, placeholderTextColor, ...rest }, ref) {
+    const theme = useTheme();
 
-  return (
-    <TextInput
-      placeholderTextColor={placeholderTextColor ?? theme.colors.textMuted}
-      style={[
-        styles.input,
-        {
-          color: theme.colors.text,
-          backgroundColor: theme.colors.inputSurface,
-          borderColor: theme.colors.border,
-          fontSize: theme.fontSizes.body,
-        },
-        style,
-      ]}
-      {...rest}
-    />
-  );
-}
+    return (
+      <TextInput
+        ref={ref}
+        placeholderTextColor={placeholderTextColor ?? theme.colors.textMuted}
+        style={[
+          styles.input,
+          {
+            color: theme.colors.text,
+            backgroundColor: theme.colors.inputSurface,
+            borderColor: theme.colors.border,
+            fontSize: theme.fontSizes.body,
+          },
+          style,
+        ]}
+        {...rest}
+      />
+    );
+  }
+);
 
 export function ThemedButton({
   children,

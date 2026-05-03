@@ -71,7 +71,9 @@ export default function EditStorageScreen() {
 
   const nameInputRef = useRef<TextInput | null>(null);
   const customSubtypeInputRef = useRef<TextInput | null>(null);
-  const dropdownOpenTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dropdownOpenTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
 
   const subtypeOptions = useMemo(() => {
     return category === "vehicle" ? VEHICLE_SUBTYPES : STORAGE_SUBTYPES;
@@ -242,14 +244,15 @@ export default function EditStorageScreen() {
     <ScreenBackground>
       <SafeAreaView style={styles.safe}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 12 : 0}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
           style={styles.container}
         >
           <ScrollView
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="always"
             keyboardDismissMode="on-drag"
+            automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
             contentContainerStyle={styles.scrollContent}
           >
             <View style={styles.headerRow}>
@@ -442,7 +445,8 @@ const styles = StyleSheet.create({
   },
 
   scrollContent: {
-    paddingBottom: 40,
+    flexGrow: 1,
+    paddingBottom: 160,
   },
 
   headerRow: {

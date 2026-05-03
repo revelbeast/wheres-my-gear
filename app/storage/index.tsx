@@ -7,7 +7,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react-native";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   Alert,
   FlatList,
@@ -30,6 +30,15 @@ import { colors } from "../../theme/tokens";
 export default function StorageManagementScreen() {
   const [storageSpaces, setStorageSpaces] = useState<StorageSpace[]>([]);
   const [deletingStorageId, setDeletingStorageId] = useState<string | null>(null);
+
+  const sortedStorageSpaces = useMemo(() => {
+    return [...storageSpaces].sort((a, b) => {
+      const aName = String(a.name ?? "").trim().toLowerCase();
+      const bName = String(b.name ?? "").trim().toLowerCase();
+
+      return aName.localeCompare(bName);
+    });
+  }, [storageSpaces]);
 
   useFocusEffect(
     useCallback(() => {
@@ -173,7 +182,7 @@ export default function StorageManagementScreen() {
           </Text>
 
           <FlatList
-            data={storageSpaces}
+            data={sortedStorageSpaces}
             keyExtractor={(item) => item.id}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.listContent}

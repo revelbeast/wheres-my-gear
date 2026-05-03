@@ -160,7 +160,8 @@ export default function ProfileAddressScreen() {
     <ScreenBackground>
       <SafeAreaView style={styles.safe}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
           style={styles.flex}
         >
           <ScrollView
@@ -168,6 +169,7 @@ export default function ProfileAddressScreen() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
+            automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
           >
             <AppHeader title="My Address" showBackButton />
 
@@ -189,7 +191,8 @@ export default function ProfileAddressScreen() {
                     Address Information
                   </ThemedText>
                   <ThemedText color="secondary" style={styles.heroText}>
-                    Add or update your address details. This information is saved to your profile settings.
+                    Add or update your address details. This information is saved
+                    to your profile settings.
                   </ThemedText>
                 </ThemedCard>
 
@@ -200,7 +203,7 @@ export default function ProfileAddressScreen() {
                     onChangeText={(text) =>
                       updateAddressField("streetAddress", text)
                     }
-                    placeholder="123 Main Street"
+                    placeholder="Enter street address"
                   />
 
                   <LabeledInput
@@ -216,7 +219,7 @@ export default function ProfileAddressScreen() {
                     label="City"
                     value={address.city}
                     onChangeText={(text) => updateAddressField("city", text)}
-                    placeholder="Lacey"
+                    placeholder="Enter city"
                   />
 
                   <View style={styles.inlineFieldsRow}>
@@ -227,7 +230,7 @@ export default function ProfileAddressScreen() {
                         onChangeText={(text) =>
                           updateAddressField("state", formatState(text))
                         }
-                        placeholder="WA"
+                        placeholder="State"
                         autoCapitalize="characters"
                       />
                     </View>
@@ -239,7 +242,7 @@ export default function ProfileAddressScreen() {
                         onChangeText={(text) =>
                           updateAddressField("zipCode", formatZipCode(text))
                         }
-                        placeholder="98503"
+                        placeholder="ZIP Code"
                         keyboardType="number-pad"
                         autoCapitalize="none"
                       />
@@ -250,7 +253,7 @@ export default function ProfileAddressScreen() {
                     label="Country"
                     value={address.country}
                     onChangeText={(text) => updateAddressField("country", text)}
-                    placeholder="United States"
+                    placeholder="Country"
                   />
                 </ThemedCard>
 
@@ -279,8 +282,9 @@ const styles = StyleSheet.create({
   },
 
   content: {
+    flexGrow: 1,
     padding: 16,
-    paddingBottom: 140,
+    paddingBottom: 180,
   },
 
   heroCard: {

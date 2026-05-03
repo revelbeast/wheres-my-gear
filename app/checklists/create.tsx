@@ -12,10 +12,12 @@ import {
   UtensilsCrossed,
   Wrench,
 } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -131,6 +133,24 @@ export default function CreateChecklistScreen() {
   const [customCategoryLabel, setCustomCategoryLabel] = useState("");
   const [creatingNewChecklist, setCreatingNewChecklist] = useState(false);
 
+  const sortedTemplates = useMemo(() => {
+    return [...templates].sort((a, b) => {
+      const aName = String(a.name ?? "").toLowerCase();
+      const bName = String(b.name ?? "").toLowerCase();
+
+      return aName.localeCompare(bName);
+    });
+  }, [templates]);
+
+  const sortedTemplateItems = useMemo(() => {
+    return [...templateItems].sort((a, b) => {
+      const aName = String(a.name ?? "").toLowerCase();
+      const bName = String(b.name ?? "").toLowerCase();
+
+      return aName.localeCompare(bName);
+    });
+  }, [templateItems]);
+
   useEffect(() => {
     if (initializing) {
       return;
@@ -219,7 +239,7 @@ export default function CreateChecklistScreen() {
 
     const trimmed = renameValue.trim();
     if (!trimmed) {
-      Alert.alert("Missing name", "Please enter a template name.");
+      Alert.alert("Required name", "Please enter a template name.");
       return;
     }
 
@@ -276,12 +296,12 @@ export default function CreateChecklistScreen() {
     const trimmedCustomCategory = customCategoryLabel.trim();
 
     if (!trimmedName) {
-      Alert.alert("Missing name", "Please enter a checklist name.");
+      Alert.alert("Required name", "Please enter a checklist name.");
       return;
     }
 
     if (selectedCategory === "custom" && !trimmedCustomCategory) {
-      Alert.alert("Missing category", "Please enter a custom category.");
+      Alert.alert("Required category", "Please enter a custom category.");
       return;
     }
 
@@ -367,163 +387,197 @@ export default function CreateChecklistScreen() {
   return (
     <ScreenBackground>
       <SafeAreaView style={styles.safe}>
-        <ScrollView contentContainerStyle={styles.content}>
-          <AppHeader title="Create Checklist" showBackButton />
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
+          style={styles.keyboardAvoidingView}
+        >
+          <ScrollView
+            contentContainerStyle={styles.content}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
+          >
+            <AppHeader title="Create Checklist" showBackButton />
 
-          <FrostedCard style={styles.heroCard}>
-            <Text style={[styles.heroTitle, { color: theme.colors.text }]}>
-              Create New Checklist
-            </Text>
-            <Text style={[styles.heroText, { color: theme.colors.textSecondary }]}>
-              Start a checklist from scratch, or use one of your templates below.
-            </Text>
-          </FrostedCard>
-
-          {initializing ? (
-            <FrostedCard>
-              <Text style={[styles.meta, { color: theme.colors.textSecondary }]}>
-                Loading account...
-              </Text>
-            </FrostedCard>
-          ) : !user ? (
-            <FrostedCard>
-              <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
-                Sign in required
+            <FrostedCard style={styles.heroCard}>
+              <Text style={[styles.heroTitle, { color: theme.colors.text }]}>
+                Create New Checklist
               </Text>
               <Text
-                style={[styles.emptyText, { color: theme.colors.textSecondary }]}
+                style={[styles.heroText, { color: theme.colors.textSecondary }]}
               >
-                Please sign in to create or manage checklists.
+                Start a checklist from scratch, or use one of your templates below.
               </Text>
             </FrostedCard>
-          ) : (
-            <>
+
+            {initializing ? (
               <FrostedCard>
-                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                  Checklist Name
+                <Text style={[styles.meta, { color: theme.colors.textSecondary }]}>
+                  Loading account...
                 </Text>
-                <TextInput
-                  value={newChecklistName}
-                  onChangeText={setNewChecklistName}
-                  placeholder="Enter checklist name"
-                  placeholderTextColor={theme.colors.textMuted}
-                  style={[
-                    styles.input,
-                    {
-                      color: theme.colors.text,
-                      backgroundColor: theme.colors.inputSurface,
-                      borderColor: theme.colors.border,
-                    },
-                  ]}
-                />
-
-                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                  Category
-                </Text>
-
-                <View style={styles.categoryGrid}>
-                  {CATEGORY_OPTIONS.map((option) => {
-                    const selected = selectedCategory === option.key;
-
-                    return (
-                      <Pressable
-                        key={option.key}
-                        style={[
-                          styles.categoryButton,
-                          {
-                            backgroundColor: theme.colors.iconSurface,
-                            borderColor: theme.colors.border,
-                          },
-                          selected && styles.categoryButtonSelected,
-                        ]}
-                        onPress={() => setSelectedCategory(option.key)}
-                      >
-                        <View style={styles.categoryIconWrap}>
-                          {getIcon(option.key, selected ? "#fff" : theme.colors.text)}
-                        </View>
-                        <Text
-                          style={[
-                            styles.categoryButtonText,
-                            { color: theme.colors.text },
-                            selected && styles.categoryButtonTextSelected,
-                          ]}
-                        >
-                          {option.label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-
-                {selectedCategory === "custom" ? (
-                  <View style={styles.customCategoryWrap}>
-                    <Text
-                      style={[styles.sectionTitle, { color: theme.colors.text }]}
-                    >
-                      Custom Category
-                    </Text>
-                    <TextInput
-                      value={customCategoryLabel}
-                      onChangeText={setCustomCategoryLabel}
-                      placeholder="Enter custom category"
-                      placeholderTextColor={theme.colors.textMuted}
-                      style={[
-                        styles.input,
-                        {
-                          color: theme.colors.text,
-                          backgroundColor: theme.colors.inputSurface,
-                          borderColor: theme.colors.border,
-                        },
-                      ]}
-                    />
-                  </View>
-                ) : null}
-
-                <Pressable
-                  style={[
-                    styles.primaryButton,
-                    creatingNewChecklist && styles.primaryButtonDisabled,
-                  ]}
-                  onPress={handleCreateNewChecklist}
-                  disabled={creatingNewChecklist}
-                >
-                  <Text style={styles.primaryButtonText}>
-                    {creatingNewChecklist ? "Creating..." : "Create New Checklist"}
-                  </Text>
-                </Pressable>
               </FrostedCard>
-
-              <FrostedCard style={styles.heroCard}>
-                <Text style={[styles.heroTitle, { color: theme.colors.text }]}>
-                  My Templates
+            ) : !user ? (
+              <FrostedCard>
+                <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
+                  Sign in required
                 </Text>
                 <Text
-                  style={[styles.heroText, { color: theme.colors.textSecondary }]}
+                  style={[
+                    styles.emptyText,
+                    { color: theme.colors.textSecondary },
+                  ]}
                 >
-                  Tap a template to preview it. Long press to rename or delete it.
+                  Please sign in to create or manage checklists.
                 </Text>
               </FrostedCard>
-
-              {templates.length === 0 ? (
+            ) : (
+              <>
                 <FrostedCard>
-                  <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
-                    No templates yet
+                  <Text
+                    style={[styles.sectionTitle, { color: theme.colors.text }]}
+                  >
+                    Checklist Name
+                  </Text>
+                  <TextInput
+                    value={newChecklistName}
+                    onChangeText={setNewChecklistName}
+                    placeholder="Enter checklist name"
+                    placeholderTextColor={theme.colors.textMuted}
+                    style={[
+                      styles.input,
+                      {
+                        color: theme.colors.text,
+                        backgroundColor: theme.colors.inputSurface,
+                        borderColor: theme.colors.border,
+                      },
+                    ]}
+                    returnKeyType="done"
+                  />
+
+                  <Text
+                    style={[styles.sectionTitle, { color: theme.colors.text }]}
+                  >
+                    Category
+                  </Text>
+
+                  <View style={styles.categoryGrid}>
+                    {CATEGORY_OPTIONS.map((option) => {
+                      const selected = selectedCategory === option.key;
+
+                      return (
+                        <Pressable
+                          key={option.key}
+                          style={[
+                            styles.categoryButton,
+                            {
+                              backgroundColor: theme.colors.iconSurface,
+                              borderColor: theme.colors.border,
+                            },
+                            selected && styles.categoryButtonSelected,
+                          ]}
+                          onPress={() => setSelectedCategory(option.key)}
+                        >
+                          <View style={styles.categoryIconWrap}>
+                            {getIcon(
+                              option.key,
+                              selected ? "#fff" : theme.colors.text
+                            )}
+                          </View>
+                          <Text
+                            style={[
+                              styles.categoryButtonText,
+                              { color: theme.colors.text },
+                              selected && styles.categoryButtonTextSelected,
+                            ]}
+                          >
+                            {option.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+
+                  {selectedCategory === "custom" ? (
+                    <View style={styles.customCategoryWrap}>
+                      <Text
+                        style={[
+                          styles.sectionTitle,
+                          { color: theme.colors.text },
+                        ]}
+                      >
+                        Custom Category
+                      </Text>
+                      <TextInput
+                        value={customCategoryLabel}
+                        onChangeText={setCustomCategoryLabel}
+                        placeholder="Enter custom category"
+                        placeholderTextColor={theme.colors.textMuted}
+                        style={[
+                          styles.input,
+                          {
+                            color: theme.colors.text,
+                            backgroundColor: theme.colors.inputSurface,
+                            borderColor: theme.colors.border,
+                          },
+                        ]}
+                        returnKeyType="done"
+                      />
+                    </View>
+                  ) : null}
+
+                  <Pressable
+                    style={[
+                      styles.primaryButton,
+                      creatingNewChecklist && styles.primaryButtonDisabled,
+                    ]}
+                    onPress={handleCreateNewChecklist}
+                    disabled={creatingNewChecklist}
+                  >
+                    <Text style={styles.primaryButtonText}>
+                      {creatingNewChecklist
+                        ? "Creating..."
+                        : "Create New Checklist"}
+                    </Text>
+                  </Pressable>
+                </FrostedCard>
+
+                <FrostedCard style={styles.heroCard}>
+                  <Text style={[styles.heroTitle, { color: theme.colors.text }]}>
+                    My Templates
                   </Text>
                   <Text
                     style={[
-                      styles.emptyText,
+                      styles.heroText,
                       { color: theme.colors.textSecondary },
                     ]}
                   >
-                    Save any checklist as a template, then it will appear here.
+                    Tap a template to preview it. Long press to rename or delete it.
                   </Text>
                 </FrostedCard>
-              ) : (
-                templates.map(renderTemplate)
-              )}
-            </>
-          )}
-        </ScrollView>
+
+                {sortedTemplates.length === 0 ? (
+                  <FrostedCard>
+                    <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
+                      No templates yet
+                    </Text>
+                    <Text
+                      style={[
+                        styles.emptyText,
+                        { color: theme.colors.textSecondary },
+                      ]}
+                    >
+                      Save any checklist as a template, then it will appear here.
+                    </Text>
+                  </FrostedCard>
+                ) : (
+                  sortedTemplates.map(renderTemplate)
+                )}
+              </>
+            )}
+          </ScrollView>
+        </KeyboardAvoidingView>
 
         <Modal
           visible={!!previewTemplate}
@@ -532,7 +586,10 @@ export default function CreateChecklistScreen() {
         >
           <ScreenBackground>
             <SafeAreaView style={styles.safe}>
-              <ScrollView contentContainerStyle={styles.content}>
+              <ScrollView
+                contentContainerStyle={styles.content}
+                showsVerticalScrollIndicator={false}
+              >
                 <AppHeader
                   title={previewTemplate?.name || "Template Preview"}
                   showBackButton
@@ -548,7 +605,8 @@ export default function CreateChecklistScreen() {
                       { color: theme.colors.textSecondary },
                     ]}
                   >
-                    Review the template items below, then create a checklist when ready.
+                    Review the template items below, then create a checklist when
+                    ready.
                   </Text>
                 </FrostedCard>
 
@@ -560,7 +618,7 @@ export default function CreateChecklistScreen() {
                       Loading items...
                     </Text>
                   </FrostedCard>
-                ) : templateItems.length === 0 ? (
+                ) : sortedTemplateItems.length === 0 ? (
                   <FrostedCard>
                     <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
                       No items found
@@ -575,7 +633,7 @@ export default function CreateChecklistScreen() {
                     </Text>
                   </FrostedCard>
                 ) : (
-                  templateItems.map((item, index) => (
+                  sortedTemplateItems.map((item, index) => (
                     <FrostedCard key={`${item.id ?? item.name}-${index}`}>
                       <Text style={[styles.itemText, { color: theme.colors.text }]}>
                         {item.name}
@@ -619,63 +677,72 @@ export default function CreateChecklistScreen() {
           onRequestClose={closeRenameModal}
         >
           <View style={styles.modalOverlay}>
-            <BlurView
-              intensity={theme.isLight ? 22 : 35}
-              tint={theme.isLight ? "light" : "dark"}
-              style={[
-                styles.modalCard,
-                {
-                  borderColor: theme.colors.border,
-                  backgroundColor: theme.isLight
-                    ? "rgba(255,255,255,0.94)"
-                    : "rgba(255,255,255,0.04)",
-                },
-              ]}
+            <KeyboardAvoidingView
+              behavior={Platform.OS === "ios" ? "padding" : "height"}
+              keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
             >
-              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
-                Rename Template
-              </Text>
-
-              <TextInput
-                value={renameValue}
-                onChangeText={setRenameValue}
-                placeholder="Enter template name"
-                placeholderTextColor={theme.colors.textMuted}
+              <BlurView
+                intensity={theme.isLight ? 22 : 35}
+                tint={theme.isLight ? "light" : "dark"}
                 style={[
-                  styles.input,
+                  styles.modalCard,
                   {
-                    color: theme.colors.text,
-                    backgroundColor: theme.colors.inputSurface,
                     borderColor: theme.colors.border,
+                    backgroundColor: theme.isLight
+                      ? "rgba(255,255,255,0.94)"
+                      : "rgba(255,255,255,0.04)",
                   },
                 ]}
-                autoFocus
-              />
-
-              <Pressable
-                style={[
-                  styles.primaryButton,
-                  savingRename && styles.primaryButtonDisabled,
-                ]}
-                onPress={handleRename}
-                disabled={savingRename}
               >
-                <Text style={styles.primaryButtonText}>
-                  {savingRename ? "Saving..." : "Save"}
+                <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
+                  Rename Template
                 </Text>
-              </Pressable>
 
-              <Pressable style={styles.secondaryButton} onPress={closeRenameModal}>
-                <Text
+                <TextInput
+                  value={renameValue}
+                  onChangeText={setRenameValue}
+                  placeholder="Enter template name"
+                  placeholderTextColor={theme.colors.textMuted}
                   style={[
-                    styles.secondaryButtonText,
-                    { color: theme.colors.textSecondary },
+                    styles.input,
+                    {
+                      color: theme.colors.text,
+                      backgroundColor: theme.colors.inputSurface,
+                      borderColor: theme.colors.border,
+                    },
                   ]}
+                  autoFocus
+                  returnKeyType="done"
+                />
+
+                <Pressable
+                  style={[
+                    styles.primaryButton,
+                    savingRename && styles.primaryButtonDisabled,
+                  ]}
+                  onPress={handleRename}
+                  disabled={savingRename}
                 >
-                  Cancel
-                </Text>
-              </Pressable>
-            </BlurView>
+                  <Text style={styles.primaryButtonText}>
+                    {savingRename ? "Saving..." : "Save"}
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  style={styles.secondaryButton}
+                  onPress={closeRenameModal}
+                >
+                  <Text
+                    style={[
+                      styles.secondaryButtonText,
+                      { color: theme.colors.textSecondary },
+                    ]}
+                  >
+                    Cancel
+                  </Text>
+                </Pressable>
+              </BlurView>
+            </KeyboardAvoidingView>
           </View>
         </Modal>
       </SafeAreaView>
@@ -688,9 +755,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
+  keyboardAvoidingView: {
+    flex: 1,
+  },
+
   content: {
+    flexGrow: 1,
     padding: 16,
-    paddingBottom: 120,
+    paddingBottom: 180,
   },
 
   card: {

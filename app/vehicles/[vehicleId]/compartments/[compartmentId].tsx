@@ -12,11 +12,13 @@ import {
   Trash2,
   X,
 } from "lucide-react-native";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -86,6 +88,8 @@ export default function CompartmentDetailScreen() {
   }>();
 
   const theme = useThemedValues();
+  const scrollRef = useRef<ScrollView | null>(null);
+  const itemCardYPositions = useRef<Record<string, number>>({});
 
   const compartmentId = Array.isArray(params.compartmentId)
     ? params.compartmentId[0]
@@ -121,6 +125,23 @@ export default function CompartmentDetailScreen() {
     loadCompartment();
     loadItems();
   }, [compartmentId]);
+
+  function scrollToCreateBox(delay = 140) {
+    setTimeout(() => {
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+    }, delay);
+  }
+
+  function scrollToItemCard(itemId: string, delay = 180) {
+    setTimeout(() => {
+      const y = itemCardYPositions.current[itemId] ?? 0;
+
+      scrollRef.current?.scrollTo({
+        y: Math.max(y - 18, 0),
+        animated: true,
+      });
+    }, delay);
+  }
 
   async function loadCompartment() {
     try {
@@ -179,6 +200,7 @@ export default function CompartmentDetailScreen() {
   function startEditingItem(item: Item) {
     setEditingItemId(item.id);
     setEditingItemName(item.name);
+    scrollToItemCard(item.id, 220);
   }
 
   function cancelEditingItem() {
@@ -436,7 +458,10 @@ export default function CompartmentDetailScreen() {
     >
       <Pressable
         style={styles.headerActionButton}
-        onPress={() => setShowCreateBox((prev) => !prev)}
+        onPress={() => {
+          setShowCreateBox((prev) => !prev);
+          scrollToCreateBox(120);
+        }}
       >
         {showCreateBox ? (
           <X size={18} color={theme.colors.text} />
@@ -459,407 +484,437 @@ export default function CompartmentDetailScreen() {
       updatingStatusId === item.id;
 
     return (
-      <FrostedCard
+      <View
         key={item.id}
-        style={[
-          packed ? styles.packedItemCard : styles.unpackedItemCard,
-          {
-            borderColor: packed
-              ? theme.isLight
-                ? "rgba(34,197,94,0.24)"
-                : "rgba(120,255,190,0.10)"
-              : theme.isLight
-                ? "rgba(255,255,255,0.34)"
-                : "rgba(255,255,255,0.12)",
-            backgroundColor: packed
-              ? theme.isLight
-                ? "rgba(255,255,255,0.50)"
-                : "rgba(255,255,255,0.02)"
-              : theme.isLight
-                ? "rgba(255,255,255,0.62)"
-                : "rgba(255,255,255,0.04)",
-          },
-        ]}
+        onLayout={(event) => {
+          itemCardYPositions.current[item.id] = event.nativeEvent.layout.y;
+        }}
       >
-        {isEditing ? (
-          <View style={styles.editWrap}>
-            <TextInput
-              value={editingItemName}
-              onChangeText={setEditingItemName}
-              placeholder="Item name"
-              placeholderTextColor={theme.colors.textMuted}
-              style={[
-                styles.editInput,
-                {
-                  color: theme.colors.text,
-                  borderColor: theme.colors.border,
-                  backgroundColor: theme.colors.inputSurface,
-                },
-              ]}
-              autoFocus
-              returnKeyType="done"
-              onSubmitEditing={() => saveEditingItem(item)}
-            />
-
-            <View style={styles.editActions}>
-              <Pressable
+        <FrostedCard
+          style={[
+            packed ? styles.packedItemCard : styles.unpackedItemCard,
+            {
+              borderColor: packed
+                ? theme.isLight
+                  ? "rgba(34,197,94,0.24)"
+                  : "rgba(120,255,190,0.10)"
+                : theme.isLight
+                  ? "rgba(255,255,255,0.34)"
+                  : "rgba(255,255,255,0.12)",
+              backgroundColor: packed
+                ? theme.isLight
+                  ? "rgba(255,255,255,0.50)"
+                  : "rgba(255,255,255,0.02)"
+                : theme.isLight
+                  ? "rgba(255,255,255,0.62)"
+                  : "rgba(255,255,255,0.04)",
+            },
+          ]}
+        >
+          {isEditing ? (
+            <View style={styles.editWrap}>
+              <TextInput
+                value={editingItemName}
+                onChangeText={setEditingItemName}
+                placeholder="Item name"
+                placeholderTextColor={theme.colors.textMuted}
                 style={[
-                  styles.saveEditButton,
-                  (!editingItemName.trim() || savingEdit) &&
-                    styles.createButtonDisabled,
-                ]}
-                onPress={() => saveEditingItem(item)}
-                disabled={!editingItemName.trim() || savingEdit}
-              >
-                <Check size={16} color="#fff" />
-                <Text style={styles.saveEditText}>Save</Text>
-              </Pressable>
-
-              <Pressable
-                style={[
-                  styles.cancelEditButton,
+                  styles.editInput,
                   {
+                    color: theme.colors.text,
                     borderColor: theme.colors.border,
-                    backgroundColor: theme.isLight
-                      ? "rgba(15,23,42,0.06)"
-                      : "rgba(255,255,255,0.06)",
+                    backgroundColor: theme.colors.inputSurface,
                   },
                 ]}
-                onPress={cancelEditingItem}
-              >
-                <X size={16} color={theme.colors.text} />
-                <Text style={[styles.cancelEditText, { color: theme.colors.text }]}>
-                  Cancel
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        ) : (
-          <View style={styles.itemContentRow}>
-            <Pressable
-              style={styles.itemPhotoWrap}
-              onPress={() => handleOpenPhotoViewer(item)}
-              disabled={updatingPhotoId === item.id}
-            >
-              {item.itemPhotoUri ? (
-                <Image source={{ uri: item.itemPhotoUri }} style={styles.itemPhoto} />
-              ) : (
-                <View
+                autoFocus
+                returnKeyType="done"
+                enablesReturnKeyAutomatically
+                blurOnSubmit
+                onFocus={() => scrollToItemCard(item.id, 180)}
+                onSubmitEditing={() => saveEditingItem(item)}
+              />
+
+              <View style={styles.editActions}>
+                <Pressable
                   style={[
-                    styles.itemPhotoPlaceholder,
-                    {
-                      backgroundColor: theme.isLight
-                        ? "rgba(15,23,42,0.08)"
-                        : "rgba(255,255,255,0.06)",
-                      borderColor: theme.colors.border,
-                    },
+                    styles.saveEditButton,
+                    (!editingItemName.trim() || savingEdit) &&
+                      styles.createButtonDisabled,
                   ]}
+                  onPress={() => saveEditingItem(item)}
+                  disabled={!editingItemName.trim() || savingEdit}
                 >
-                  <Camera size={18} color={theme.colors.textSecondary} />
-                  <Text
-                    style={[
-                      styles.itemPhotoPlaceholderText,
-                      { color: theme.colors.textSecondary },
-                    ]}
-                  >
-                    Photo
-                  </Text>
-                </View>
-              )}
-            </Pressable>
-
-            <View style={styles.itemMainContent}>
-              <View style={styles.itemTopRow}>
-                <View style={styles.itemTitleWrap}>
-                  <Text
-                    style={[
-                      styles.itemText,
-                      {
-                        color: packed
-                          ? theme.colors.textSecondary
-                          : theme.colors.text,
-                      },
-                    ]}
-                  >
-                    {item.name}
-                  </Text>
-                  {packed && <Text style={styles.packedBadge}>Packed</Text>}
-                </View>
-
-                <View style={styles.itemActions}>
-                  <Pressable
-                    style={[
-                      styles.iconButton,
-                      {
-                        backgroundColor: theme.isLight
-                          ? "rgba(15,23,42,0.08)"
-                          : "rgba(255,255,255,0.06)",
-                        borderColor: theme.colors.border,
-                      },
-                    ]}
-                    onPress={() => handleItemPhotoAction(item)}
-                  >
-                    <ImageIcon size={16} color={theme.colors.textSecondary} />
-                  </Pressable>
-
-                  <Pressable
-                    style={[
-                      styles.iconButton,
-                      {
-                        backgroundColor: theme.isLight
-                          ? "rgba(15,23,42,0.08)"
-                          : "rgba(255,255,255,0.06)",
-                        borderColor: theme.colors.border,
-                      },
-                    ]}
-                    onPress={() => startEditingItem(item)}
-                  >
-                    <Pencil size={16} color={theme.colors.textSecondary} />
-                  </Pressable>
-
-                  <Pressable
-                    style={[
-                      styles.iconButton,
-                      {
-                        backgroundColor: theme.isLight
-                          ? "rgba(15,23,42,0.08)"
-                          : "rgba(255,255,255,0.06)",
-                        borderColor: theme.colors.border,
-                      },
-                    ]}
-                    onPress={() => confirmDeleteItem(item)}
-                  >
-                    <Trash2 size={16} color={theme.colors.danger} />
-                  </Pressable>
-                </View>
-              </View>
-
-              <View style={styles.metricsWrap}>
-                <Text
-                  style={[
-                    styles.metricText,
-                    {
-                      color: packed
-                        ? theme.colors.textMuted
-                        : theme.colors.textSecondary,
-                    },
-                  ]}
-                >
-                  Needed: {neededQty}
-                </Text>
-                <Text
-                  style={[
-                    styles.metricText,
-                    {
-                      color: packed
-                        ? theme.colors.textMuted
-                        : theme.colors.textSecondary,
-                    },
-                  ]}
-                >
-                  Packed: {packedQty}
-                </Text>
-                <Text
-                  style={[
-                    styles.metricText,
-                    {
-                      color: packed
-                        ? theme.colors.textMuted
-                        : theme.colors.danger,
-                    },
-                  ]}
-                >
-                  Still To Pack: {stillToPackQty}
-                </Text>
-                <Text
-                  style={[
-                    styles.metricText,
-                    { color: theme.colors.textSecondary },
-                  ]}
-                >
-                  Storage: {compartment?.name || item.compartmentName || "Not assigned"}
-                </Text>
-              </View>
-
-              <View style={styles.controlsRow}>
-                <View style={styles.quantityControls}>
-                  <Pressable
-                    style={[
-                      styles.quantityButton,
-                      {
-                        backgroundColor: theme.isLight
-                          ? "rgba(15,23,42,0.08)"
-                          : "rgba(255,255,255,0.06)",
-                        borderColor: theme.colors.border,
-                      },
-                    ]}
-                    onPress={() => handleChangeQuantity(item, -1)}
-                    disabled={isBusy}
-                  >
-                    <Minus size={16} color={theme.colors.text} />
-                  </Pressable>
-
-                  <View style={styles.quantityValueWrap}>
-                    <Text
-                      style={[
-                        styles.quantityValue,
-                        { color: theme.colors.text },
-                      ]}
-                    >
-                      {neededQty}
-                    </Text>
-                  </View>
-
-                  <Pressable
-                    style={[
-                      styles.quantityButton,
-                      {
-                        backgroundColor: theme.isLight
-                          ? "rgba(15,23,42,0.08)"
-                          : "rgba(255,255,255,0.06)",
-                        borderColor: theme.colors.border,
-                      },
-                    ]}
-                    onPress={() => handleChangeQuantity(item, 1)}
-                    disabled={isBusy}
-                  >
-                    <Plus size={16} color={theme.colors.text} />
-                  </Pressable>
-                </View>
+                  <Check size={16} color="#fff" />
+                  <Text style={styles.saveEditText}>Save</Text>
+                </Pressable>
 
                 <Pressable
                   style={[
-                    styles.packToggleButton,
-                    packed ? styles.packToggleOn : styles.packToggleOff,
-                    !packed && {
-                      backgroundColor: theme.isLight
-                        ? "rgba(15,23,42,0.08)"
-                        : "rgba(255,255,255,0.06)",
+                    styles.cancelEditButton,
+                    {
                       borderColor: theme.colors.border,
+                      backgroundColor: theme.isLight
+                        ? "rgba(15,23,42,0.06)"
+                        : "rgba(255,255,255,0.06)",
                     },
-                    isBusy && styles.createButtonDisabled,
                   ]}
-                  onPress={() => handleTogglePacked(item)}
-                  disabled={isBusy}
+                  onPress={cancelEditingItem}
                 >
-                  <CheckCircle2
-                    size={16}
-                    color={packed ? "#fff" : theme.colors.text}
-                  />
+                  <X size={16} color={theme.colors.text} />
                   <Text
-                    style={[
-                      styles.packToggleText,
-                      { color: theme.colors.text },
-                      packed && styles.packToggleTextOn,
-                    ]}
+                    style={[styles.cancelEditText, { color: theme.colors.text }]}
                   >
-                    {packed ? "Packed" : "Mark Packed"}
+                    Cancel
                   </Text>
                 </Pressable>
               </View>
             </View>
-          </View>
-        )}
-      </FrostedCard>
+          ) : (
+            <View style={styles.itemContentRow}>
+              <Pressable
+                style={styles.itemPhotoWrap}
+                onPress={() => handleOpenPhotoViewer(item)}
+                disabled={updatingPhotoId === item.id}
+              >
+                {item.itemPhotoUri ? (
+                  <Image
+                    source={{ uri: item.itemPhotoUri }}
+                    style={styles.itemPhoto}
+                  />
+                ) : (
+                  <View
+                    style={[
+                      styles.itemPhotoPlaceholder,
+                      {
+                        backgroundColor: theme.isLight
+                          ? "rgba(15,23,42,0.08)"
+                          : "rgba(255,255,255,0.06)",
+                        borderColor: theme.colors.border,
+                      },
+                    ]}
+                  >
+                    <Camera size={18} color={theme.colors.textSecondary} />
+                    <Text
+                      style={[
+                        styles.itemPhotoPlaceholderText,
+                        { color: theme.colors.textSecondary },
+                      ]}
+                    >
+                      Photo
+                    </Text>
+                  </View>
+                )}
+              </Pressable>
+
+              <View style={styles.itemMainContent}>
+                <View style={styles.itemTopRow}>
+                  <View style={styles.itemTitleWrap}>
+                    <Text
+                      style={[
+                        styles.itemText,
+                        {
+                          color: packed
+                            ? theme.colors.textSecondary
+                            : theme.colors.text,
+                        },
+                      ]}
+                    >
+                      {item.name}
+                    </Text>
+                    {packed && <Text style={styles.packedBadge}>Packed</Text>}
+                  </View>
+
+                  <View style={styles.itemActions}>
+                    <Pressable
+                      style={[
+                        styles.iconButton,
+                        {
+                          backgroundColor: theme.isLight
+                            ? "rgba(15,23,42,0.08)"
+                            : "rgba(255,255,255,0.06)",
+                          borderColor: theme.colors.border,
+                        },
+                      ]}
+                      onPress={() => handleItemPhotoAction(item)}
+                    >
+                      <ImageIcon size={16} color={theme.colors.textSecondary} />
+                    </Pressable>
+
+                    <Pressable
+                      style={[
+                        styles.iconButton,
+                        {
+                          backgroundColor: theme.isLight
+                            ? "rgba(15,23,42,0.08)"
+                            : "rgba(255,255,255,0.06)",
+                          borderColor: theme.colors.border,
+                        },
+                      ]}
+                      onPress={() => startEditingItem(item)}
+                    >
+                      <Pencil size={16} color={theme.colors.textSecondary} />
+                    </Pressable>
+
+                    <Pressable
+                      style={[
+                        styles.iconButton,
+                        {
+                          backgroundColor: theme.isLight
+                            ? "rgba(15,23,42,0.08)"
+                            : "rgba(255,255,255,0.06)",
+                          borderColor: theme.colors.border,
+                        },
+                      ]}
+                      onPress={() => confirmDeleteItem(item)}
+                    >
+                      <Trash2 size={16} color={theme.colors.danger} />
+                    </Pressable>
+                  </View>
+                </View>
+
+                <View style={styles.metricsWrap}>
+                  <Text
+                    style={[
+                      styles.metricText,
+                      {
+                        color: packed
+                          ? theme.colors.textMuted
+                          : theme.colors.textSecondary,
+                      },
+                    ]}
+                  >
+                    Needed: {neededQty}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.metricText,
+                      {
+                        color: packed
+                          ? theme.colors.textMuted
+                          : theme.colors.textSecondary,
+                      },
+                    ]}
+                  >
+                    Packed: {packedQty}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.metricText,
+                      {
+                        color: packed
+                          ? theme.colors.textMuted
+                          : theme.colors.danger,
+                      },
+                    ]}
+                  >
+                    Still To Pack: {stillToPackQty}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.metricText,
+                      { color: theme.colors.textSecondary },
+                    ]}
+                  >
+                    Storage:{" "}
+                    {compartment?.name || item.compartmentName || "Not assigned"}
+                  </Text>
+                </View>
+
+                <View style={styles.controlsRow}>
+                  <View style={styles.quantityControls}>
+                    <Pressable
+                      style={[
+                        styles.quantityButton,
+                        {
+                          backgroundColor: theme.isLight
+                            ? "rgba(15,23,42,0.08)"
+                            : "rgba(255,255,255,0.06)",
+                          borderColor: theme.colors.border,
+                        },
+                      ]}
+                      onPress={() => handleChangeQuantity(item, -1)}
+                      disabled={isBusy}
+                    >
+                      <Minus size={16} color={theme.colors.text} />
+                    </Pressable>
+
+                    <View style={styles.quantityValueWrap}>
+                      <Text
+                        style={[
+                          styles.quantityValue,
+                          { color: theme.colors.text },
+                        ]}
+                      >
+                        {neededQty}
+                      </Text>
+                    </View>
+
+                    <Pressable
+                      style={[
+                        styles.quantityButton,
+                        {
+                          backgroundColor: theme.isLight
+                            ? "rgba(15,23,42,0.08)"
+                            : "rgba(255,255,255,0.06)",
+                          borderColor: theme.colors.border,
+                        },
+                      ]}
+                      onPress={() => handleChangeQuantity(item, 1)}
+                      disabled={isBusy}
+                    >
+                      <Plus size={16} color={theme.colors.text} />
+                    </Pressable>
+                  </View>
+
+                  <Pressable
+                    style={[
+                      styles.packToggleButton,
+                      packed ? styles.packToggleOn : styles.packToggleOff,
+                      !packed && {
+                        backgroundColor: theme.isLight
+                          ? "rgba(15,23,42,0.08)"
+                          : "rgba(255,255,255,0.06)",
+                        borderColor: theme.colors.border,
+                      },
+                      isBusy && styles.createButtonDisabled,
+                    ]}
+                    onPress={() => handleTogglePacked(item)}
+                    disabled={isBusy}
+                  >
+                    <CheckCircle2
+                      size={16}
+                      color={packed ? "#fff" : theme.colors.text}
+                    />
+                    <Text
+                      style={[
+                        styles.packToggleText,
+                        { color: theme.colors.text },
+                        packed && styles.packToggleTextOn,
+                      ]}
+                    >
+                      {packed ? "Packed" : "Mark Packed"}
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+          )}
+        </FrostedCard>
+      </View>
     );
   }
 
   return (
     <ScreenBackground>
       <SafeAreaView style={styles.safe}>
-        <ScrollView
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
+        <KeyboardAvoidingView
+          style={styles.keyboardAvoidingView}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
         >
-          <AppHeader
-            title={compartment?.name || "Compartment"}
-            showBackButton
-            rightContent={headerRight}
-          />
+          <ScrollView
+            ref={scrollRef}
+            contentContainerStyle={styles.content}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+            automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
+          >
+            <AppHeader
+              title={compartment?.name || "Compartment"}
+              showBackButton
+              rightContent={headerRight}
+            />
 
-          {showCreateBox && (
-            <FrostedCard style={styles.createCard}>
-              <Text style={[styles.createTitle, { color: theme.colors.text }]}>
-                Add Item
-              </Text>
-              <Text
-                style={[
-                  styles.createSubtitle,
-                  { color: theme.colors.textSecondary },
-                ]}
-              >
-                Name the item before adding it to this compartment.
-              </Text>
-
-              <View style={styles.createRow}>
-                <TextInput
-                  value={itemName}
-                  onChangeText={setItemName}
-                  placeholder="Enter item name"
-                  placeholderTextColor={theme.colors.textMuted}
+            {showCreateBox && (
+              <FrostedCard style={styles.createCard}>
+                <Text style={[styles.createTitle, { color: theme.colors.text }]}>
+                  Add Item
+                </Text>
+                <Text
                   style={[
-                    styles.createInput,
-                    {
-                      color: theme.colors.text,
-                      borderColor: theme.colors.border,
-                      backgroundColor: theme.colors.inputSurface,
-                    },
+                    styles.createSubtitle,
+                    { color: theme.colors.textSecondary },
                   ]}
-                  returnKeyType="done"
-                  autoFocus
-                  enablesReturnKeyAutomatically
-                  onSubmitEditing={handleCreateItem}
-                />
-
-                <TextInput
-                  value={quantity}
-                  onChangeText={setQuantity}
-                  placeholder="1"
-                  placeholderTextColor={theme.colors.textMuted}
-                  style={[
-                    styles.quantityInput,
-                    {
-                      color: theme.colors.text,
-                      borderColor: theme.colors.border,
-                      backgroundColor: theme.colors.inputSurface,
-                    },
-                  ]}
-                  keyboardType="number-pad"
-                  returnKeyType="done"
-                  onSubmitEditing={handleCreateItem}
-                />
-
-                <Pressable
-                  style={[
-                    styles.createButton,
-                    (!itemName.trim() || saving) && styles.createButtonDisabled,
-                  ]}
-                  onPress={handleCreateItem}
-                  disabled={!itemName.trim() || saving}
                 >
-                  <Plus size={18} color="#fff" />
-                </Pressable>
-              </View>
-            </FrostedCard>
-          )}
+                  Name the item before adding it to this compartment.
+                </Text>
 
-          {sortedItems.length === 0 ? (
-            <FrostedCard style={styles.emptyCard}>
-              <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
-                No items found
-              </Text>
-              <Text
-                style={[styles.emptyText, { color: theme.colors.textSecondary }]}
-              >
-                This compartment does not have any items yet.
-              </Text>
-            </FrostedCard>
-          ) : (
-            sortedItems.map(renderItemCard)
-          )}
-        </ScrollView>
+                <View style={styles.createRow}>
+                  <TextInput
+                    value={itemName}
+                    onChangeText={setItemName}
+                    placeholder="Enter item name"
+                    placeholderTextColor={theme.colors.textMuted}
+                    style={[
+                      styles.createInput,
+                      {
+                        color: theme.colors.text,
+                        borderColor: theme.colors.border,
+                        backgroundColor: theme.colors.inputSurface,
+                      },
+                    ]}
+                    returnKeyType="done"
+                    autoFocus
+                    enablesReturnKeyAutomatically
+                    blurOnSubmit
+                    onFocus={() => scrollToCreateBox(120)}
+                    onSubmitEditing={handleCreateItem}
+                  />
+
+                  <TextInput
+                    value={quantity}
+                    onChangeText={setQuantity}
+                    placeholder="1"
+                    placeholderTextColor={theme.colors.textMuted}
+                    style={[
+                      styles.quantityInput,
+                      {
+                        color: theme.colors.text,
+                        borderColor: theme.colors.border,
+                        backgroundColor: theme.colors.inputSurface,
+                      },
+                    ]}
+                    keyboardType="number-pad"
+                    returnKeyType="done"
+                    onFocus={() => scrollToCreateBox(120)}
+                    onSubmitEditing={handleCreateItem}
+                  />
+
+                  <Pressable
+                    style={[
+                      styles.createButton,
+                      (!itemName.trim() || saving) &&
+                        styles.createButtonDisabled,
+                    ]}
+                    onPress={handleCreateItem}
+                    disabled={!itemName.trim() || saving}
+                  >
+                    <Plus size={18} color="#fff" />
+                  </Pressable>
+                </View>
+              </FrostedCard>
+            )}
+
+            {sortedItems.length === 0 ? (
+              <FrostedCard style={styles.emptyCard}>
+                <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
+                  No items found
+                </Text>
+                <Text
+                  style={[
+                    styles.emptyText,
+                    { color: theme.colors.textSecondary },
+                  ]}
+                >
+                  This compartment does not have any items yet.
+                </Text>
+              </FrostedCard>
+            ) : (
+              sortedItems.map(renderItemCard)
+            )}
+          </ScrollView>
+        </KeyboardAvoidingView>
 
         <Modal
           visible={photoViewerVisible}
@@ -895,7 +950,11 @@ export default function CompartmentDetailScreen() {
             ) : null}
 
             {selectedPhotoItem ? (
-              <BlurView intensity={35} tint="dark" style={styles.photoViewerActions}>
+              <BlurView
+                intensity={35}
+                tint="dark"
+                style={styles.photoViewerActions}
+              >
                 <Pressable
                   style={styles.photoViewerActionButton}
                   onPress={() => handleTakeItemPhoto(selectedPhotoItem)}
@@ -915,7 +974,10 @@ export default function CompartmentDetailScreen() {
                 </Pressable>
 
                 <Pressable
-                  style={[styles.photoViewerActionButton, styles.photoViewerDeleteButton]}
+                  style={[
+                    styles.photoViewerActionButton,
+                    styles.photoViewerDeleteButton,
+                  ]}
                   onPress={() => confirmRemovePhoto(selectedPhotoItem)}
                   disabled={updatingPhotoId === selectedPhotoItem.id}
                 >
@@ -936,10 +998,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
+  keyboardAvoidingView: {
+    flex: 1,
+  },
+
   content: {
     paddingHorizontal: 16,
     paddingTop: 4,
-    paddingBottom: 140,
+    paddingBottom: 260,
   },
 
   frostedCard: {

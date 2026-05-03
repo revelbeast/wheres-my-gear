@@ -13,26 +13,26 @@ export default function SafeBannerAd({ enabled = true }: SafeBannerAdProps) {
   const [hasFailed, setHasFailed] = useState(false);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) {
+      setAdsModule(null);
+      setHasFailed(false);
+      return;
+    }
 
     try {
       const googleMobileAds = require("react-native-google-mobile-ads");
       setAdsModule(googleMobileAds);
       setHasFailed(false);
     } catch (error) {
-      console.error("Failed to load banner ad module:", error);
+      console.log("Banner ad module unavailable:", error);
       setAdsModule(null);
       setHasFailed(true);
     }
   }, [enabled]);
 
   const adUnitId = useMemo(() => {
-    if (!adsModule) return "";
-
-    const testIds = adsModule.TestIds;
-
-    if (__DEV__) {
-      return testIds?.BANNER ?? "";
+    if (!adsModule) {
+      return "";
     }
 
     if (Platform.OS === "ios") {
@@ -62,7 +62,7 @@ export default function SafeBannerAd({ enabled = true }: SafeBannerAdProps) {
           requestNonPersonalizedAdsOnly: true,
         }}
         onAdFailedToLoad={(error: unknown) => {
-          console.error("Banner ad failed to load:", error);
+          console.log("Banner ad unavailable, hiding banner:", error);
           setHasFailed(true);
         }}
       />

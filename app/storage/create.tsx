@@ -4,6 +4,7 @@ import { ChevronDown, ChevronLeft } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -62,6 +63,7 @@ export default function CreateStorageScreen() {
   const [showSubtypeDropdown, setShowSubtypeDropdown] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  const scrollRef = useRef<ScrollView | null>(null);
   const nameInputRef = useRef<TextInput | null>(null);
   const customSubtypeInputRef = useRef<TextInput | null>(null);
   const dropdownOpenTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -88,6 +90,12 @@ export default function CreateStorageScreen() {
     return subtype;
   }, [category, subtype, customSubtype]);
 
+  function scrollToFormBottom(delay = 120) {
+    setTimeout(() => {
+      scrollRef.current?.scrollToEnd({ animated: true });
+    }, delay);
+  }
+
   function clearPendingDropdownOpen() {
     if (dropdownOpenTimeoutRef.current) {
       clearTimeout(dropdownOpenTimeoutRef.current);
@@ -113,13 +121,15 @@ export default function CreateStorageScreen() {
       return;
     }
 
+    Keyboard.dismiss();
     blurInputs();
     clearPendingDropdownOpen();
 
     dropdownOpenTimeoutRef.current = setTimeout(() => {
       setShowSubtypeDropdown(true);
+      scrollToFormBottom(80);
       dropdownOpenTimeoutRef.current = null;
-    }, Platform.OS === "ios" ? 120 : 0);
+    }, Platform.OS === "ios" ? 180 : 80);
   }
 
   function handleSelectSubtype(value: string) {
@@ -133,12 +143,20 @@ export default function CreateStorageScreen() {
     if (value !== "Other") {
       setCustomSubtype("");
     }
+
+    if (value === "Other") {
+      setTimeout(() => {
+        customSubtypeInputRef.current?.focus();
+        scrollToFormBottom(80);
+      }, 150);
+    }
   }
 
   async function handleSave() {
     if (saving) return;
 
     blurInputs();
+    Keyboard.dismiss();
     closeSubtypeDropdown();
 
     const trimmedName = name.trim();
@@ -146,22 +164,22 @@ export default function CreateStorageScreen() {
       subtype === "Other" ? customSubtype.trim() : subtype.trim();
 
     if (!trimmedName) {
-      Alert.alert("Missing name", "Please enter a storage space name.");
+      Alert.alert("Required name", "Please enter a storage space name.");
       return;
     }
 
     if (!subtype) {
-      Alert.alert("Missing subtype", "Please select a subtype.");
+      Alert.alert("Required subtype", "Please select a subtype.");
       return;
     }
 
     if (subtype === "Other" && !finalSubtype) {
-      Alert.alert("Missing custom subtype", "Please enter a custom subtype.");
+      Alert.alert("Required custom subtype", "Please enter a custom subtype.");
       return;
     }
 
     if (!finalSubtype) {
-      Alert.alert("Missing subtype", "Please select or enter a subtype.");
+      Alert.alert("Required subtype", "Please select or enter a subtype.");
       return;
     }
 
@@ -195,15 +213,17 @@ export default function CreateStorageScreen() {
     <ScreenBackground>
       <SafeAreaView style={styles.safe}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 12 : 0}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
           style={styles.container}
         >
           <ScrollView
+            ref={scrollRef}
             showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="always"
-            keyboardDismissMode="on-drag"
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
             contentContainerStyle={styles.scrollContent}
+            automaticallyAdjustKeyboardInsets
           >
             <View style={styles.headerRow}>
               <Pressable
@@ -285,6 +305,7 @@ export default function CreateStorageScreen() {
                   ]}
                   onPress={() => {
                     if (saving) return;
+                    Keyboard.dismiss();
                     blurInputs();
                     setCategory("vehicle");
                     setSubtype("");
@@ -315,6 +336,7 @@ export default function CreateStorageScreen() {
                   ]}
                   onPress={() => {
                     if (saving) return;
+                    Keyboard.dismiss();
                     blurInputs();
                     setCategory("storage");
                     setSubtype("");
@@ -342,7 +364,10 @@ export default function CreateStorageScreen() {
               <View style={styles.dropdownWrap}>
                 <Pressable
                   style={styles.dropdownPressable}
-                  onPressIn={blurInputs}
+                  onPressIn={() => {
+                    Keyboard.dismiss();
+                    blurInputs();
+                  }}
                   onPress={handleToggleSubtypeDropdown}
                   disabled={saving}
                 >
@@ -385,14 +410,14 @@ export default function CreateStorageScreen() {
                         borderColor: theme.colors.border,
                         backgroundColor: theme.isLight
                           ? "rgba(255,255,255,0.94)"
-                          : "rgba(255,255,255,0.03)",
+                          : "rgba(10,16,28,0.96)",
                       },
                     ]}
                   >
                     <ScrollView
                       showsVerticalScrollIndicator={false}
                       nestedScrollEnabled
-                      keyboardShouldPersistTaps="always"
+                      keyboardShouldPersistTaps="handled"
                     >
                       {subtypeOptions.map((option, index) => (
                         <Pressable
@@ -432,7 +457,10 @@ export default function CreateStorageScreen() {
                     ref={customSubtypeInputRef}
                     value={customSubtype}
                     onChangeText={setCustomSubtype}
-                    onFocus={closeSubtypeDropdown}
+                    onFocus={() => {
+                      closeSubtypeDropdown();
+                      scrollToFormBottom(180);
+                    }}
                     placeholder="Enter your subtype, for example Pods"
                     placeholderTextColor={theme.colors.textMuted}
                     style={[
@@ -479,7 +507,8 @@ const styles = StyleSheet.create({
   },
 
   scrollContent: {
-    paddingBottom: 40,
+    flexGrow: 1,
+    paddingBottom: 160,
   },
 
   headerRow: {

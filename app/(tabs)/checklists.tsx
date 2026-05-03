@@ -14,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../components/auth/AuthProvider";
 import ScreenBackground from "../../components/ui/ScreenBackground";
 import {
+  ThemedButton,
   ThemedCard,
   ThemedText,
   useThemedValues,
@@ -180,6 +181,64 @@ function ActionCard({
   );
 }
 
+function EmptyChecklistCard({
+  title,
+  text,
+  showAction,
+  onPress,
+}: {
+  title: string;
+  text: string;
+  showAction?: boolean;
+  onPress?: () => void;
+}) {
+  const theme = useThemedValues();
+
+  return (
+    <BlurView
+      intensity={theme.isLight ? 22 : 24}
+      tint={theme.isLight ? "light" : "dark"}
+      style={[
+        styles.emptyStateCard,
+        {
+          borderColor: theme.colors.border,
+          backgroundColor: theme.colors.card,
+        },
+      ]}
+    >
+      <View
+        style={[
+          styles.emptyIconWrap,
+          {
+            backgroundColor: theme.isLight
+              ? "rgba(15,23,42,0.08)"
+              : theme.colors.iconSurface,
+            borderColor: theme.colors.border,
+          },
+        ]}
+      >
+        <ListChecks size={24} color={theme.colors.text} />
+      </View>
+
+      <ThemedText variant="title" style={styles.emptyTitle}>
+        {title}
+      </ThemedText>
+
+      <ThemedText color="secondary" style={styles.emptyText}>
+        {text}
+      </ThemedText>
+
+      {showAction && onPress ? (
+        <ThemedButton style={styles.emptyActionButton} onPress={onPress}>
+          <ThemedText style={styles.emptyActionButtonText}>
+            Create Checklist
+          </ThemedText>
+        </ThemedButton>
+      ) : null}
+    </BlurView>
+  );
+}
+
 export default function ChecklistsTabScreen() {
   const { user, initializing } = useAuth();
   const theme = useThemedValues();
@@ -202,6 +261,15 @@ export default function ChecklistsTabScreen() {
 
     return unsubscribe;
   }, [initializing, user]);
+
+  const sortedChecklists = useMemo(() => {
+    return [...checklists].sort((a, b) => {
+      const aName = String(a.name ?? "").trim().toLowerCase();
+      const bName = String(b.name ?? "").trim().toLowerCase();
+
+      return aName.localeCompare(bName);
+    });
+  }, [checklists]);
 
   const activeChecklistCount = useMemo(() => checklists.length, [checklists]);
 
@@ -277,7 +345,8 @@ export default function ChecklistsTabScreen() {
             </ThemedText>
 
             <ThemedText style={[styles.heroSubtitle, styles.whiteLabelMuted]}>
-              Start from a blank checklist or a template, track progress, and keep your gear organized.
+              Start from a blank checklist or a template, track progress, and
+              keep your gear organized.
             </ThemedText>
           </View>
 
@@ -349,32 +418,25 @@ export default function ChecklistsTabScreen() {
           </View>
 
           {initializing ? (
-            <ThemedCard>
-              <ThemedText variant="title" style={styles.emptyTitle}>
-                Loading checklists...
-              </ThemedText>
-            </ThemedCard>
+            <EmptyChecklistCard
+              title="Loading checklists"
+              text="Restoring your saved checklist data."
+            />
           ) : !user ? (
-            <ThemedCard>
-              <ThemedText variant="title" style={styles.emptyTitle}>
-                Sign in required
-              </ThemedText>
-              <ThemedText color="secondary" style={styles.emptyText}>
-                Please sign in to view your checklists.
-              </ThemedText>
-            </ThemedCard>
+            <EmptyChecklistCard
+              title="Sign in required"
+              text="Sign in to create, manage, and track your packing checklists."
+            />
           ) : checklists.length === 0 ? (
-            <ThemedCard>
-              <ThemedText variant="title" style={styles.emptyTitle}>
-                No checklists yet
-              </ThemedText>
-              <ThemedText color="secondary" style={styles.emptyText}>
-                Create your first checklist to start organizing and tracking your gear.
-              </ThemedText>
-            </ThemedCard>
+            <EmptyChecklistCard
+              title="No checklists yet"
+              text="Create your first checklist to track what is packed and what still needs to be packed."
+              showAction
+              onPress={handleCreateBlankChecklist}
+            />
           ) : (
-            checklists.map((checklist) => (
-              <ThemedCard key={checklist.id}>
+            sortedChecklists.map((checklist) => (
+              <ThemedCard key={checklist.id} style={styles.checklistCard}>
                 <Pressable
                   style={styles.row}
                   onPress={() => handleOpenChecklist(checklist.id)}
@@ -391,13 +453,16 @@ export default function ChecklistsTabScreen() {
                       )}
                     </ThemedText>
 
-                    <ThemedText color="secondary" style={styles.meta}>
-                      {checklist.packedCount} / {checklist.totalCount} packed
-                    </ThemedText>
+                    <View style={styles.progressRow}>
+                      <ThemedText color="secondary" style={styles.meta}>
+                        {checklist.packedCount ?? 0} /{" "}
+                        {checklist.totalCount ?? 0} packed
+                      </ThemedText>
 
-                    <ThemedText color="muted" style={styles.subMeta}>
-                      {checklist.missingCount} to pack
-                    </ThemedText>
+                      <ThemedText color="danger" style={styles.toPackBadge}>
+                        {checklist.missingCount ?? 0} to pack
+                      </ThemedText>
+                    </View>
                   </View>
 
                   <ChevronRight size={18} color={theme.colors.textSecondary} />
@@ -565,6 +630,10 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 
+  checklistCard: {
+    marginBottom: 10,
+  },
+
   row: {
     minHeight: 64,
     flexDirection: "row",
@@ -584,21 +653,60 @@ const styles = StyleSheet.create({
 
   categoryText: {
     fontWeight: "600",
-    marginBottom: 4,
+    marginBottom: 6,
     opacity: 0.9,
   },
 
-  meta: {
-    marginBottom: 2,
+  progressRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 8,
   },
 
-  subMeta: {},
+  meta: {},
+
+  toPackBadge: {
+    fontWeight: "700",
+  },
+
+  emptyStateCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    paddingHorizontal: 18,
+    paddingVertical: 20,
+    alignItems: "center",
+    overflow: "hidden",
+  },
+
+  emptyIconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    marginBottom: 12,
+  },
 
   emptyTitle: {
     marginBottom: 6,
+    textAlign: "center",
   },
 
   emptyText: {
     lineHeight: 20,
+    textAlign: "center",
+  },
+
+  emptyActionButton: {
+    alignSelf: "stretch",
+    marginTop: 14,
+  },
+
+  emptyActionButtonText: {
+    color: "#fff",
+    fontWeight: "700",
+    textAlign: "center",
   },
 });

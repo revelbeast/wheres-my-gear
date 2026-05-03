@@ -17,7 +17,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -1131,280 +1133,298 @@ export default function ChecklistDetailScreen() {
   return (
     <ScreenBackground>
       <SafeAreaView style={styles.safe}>
-        <ScrollView
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
+          style={styles.keyboardAvoidingView}
         >
-          <AppHeader
-            title={checklist.name}
-            showBackButton
-            rightContent={headerRight}
-          />
+          <ScrollView
+            contentContainerStyle={styles.content}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
+          >
+            <AppHeader
+              title={checklist.name}
+              showBackButton
+              rightContent={headerRight}
+            />
 
-          <FrostedCard style={styles.summaryCard}>
-            <View style={styles.summaryRow}>
-              <View style={styles.summaryBlock}>
-                <Text style={[styles.summaryValue, { color: theme.colors.text }]}>
-                  {checklistTotals.needed}
-                </Text>
-                <Text
-                  style={[
-                    styles.summaryLabel,
-                    { color: theme.colors.textSecondary },
-                  ]}
-                >
-                  Needed
-                </Text>
-              </View>
-
-              <View
-                style={[
-                  styles.summaryDivider,
-                  { backgroundColor: theme.colors.border },
-                ]}
-              />
-
-              <View style={styles.summaryBlock}>
-                <Text style={[styles.summaryValue, { color: theme.colors.text }]}>
-                  {checklistTotals.toPack}
-                </Text>
-                <Text
-                  style={[
-                    styles.summaryLabel,
-                    { color: theme.colors.textSecondary },
-                  ]}
-                >
-                  To Pack
-                </Text>
-              </View>
-            </View>
-          </FrostedCard>
-
-          <FrostedCard style={styles.categoryCard}>
-            <Text
-              style={[
-                styles.categoryLabel,
-                { color: theme.colors.textSecondary },
-              ]}
-            >
-              Category
-            </Text>
-            <Text style={[styles.categoryValue, { color: theme.colors.text }]}>
-              {getCategoryLabel(checklist.category, checklist.customCategoryLabel)}
-            </Text>
-          </FrostedCard>
-
-          <View style={styles.filterRow}>
-            {[
-              { key: "all", label: "All" },
-              { key: "unpacked", label: "To Pack" },
-              { key: "packed", label: "Packed" },
-            ].map((option) => {
-              const isActive = filter === option.key;
-
-              return (
-                <Pressable
-                  key={option.key}
-                  style={[
-                    styles.filterChip,
-                    {
-                      backgroundColor: theme.colors.iconSurface,
-                      borderColor: theme.colors.border,
-                    },
-                    isActive && styles.filterChipActive,
-                  ]}
-                  onPress={() =>
-                    setFilter(option.key as "all" | "unpacked" | "packed")
-                  }
-                >
+            <FrostedCard style={styles.summaryCard}>
+              <View style={styles.summaryRow}>
+                <View style={styles.summaryBlock}>
+                  <Text
+                    style={[styles.summaryValue, { color: theme.colors.text }]}
+                  >
+                    {checklistTotals.needed}
+                  </Text>
                   <Text
                     style={[
-                      styles.filterChipText,
-                      { color: theme.colors.text },
-                      isActive && styles.filterChipTextActive,
+                      styles.summaryLabel,
+                      { color: theme.colors.textSecondary },
                     ]}
                   >
-                    {option.label}
+                    Needed
                   </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+                </View>
 
-          {showCreateBox && (
-            <View
-              style={[
-                styles.createCard,
-                {
-                  backgroundColor: theme.isLight
-                    ? "rgba(255,255,255,0.68)"
-                    : "rgba(12,24,50,0.9)",
-                  borderColor: theme.colors.border,
-                },
-              ]}
-            >
-              <Text style={[styles.createTitle, { color: theme.colors.text }]}>
-                Add Item
-              </Text>
+                <View
+                  style={[
+                    styles.summaryDivider,
+                    { backgroundColor: theme.colors.border },
+                  ]}
+                />
+
+                <View style={styles.summaryBlock}>
+                  <Text
+                    style={[styles.summaryValue, { color: theme.colors.text }]}
+                  >
+                    {checklistTotals.toPack}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.summaryLabel,
+                      { color: theme.colors.textSecondary },
+                    ]}
+                  >
+                    To Pack
+                  </Text>
+                </View>
+              </View>
+            </FrostedCard>
+
+            <FrostedCard style={styles.categoryCard}>
               <Text
                 style={[
-                  styles.createSubtitle,
+                  styles.categoryLabel,
                   { color: theme.colors.textSecondary },
                 ]}
               >
-                Name the item before adding it to the checklist.
+                Category
               </Text>
-
-              <View style={styles.createRow}>
-                <TextInput
-                  value={newItemName}
-                  onChangeText={setNewItemName}
-                  placeholder="Enter item name"
-                  placeholderTextColor={theme.colors.textMuted}
-                  style={[
-                    styles.createInput,
-                    {
-                      color: theme.colors.text,
-                      borderColor: theme.colors.border,
-                      backgroundColor: theme.colors.inputSurface,
-                    },
-                  ]}
-                  autoFocus
-                  returnKeyType="done"
-                  onSubmitEditing={handleCreateItem}
-                />
-
-                <Pressable
-                  style={[
-                    styles.createButton,
-                    (!newItemName.trim() || savingNewItem) &&
-                      styles.createButtonDisabled,
-                  ]}
-                  onPress={handleCreateItem}
-                  disabled={!newItemName.trim() || savingNewItem}
-                >
-                  <Plus size={18} color="#fff" />
-                </Pressable>
-              </View>
-            </View>
-          )}
-
-          <FrostedCard style={styles.actionCard}>
-            <View style={styles.row}>
-              <Pressable
-                style={styles.saveTemplatePressable}
-                onPress={handleSaveTemplate}
-              >
-                <View
-                  style={[
-                    styles.rowIconWrap,
-                    {
-                      backgroundColor: theme.colors.iconSurface,
-                      borderColor: theme.colors.border,
-                    },
-                  ]}
-                >
-                  <Save size={18} color={theme.colors.text} />
-                </View>
-                <Text style={[styles.rowText, { color: theme.colors.text }]}>
-                  Save as Template
-                </Text>
-              </Pressable>
-
-              <View style={styles.checklistActionButtons}>
-                <Pressable
-                  style={[
-                    styles.iconButton,
-                    {
-                      backgroundColor: theme.colors.iconSurface,
-                      borderColor: theme.colors.border,
-                    },
-                  ]}
-                  onPress={handleOpenRenameChecklist}
-                >
-                  <Pencil size={16} color={theme.colors.textSecondary} />
-                </Pressable>
-
-                <Pressable
-                  style={[
-                    styles.iconButton,
-                    {
-                      backgroundColor: theme.colors.iconSurface,
-                      borderColor: theme.colors.border,
-                    },
-                  ]}
-                  onPress={confirmDeleteChecklist}
-                >
-                  <Trash2 size={16} color={theme.colors.danger} />
-                </Pressable>
-              </View>
-            </View>
-          </FrostedCard>
-
-          {sortedItems.length === 0 ? (
-            <FrostedCard style={styles.emptyCard}>
-              <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
-                No items yet
-              </Text>
-              <Text
-                style={[styles.emptyText, { color: theme.colors.textSecondary }]}
-              >
-                Tap the + button to add your first checklist item.
+              <Text style={[styles.categoryValue, { color: theme.colors.text }]}>
+                {getCategoryLabel(
+                  checklist.category,
+                  checklist.customCategoryLabel
+                )}
               </Text>
             </FrostedCard>
-          ) : (
-            <>
-              <View style={styles.itemsSectionHeader}>
-                <Text style={styles.itemsSectionEyebrow}>Active items</Text>
-                <Text style={styles.itemsSectionTitle}>
-                  To Pack ({unpackedItems.length})
-                </Text>
-              </View>
 
-              {unpackedItems.length === 0 ? (
-                <FrostedCard style={styles.emptyMiniCard}>
-                  <Text
+            <View style={styles.filterRow}>
+              {[
+                { key: "all", label: "All" },
+                { key: "unpacked", label: "To Pack" },
+                { key: "packed", label: "Packed" },
+              ].map((option) => {
+                const isActive = filter === option.key;
+
+                return (
+                  <Pressable
+                    key={option.key}
                     style={[
-                      styles.emptyMiniText,
-                      { color: theme.colors.textSecondary },
+                      styles.filterChip,
+                      {
+                        backgroundColor: theme.colors.iconSurface,
+                        borderColor: theme.colors.border,
+                      },
+                      isActive && styles.filterChipActive,
+                    ]}
+                    onPress={() =>
+                      setFilter(option.key as "all" | "unpacked" | "packed")
+                    }
+                  >
+                    <Text
+                      style={[
+                        styles.filterChipText,
+                        { color: theme.colors.text },
+                        isActive && styles.filterChipTextActive,
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {showCreateBox && (
+              <View
+                style={[
+                  styles.createCard,
+                  {
+                    backgroundColor: theme.isLight
+                      ? "rgba(255,255,255,0.68)"
+                      : "rgba(12,24,50,0.9)",
+                    borderColor: theme.colors.border,
+                  },
+                ]}
+              >
+                <Text style={[styles.createTitle, { color: theme.colors.text }]}>
+                  Add Item
+                </Text>
+                <Text
+                  style={[
+                    styles.createSubtitle,
+                    { color: theme.colors.textSecondary },
+                  ]}
+                >
+                  Name the item before adding it to the checklist.
+                </Text>
+
+                <View style={styles.createRow}>
+                  <TextInput
+                    value={newItemName}
+                    onChangeText={setNewItemName}
+                    placeholder="Enter item name"
+                    placeholderTextColor={theme.colors.textMuted}
+                    style={[
+                      styles.createInput,
+                      {
+                        color: theme.colors.text,
+                        borderColor: theme.colors.border,
+                        backgroundColor: theme.colors.inputSurface,
+                      },
+                    ]}
+                    autoFocus
+                    returnKeyType="done"
+                    onSubmitEditing={handleCreateItem}
+                  />
+
+                  <Pressable
+                    style={[
+                      styles.createButton,
+                      (!newItemName.trim() || savingNewItem) &&
+                        styles.createButtonDisabled,
+                    ]}
+                    onPress={handleCreateItem}
+                    disabled={!newItemName.trim() || savingNewItem}
+                  >
+                    <Plus size={18} color="#fff" />
+                  </Pressable>
+                </View>
+              </View>
+            )}
+
+            <FrostedCard style={styles.actionCard}>
+              <View style={styles.row}>
+                <Pressable
+                  style={styles.saveTemplatePressable}
+                  onPress={handleSaveTemplate}
+                >
+                  <View
+                    style={[
+                      styles.rowIconWrap,
+                      {
+                        backgroundColor: theme.colors.iconSurface,
+                        borderColor: theme.colors.border,
+                      },
                     ]}
                   >
-                    {filter === "packed"
-                      ? "To Pack items are hidden by the current filter."
-                      : "Everything in this checklist is currently packed."}
+                    <Save size={18} color={theme.colors.text} />
+                  </View>
+                  <Text style={[styles.rowText, { color: theme.colors.text }]}>
+                    Save as Template
                   </Text>
-                </FrostedCard>
-              ) : (
-                unpackedItems.map(renderChecklistItem)
-              )}
+                </Pressable>
 
-              <View style={styles.itemsSectionHeader}>
-                <Text style={styles.itemsSectionEyebrow}>Completed</Text>
-                <Text style={styles.itemsSectionTitle}>
-                  Packed ({packedItems.length})
-                </Text>
-              </View>
-
-              {packedItems.length === 0 ? (
-                <FrostedCard style={styles.emptyMiniCard}>
-                  <Text
+                <View style={styles.checklistActionButtons}>
+                  <Pressable
                     style={[
-                      styles.emptyMiniText,
-                      { color: theme.colors.textSecondary },
+                      styles.iconButton,
+                      {
+                        backgroundColor: theme.colors.iconSurface,
+                        borderColor: theme.colors.border,
+                      },
                     ]}
+                    onPress={handleOpenRenameChecklist}
                   >
-                    {filter === "unpacked"
-                      ? "Packed items are hidden by the current filter."
-                      : "Packed items will appear here once you mark them complete."}
+                    <Pencil size={16} color={theme.colors.textSecondary} />
+                  </Pressable>
+
+                  <Pressable
+                    style={[
+                      styles.iconButton,
+                      {
+                        backgroundColor: theme.colors.iconSurface,
+                        borderColor: theme.colors.border,
+                      },
+                    ]}
+                    onPress={confirmDeleteChecklist}
+                  >
+                    <Trash2 size={16} color={theme.colors.danger} />
+                  </Pressable>
+                </View>
+              </View>
+            </FrostedCard>
+
+            {sortedItems.length === 0 ? (
+              <FrostedCard style={styles.emptyCard}>
+                <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
+                  No items yet
+                </Text>
+                <Text
+                  style={[
+                    styles.emptyText,
+                    { color: theme.colors.textSecondary },
+                  ]}
+                >
+                  Tap the + button to add your first checklist item.
+                </Text>
+              </FrostedCard>
+            ) : (
+              <>
+                <View style={styles.itemsSectionHeader}>
+                  <Text style={styles.itemsSectionEyebrow}>Active items</Text>
+                  <Text style={styles.itemsSectionTitle}>
+                    To Pack ({unpackedItems.length})
                   </Text>
-                </FrostedCard>
-              ) : (
-                packedItems.map(renderChecklistItem)
-              )}
-            </>
-          )}
-        </ScrollView>
+                </View>
+
+                {unpackedItems.length === 0 ? (
+                  <FrostedCard style={styles.emptyMiniCard}>
+                    <Text
+                      style={[
+                        styles.emptyMiniText,
+                        { color: theme.colors.textSecondary },
+                      ]}
+                    >
+                      {filter === "packed"
+                        ? "To Pack items are hidden by the current filter."
+                        : "Everything in this checklist is currently packed."}
+                    </Text>
+                  </FrostedCard>
+                ) : (
+                  unpackedItems.map(renderChecklistItem)
+                )}
+
+                <View style={styles.itemsSectionHeader}>
+                  <Text style={styles.itemsSectionEyebrow}>Completed</Text>
+                  <Text style={styles.itemsSectionTitle}>
+                    Packed ({packedItems.length})
+                  </Text>
+                </View>
+
+                {packedItems.length === 0 ? (
+                  <FrostedCard style={styles.emptyMiniCard}>
+                    <Text
+                      style={[
+                        styles.emptyMiniText,
+                        { color: theme.colors.textSecondary },
+                      ]}
+                    >
+                      {filter === "unpacked"
+                        ? "Packed items are hidden by the current filter."
+                        : "Packed items will appear here once you mark them complete."}
+                    </Text>
+                  </FrostedCard>
+                ) : (
+                  packedItems.map(renderChecklistItem)
+                )}
+              </>
+            )}
+          </ScrollView>
+        </KeyboardAvoidingView>
 
         <Modal visible={renameModal} transparent animationType="fade">
           <View style={styles.modalOverlay}>
@@ -1437,10 +1457,7 @@ export default function ChecklistDetailScreen() {
               />
 
               <Pressable
-                style={[
-                  styles.addButton,
-                  savingRename && styles.disabledButton,
-                ]}
+                style={[styles.addButton, savingRename && styles.disabledButton]}
                 onPress={handleRenameChecklist}
                 disabled={savingRename}
               >
@@ -1635,9 +1652,14 @@ export default function ChecklistDetailScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
 
+  keyboardAvoidingView: {
+    flex: 1,
+  },
+
   content: {
+    flexGrow: 1,
     padding: 16,
-    paddingBottom: 120,
+    paddingBottom: 180,
   },
 
   loadingWrap: {

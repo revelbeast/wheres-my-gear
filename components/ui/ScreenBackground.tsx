@@ -53,7 +53,7 @@ export default function ScreenBackground({
             setBackgroundLoadFailed(false);
           }
         } catch (err) {
-          console.error("Failed to load background:", err);
+          console.log("Failed to load saved background. Using default.", err);
 
           if (!isActive) return;
 
@@ -70,25 +70,23 @@ export default function ScreenBackground({
     }, [user, initializing])
   );
 
-  const imageSource =
-    backgroundUri && !backgroundLoadFailed
-      ? { uri: backgroundUri }
-      : DEFAULT_BACKGROUND;
+  const useSavedBackground = backgroundUri && !backgroundLoadFailed;
+  const imageSource = useSavedBackground
+    ? { uri: backgroundUri }
+    : DEFAULT_BACKGROUND;
 
   return (
     <ImageBackground
-      key={
-        backgroundUri && !backgroundLoadFailed
-          ? backgroundUri
-          : "default-background"
-      }
+      key={useSavedBackground ? backgroundUri : "default-background"}
       source={imageSource}
       style={styles.background}
       imageStyle={styles.image}
       resizeMode="cover"
       onError={() => {
-        console.error("Background image failed to load. Falling back to default.");
-        setBackgroundLoadFailed(true);
+        if (useSavedBackground) {
+          console.log("Saved background image failed to load. Using default.");
+          setBackgroundLoadFailed(true);
+        }
       }}
     >
       <View style={styles.baseOverlay} />

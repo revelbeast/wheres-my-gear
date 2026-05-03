@@ -22,7 +22,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../components/auth/AuthProvider";
 import ScreenBackground from "../../components/ui/ScreenBackground";
-import { ThemedText } from "../../components/ui/Themed";
+import { ThemedButton, ThemedText } from "../../components/ui/Themed";
 import {
   getAllItems,
   getStorageSpaces,
@@ -31,7 +31,7 @@ import {
 } from "../../lib/gearService";
 import { useTheme } from "../../lib/useTheme";
 
-type StatusFilter = "all" | "packed" | "missing";
+type StatusFilter = "all" | "packed" | "toPack";
 
 function getItemQuantity(item: { quantity?: number }) {
   const qty = Number(item.quantity ?? 1);
@@ -59,8 +59,13 @@ export default function InventoryScreen() {
   useEffect(() => {
     const incomingStatus = String(params.status ?? "").toLowerCase().trim();
 
-    if (incomingStatus === "packed" || incomingStatus === "missing") {
-      setStatusFilter(incomingStatus);
+    if (incomingStatus === "packed") {
+      setStatusFilter("packed");
+      return;
+    }
+
+    if (incomingStatus === "missing" || incomingStatus === "topack") {
+      setStatusFilter("toPack");
       return;
     }
 
@@ -69,7 +74,12 @@ export default function InventoryScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (initializing || !user) return;
+      if (initializing || !user) {
+        setInventoryItems([]);
+        setStorageSpaces([]);
+        return;
+      }
+
       loadInventoryData();
     }, [initializing, user])
   );
@@ -82,6 +92,7 @@ export default function InventoryScreen() {
         getAllItems(),
         getStorageSpaces(),
       ]);
+
       setInventoryItems(items);
       setStorageSpaces(spaces);
     } catch {
@@ -98,7 +109,7 @@ export default function InventoryScreen() {
     return inventoryItems
       .filter((item) => {
         if (statusFilter === "packed") return isPackedItem(item);
-        if (statusFilter === "missing") return !isPackedItem(item);
+        if (statusFilter === "toPack") return !isPackedItem(item);
         return true;
       })
       .map((item) => ({
@@ -108,7 +119,13 @@ export default function InventoryScreen() {
           vehicleNameById.get(item.vehicleId ?? "") ||
           "No storage",
         resolvedCompartmentName: item.compartmentName || "No compartment",
-      }));
+      }))
+      .sort((a, b) => {
+        const aName = String(a.name ?? "").trim().toLowerCase();
+        const bName = String(b.name ?? "").trim().toLowerCase();
+
+        return aName.localeCompare(bName);
+      });
   }, [inventoryItems, statusFilter, vehicleNameById]);
 
   const filteredItems = useMemo(() => {
@@ -126,16 +143,97 @@ export default function InventoryScreen() {
     });
   }, [allDisplayItems, searchQuery]);
 
+  const allCount = inventoryItems.reduce(
+    (total, item) => total + getItemQuantity(item),
+    0
+  );
+
+  const packedCount = inventoryItems
+    .filter(isPackedItem)
+    .reduce((total, item) => total + getItemQuantity(item), 0);
+
+  const toPackCount = inventoryItems
+    .filter((item) => !isPackedItem(item))
+    .reduce((total, item) => total + getItemQuantity(item), 0);
+
   function getHeaderTitle() {
     if (statusFilter === "packed") return "Packed Items";
-    if (statusFilter === "missing") return "Still To Pack";
+    if (statusFilter === "toPack") return "Still To Pack";
     return "Inventory";
+  }
+
+  function getHeaderSubtitle() {
+    if (statusFilter === "packed") {
+      return "Items currently marked as packed.";
+    }
+
+    if (statusFilter === "toPack") {
+      return "Items still waiting to be packed.";
+    }
+
+    return "All items across your storage spaces.";
   }
 
   function getListHeaderTitle() {
     if (statusFilter === "packed") return "Packed Items";
-    if (statusFilter === "missing") return "Still To Pack Items";
+    if (statusFilter === "toPack") return "Still To Pack Items";
     return "Running Inventory";
+  }
+
+  function getEmptyTitle() {
+    if (!user) return "Sign in required";
+
+    if (searchQuery.trim().length > 0) return "No matching items found";
+
+    if (inventoryItems.length === 0) return "No inventory yet";
+
+    if (statusFilter === "packed") return "No packed items yet";
+
+    if (statusFilter === "toPack") return "Nothing left to pack";
+
+    return "No items found";
+  }
+
+  function getEmptyText() {
+    if (!user) {
+      return "Sign in to view the gear saved to your storage spaces and compartments.";
+    }
+
+    if (searchQuery.trim().length > 0) {
+      return "Try searching by item name, notes, compartment, or storage space.";
+    }
+
+    if (inventoryItems.length === 0) {
+      return "Add a storage space, create compartments, then add items to build your inventory.";
+    }
+
+    if (statusFilter === "packed") {
+      return "Items will appear here once you mark them as packed.";
+    }
+
+    if (statusFilter === "toPack") {
+      return "All visible items are currently packed. Mark an item as To Pack when it needs attention.";
+    }
+
+    return "No items match the current view.";
+  }
+
+  function handleAddStorageSpace() {
+    router.push("/storage/create");
+  }
+
+  function handleOpenItem(item: Item) {
+    if (!item.vehicleId || !item.compartmentId) {
+      return;
+    }
+
+    router.push({
+      pathname: "/vehicles/[vehicleId]/compartments/[compartmentId]",
+      params: {
+        vehicleId: item.vehicleId,
+        compartmentId: item.compartmentId,
+      },
+    });
   }
 
   function renderFilterChip(
@@ -173,12 +271,55 @@ export default function InventoryScreen() {
     );
   }
 
+  function renderEmptyState() {
+    const showAddStorageAction =
+      !!user && inventoryItems.length === 0 && searchQuery.trim().length === 0;
+
+    return (
+      <BlurView
+        intensity={theme.isLight ? 18 : 22}
+        tint={theme.isLight ? "light" : "dark"}
+        style={[
+          styles.emptyCard,
+          {
+            backgroundColor: theme.colors.card,
+            borderColor: theme.colors.border,
+          },
+        ]}
+      >
+        <View style={styles.emptyIconWrap}>
+          {inventoryItems.length === 0 ? (
+            <FolderCog size={24} color={theme.colors.text} />
+          ) : searchQuery.trim().length > 0 ? (
+            <Search size={24} color={theme.colors.text} />
+          ) : (
+            <Boxes size={24} color={theme.colors.text} />
+          )}
+        </View>
+
+        <ThemedText variant="bodyStrong" style={styles.emptyTitle}>
+          {getEmptyTitle()}
+        </ThemedText>
+
+        <ThemedText color="secondary" style={styles.emptyText}>
+          {getEmptyText()}
+        </ThemedText>
+
+        {showAddStorageAction && (
+          <ThemedButton style={styles.emptyButton} onPress={handleAddStorageSpace}>
+            <ThemedText style={styles.emptyButtonText}>
+              Add Storage Space
+            </ThemedText>
+          </ThemedButton>
+        )}
+      </BlurView>
+    );
+  }
+
   return (
     <ScreenBackground>
       <SafeAreaView style={styles.safe}>
         <View style={styles.container}>
-          
-          {/* HEADER (WHITE ALWAYS) */}
           <ThemedText
             variant="header"
             style={{ color: "#FFFFFF", marginBottom: 4 }}
@@ -190,10 +331,9 @@ export default function InventoryScreen() {
             color="secondary"
             style={{ color: "#FFFFFF", opacity: 0.8, marginBottom: 12 }}
           >
-            All items across your storage spaces
+            {getHeaderSubtitle()}
           </ThemedText>
 
-          {/* SEARCH */}
           <BlurView
             intensity={theme.isLight ? 18 : 22}
             tint={theme.isLight ? "light" : "dark"}
@@ -213,33 +353,35 @@ export default function InventoryScreen() {
                 placeholder="Search inventory..."
                 placeholderTextColor={theme.colors.textMuted}
                 style={[styles.searchInput, { color: theme.colors.text }]}
+                editable={!initializing && !!user}
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="search"
               />
             </View>
           </BlurView>
 
-          {/* FILTERS */}
           <View style={styles.summaryRow}>
             {renderFilterChip(
               "all",
               "All",
-              inventoryItems.length,
+              allCount,
               <Boxes size={18} color={theme.colors.text} />
             )}
             {renderFilterChip(
               "packed",
               "Packed",
-              inventoryItems.filter(isPackedItem).length,
+              packedCount,
               <CheckCircle2 size={18} color={theme.colors.text} />
             )}
             {renderFilterChip(
-              "missing",
+              "toPack",
               "To Pack",
-              inventoryItems.filter((i) => !isPackedItem(i)).length,
+              toPackCount,
               <AlertCircle size={18} color={theme.colors.text} />
             )}
           </View>
 
-          {/* LIST HEADER (WHITE) */}
           <ThemedText
             variant="title"
             style={{ color: "#FFFFFF", marginBottom: 8 }}
@@ -247,55 +389,59 @@ export default function InventoryScreen() {
             {getListHeaderTitle()}
           </ThemedText>
 
-          {/* LIST */}
           <FlatList
             data={filteredItems}
             keyExtractor={(item) => item.id}
-            contentContainerStyle={{ paddingBottom: 140 }}
-            renderItem={({ item }) => (
-              <Pressable
-                onPress={() =>
-                  router.push({
-                    pathname:
-                      "/vehicles/[vehicleId]/compartments/[compartmentId]",
-                    params: {
-                      vehicleId: item.vehicleId,
-                      compartmentId: item.compartmentId,
-                    },
-                  })
-                }
-              >
-                <BlurView
-                  intensity={theme.isLight ? 18 : 18}
-                  tint={theme.isLight ? "light" : "dark"}
-                  style={[
-                    styles.itemCard,
-                    {
-                      backgroundColor: theme.colors.card,
-                      borderColor: theme.colors.border,
-                    },
-                  ]}
+            contentContainerStyle={styles.listContent}
+            ListEmptyComponent={renderEmptyState}
+            renderItem={({ item }) => {
+              const canOpenItem = !!item.vehicleId && !!item.compartmentId;
+
+              return (
+                <Pressable
+                  onPress={() => handleOpenItem(item)}
+                  disabled={!canOpenItem}
                 >
-                  <View style={styles.itemRow}>
-                    <View style={{ flex: 1 }}>
-                      <ThemedText variant="bodyStrong">
-                        {item.name}
-                      </ThemedText>
+                  <BlurView
+                    intensity={theme.isLight ? 18 : 18}
+                    tint={theme.isLight ? "light" : "dark"}
+                    style={[
+                      styles.itemCard,
+                      {
+                        backgroundColor: theme.colors.card,
+                        borderColor: theme.colors.border,
+                      },
+                    ]}
+                  >
+                    <View style={styles.itemRow}>
+                      <View style={{ flex: 1 }}>
+                        <ThemedText variant="bodyStrong">{item.name}</ThemedText>
 
-                      <ThemedText color="secondary">
-                        {item.resolvedCompartmentName} •{" "}
-                        {item.resolvedVehicleName}
-                      </ThemedText>
+                        <ThemedText color="secondary">
+                          {item.resolvedCompartmentName} •{" "}
+                          {item.resolvedVehicleName}
+                        </ThemedText>
+
+                        <ThemedText
+                          color={isPackedItem(item) ? "secondary" : "danger"}
+                          style={styles.statusText}
+                        >
+                          {isPackedItem(item) ? "Packed" : "To Pack"} • Qty{" "}
+                          {getItemQuantity(item)}
+                        </ThemedText>
+                      </View>
+
+                      {canOpenItem && (
+                        <ChevronRight
+                          size={16}
+                          color={theme.colors.textSecondary}
+                        />
+                      )}
                     </View>
-
-                    <ChevronRight
-                      size={16}
-                      color={theme.colors.textSecondary}
-                    />
-                  </View>
-                </BlurView>
-              </Pressable>
-            )}
+                  </BlurView>
+                </Pressable>
+              );
+            }}
           />
         </View>
       </SafeAreaView>
@@ -337,6 +483,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
+  listContent: {
+    paddingBottom: 140,
+  },
+
   itemCard: {
     borderRadius: 14,
     borderWidth: 1,
@@ -346,5 +496,46 @@ const styles = StyleSheet.create({
   itemRow: {
     flexDirection: "row",
     alignItems: "center",
+  },
+  statusText: {
+    marginTop: 4,
+    fontWeight: "700",
+  },
+
+  emptyCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 18,
+    alignItems: "center",
+    marginTop: 4,
+    overflow: "hidden",
+  },
+  emptyIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+    backgroundColor: "rgba(255,255,255,0.10)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
+  },
+  emptyTitle: {
+    marginBottom: 6,
+    textAlign: "center",
+  },
+  emptyText: {
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  emptyButton: {
+    marginTop: 14,
+    alignSelf: "stretch",
+  },
+  emptyButtonText: {
+    color: "#fff",
+    fontWeight: "700",
+    textAlign: "center",
   },
 });
