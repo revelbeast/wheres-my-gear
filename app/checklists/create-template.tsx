@@ -1,6 +1,6 @@
 import { BlurView } from "expo-blur";
 import { router } from "expo-router";
-import { ChevronDown, Plus, Trash2 } from "lucide-react-native";
+import { ChevronDown, Minus, Plus, Trash2 } from "lucide-react-native";
 import React, { useState } from "react";
 import {
   Alert,
@@ -26,6 +26,12 @@ import {
 import { createChecklistTemplateWithItems } from "../../lib/checklistsService";
 import type { ChecklistCategory } from "../../types/checklists";
 
+type EditableTemplateItem = {
+  id: string;
+  name: string;
+  quantity: number;
+};
+
 const CATEGORY_OPTIONS: {
   key: ChecklistCategory;
   label: string;
@@ -41,6 +47,213 @@ const CATEGORY_OPTIONS: {
   { key: "tools", label: "Tools" },
   { key: "food", label: "Food" },
   { key: "custom", label: "Other" },
+];
+
+const STARTER_TEMPLATE_OPTIONS: {
+  id: string;
+  name: string;
+  category: ChecklistCategory;
+  categoryLabel: string;
+  items: { name: string; quantity: number }[];
+}[] = [
+  {
+    id: "trip-essentials",
+    name: "Trip Essentials",
+    category: "trip",
+    categoryLabel: "Trip",
+    items: [
+      { name: "Driver’s license", quantity: 1 },
+      { name: "Wallet", quantity: 1 },
+      { name: "Phone charger", quantity: 1 },
+      { name: "Sunglasses", quantity: 1 },
+      { name: "Water bottle", quantity: 1 },
+      { name: "First aid kit", quantity: 1 },
+      { name: "Flashlight", quantity: 1 },
+      { name: "Snacks", quantity: 1 },
+      { name: "Jacket", quantity: 1 },
+      { name: "Toiletries", quantity: 1 },
+    ],
+  },
+  {
+    id: "camping-gear",
+    name: "Camping Gear",
+    category: "camping",
+    categoryLabel: "Camping",
+    items: [
+      { name: "Tent", quantity: 1 },
+      { name: "Sleeping bag", quantity: 1 },
+      { name: "Sleeping pad", quantity: 1 },
+      { name: "Camp stove", quantity: 1 },
+      { name: "Fuel", quantity: 1 },
+      { name: "Cookware", quantity: 1 },
+      { name: "Headlamp", quantity: 1 },
+      { name: "Camp chair", quantity: 1 },
+      { name: "Fire starter", quantity: 1 },
+      { name: "Cooler", quantity: 1 },
+    ],
+  },
+  {
+    id: "hunting-gear",
+    name: "Hunting Gear",
+    category: "hunting",
+    categoryLabel: "Hunting",
+    items: [
+      { name: "Hunting license", quantity: 1 },
+      { name: "Tags", quantity: 1 },
+      { name: "Binoculars", quantity: 1 },
+      { name: "Rangefinder", quantity: 1 },
+      { name: "Knife", quantity: 1 },
+      { name: "Game bags", quantity: 1 },
+      { name: "Headlamp", quantity: 1 },
+      { name: "Gloves", quantity: 1 },
+      { name: "Weather layers", quantity: 1 },
+      { name: "First aid kit", quantity: 1 },
+    ],
+  },
+  {
+    id: "fishing-gear",
+    name: "Fishing Gear",
+    category: "fishing",
+    categoryLabel: "Fishing",
+    items: [
+      { name: "Fishing license", quantity: 1 },
+      { name: "Rod", quantity: 1 },
+      { name: "Reel", quantity: 1 },
+      { name: "Tackle box", quantity: 1 },
+      { name: "Bait", quantity: 1 },
+      { name: "Pliers", quantity: 1 },
+      { name: "Net", quantity: 1 },
+      { name: "Cooler", quantity: 1 },
+      { name: "Sunscreen", quantity: 1 },
+      { name: "Rain jacket", quantity: 1 },
+    ],
+  },
+  {
+    id: "boating-gear",
+    name: "Boating Gear",
+    category: "boating",
+    categoryLabel: "Boating",
+    items: [
+      { name: "Life jackets", quantity: 1 },
+      { name: "Boat registration", quantity: 1 },
+      { name: "Whistle", quantity: 1 },
+      { name: "Throwable flotation device", quantity: 1 },
+      { name: "Anchor", quantity: 1 },
+      { name: "Dock lines", quantity: 1 },
+      { name: "Dry bag", quantity: 1 },
+      { name: "Sunscreen", quantity: 1 },
+      { name: "Towels", quantity: 2 },
+      { name: "First aid kit", quantity: 1 },
+    ],
+  },
+  {
+    id: "clothing-3-day",
+    name: "Clothing - 3 Day Trip",
+    category: "clothing",
+    categoryLabel: "Clothing",
+    items: [
+      { name: "Shirts", quantity: 3 },
+      { name: "Pants/Shorts", quantity: 2 },
+      { name: "Underwear", quantity: 3 },
+      { name: "Socks", quantity: 3 },
+      { name: "Sleepwear", quantity: 1 },
+      { name: "Light jacket", quantity: 1 },
+      { name: "Rain jacket", quantity: 1 },
+      { name: "Shoes", quantity: 1 },
+      { name: "Hat", quantity: 1 },
+      { name: "Belt", quantity: 1 },
+    ],
+  },
+  {
+    id: "clothing-7-day",
+    name: "Clothing - 7 Day Trip",
+    category: "clothing",
+    categoryLabel: "Clothing",
+    items: [
+      { name: "Shirts", quantity: 7 },
+      { name: "Pants/Shorts", quantity: 4 },
+      { name: "Underwear", quantity: 7 },
+      { name: "Socks", quantity: 7 },
+      { name: "Sleepwear", quantity: 2 },
+      { name: "Light jacket", quantity: 1 },
+      { name: "Rain jacket", quantity: 1 },
+      { name: "Shoes", quantity: 2 },
+      { name: "Hat", quantity: 1 },
+      { name: "Belt", quantity: 1 },
+    ],
+  },
+  {
+    id: "electronics",
+    name: "Electronics",
+    category: "electronics",
+    categoryLabel: "Electronics",
+    items: [
+      { name: "Phone charger", quantity: 1 },
+      { name: "Power bank", quantity: 1 },
+      { name: "Camera", quantity: 1 },
+      { name: "Camera batteries", quantity: 2 },
+      { name: "Memory cards", quantity: 2 },
+      { name: "Headphones", quantity: 1 },
+      { name: "Tablet", quantity: 1 },
+      { name: "Laptop", quantity: 1 },
+      { name: "Charging cables", quantity: 2 },
+      { name: "Adapter", quantity: 1 },
+    ],
+  },
+  {
+    id: "medical",
+    name: "Medical",
+    category: "medical",
+    categoryLabel: "Medical",
+    items: [
+      { name: "First aid kit", quantity: 1 },
+      { name: "Prescription medication", quantity: 1 },
+      { name: "Pain reliever", quantity: 1 },
+      { name: "Allergy medication", quantity: 1 },
+      { name: "Bandages", quantity: 1 },
+      { name: "Antiseptic wipes", quantity: 1 },
+      { name: "Tweezers", quantity: 1 },
+      { name: "Medical tape", quantity: 1 },
+      { name: "Sunscreen", quantity: 1 },
+      { name: "Insect repellent", quantity: 1 },
+    ],
+  },
+  {
+    id: "tools",
+    name: "Tools",
+    category: "tools",
+    categoryLabel: "Tools",
+    items: [
+      { name: "Multi-tool", quantity: 1 },
+      { name: "Screwdriver", quantity: 1 },
+      { name: "Wrench", quantity: 1 },
+      { name: "Pliers", quantity: 1 },
+      { name: "Duct tape", quantity: 1 },
+      { name: "Zip ties", quantity: 1 },
+      { name: "Work gloves", quantity: 1 },
+      { name: "Flashlight", quantity: 1 },
+      { name: "Batteries", quantity: 1 },
+      { name: "Tire pressure gauge", quantity: 1 },
+    ],
+  },
+  {
+    id: "food",
+    name: "Food",
+    category: "food",
+    categoryLabel: "Food",
+    items: [
+      { name: "Water", quantity: 1 },
+      { name: "Snacks", quantity: 1 },
+      { name: "Breakfast items", quantity: 1 },
+      { name: "Lunch items", quantity: 1 },
+      { name: "Dinner items", quantity: 1 },
+      { name: "Coffee", quantity: 1 },
+      { name: "Cooking oil", quantity: 1 },
+      { name: "Seasoning", quantity: 1 },
+      { name: "Utensils", quantity: 1 },
+      { name: "Trash bags", quantity: 1 },
+    ],
+  },
 ];
 
 function FrostedCard({
@@ -72,6 +285,16 @@ function FrostedCard({
   );
 }
 
+function createEditableItems(
+  sourceItems: { name: string; quantity: number }[]
+): EditableTemplateItem[] {
+  return sourceItems.map((item, index) => ({
+    id: `${Date.now()}-${index}`,
+    name: item.name,
+    quantity: Math.max(1, Number(item.quantity ?? 1)),
+  }));
+}
+
 export default function CreateTemplateScreen() {
   const { user } = useAuth();
   const theme = useThemedValues();
@@ -80,8 +303,9 @@ export default function CreateTemplateScreen() {
   const [category, setCategory] = useState<ChecklistCategory>("trip");
   const [customCategory, setCustomCategory] = useState("");
   const [categoryModalVisible, setCategoryModalVisible] = useState(false);
-  const [items, setItems] = useState<{ id: string; name: string }[]>([
-    { id: "1", name: "" },
+  const [starterModalVisible, setStarterModalVisible] = useState(false);
+  const [items, setItems] = useState<EditableTemplateItem[]>([
+    { id: "1", name: "", quantity: 1 },
   ]);
   const [saving, setSaving] = useState(false);
 
@@ -90,7 +314,10 @@ export default function CreateTemplateScreen() {
     "Select Category";
 
   function addItem() {
-    setItems((prev) => [...prev, { id: Date.now().toString(), name: "" }]);
+    setItems((prev) => [
+      ...prev,
+      { id: Date.now().toString(), name: "", quantity: 1 },
+    ]);
   }
 
   function updateItem(id: string, value: string) {
@@ -99,10 +326,20 @@ export default function CreateTemplateScreen() {
     );
   }
 
+  function updateItemQuantity(id: string, quantity: number) {
+    const safeQuantity = Math.max(1, Number(quantity) || 1);
+
+    setItems((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, quantity: safeQuantity } : item
+      )
+    );
+  }
+
   function removeItem(id: string) {
     setItems((prev) => {
       if (prev.length === 1) {
-        return [{ id: "1", name: "" }];
+        return [{ id: "1", name: "", quantity: 1 }];
       }
 
       return prev.filter((item) => item.id !== id);
@@ -118,6 +355,72 @@ export default function CreateTemplateScreen() {
     }
   }
 
+  function handleUseStarterTemplate(starterId: string) {
+    const starter = STARTER_TEMPLATE_OPTIONS.find(
+      (template) => template.id === starterId
+    );
+
+    if (!starter) {
+      return;
+    }
+
+    const applyStarter = () => {
+      setName(starter.name);
+      setCategory(starter.category);
+      setCustomCategory("");
+      setItems(createEditableItems(starter.items));
+      setStarterModalVisible(false);
+    };
+
+    const hasExistingData =
+      name.trim().length > 0 ||
+      customCategory.trim().length > 0 ||
+      items.some((item) => item.name.trim().length > 0);
+
+    if (hasExistingData) {
+      Alert.alert(
+        "Replace current template?",
+        "This will replace the current name and item list with the starter template. You can still edit everything before saving.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Replace",
+            style: "destructive",
+            onPress: applyStarter,
+          },
+        ]
+      );
+      return;
+    }
+
+    applyStarter();
+  }
+
+  function handleDiscardDraft() {
+    const hasDraft =
+      name.trim().length > 0 ||
+      customCategory.trim().length > 0 ||
+      items.some((item) => item.name.trim().length > 0);
+
+    if (!hasDraft) {
+      router.back();
+      return;
+    }
+
+    Alert.alert(
+      "Discard template?",
+      "This will discard your current template draft. Nothing will be saved.",
+      [
+        { text: "Keep Editing", style: "cancel" },
+        {
+          text: "Discard",
+          style: "destructive",
+          onPress: () => router.back(),
+        },
+      ]
+    );
+  }
+
   async function handleSave() {
     if (!user) {
       Alert.alert("Sign in required", "Please sign in to create a template.");
@@ -127,7 +430,10 @@ export default function CreateTemplateScreen() {
     const trimmedName = name.trim();
     const trimmedCustomCategory = customCategory.trim();
     const validItems = items
-      .map((item) => ({ name: item.name.trim() }))
+      .map((item) => ({
+        name: item.name.trim(),
+        quantity: Math.max(1, Number(item.quantity ?? 1)),
+      }))
       .filter((item) => item.name.length > 0);
 
     if (!trimmedName) {
@@ -187,9 +493,40 @@ export default function CreateTemplateScreen() {
                 Build a reusable template
               </ThemedText>
               <ThemedText color="secondary" style={styles.heroText}>
-                Add a template name, choose a category, and list the standard
-                items users can start from later.
+                Start from a generic list, then edit, delete, add, or discard
+                before saving your template.
               </ThemedText>
+            </FrostedCard>
+
+            <FrostedCard>
+              <ThemedText style={styles.sectionEyebrow}>
+                Starter Templates
+              </ThemedText>
+
+              <ThemedText variant="title" style={styles.sectionTitle}>
+                Choose a generic list
+              </ThemedText>
+
+              <ThemedText color="secondary" style={styles.helperText}>
+                Select a starter template across any category. The category,
+                template name, items, and quantities will be filled in for you.
+              </ThemedText>
+
+              <Pressable
+                style={[
+                  styles.starterButton,
+                  {
+                    backgroundColor: theme.colors.iconSurface,
+                    borderColor: theme.colors.border,
+                  },
+                ]}
+                onPress={() => setStarterModalVisible(true)}
+              >
+                <Plus size={18} color={theme.colors.text} />
+                <ThemedText style={styles.starterButtonText}>
+                  Choose Starter Template
+                </ThemedText>
+              </Pressable>
             </FrostedCard>
 
             <FrostedCard>
@@ -288,36 +625,80 @@ export default function CreateTemplateScreen() {
               </View>
 
               {items.map((item, index) => (
-                <View key={item.id} style={styles.itemRow}>
-                  <TextInput
-                    value={item.name}
-                    onChangeText={(text) => updateItem(item.id, text)}
-                    placeholder={`Item ${index + 1}`}
-                    placeholderTextColor={theme.colors.textMuted}
-                    style={[
-                      styles.input,
-                      styles.itemInput,
-                      {
-                        color: theme.colors.text,
-                        backgroundColor: theme.colors.inputSurface,
-                        borderColor: theme.colors.border,
-                      },
-                    ]}
-                    returnKeyType="done"
-                  />
+                <View key={item.id} style={styles.itemBlock}>
+                  <View style={styles.itemRow}>
+                    <TextInput
+                      value={item.name}
+                      onChangeText={(text) => updateItem(item.id, text)}
+                      placeholder={`Item ${index + 1}`}
+                      placeholderTextColor={theme.colors.textMuted}
+                      style={[
+                        styles.input,
+                        styles.itemInput,
+                        {
+                          color: theme.colors.text,
+                          backgroundColor: theme.colors.inputSurface,
+                          borderColor: theme.colors.border,
+                        },
+                      ]}
+                      returnKeyType="done"
+                    />
 
-                  <Pressable
-                    style={[
-                      styles.deleteButton,
-                      {
-                        backgroundColor: theme.colors.iconSurface,
-                        borderColor: theme.colors.border,
-                      },
-                    ]}
-                    onPress={() => removeItem(item.id)}
-                  >
-                    <Trash2 size={17} color={theme.colors.danger} />
-                  </Pressable>
+                    <Pressable
+                      style={[
+                        styles.deleteButton,
+                        {
+                          backgroundColor: theme.colors.iconSurface,
+                          borderColor: theme.colors.border,
+                        },
+                      ]}
+                      onPress={() => removeItem(item.id)}
+                    >
+                      <Trash2 size={17} color={theme.colors.danger} />
+                    </Pressable>
+                  </View>
+
+                  <View style={styles.quantityRow}>
+                    <ThemedText color="secondary" style={styles.quantityLabel}>
+                      Quantity
+                    </ThemedText>
+
+                    <View style={styles.quantityControls}>
+                      <Pressable
+                        style={[
+                          styles.quantityButton,
+                          {
+                            backgroundColor: theme.colors.iconSurface,
+                            borderColor: theme.colors.border,
+                          },
+                        ]}
+                        onPress={() =>
+                          updateItemQuantity(item.id, item.quantity - 1)
+                        }
+                      >
+                        <Minus size={15} color={theme.colors.text} />
+                      </Pressable>
+
+                      <ThemedText style={styles.quantityValue}>
+                        {item.quantity}
+                      </ThemedText>
+
+                      <Pressable
+                        style={[
+                          styles.quantityButton,
+                          {
+                            backgroundColor: theme.colors.iconSurface,
+                            borderColor: theme.colors.border,
+                          },
+                        ]}
+                        onPress={() =>
+                          updateItemQuantity(item.id, item.quantity + 1)
+                        }
+                      >
+                        <Plus size={15} color={theme.colors.text} />
+                      </Pressable>
+                    </View>
+                  </View>
                 </View>
               ))}
 
@@ -350,6 +731,16 @@ export default function CreateTemplateScreen() {
                 {saving ? "Creating..." : "Create Template"}
               </ThemedText>
             </ThemedButton>
+
+            <Pressable
+              style={styles.discardButton}
+              onPress={handleDiscardDraft}
+              disabled={saving}
+            >
+              <ThemedText color="secondary" style={styles.discardButtonText}>
+                Discard
+              </ThemedText>
+            </Pressable>
           </ScrollView>
         </KeyboardAvoidingView>
 
@@ -416,6 +807,72 @@ export default function CreateTemplateScreen() {
             </BlurView>
           </View>
         </Modal>
+
+        <Modal
+          visible={starterModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setStarterModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <BlurView
+              intensity={theme.isLight ? 22 : 35}
+              tint={theme.isLight ? "light" : "dark"}
+              style={[
+                styles.modalCard,
+                styles.starterModalCard,
+                {
+                  borderColor: theme.colors.border,
+                  backgroundColor: theme.isLight
+                    ? "rgba(255,255,255,0.94)"
+                    : "rgba(255,255,255,0.04)",
+                },
+              ]}
+            >
+              <ThemedText variant="title" style={styles.modalTitle}>
+                Choose Starter Template
+              </ThemedText>
+
+              <ThemedText color="secondary" style={styles.modalHelperText}>
+                Select a starter list. You can edit, delete, add, or discard
+                before saving.
+              </ThemedText>
+
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {STARTER_TEMPLATE_OPTIONS.map((starter) => (
+                  <Pressable
+                    key={starter.id}
+                    style={[
+                      styles.modalOption,
+                      {
+                        backgroundColor: theme.colors.iconSurface,
+                        borderColor: theme.colors.border,
+                      },
+                    ]}
+                    onPress={() => handleUseStarterTemplate(starter.id)}
+                  >
+                    <ThemedText style={styles.modalOptionText}>
+                      {starter.name}
+                    </ThemedText>
+
+                    <ThemedText color="secondary" style={styles.starterItemCount}>
+                      {starter.categoryLabel} • {starter.items.length} items
+                    </ThemedText>
+                  </Pressable>
+                ))}
+              </ScrollView>
+
+              <Pressable
+                style={styles.modalCancelButton}
+                onPress={() => setStarterModalVisible(false)}
+              >
+                <ThemedText color="secondary" style={styles.modalCancelText}>
+                  Cancel
+                </ThemedText>
+              </Pressable>
+            </BlurView>
+          </View>
+        </Modal>
       </SafeAreaView>
     </ScreenBackground>
   );
@@ -456,6 +913,12 @@ const styles = StyleSheet.create({
   heroText: {
     fontSize: 14,
     lineHeight: 20,
+  },
+
+  helperText: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 14,
   },
 
   sectionEyebrow: {
@@ -501,6 +964,22 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
+  starterButton: {
+    marginTop: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingVertical: 12,
+  },
+
+  starterButtonText: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+
   itemsHeaderRow: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -522,11 +1001,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
 
+  itemBlock: {
+    marginBottom: 14,
+  },
+
   itemRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    marginBottom: 10,
   },
 
   itemInput: {
@@ -541,6 +1023,40 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
+  },
+
+  quantityRow: {
+    marginTop: 8,
+    marginLeft: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+
+  quantityLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+
+  quantityControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+
+  quantityButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+
+  quantityValue: {
+    minWidth: 24,
+    textAlign: "center",
+    fontWeight: "700",
   },
 
   addItemButton: {
@@ -576,6 +1092,18 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
+  discardButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 14,
+    marginTop: 4,
+  },
+
+  discardButtonText: {
+    fontSize: 15,
+    fontWeight: "700",
+  },
+
   modalOverlay: {
     flex: 1,
     justifyContent: "center",
@@ -590,7 +1118,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
 
+  starterModalCard: {
+    maxHeight: "78%",
+  },
+
   modalTitle: {
+    marginBottom: 12,
+  },
+
+  modalHelperText: {
+    fontSize: 13,
+    lineHeight: 18,
     marginBottom: 12,
   },
 
@@ -614,6 +1152,11 @@ const styles = StyleSheet.create({
 
   modalOptionTextSelected: {
     color: "#fff",
+  },
+
+  starterItemCount: {
+    marginTop: 4,
+    fontSize: 13,
   },
 
   modalCancelButton: {
