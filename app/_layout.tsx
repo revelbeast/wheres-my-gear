@@ -1,16 +1,68 @@
-import React from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import React, { useEffect, useRef } from "react";
+import {
+  ActivityIndicator,
+  InteractionManager,
+  StyleSheet,
+  View,
+} from "react-native";
 import { Stack, usePathname } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { AuthProvider, useAuth } from "../components/auth/AuthProvider";
 import BottomTabBar from "../components/navigation/BottomTabBar";
+import { initializeAdsSafely } from "../lib/adsService";
+import { initRevenueCat } from "../lib/revenuecat";
 import { useTheme } from "../lib/useTheme";
 
 function RootNavigator() {
   const { user, initializing } = useAuth();
   const pathname = usePathname();
   const theme = useTheme();
+
+  const revenueCatLoggedInUserRef = useRef<string | null>(null);
+  const adsInitializedRef = useRef(false);
+
+  useEffect(() => {
+    if (initializing) return;
+    if (!user?.uid) return;
+
+    if (revenueCatLoggedInUserRef.current === user.uid) return;
+
+    const interactionTask = InteractionManager.runAfterInteractions(() => {
+      initRevenueCat(user.uid)
+        .then(() => {
+          revenueCatLoggedInUserRef.current = user.uid;
+        })
+        .catch((error) => {
+          console.error("RevenueCat initialization failed:", error);
+        });
+    });
+
+    return () => {
+      interactionTask.cancel();
+    };
+  }, [initializing, user?.uid]);
+
+  useEffect(() => {
+    if (initializing) return;
+    if (!user?.uid) return;
+    if (adsInitializedRef.current) return;
+
+    const interactionTask = InteractionManager.runAfterInteractions(() => {
+      initializeAdsSafely()
+        .then((initialized) => {
+          adsInitializedRef.current = initialized;
+        })
+        .catch((error) => {
+          console.error("Safe ads initialization wrapper failed:", error);
+          adsInitializedRef.current = false;
+        });
+    });
+
+    return () => {
+      interactionTask.cancel();
+    };
+  }, [initializing, user?.uid]);
 
   const isMainTabScreen =
     pathname === "/" ||
@@ -67,6 +119,8 @@ function RootNavigator() {
           }}
         >
           <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="paywall" />
+
           <Stack.Screen name="vehicles/[vehicleId]" />
           <Stack.Screen name="vehicles/[vehicleId]/compartments/index" />
           <Stack.Screen name="vehicles/[vehicleId]/compartments/create" />

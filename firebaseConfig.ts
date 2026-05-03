@@ -1,11 +1,7 @@
-import Constants from "expo-constants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { initializeApp, getApps, getApp } from "firebase/app";
-import {
-  getAuth,
-  initializeAuth,
-  getReactNativePersistence,
-} from "firebase/auth";
+import Constants from "expo-constants";
+import { initializeApp, getApp, getApps } from "firebase/app";
+import * as FirebaseAuth from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const extra = Constants.expoConfig?.extra ?? {};
@@ -19,18 +15,27 @@ const firebaseConfig = {
   appId: extra.firebaseAppId,
 };
 
-const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-
-let authInstance;
-
-try {
-  authInstance = initializeAuth(app, {
-    persistence: getReactNativePersistence(AsyncStorage),
-  });
-} catch {
-  authInstance = getAuth(app);
+if (!firebaseConfig.apiKey) {
+  console.error("Firebase API key is missing. Check EAS env variables.");
 }
 
-export const auth = authInstance;
+if (!firebaseConfig.projectId) {
+  console.error("Firebase project ID is missing. Check EAS env variables.");
+}
+
+const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+
+const authModule = FirebaseAuth as any;
+
+let firebaseAuth;
+
+try {
+  firebaseAuth = authModule.initializeAuth(app, {
+    persistence: authModule.getReactNativePersistence(AsyncStorage),
+  });
+} catch {
+  firebaseAuth = FirebaseAuth.getAuth(app);
+}
+
+export const auth = firebaseAuth;
 export const db = getFirestore(app);
-export default app;

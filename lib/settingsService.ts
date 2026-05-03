@@ -26,6 +26,12 @@ export type AppProfile = {
   address: AppAddress;
 };
 
+export type NotificationSettings = {
+  checklistReminders: boolean;
+  tripReminders: boolean;
+  packingReminders: boolean;
+};
+
 const defaultAddress: AppAddress = {
   streetAddress: "",
   apartmentSuite: "",
@@ -36,9 +42,9 @@ const defaultAddress: AppAddress = {
 };
 
 const defaultProfile: AppProfile = {
-  username: "rich",
-  firstName: "Rich",
-  lastName: "Garcia",
+  username: "",
+  firstName: "",
+  lastName: "",
   email: "",
   phoneNumber: "",
   theme: "dark",
@@ -48,21 +54,68 @@ const defaultProfile: AppProfile = {
   address: defaultAddress,
 };
 
+const defaultNotificationSettings: NotificationSettings = {
+  checklistReminders: true,
+  tripReminders: true,
+  packingReminders: false,
+};
+
+const legacyHardcodedProfileValues = {
+  username: "",
+  firstName: "",
+  lastName: "",
+};
+
 function profileDoc(userId: string) {
   return doc(db, "users", userId, "settings", "profile");
 }
 
+function notificationSettingsDoc() {
+  return doc(db, "appSettings", "notifications");
+}
+
+function removeLegacyHardcodedDefaults(profile: AppProfile): AppProfile {
+  const hasLegacyName =
+    profile.username === legacyHardcodedProfileValues.username &&
+    profile.firstName === legacyHardcodedProfileValues.firstName &&
+    profile.lastName === legacyHardcodedProfileValues.lastName;
+
+  const looksLikeUntouchedDefault =
+    hasLegacyName &&
+    profile.email === "" &&
+    profile.phoneNumber === "" &&
+    profile.profilePhotoUri === "" &&
+    profile.backgroundPhotoUri === "" &&
+    profile.address.streetAddress === "" &&
+    profile.address.apartmentSuite === "" &&
+    profile.address.city === "" &&
+    profile.address.state === "" &&
+    profile.address.zipCode === "";
+
+  if (!looksLikeUntouchedDefault) {
+    return profile;
+  }
+
+  return {
+    ...profile,
+    username: "",
+    firstName: "",
+    lastName: "",
+  };
+}
+
 export async function getProfileSettings(userId: string): Promise<AppProfile> {
-  const snapshot = await getDoc(profileDoc(userId));
+  const ref = profileDoc(userId);
+  const snapshot = await getDoc(ref);
 
   if (!snapshot.exists()) {
-    await setDoc(profileDoc(userId), defaultProfile);
+    await setDoc(ref, defaultProfile);
     return defaultProfile;
   }
 
   const data = snapshot.data() as Partial<AppProfile>;
 
-  return {
+  const mergedProfile: AppProfile = {
     ...defaultProfile,
     ...data,
     address: {
@@ -70,6 +123,18 @@ export async function getProfileSettings(userId: string): Promise<AppProfile> {
       ...(data.address ?? {}),
     },
   };
+
+  const cleanedProfile = removeLegacyHardcodedDefaults(mergedProfile);
+
+  if (
+    cleanedProfile.username !== mergedProfile.username ||
+    cleanedProfile.firstName !== mergedProfile.firstName ||
+    cleanedProfile.lastName !== mergedProfile.lastName
+  ) {
+    await setDoc(ref, cleanedProfile, { merge: true });
+  }
+
+  return cleanedProfile;
 }
 
 export async function saveProfileSettings(
@@ -77,4 +142,27 @@ export async function saveProfileSettings(
   profile: AppProfile
 ) {
   await setDoc(profileDoc(userId), profile, { merge: true });
+}
+
+export async function getNotificationSettings(): Promise<NotificationSettings> {
+  const ref = notificationSettingsDoc();
+  const snapshot = await getDoc(ref);
+
+  if (!snapshot.exists()) {
+    await setDoc(ref, defaultNotificationSettings);
+    return defaultNotificationSettings;
+  }
+
+  const data = snapshot.data() as Partial<NotificationSettings>;
+
+  return {
+    ...defaultNotificationSettings,
+    ...data,
+  };
+}
+
+export async function saveNotificationSettings(
+  settings: NotificationSettings
+) {
+  await setDoc(notificationSettingsDoc(), settings, { merge: true });
 }

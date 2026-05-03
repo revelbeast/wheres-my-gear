@@ -1,18 +1,18 @@
 import * as AppleAuthentication from "expo-apple-authentication";
 import * as Crypto from "expo-crypto";
 import {
-    OAuthProvider,
-    User,
-    onAuthStateChanged,
-    signInWithCredential,
-    signOut,
+  OAuthProvider,
+  User,
+  onAuthStateChanged,
+  signInWithCredential,
+  signOut,
 } from "firebase/auth";
 import React, {
-    createContext,
-    useContext,
-    useEffect,
-    useMemo,
-    useState,
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
 } from "react";
 
 import { auth } from "../../firebaseConfig";
@@ -37,44 +37,88 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [initializing, setInitializing] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
-      setUser(nextUser);
-      setInitializing(false);
-    });
+    const unsubscribe = onAuthStateChanged(
+      auth,
+      (nextUser) => {
+        console.log("Firebase auth state changed:", {
+          signedIn: !!nextUser,
+          uid: nextUser?.uid ?? null,
+          email: nextUser?.email ?? null,
+        });
+
+        setUser(nextUser);
+        setInitializing(false);
+      },
+      (error) => {
+        console.error("Firebase auth state listener failed:", error);
+        setUser(null);
+        setInitializing(false);
+      }
+    );
 
     return unsubscribe;
   }, []);
 
   async function signInWithApple() {
-    const rawNonce = bytesToHex(Crypto.getRandomBytes(16));
-    const hashedNonce = await Crypto.digestStringAsync(
-      Crypto.CryptoDigestAlgorithm.SHA256,
-      rawNonce
-    );
+    try {
+      console.log("Apple Sign-In started.");
 
-    const appleCredential = await AppleAuthentication.signInAsync({
-      requestedScopes: [
-        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-        AppleAuthentication.AppleAuthenticationScope.EMAIL,
-      ],
-      nonce: hashedNonce,
-    });
+      const rawNonce = bytesToHex(Crypto.getRandomBytes(16));
+      const hashedNonce = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        rawNonce
+      );
 
-    if (!appleCredential.identityToken) {
-      throw new Error("Apple Sign-In failed. No identity token returned.");
+      const appleCredential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+        nonce: hashedNonce,
+      });
+
+      console.log("Apple credential received:", {
+        hasIdentityToken: !!appleCredential.identityToken,
+        hasAuthorizationCode: !!appleCredential.authorizationCode,
+        user: appleCredential.user,
+        email: appleCredential.email ?? null,
+      });
+
+      if (!appleCredential.identityToken) {
+        throw new Error("Apple Sign-In failed. No identity token returned.");
+      }
+
+      const provider = new OAuthProvider("apple.com");
+      const firebaseCredential = provider.credential({
+        idToken: appleCredential.identityToken,
+        rawNonce,
+      });
+
+      console.log("Firebase Apple credential created. Signing in...");
+
+      const result = await signInWithCredential(auth, firebaseCredential);
+
+      console.log("Firebase Apple sign-in succeeded:", {
+        uid: result.user.uid,
+        email: result.user.email ?? null,
+      });
+
+      setUser(result.user);
+    } catch (error: any) {
+      console.error("Apple/Firebase sign-in failed:", {
+        code: error?.code ?? null,
+        message: error?.message ?? String(error),
+        name: error?.name ?? null,
+        rawError: error,
+      });
+
+      throw error;
     }
-
-    const provider = new OAuthProvider("apple.com");
-    const firebaseCredential = provider.credential({
-      idToken: appleCredential.identityToken,
-      rawNonce,
-    });
-
-    await signInWithCredential(auth, firebaseCredential);
   }
 
   async function signOutUser() {
     await signOut(auth);
+    setUser(null);
   }
 
   const value = useMemo(

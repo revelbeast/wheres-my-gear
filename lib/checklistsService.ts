@@ -21,19 +21,29 @@ import type {
   ChecklistTemplateItem,
 } from "../types/checklists";
 
+function requireUserId(userId: string) {
+  const trimmedUserId = userId?.trim();
+
+  if (!trimmedUserId) {
+    throw new Error("User is not authenticated.");
+  }
+
+  return trimmedUserId;
+}
+
 function templatesCol(userId: string) {
-  return collection(db, "users", userId, "checklistTemplates");
+  return collection(db, "users", requireUserId(userId), "checklistTemplates");
 }
 
 function templateDoc(userId: string, templateId: string) {
-  return doc(db, "users", userId, "checklistTemplates", templateId);
+  return doc(db, "users", requireUserId(userId), "checklistTemplates", templateId);
 }
 
 function templateItemsCol(userId: string, templateId: string) {
   return collection(
     db,
     "users",
-    userId,
+    requireUserId(userId),
     "checklistTemplates",
     templateId,
     "items"
@@ -41,19 +51,68 @@ function templateItemsCol(userId: string, templateId: string) {
 }
 
 function checklistsCol(userId: string) {
-  return collection(db, "users", userId, "checklists");
+  return collection(db, "users", requireUserId(userId), "checklists");
 }
 
 function checklistDoc(userId: string, checklistId: string) {
-  return doc(db, "users", userId, "checklists", checklistId);
+  return doc(db, "users", requireUserId(userId), "checklists", checklistId);
 }
 
 function checklistItemsCol(userId: string, checklistId: string) {
-  return collection(db, "users", userId, "checklists", checklistId, "items");
+  return collection(
+    db,
+    "users",
+    requireUserId(userId),
+    "checklists",
+    checklistId,
+    "items"
+  );
 }
 
 function normalizeSearchValue(value: string) {
   return value.trim().toLowerCase();
+}
+
+function normalizeChecklist(id: string, data: Record<string, any>): Checklist {
+  return {
+    id,
+    name: String(data.name ?? "Untitled Checklist"),
+    category: (data.category ?? "trip") as ChecklistCategory,
+    customCategoryLabel: data.customCategoryLabel ?? "",
+    templateId: data.templateId ?? null,
+    status: data.status ?? "active",
+    packedCount: Number(data.packedCount ?? 0),
+    totalCount: Number(data.totalCount ?? 0),
+    missingCount: Number(data.missingCount ?? 0),
+    vehicleId: data.vehicleId ?? null,
+    tripId: data.tripId ?? null,
+    notes: data.notes ?? "",
+    isArchived: Boolean(data.isArchived ?? false),
+    createdAt: data.createdAt,
+    updatedAt: data.updatedAt,
+  } as Checklist;
+}
+
+function normalizeChecklistItem(
+  id: string,
+  data: Record<string, any>
+): ChecklistItem {
+  return {
+    id,
+    name: String(data.name ?? "Untitled Item"),
+    notes: data.notes ?? "",
+    quantity: Math.max(1, Number(data.quantity ?? 1)),
+    packed: Boolean(data.packed ?? false),
+    packedAt: data.packedAt ?? null,
+    sortOrder: Number(data.sortOrder ?? 0),
+    sourceTemplateItemId: data.sourceTemplateItemId ?? null,
+    itemPhotoUri: data.itemPhotoUri ?? "",
+    compartmentId: data.compartmentId ?? "",
+    compartmentName: data.compartmentName ?? "",
+    vehicleId: data.vehicleId ?? "",
+    createdAt: data.createdAt,
+    updatedAt: data.updatedAt,
+  } as ChecklistItem;
 }
 
 export type AssignedChecklistItemSummary = ChecklistItem & {
@@ -108,10 +167,7 @@ export async function getChecklist(
     return null;
   }
 
-  return {
-    id: snapshot.id,
-    ...snapshot.data(),
-  } as Checklist;
+  return normalizeChecklist(snapshot.id, snapshot.data());
 }
 
 export async function createChecklist(
@@ -125,8 +181,14 @@ export async function createChecklist(
     tripId?: string | null;
   }
 ) {
+  const trimmedName = data.name.trim();
+
+  if (!trimmedName) {
+    throw new Error("Checklist name is required.");
+  }
+
   const checklistRef = await addDoc(checklistsCol(userId), {
-    name: data.name,
+    name: trimmedName,
     category: data.category,
     customCategoryLabel: data.customCategoryLabel ?? "",
     templateId: data.templateId ?? null,
@@ -202,7 +264,9 @@ export async function addChecklistItem(
   }
 
   const itemsSnapshot = await getDocs(checklistItemsCol(userId, checklistId));
-  const existingItems = itemsSnapshot.docs.map((d) => d.data()) as ChecklistItem[];
+  const existingItems = itemsSnapshot.docs.map((d) =>
+    normalizeChecklistItem(d.id, d.data())
+  );
 
   const nextSortOrder =
     existingItems.length > 0
@@ -229,16 +293,29 @@ export function subscribeToChecklists(
   userId: string,
   callback: (items: Checklist[]) => void
 ) {
-  const q = query(checklistsCol(userId), orderBy("createdAt", "desc"));
+  try {
+    const safeUserId = requireUserId(userId);
+    const q = query(checklistsCol(safeUserId), orderBy("createdAt", "desc"));
 
-  return onSnapshot(q, (snapshot) => {
-    const data = snapshot.docs.map((d) => ({
-      id: d.id,
-      ...d.data(),
-    })) as Checklist[];
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const data = snapshot.docs.map((d) =>
+          normalizeChecklist(d.id, d.data())
+        );
 
-    callback(data);
-  });
+        callback(data);
+      },
+      (error) => {
+        console.error("Failed to subscribe to checklists:", error);
+        callback([]);
+      }
+    );
+  } catch (error) {
+    console.error("Failed to start checklist subscription:", error);
+    callback([]);
+    return () => {};
+  }
 }
 
 export function subscribeToChecklistItems(
@@ -246,16 +323,37 @@ export function subscribeToChecklistItems(
   checklistId: string,
   callback: (items: ChecklistItem[]) => void
 ) {
-  const q = query(checklistItemsCol(userId, checklistId), orderBy("sortOrder"));
+  try {
+    const safeUserId = requireUserId(userId);
 
-  return onSnapshot(q, (snapshot) => {
-    const data = snapshot.docs.map((d) => ({
-      id: d.id,
-      ...d.data(),
-    })) as ChecklistItem[];
+    if (!checklistId?.trim()) {
+      throw new Error("Checklist ID is required.");
+    }
 
-    callback(data);
-  });
+    const q = query(
+      checklistItemsCol(safeUserId, checklistId),
+      orderBy("sortOrder")
+    );
+
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const data = snapshot.docs.map((d) =>
+          normalizeChecklistItem(d.id, d.data())
+        );
+
+        callback(data);
+      },
+      (error) => {
+        console.error("Failed to subscribe to checklist items:", error);
+        callback([]);
+      }
+    );
+  } catch (error) {
+    console.error("Failed to start checklist item subscription:", error);
+    callback([]);
+    return () => {};
+  }
 }
 
 export async function toggleChecklistItemPacked(
@@ -266,7 +364,7 @@ export async function toggleChecklistItemPacked(
   const itemRef = doc(
     db,
     "users",
-    userId,
+    requireUserId(userId),
     "checklists",
     checklistId,
     "items",
@@ -293,7 +391,7 @@ export async function updateChecklistItemQuantity(
   const itemRef = doc(
     db,
     "users",
-    userId,
+    requireUserId(userId),
     "checklists",
     checklistId,
     "items",
@@ -322,7 +420,7 @@ export async function updateChecklistItemName(
   const itemRef = doc(
     db,
     "users",
-    userId,
+    requireUserId(userId),
     "checklists",
     checklistId,
     "items",
@@ -344,7 +442,7 @@ export async function updateChecklistItemPhoto(
   const itemRef = doc(
     db,
     "users",
-    userId,
+    requireUserId(userId),
     "checklists",
     checklistId,
     "items",
@@ -368,7 +466,7 @@ export async function updateChecklistItemCompartment(
   const itemRef = doc(
     db,
     "users",
-    userId,
+    requireUserId(userId),
     "checklists",
     checklistId,
     "items",
@@ -425,7 +523,7 @@ export async function deleteChecklistItem(
   const itemRef = doc(
     db,
     "users",
-    userId,
+    requireUserId(userId),
     "checklists",
     checklistId,
     "items",
@@ -441,7 +539,7 @@ export async function recomputeChecklistCounts(
   checklistId: string
 ) {
   const snapshot = await getDocs(checklistItemsCol(userId, checklistId));
-  const items = snapshot.docs.map((d) => d.data()) as ChecklistItem[];
+  const items = snapshot.docs.map((d) => normalizeChecklistItem(d.id, d.data()));
 
   const totalCount = items.length;
   const packedCount = items.filter((i) => i.packed).length;
@@ -475,13 +573,12 @@ export async function getAssignedChecklistItems(
   }
 ): Promise<AssignedChecklistItemSummary[]> {
   const checklistSnapshot = await getDocs(checklistsCol(userId));
-  const checklistDocs = checklistSnapshot.docs.map((d) => ({
-    id: d.id,
-    ...d.data(),
-  })) as Checklist[];
+  const checklistDocs = checklistSnapshot.docs.map((d) =>
+    normalizeChecklist(d.id, d.data())
+  );
 
   const compartmentSnapshot = await getDocs(
-    collection(db, "users", userId, "compartments")
+    collection(db, "users", requireUserId(userId), "compartments")
   );
 
   const compartmentVehicleMap = new Map<string, string>();
@@ -496,10 +593,9 @@ export async function getAssignedChecklistItems(
     if (checklist.isArchived) continue;
 
     const itemsSnapshot = await getDocs(checklistItemsCol(userId, checklist.id));
-    const checklistItems = itemsSnapshot.docs.map((d) => ({
-      id: d.id,
-      ...d.data(),
-    })) as ChecklistItem[];
+    const checklistItems = itemsSnapshot.docs.map((d) =>
+      normalizeChecklistItem(d.id, d.data())
+    );
 
     for (const item of checklistItems) {
       const compartmentId =
@@ -544,10 +640,9 @@ export async function searchChecklistsForUser(
   }
 
   const snapshot = await getDocs(checklistsCol(userId));
-  const checklists = snapshot.docs.map((d) => ({
-    id: d.id,
-    ...d.data(),
-  })) as Checklist[];
+  const checklists = snapshot.docs.map((d) =>
+    normalizeChecklist(d.id, d.data())
+  );
 
   return checklists
     .filter(
@@ -587,7 +682,7 @@ export async function saveChecklistAsTemplate(
   const batch = writeBatch(db);
 
   itemsSnapshot.docs.forEach((docSnap, index) => {
-    const item = docSnap.data() as ChecklistItem;
+    const item = normalizeChecklistItem(docSnap.id, docSnap.data());
     const itemRef = doc(templateItemsCol(userId, templateRef.id));
 
     batch.set(itemRef, {

@@ -2,7 +2,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { BlurView } from "expo-blur";
 import { router, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, ChevronRight, Plus, Trash2 } from "lucide-react-native";
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -56,14 +56,14 @@ function FrostedCard({
         {
           borderColor: theme.colors.border,
           backgroundColor: theme.isLight
-            ? "rgba(255,255,255,0.65)"   // FIX: stronger light mode card
+            ? "rgba(255,255,255,0.65)"
             : theme.colors.card,
         },
         style,
       ]}
     >
       <BlurView
-        intensity={theme.isLight ? 22 : 35} // FIX: stronger blur in light mode
+        intensity={theme.isLight ? 22 : 35}
         tint={theme.isLight ? "light" : "dark"}
         style={styles.frostedBlur}
       >
@@ -81,7 +81,6 @@ export default function CompartmentsScreen() {
   const [storageSpace, setStorageSpace] = useState<StorageSpace | null>(null);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const swipeableRefs = useRef<Record<string, Swipeable | null>>({});
 
   const hasVehicleId = useMemo(
     () => typeof vehicleId === "string" && vehicleId.trim().length > 0,
@@ -147,10 +146,6 @@ export default function CompartmentsScreen() {
     }, [loadCompartments])
   );
 
-  function closeSwipeable(compartmentId: string) {
-    swipeableRefs.current[compartmentId]?.close();
-  }
-
   function handleOpenCompartment(compartmentId: string) {
     if (!vehicleId) return;
 
@@ -182,7 +177,6 @@ export default function CompartmentsScreen() {
         {
           text: "Cancel",
           style: "cancel",
-          onPress: () => closeSwipeable(compartment.id),
         },
         {
           text: "Delete",
@@ -191,7 +185,6 @@ export default function CompartmentsScreen() {
             try {
               setDeletingId(compartment.id);
               await deleteCompartment(compartment.id);
-              closeSwipeable(compartment.id);
               await loadCompartments();
             } catch (error) {
               console.error("Failed to delete compartment:", error);
@@ -302,9 +295,6 @@ export default function CompartmentsScreen() {
               rows.map((compartment) => (
                 <Swipeable
                   key={compartment.id}
-                  ref={(ref) => {
-                    swipeableRefs.current[compartment.id] = ref;
-                  }}
                   renderRightActions={() => renderRightActions(compartment)}
                   overshootRight={false}
                   rightThreshold={40}

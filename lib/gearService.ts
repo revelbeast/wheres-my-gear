@@ -54,7 +54,7 @@ function getCurrentUserId() {
   const userId = auth.currentUser?.uid;
 
   if (!userId) {
-    throw new Error("User is not authenticated.");
+    throw new Error("You are not signed in. Please close and reopen the app, then try again.");
   }
 
   return userId;
@@ -117,20 +117,32 @@ export async function createStorageSpace(input: {
   notes?: string;
 }) {
   const trimmedName = input.name.trim();
+  const trimmedSubtype = input.subtype?.trim() ?? "";
+
   if (!trimmedName) {
     throw new Error("Storage space name is required.");
+  }
+
+  if (!trimmedSubtype) {
+    throw new Error("Storage space subtype is required.");
   }
 
   const payload = {
     name: trimmedName,
     category: input.category ?? "vehicle",
-    subtype: input.subtype ?? "",
+    subtype: trimmedSubtype,
     notes: input.notes ?? "",
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };
 
   const ref = await addDoc(storageSpacesCol(), payload);
+  const confirmationSnapshot = await getDoc(ref);
+
+  if (!confirmationSnapshot.exists()) {
+    throw new Error("Storage space was not confirmed in Firestore. Please try again.");
+  }
+
   return ref.id;
 }
 

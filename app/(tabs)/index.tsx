@@ -1,5 +1,4 @@
 import { BlurView } from "expo-blur";
-import * as TrackingTransparency from "expo-tracking-transparency";
 import { collection, getDocs } from "firebase/firestore";
 import { router, useFocusEffect } from "expo-router";
 import {
@@ -22,14 +21,9 @@ import {
   TextInput,
   View,
 } from "react-native";
-import {
-  BannerAd,
-  BannerAdSize,
-  TestIds,
-} from "react-native-google-mobile-ads";
-import mobileAds from "react-native-google-mobile-ads";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import SafeBannerAd from "../../components/ads/SafeBannerAd";
 import { useAuth } from "../../components/auth/AuthProvider";
 import ScreenBackground from "../../components/ui/ScreenBackground";
 import {
@@ -47,6 +41,7 @@ import {
   Item,
   StorageSpace,
 } from "../../lib/gearService";
+import { getOfferings, isPremiumUser } from "../../lib/revenuecat";
 import { getProfileSettings } from "../../lib/settingsService";
 import type { Checklist } from "../../types/checklists";
 
@@ -260,6 +255,7 @@ export default function DashboardScreen() {
   const [searchResults, setSearchResults] = useState<SearchResultItem[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [isPremium, setIsPremium] = useState(false);
 
   const [storageSpaces, setStorageSpaces] = useState<StorageSpace[]>([]);
   const [selectedStorageId, setSelectedStorageId] = useState<string | null>(null);
@@ -268,8 +264,12 @@ export default function DashboardScreen() {
   const [allItems, setAllItems] = useState<Item[]>([]);
   const [allCompartments, setAllCompartments] = useState<Compartment[]>([]);
   const [allChecklists, setAllChecklists] = useState<Checklist[]>([]);
-  const [selectedCompartments, setSelectedCompartments] = useState<Compartment[]>([]);
-  const [quickCompartments, setQuickCompartments] = useState<QuickCompartment[]>([]);
+  const [selectedCompartments, setSelectedCompartments] = useState<Compartment[]>(
+    []
+  );
+  const [quickCompartments, setQuickCompartments] = useState<QuickCompartment[]>(
+    []
+  );
 
   const [profilePhotoUri, setProfilePhotoUri] = useState("");
   const [profilePhotoFailed, setProfilePhotoFailed] = useState(false);
@@ -313,17 +313,24 @@ export default function DashboardScreen() {
   );
 
   useEffect(() => {
-    async function initializeAds() {
+    async function testRevenueCat() {
       try {
-        await TrackingTransparency.requestTrackingPermissionsAsync();
-        await mobileAds().initialize();
-      } catch (err) {
-        console.error("Failed to initialize ads:", err);
+        const offerings = await getOfferings();
+        console.log("RevenueCat offerings:", offerings);
+
+        const premium = await isPremiumUser();
+        console.log("RevenueCat is premium:", premium);
+        setIsPremium(premium);
+      } catch (error) {
+        console.error("RevenueCat dashboard test failed:", error);
+        setIsPremium(false);
       }
     }
 
-    initializeAds();
-  }, []);
+    if (!initializing && user) {
+      testRevenueCat();
+    }
+  }, [initializing, user]);
 
   useFocusEffect(
     useCallback(() => {
@@ -472,6 +479,7 @@ export default function DashboardScreen() {
     if (!user) {
       setSearchResults([]);
       setIsSearching(false);
+      setIsPremium(false);
       setStorageSpaces([]);
       setSelectedStorageId(null);
       setShowStorageDropdown(false);
@@ -1083,19 +1091,13 @@ export default function DashboardScreen() {
                   ))}
                 </View>
               )}
-
-              <View style={styles.adContainer}>
-                <BannerAd
-                  unitId={TestIds.BANNER}
-                  size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
-                  requestOptions={{
-                    requestNonPersonalizedAdsOnly: true,
-                  }}
-                />
-              </View>
             </>
           )}
         </ScrollView>
+
+        <View style={styles.bottomAdWrap}>
+          <SafeBannerAd enabled={!initializing && !!user && !isPremium} />
+        </View>
       </SafeAreaView>
     </ScreenBackground>
   );
@@ -1110,7 +1112,17 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 16,
     paddingTop: 4,
-    paddingBottom: 160,
+    paddingBottom: 260,
+  },
+
+  bottomAdWrap: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 110,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 200,
   },
 
   whiteLabel: {
@@ -1494,12 +1506,4 @@ const styles = StyleSheet.create({
   },
 
   quickGridMeta: {},
-
-  adContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 12,
-    marginBottom: 8,
-    minHeight: 60,
-  },
 });

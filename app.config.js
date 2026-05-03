@@ -2,7 +2,7 @@ export default {
   expo: {
     name: "Where's My Gear",
     slug: "wheres-my-gear",
-    version: "1.0.0",
+    version: "1.0.1",
     orientation: "portrait",
     scheme: "wheres-my-gear",
 
@@ -10,7 +10,10 @@ export default {
 
     ios: {
       bundleIdentifier: "com.richgarcia.wheresmygear",
+      buildNumber: "27",
       supportsTablet: false,
+      usesIap: true,
+      usesAppleSignIn: true,
     },
 
     android: {
@@ -22,17 +25,18 @@ export default {
     },
 
     plugins: [
+      "expo-apple-authentication",
       [
         "expo-tracking-transparency",
         {
           userTrackingPermission:
-            "This identifier will be used to deliver personalized ads and support the free version of Where's My Gear.",
+            "This identifier will be used to deliver personalized ads and improve ad relevance.",
         },
       ],
       [
         "react-native-google-mobile-ads",
         {
-          iosAppId: "ca-app-pub-3940256099942544~1458002511",
+          iosAppId: "ca-app-pub-6678004145625444~4416697271",
           androidAppId: "ca-app-pub-3940256099942544~3347511713",
         },
       ],
@@ -48,7 +52,7 @@ export default {
       firebaseStorageBucket: process.env.FIREBASE_STORAGE_BUCKET,
       firebaseMessagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
       firebaseAppId: process.env.FIREBASE_APP_ID,
-      revenueCatIosKey: process.env.REVENUECAT_IOS_KEY,
+      revenueCatIosKey: "appl_mSZszlOmDuRtonDUwsKqTsoYsDX",
     },
   },
 };

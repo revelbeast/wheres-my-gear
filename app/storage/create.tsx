@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import { ChevronDown, ChevronLeft } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -105,6 +106,8 @@ export default function CreateStorageScreen() {
   }
 
   function handleToggleSubtypeDropdown() {
+    if (saving) return;
+
     if (showSubtypeDropdown) {
       closeSubtypeDropdown();
       return;
@@ -120,6 +123,8 @@ export default function CreateStorageScreen() {
   }
 
   function handleSelectSubtype(value: string) {
+    if (saving) return;
+
     blurInputs();
     clearPendingDropdownOpen();
     setSubtype(value);
@@ -131,28 +136,56 @@ export default function CreateStorageScreen() {
   }
 
   async function handleSave() {
+    if (saving) return;
+
     blurInputs();
     closeSubtypeDropdown();
 
-    if (!name.trim()) return;
-
+    const trimmedName = name.trim();
     const finalSubtype =
       subtype === "Other" ? customSubtype.trim() : subtype.trim();
 
-    if (!finalSubtype) return;
+    if (!trimmedName) {
+      Alert.alert("Missing name", "Please enter a storage space name.");
+      return;
+    }
+
+    if (!subtype) {
+      Alert.alert("Missing subtype", "Please select a subtype.");
+      return;
+    }
+
+    if (subtype === "Other" && !finalSubtype) {
+      Alert.alert("Missing custom subtype", "Please enter a custom subtype.");
+      return;
+    }
+
+    if (!finalSubtype) {
+      Alert.alert("Missing subtype", "Please select or enter a subtype.");
+      return;
+    }
 
     try {
       setSaving(true);
 
-      await createStorageSpace({
-        name: name.trim(),
+      const createdId = await createStorageSpace({
+        name: trimmedName,
         category,
         subtype: finalSubtype,
       });
 
-      router.back();
-    } catch (err) {
+      if (!createdId) {
+        throw new Error("Storage space was not saved. Please try again.");
+      }
+
+      router.replace("/storage");
+    } catch (err: any) {
       console.error("Failed to create storage space:", err);
+
+      Alert.alert(
+        "Save failed",
+        err?.message || "Unable to save this storage space. Please try again."
+      );
     } finally {
       setSaving(false);
     }
@@ -186,6 +219,7 @@ export default function CreateStorageScreen() {
                       : "rgba(255,255,255,0.10)",
                   },
                 ]}
+                disabled={saving}
               >
                 <ChevronLeft size={24} color={LABEL_WHITE} />
               </Pressable>
@@ -233,6 +267,7 @@ export default function CreateStorageScreen() {
                   },
                 ]}
                 returnKeyType="done"
+                editable={!saving}
               />
 
               <Text style={[styles.label, { color: theme.colors.textSecondary }]}>
@@ -249,12 +284,14 @@ export default function CreateStorageScreen() {
                     category === "vehicle" && styles.toggleActive,
                   ]}
                   onPress={() => {
+                    if (saving) return;
                     blurInputs();
                     setCategory("vehicle");
                     setSubtype("");
                     setCustomSubtype("");
                     closeSubtypeDropdown();
                   }}
+                  disabled={saving}
                 >
                   <Text
                     style={[
@@ -277,12 +314,14 @@ export default function CreateStorageScreen() {
                     category === "storage" && styles.toggleActive,
                   ]}
                   onPress={() => {
+                    if (saving) return;
                     blurInputs();
                     setCategory("storage");
                     setSubtype("");
                     setCustomSubtype("");
                     closeSubtypeDropdown();
                   }}
+                  disabled={saving}
                 >
                   <Text
                     style={[
@@ -305,6 +344,7 @@ export default function CreateStorageScreen() {
                   style={styles.dropdownPressable}
                   onPressIn={blurInputs}
                   onPress={handleToggleSubtypeDropdown}
+                  disabled={saving}
                 >
                   <BlurView
                     intensity={theme.isLight ? 18 : 20}
@@ -364,6 +404,7 @@ export default function CreateStorageScreen() {
                               styles.dropdownRowLast,
                           ]}
                           onPress={() => handleSelectSubtype(option)}
+                          disabled={saving}
                         >
                           <Text
                             style={[
@@ -403,6 +444,7 @@ export default function CreateStorageScreen() {
                       },
                     ]}
                     returnKeyType="done"
+                    editable={!saving}
                   />
                 </>
               )}

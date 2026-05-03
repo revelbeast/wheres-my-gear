@@ -93,7 +93,7 @@ export default function ProfileSettingsScreen() {
 
     const fullName = `${profile.firstName || ""} ${profile.lastName || ""}`.trim();
 
-    return fullName || profile.username || "Profile";
+    return fullName || "Profile";
   }, [profile]);
 
   async function loadProfile() {
@@ -295,12 +295,6 @@ export default function ProfileSettingsScreen() {
             <ThemedText variant="bodyStrong" style={styles.sectionTitle}>
               Account Basics
             </ThemedText>
-
-            <LabeledInput
-              label="Username"
-              value={profile.username}
-              editable={false}
-            />
 
             <LabeledInput
               label="First Name"

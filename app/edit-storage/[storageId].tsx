@@ -45,18 +45,23 @@ const STORAGE_TYPES = [
   "Other Storage",
 ];
 
+type StorageCategory = "vehicle" | "storage";
+
+function getSafeCategory(category: unknown): StorageCategory {
+  return category === "storage" ? "storage" : "vehicle";
+}
+
 export default function EditStorageScreen() {
   const { storageId } = useLocalSearchParams<{ storageId: string }>();
 
   const [name, setName] = useState("");
-  const [category, setCategory] = useState<"vehicle" | "storage">("vehicle");
+  const [category, setCategory] = useState<StorageCategory>("vehicle");
   const [subtype, setSubtype] = useState("");
   const [customSubtype, setCustomSubtype] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const typeOptions =
-    category === "vehicle" ? VEHICLE_TYPES : STORAGE_TYPES;
+  const typeOptions = category === "vehicle" ? VEHICLE_TYPES : STORAGE_TYPES;
 
   const isOtherSelected =
     subtype === "Other Vehicle" || subtype === "Other Storage";
@@ -74,18 +79,23 @@ export default function EditStorageScreen() {
       const data = await getStorageSpaceById(String(storageId));
       if (!data) return;
 
-      setName(data.name);
-      setCategory(data.category);
+      const safeCategory = getSafeCategory(data.category);
+      const safeSubtype = data.subtype ?? "";
+
+      setName(data.name ?? "");
+      setCategory(safeCategory);
 
       const options =
-        data.category === "vehicle" ? VEHICLE_TYPES : STORAGE_TYPES;
+        safeCategory === "vehicle" ? VEHICLE_TYPES : STORAGE_TYPES;
 
-      if (options.includes(data.subtype)) {
-        setSubtype(data.subtype);
+      if (safeSubtype && options.includes(safeSubtype)) {
+        setSubtype(safeSubtype);
         setCustomSubtype("");
       } else {
-        setSubtype(data.category === "vehicle" ? "Other Vehicle" : "Other Storage");
-        setCustomSubtype(data.subtype);
+        setSubtype(
+          safeCategory === "vehicle" ? "Other Vehicle" : "Other Storage"
+        );
+        setCustomSubtype(safeSubtype);
       }
     } catch (err) {
       console.error("Failed to load storage space:", err);
@@ -94,7 +104,7 @@ export default function EditStorageScreen() {
     }
   }
 
-  function handleCategoryChange(next: "vehicle" | "storage") {
+  function handleCategoryChange(next: StorageCategory) {
     setCategory(next);
     setSubtype("");
     setCustomSubtype("");

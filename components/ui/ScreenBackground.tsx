@@ -1,7 +1,7 @@
+import { useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
 import { ImageBackground, StyleSheet, View, ViewProps } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useFocusEffect } from "expo-router";
 
 import { useAuth } from "../auth/AuthProvider";
 import { getProfileSettings } from "../../lib/settingsService";
@@ -10,6 +10,12 @@ type Props = ViewProps & {
   children: React.ReactNode;
 };
 
+const DEFAULT_BACKGROUND = require("../../assets/images/background_v4.jpg");
+
+function isValidBackgroundUri(value: unknown) {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
 export default function ScreenBackground({
   children,
   style,
@@ -17,6 +23,7 @@ export default function ScreenBackground({
 }: Props) {
   const { user, initializing } = useAuth();
   const [backgroundUri, setBackgroundUri] = useState<string | null>(null);
+  const [backgroundLoadFailed, setBackgroundLoadFailed] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -28,17 +35,30 @@ export default function ScreenBackground({
         if (!user) {
           if (!isActive) return;
           setBackgroundUri(null);
+          setBackgroundLoadFailed(false);
           return;
         }
 
         try {
           const profile = await getProfileSettings(user.uid);
+          const savedBackgroundUri = (profile as any)?.backgroundPhotoUri;
+
           if (!isActive) return;
-          setBackgroundUri((profile as any)?.backgroundPhotoUri ?? null);
+
+          if (isValidBackgroundUri(savedBackgroundUri)) {
+            setBackgroundUri(savedBackgroundUri.trim());
+            setBackgroundLoadFailed(false);
+          } else {
+            setBackgroundUri(null);
+            setBackgroundLoadFailed(false);
+          }
         } catch (err) {
           console.error("Failed to load background:", err);
+
           if (!isActive) return;
+
           setBackgroundUri(null);
+          setBackgroundLoadFailed(false);
         }
       }
 
@@ -50,17 +70,26 @@ export default function ScreenBackground({
     }, [user, initializing])
   );
 
+  const imageSource =
+    backgroundUri && !backgroundLoadFailed
+      ? { uri: backgroundUri }
+      : DEFAULT_BACKGROUND;
+
   return (
     <ImageBackground
-      key={backgroundUri || "default-background"}
-      source={
-        backgroundUri
-          ? { uri: backgroundUri }
-          : require("../../assets/images/background_v4.jpg")
+      key={
+        backgroundUri && !backgroundLoadFailed
+          ? backgroundUri
+          : "default-background"
       }
+      source={imageSource}
       style={styles.background}
       imageStyle={styles.image}
       resizeMode="cover"
+      onError={() => {
+        console.error("Background image failed to load. Falling back to default.");
+        setBackgroundLoadFailed(true);
+      }}
     >
       <View style={styles.baseOverlay} />
       <View style={styles.topGlow} />
@@ -109,5 +138,6 @@ const styles = StyleSheet.create({
 
   safeArea: {
     flex: 1,
+    backgroundColor: "transparent",
   },
 });

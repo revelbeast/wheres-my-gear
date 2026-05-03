@@ -1,13 +1,16 @@
 import Constants from "expo-constants";
 import { router } from "expo-router";
+import * as StoreReview from "expo-store-review";
 import {
   ChevronRight,
   CircleHelp,
+  Crown,
   FileText,
   Info,
   LogOut,
   MapPin,
   Moon,
+  RotateCcw,
   ShieldCheck,
   Star,
   Trash2,
@@ -33,12 +36,20 @@ import {
   useThemedValues,
 } from "../../components/ui/Themed";
 import { db } from "../../firebaseConfig";
+import {
+  hasActivePremiumEntitlement,
+  isPremiumUser,
+  restorePurchases,
+} from "../../lib/revenuecat";
 
 const USER_AGREEMENT_URL =
   "https://sites.google.com/view/wheresmygearapp/home";
 
 const PRIVACY_POLICY_URL =
-  "https://sites.google.com/view/wheresmygearapp/home";
+  "https://revelbeast.github.io/wheres-my-gear-legal/";
+
+const APP_STORE_REVIEW_URL =
+  "itms-apps://itunes.apple.com/app/id6762979732?action=write-review";
 
 function ProfileRow({
   icon,
@@ -107,6 +118,8 @@ export default function ProfileScreen() {
   const theme = useThemedValues();
 
   const [isDeletingAllData, setIsDeletingAllData] = useState(false);
+  const [isPremium, setIsPremium] = useState(false);
+  const [isRestoringPurchases, setIsRestoringPurchases] = useState(false);
 
   const version =
     Constants.expoConfig?.version ||
@@ -118,6 +131,27 @@ export default function ProfileScreen() {
       router.replace("/");
     }
   }, [user, initializing]);
+
+  useEffect(() => {
+    async function checkPremiumStatus() {
+      if (!user) {
+        setIsPremium(false);
+        return;
+      }
+
+      try {
+        const premium = await isPremiumUser();
+        setIsPremium(premium);
+      } catch (err) {
+        console.error("Failed to check premium status:", err);
+        setIsPremium(false);
+      }
+    }
+
+    if (!initializing) {
+      checkPremiumStatus();
+    }
+  }, [initializing, user]);
 
   async function deleteDocsInBatches(docsToDelete: Array<{ ref: any }>) {
     const batchSize = 450;
@@ -131,6 +165,42 @@ export default function ProfileScreen() {
       });
 
       await batch.commit();
+    }
+  }
+
+  async function handleRestorePurchases() {
+    if (isRestoringPurchases) {
+      return;
+    }
+
+    try {
+      setIsRestoringPurchases(true);
+
+      const customerInfo = await restorePurchases();
+      const hasPremium = hasActivePremiumEntitlement(customerInfo);
+
+      setIsPremium(hasPremium);
+
+      if (hasPremium) {
+        Alert.alert(
+          "Purchases Restored",
+          "Your Premium access has been restored."
+        );
+        return;
+      }
+
+      Alert.alert(
+        "No Purchases Found",
+        "No active Premium purchase was found for this Apple ID."
+      );
+    } catch (err) {
+      console.error("Failed to restore purchases:", err);
+      Alert.alert(
+        "Restore Failed",
+        "Unable to restore purchases right now. Please try again."
+      );
+    } finally {
+      setIsRestoringPurchases(false);
     }
   }
 
@@ -248,11 +318,33 @@ export default function ProfileScreen() {
     }
   }
 
-  function handleRateApp() {
-    Alert.alert(
-      "Coming Soon",
-      "Rate the App will be connected after the App Store listing is live."
-    );
+  async function handleRateApp() {
+    try {
+      const isAvailable = await StoreReview.isAvailableAsync();
+
+      if (isAvailable) {
+        await StoreReview.requestReview();
+        return;
+      }
+
+      const canOpenStore = await Linking.canOpenURL(APP_STORE_REVIEW_URL);
+
+      if (canOpenStore) {
+        await Linking.openURL(APP_STORE_REVIEW_URL);
+        return;
+      }
+
+      Alert.alert(
+        "Rate the App",
+        "Ratings and reviews will be available after the App Store listing is live."
+      );
+    } catch (err) {
+      console.error("Failed to open app review:", err);
+      Alert.alert(
+        "Unable to Open",
+        "The review screen could not be opened right now."
+      );
+    }
   }
 
   async function handleSignOut() {
@@ -319,6 +411,40 @@ export default function ProfileScreen() {
 
           <ThemedCard contentStyle={styles.profileCardContent}>
             <ProfileRow
+              icon={<Crown size={20} color="#FACC15" />}
+              title={isPremium ? "Premium Active" : "Upgrade to Premium"}
+              subtitle={
+                isPremium
+                  ? "Your Premium subscription is active"
+                  : "Remove ads and unlock premium features"
+              }
+              onPress={isPremium ? undefined : () => router.push("/paywall")}
+              showChevron={!isPremium}
+            />
+
+            <View
+              style={[
+                styles.divider,
+                { backgroundColor: theme.colors.border },
+              ]}
+            />
+
+            <ProfileRow
+              icon={<RotateCcw size={20} color={iconColor} />}
+              title={
+                isRestoringPurchases
+                  ? "Restoring Purchases..."
+                  : "Restore Purchases"
+              }
+              subtitle="Recover a previous Premium purchase"
+              onPress={handleRestorePurchases}
+              showChevron={false}
+              disabled={isRestoringPurchases}
+            />
+          </ThemedCard>
+
+          <ThemedCard contentStyle={styles.profileCardContent}>
+            <ProfileRow
               icon={<User size={20} color={iconColor} />}
               title="My Account"
               subtitle="Update your name, email, phone, photo, and background"
@@ -344,7 +470,7 @@ export default function ProfileScreen() {
             <ProfileRow
               icon={<Star size={20} color={iconColor} />}
               title="Rate the App"
-              subtitle="Leave a review when the app is live"
+              subtitle="Leave a rating or review in the App Store"
               onPress={handleRateApp}
             />
 
@@ -400,7 +526,7 @@ export default function ProfileScreen() {
             <ProfileRow
               icon={<Moon size={20} color={iconColor} />}
               title="General Settings"
-              subtitle="Edit font size, theme, and display preferences"
+              subtitle="Edit theme and display preferences"
               onPress={() => router.push("/general-settings")}
             />
           </ThemedCard>

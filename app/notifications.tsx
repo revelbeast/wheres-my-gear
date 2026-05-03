@@ -1,21 +1,17 @@
 import React, { useEffect, useState } from "react";
-import {
-  StyleSheet,
-  Text,
-  View,
-  Pressable,
-  Switch,
-} from "react-native";
+import { Pressable, StyleSheet, Switch, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import ScreenBackground from "../components/ui/ScreenBackground";
 import AppHeader from "../components/ui/AppHeader";
-import { colors } from "../theme/tokens";
+import ScreenBackground from "../components/ui/ScreenBackground";
 import {
   getNotificationSettings,
-  saveNotificationSettings,
   NotificationSettings,
+  saveNotificationSettings,
 } from "../lib/settingsService";
+import { colors } from "../theme/tokens";
+
+type SettingKey = keyof NotificationSettings;
 
 type SettingRowProps = {
   title: string;
@@ -57,7 +53,7 @@ export default function NotificationsScreen() {
     packingReminders: false,
   });
   const [loading, setLoading] = useState(true);
-  const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [savingKey, setSavingKey] = useState<SettingKey | null>(null);
 
   useEffect(() => {
     loadSettings();
@@ -74,10 +70,9 @@ export default function NotificationsScreen() {
     }
   }
 
-  async function handleToggle(
-    key: keyof NotificationSettings,
-    value: boolean
-  ) {
+  async function handleToggle(key: SettingKey, value: boolean) {
+    const previousSettings = settings;
+
     const next = {
       ...settings,
       [key]: value,
@@ -90,7 +85,7 @@ export default function NotificationsScreen() {
       await saveNotificationSettings(next);
     } catch (err) {
       console.error("Failed to save notification settings:", err);
-      setSettings(settings);
+      setSettings(previousSettings);
     } finally {
       setSavingKey(null);
     }
@@ -119,9 +114,7 @@ export default function NotificationsScreen() {
                 title="Trip reminders"
                 subtitle="Enable reminders before upcoming trips."
                 value={settings.tripReminders}
-                onValueChange={(value) =>
-                  handleToggle("tripReminders", value)
-                }
+                onValueChange={(value) => handleToggle("tripReminders", value)}
               />
 
               <ToggleRow
@@ -150,12 +143,20 @@ export default function NotificationsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
-  container: { flex: 1, padding: 16 },
+  safe: {
+    flex: 1,
+  },
+
+  container: {
+    flex: 1,
+    padding: 16,
+  },
+
   helperText: {
     color: colors.textSecondary,
     fontSize: 14,
   },
+
   rowCard: {
     marginBottom: 10,
     padding: 16,
@@ -167,21 +168,25 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
+
   rowTextWrap: {
     flex: 1,
     paddingRight: 12,
   },
+
   rowTitle: {
     color: colors.text,
     fontSize: 15,
     fontWeight: "600",
     marginBottom: 4,
   },
+
   rowSubtitle: {
     color: colors.textSecondary,
     fontSize: 13,
     lineHeight: 18,
   },
+
   noteCard: {
     marginTop: 8,
     padding: 16,
@@ -190,12 +195,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.08)",
   },
+
   noteTitle: {
     color: colors.text,
     fontSize: 16,
     fontWeight: "700",
     marginBottom: 6,
   },
+
   noteText: {
     color: colors.textSecondary,
     fontSize: 14,
