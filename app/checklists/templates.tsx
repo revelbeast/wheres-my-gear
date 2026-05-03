@@ -201,30 +201,43 @@ export default function ManageTemplatesScreen() {
             templates.map((template) => (
               <FrostedCard key={template.id}>
                 <View style={styles.templateRow}>
-                  <View style={styles.templateLeft}>
-                    <Text
-                      style={[
-                        styles.templateTitle,
-                        { color: theme.colors.text },
-                      ]}
-                    >
-                      {template.name}
-                    </Text>
+                  <Pressable
+                    style={styles.templateMainPressable}
+                    onPress={() => handleEditTemplateItems(template)}
+                  >
+                    <View style={styles.templateLeft}>
+                      <Text
+                        style={[
+                          styles.templateTitle,
+                          { color: theme.colors.text },
+                        ]}
+                      >
+                        {template.name}
+                      </Text>
 
-                    <View style={styles.templateLinks}>
-                      <Pressable onPress={() => handlePreviewTemplate(template)}>
-                        <Text style={styles.previewText}>Preview</Text>
-                      </Pressable>
+                      <View style={styles.templateLinks}>
+                        <Pressable
+                          onPress={() => handlePreviewTemplate(template)}
+                          hitSlop={10}
+                        >
+                          <Text style={styles.previewText}>Preview</Text>
+                        </Pressable>
 
-                      <Pressable onPress={() => handleOpenRename(template)}>
-                        <Text style={styles.renameText}>Rename</Text>
-                      </Pressable>
+                        <Text
+                          style={[
+                            styles.editHintText,
+                            { color: theme.colors.textSecondary },
+                          ]}
+                        >
+                          Tap card to edit items
+                        </Text>
+                      </View>
                     </View>
-                  </View>
+                  </Pressable>
 
                   <View style={styles.templateActions}>
                     <Pressable
-                      onPress={() => handleEditTemplateItems(template)}
+                      onPress={() => handleOpenRename(template)}
                       style={[
                         styles.iconButton,
                         {
@@ -358,9 +371,13 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
 
-  templateLeft: {
+  templateMainPressable: {
     flex: 1,
     paddingRight: 12,
+  },
+
+  templateLeft: {
+    flex: 1,
   },
 
   templateTitle: {
@@ -372,7 +389,8 @@ const styles = StyleSheet.create({
   templateLinks: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 14,
+    gap: 12,
+    flexWrap: "wrap",
   },
 
   previewText: {
@@ -381,10 +399,9 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  renameText: {
-    color: "#2f80ed",
-    fontSize: 14,
-    fontWeight: "700",
+  editHintText: {
+    fontSize: 13,
+    fontWeight: "600",
   },
 
   templateActions: {

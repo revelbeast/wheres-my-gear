@@ -30,6 +30,7 @@ const CATEGORY_OPTIONS: { label: string; value: ChecklistCategory }[] = [
   { label: "Camping", value: "camping" },
   { label: "Hunting", value: "hunting" },
   { label: "Fishing", value: "fishing" },
+  { label: "Boating", value: "boating" },
   { label: "Clothing", value: "clothing" },
   { label: "Electronics", value: "electronics" },
   { label: "Medical", value: "medical" },
