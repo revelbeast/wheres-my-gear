@@ -13,17 +13,17 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useAuth } from "../../components/auth/AuthProvider";
-import AppHeader from "../../components/ui/AppHeader";
-import ScreenBackground from "../../components/ui/ScreenBackground";
-import { useThemedValues } from "../../components/ui/Themed";
+import { useAuth } from "../../../components/auth/AuthProvider";
+import AppHeader from "../../../components/ui/AppHeader";
+import ScreenBackground from "../../../components/ui/ScreenBackground";
+import { useThemedValues } from "../../../components/ui/Themed";
 import {
   deleteChecklistTemplate,
   getChecklistTemplateItems,
   getChecklistTemplates,
   updateChecklistTemplateName,
-} from "../../lib/checklistsService";
-import type { ChecklistTemplate } from "../../types/checklists";
+} from "../../../lib/checklistsService";
+import type { ChecklistTemplate } from "../../../types/checklists";
 
 function FrostedCard({
   children,

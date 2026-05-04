@@ -12,16 +12,16 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useAuth } from "../../components/auth/AuthProvider";
-import ScreenBackground from "../../components/ui/ScreenBackground";
+import { useAuth } from "../../../components/auth/AuthProvider";
+import ScreenBackground from "../../../components/ui/ScreenBackground";
 import {
   ThemedButton,
   ThemedCard,
   ThemedText,
   useThemedValues,
-} from "../../components/ui/Themed";
-import { subscribeToChecklists } from "../../lib/checklistsService";
-import type { Checklist, ChecklistCategory } from "../../types/checklists";
+} from "../../../components/ui/Themed";
+import { subscribeToChecklists } from "../../../lib/checklistsService";
+import type { Checklist, ChecklistCategory } from "../../../types/checklists";
 
 const LABEL_WHITE = "#FFFFFF";
 

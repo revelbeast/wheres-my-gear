@@ -1,6 +1,12 @@
 import { BlurView } from "expo-blur";
 import { router } from "expo-router";
-import { ChevronDown, Minus, Plus, Trash2 } from "lucide-react-native";
+import {
+  CheckCircle2,
+  ChevronDown,
+  Minus,
+  Plus,
+  Trash2,
+} from "lucide-react-native";
 import React, { useState } from "react";
 import {
   Alert,
@@ -15,21 +21,22 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useAuth } from "../../components/auth/AuthProvider";
-import AppHeader from "../../components/ui/AppHeader";
-import ScreenBackground from "../../components/ui/ScreenBackground";
+import { useAuth } from "../../../components/auth/AuthProvider";
+import AppHeader from "../../../components/ui/AppHeader";
+import ScreenBackground from "../../../components/ui/ScreenBackground";
 import {
   ThemedButton,
   ThemedText,
   useThemedValues,
-} from "../../components/ui/Themed";
-import { createChecklistTemplateWithItems } from "../../lib/checklistsService";
-import type { ChecklistCategory } from "../../types/checklists";
+} from "../../../components/ui/Themed";
+import { createChecklistTemplateWithItems } from "../../../lib/checklistsService";
+import type { ChecklistCategory } from "../../../types/checklists";
 
 type EditableTemplateItem = {
   id: string;
   name: string;
   quantity: number;
+  packed: boolean;
 };
 
 const CATEGORY_OPTIONS: {
@@ -54,7 +61,7 @@ const STARTER_TEMPLATE_OPTIONS: {
   name: string;
   category: ChecklistCategory;
   categoryLabel: string;
-  items: { name: string; quantity: number }[];
+  items: { name: string; quantity: number; packed?: boolean }[];
 }[] = [
   {
     id: "trip-essentials",
@@ -286,12 +293,13 @@ function FrostedCard({
 }
 
 function createEditableItems(
-  sourceItems: { name: string; quantity: number }[]
+  sourceItems: { name: string; quantity: number; packed?: boolean }[]
 ): EditableTemplateItem[] {
   return sourceItems.map((item, index) => ({
     id: `${Date.now()}-${index}`,
     name: item.name,
     quantity: Math.max(1, Number(item.quantity ?? 1)),
+    packed: Boolean(item.packed ?? false),
   }));
 }
 
@@ -305,7 +313,7 @@ export default function CreateTemplateScreen() {
   const [categoryModalVisible, setCategoryModalVisible] = useState(false);
   const [starterModalVisible, setStarterModalVisible] = useState(false);
   const [items, setItems] = useState<EditableTemplateItem[]>([
-    { id: "1", name: "", quantity: 1 },
+    { id: "1", name: "", quantity: 1, packed: false },
   ]);
   const [saving, setSaving] = useState(false);
 
@@ -316,7 +324,7 @@ export default function CreateTemplateScreen() {
   function addItem() {
     setItems((prev) => [
       ...prev,
-      { id: Date.now().toString(), name: "", quantity: 1 },
+      { id: Date.now().toString(), name: "", quantity: 1, packed: false },
     ]);
   }
 
@@ -336,10 +344,18 @@ export default function CreateTemplateScreen() {
     );
   }
 
+  function toggleItemPacked(id: string) {
+    setItems((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, packed: !item.packed } : item
+      )
+    );
+  }
+
   function removeItem(id: string) {
     setItems((prev) => {
       if (prev.length === 1) {
-        return [{ id: "1", name: "", quantity: 1 }];
+        return [{ id: "1", name: "", quantity: 1, packed: false }];
       }
 
       return prev.filter((item) => item.id !== id);
@@ -433,6 +449,7 @@ export default function CreateTemplateScreen() {
       .map((item) => ({
         name: item.name.trim(),
         quantity: Math.max(1, Number(item.quantity ?? 1)),
+        packed: Boolean(item.packed ?? false),
       }))
       .filter((item) => item.name.length > 0);
 
@@ -493,8 +510,8 @@ export default function CreateTemplateScreen() {
                 Build a reusable template
               </ThemedText>
               <ThemedText color="secondary" style={styles.heroText}>
-                Start from a generic list, then edit, delete, add, or discard
-                before saving your template.
+                Start from a generic list, then edit, delete, add, set packed
+                status, or discard before saving your template.
               </ThemedText>
             </FrostedCard>
 
@@ -624,83 +641,121 @@ export default function CreateTemplateScreen() {
                 </Pressable>
               </View>
 
-              {items.map((item, index) => (
-                <View key={item.id} style={styles.itemBlock}>
-                  <View style={styles.itemRow}>
-                    <TextInput
-                      value={item.name}
-                      onChangeText={(text) => updateItem(item.id, text)}
-                      placeholder={`Item ${index + 1}`}
-                      placeholderTextColor={theme.colors.textMuted}
-                      style={[
-                        styles.input,
-                        styles.itemInput,
-                        {
-                          color: theme.colors.text,
-                          backgroundColor: theme.colors.inputSurface,
-                          borderColor: theme.colors.border,
-                        },
-                      ]}
-                      returnKeyType="done"
-                    />
+              {items.map((item, index) => {
+                const packed = Boolean(item.packed);
+
+                return (
+                  <View
+                    key={item.id}
+                    style={[
+                      styles.itemBlock,
+                      {
+                        borderColor: theme.colors.border,
+                        backgroundColor: theme.colors.iconSurface,
+                      },
+                    ]}
+                  >
+                    <View style={styles.itemHeaderRow}>
+                      <View style={styles.itemNameWrap}>
+                        <TextInput
+                          value={item.name}
+                          onChangeText={(text) => updateItem(item.id, text)}
+                          placeholder={`Item ${index + 1}`}
+                          placeholderTextColor={theme.colors.textMuted}
+                          style={[
+                            styles.itemNameInput,
+                            {
+                              color: theme.colors.text,
+                            },
+                          ]}
+                          returnKeyType="done"
+                        />
+
+                        <View
+                          style={[
+                            styles.statusPill,
+                            packed ? styles.statusPillPacked : styles.statusPillToPack,
+                          ]}
+                        >
+                          <ThemedText style={styles.statusPillText}>
+                            {packed ? "Packed" : "To Pack"}
+                          </ThemedText>
+                        </View>
+                      </View>
+
+                      <Pressable
+                        style={[
+                          styles.deleteButton,
+                          {
+                            backgroundColor: theme.colors.inputSurface,
+                            borderColor: theme.colors.border,
+                          },
+                        ]}
+                        onPress={() => removeItem(item.id)}
+                      >
+                        <Trash2 size={17} color={theme.colors.danger} />
+                      </Pressable>
+                    </View>
+
+                    <View style={styles.quantityRow}>
+                      <ThemedText color="secondary" style={styles.quantityLabel}>
+                        Quantity
+                      </ThemedText>
+
+                      <View style={styles.quantityControls}>
+                        <Pressable
+                          style={[
+                            styles.quantityButton,
+                            {
+                              backgroundColor: theme.colors.inputSurface,
+                              borderColor: theme.colors.border,
+                            },
+                          ]}
+                          onPress={() =>
+                            updateItemQuantity(item.id, item.quantity - 1)
+                          }
+                        >
+                          <Minus size={15} color={theme.colors.text} />
+                        </Pressable>
+
+                        <ThemedText style={styles.quantityValue}>
+                          {item.quantity}
+                        </ThemedText>
+
+                        <Pressable
+                          style={[
+                            styles.quantityButton,
+                            {
+                              backgroundColor: theme.colors.inputSurface,
+                              borderColor: theme.colors.border,
+                            },
+                          ]}
+                          onPress={() =>
+                            updateItemQuantity(item.id, item.quantity + 1)
+                          }
+                        >
+                          <Plus size={15} color={theme.colors.text} />
+                        </Pressable>
+                      </View>
+                    </View>
 
                     <Pressable
                       style={[
-                        styles.deleteButton,
-                        {
-                          backgroundColor: theme.colors.iconSurface,
-                          borderColor: theme.colors.border,
-                        },
+                        styles.packedToggleButton,
+                        packed
+                          ? styles.packedToggleButtonPacked
+                          : styles.packedToggleButtonToPack,
                       ]}
-                      onPress={() => removeItem(item.id)}
+                      onPress={() => toggleItemPacked(item.id)}
                     >
-                      <Trash2 size={17} color={theme.colors.danger} />
+                      <CheckCircle2 size={18} color="#fff" />
+                      <ThemedText style={styles.packedToggleButtonText}>
+                        {packed ? "Mark To Pack" : "Mark Packed"}
+                      </ThemedText>
                     </Pressable>
                   </View>
-
-                  <View style={styles.quantityRow}>
-                    <ThemedText color="secondary" style={styles.quantityLabel}>
-                      Quantity
-                    </ThemedText>
-
-                    <View style={styles.quantityControls}>
-                      <Pressable
-                        style={[
-                          styles.quantityButton,
-                          {
-                            backgroundColor: theme.colors.iconSurface,
-                            borderColor: theme.colors.border,
-                          },
-                        ]}
-                        onPress={() =>
-                          updateItemQuantity(item.id, item.quantity - 1)
-                        }
-                      >
-                        <Minus size={15} color={theme.colors.text} />
-                      </Pressable>
-
-                      <ThemedText style={styles.quantityValue}>
-                        {item.quantity}
-                      </ThemedText>
-
-                      <Pressable
-                        style={[
-                          styles.quantityButton,
-                          {
-                            backgroundColor: theme.colors.iconSurface,
-                            borderColor: theme.colors.border,
-                          },
-                        ]}
-                        onPress={() =>
-                          updateItemQuantity(item.id, item.quantity + 1)
-                        }
-                      >
-                        <Plus size={15} color={theme.colors.text} />
-                      </Pressable>
-                    </View>
-                  </View>
-                </View>
-              ))}
+                );
+              })}
 
               <Pressable
                 style={[
@@ -1003,17 +1058,47 @@ const styles = StyleSheet.create({
 
   itemBlock: {
     marginBottom: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 12,
   },
 
-  itemRow: {
+  itemHeaderRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: 10,
   },
 
-  itemInput: {
+  itemNameWrap: {
     flex: 1,
-    marginBottom: 0,
+  },
+
+  itemNameInput: {
+    fontSize: 16,
+    fontWeight: "700",
+    paddingVertical: 4,
+    marginBottom: 8,
+  },
+
+  statusPill: {
+    alignSelf: "flex-start",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+
+  statusPillPacked: {
+    backgroundColor: "rgba(34,197,94,0.92)",
+  },
+
+  statusPillToPack: {
+    backgroundColor: "rgba(239,68,68,0.92)",
+  },
+
+  statusPillText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "700",
   },
 
   deleteButton: {
@@ -1026,8 +1111,7 @@ const styles = StyleSheet.create({
   },
 
   quantityRow: {
-    marginTop: 8,
-    marginLeft: 2,
+    marginTop: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -1056,6 +1140,30 @@ const styles = StyleSheet.create({
   quantityValue: {
     minWidth: 24,
     textAlign: "center",
+    fontWeight: "700",
+  },
+
+  packedToggleButton: {
+    marginTop: 12,
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
+  },
+
+  packedToggleButtonPacked: {
+    backgroundColor: "rgba(239,68,68,0.92)",
+  },
+
+  packedToggleButtonToPack: {
+    backgroundColor: "rgba(34,197,94,0.92)",
+  },
+
+  packedToggleButtonText: {
+    color: "#fff",
+    fontSize: 14,
     fontWeight: "700",
   },
 

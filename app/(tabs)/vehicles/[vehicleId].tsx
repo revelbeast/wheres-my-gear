@@ -24,8 +24,8 @@ import {
 import { Swipeable } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import AppHeader from "../../components/ui/AppHeader";
-import ScreenBackground from "../../components/ui/ScreenBackground";
+import AppHeader from "../../../components/ui/AppHeader";
+import ScreenBackground from "../../../components/ui/ScreenBackground";
 import {
   Compartment,
   StorageSpace,
@@ -34,8 +34,8 @@ import {
   getCompartments,
   getStorageSpaceById,
   updateCompartment,
-} from "../../lib/gearService";
-import { colors } from "../../theme/tokens";
+} from "../../../lib/gearService";
+import { colors } from "../../../theme/tokens";
 
 export default function VehicleDetailScreen() {
   const params = useLocalSearchParams<{ vehicleId: string | string[] }>();

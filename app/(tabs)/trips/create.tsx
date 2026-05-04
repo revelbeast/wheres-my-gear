@@ -1,18 +1,12 @@
 import { BlurView } from "expo-blur";
-import {
-  deleteDoc,
-  doc,
-  getDoc,
-  serverTimestamp,
-  Timestamp,
-  updateDoc,
-} from "firebase/firestore";
-import { router, useLocalSearchParams } from "expo-router";
+import { addDoc, collection, serverTimestamp, Timestamp } from "firebase/firestore";
+import { router } from "expo-router";
 import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
-  Trash2,
+  Save,
+  X,
 } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
 import {
@@ -28,15 +22,15 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useAuth } from "../../components/auth/AuthProvider";
-import ScreenBackground from "../../components/ui/ScreenBackground";
+import { useAuth } from "../../../components/auth/AuthProvider";
+import ScreenBackground from "../../../components/ui/ScreenBackground";
 import {
   ThemedButton,
   ThemedCard,
   ThemedText,
   useThemedValues,
-} from "../../components/ui/Themed";
-import { db } from "../../firebaseConfig";
+} from "../../../components/ui/Themed";
+import { db } from "../../../firebaseConfig";
 
 const LABEL_WHITE = "#FFFFFF";
 
@@ -65,36 +59,6 @@ function FrostedCard({
       {children}
     </BlurView>
   );
-}
-
-function parseTripDate(value: unknown): Date | null {
-  if (!value) return null;
-
-  if (value instanceof Date) {
-    return Number.isNaN(value.getTime()) ? null : value;
-  }
-
-  if (typeof value === "number") {
-    const parsed = new Date(value);
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
-  }
-
-  if (typeof value === "string") {
-    const parsed = new Date(value);
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
-  }
-
-  if (
-    typeof value === "object" &&
-    value !== null &&
-    "toDate" in value &&
-    typeof (value as { toDate?: unknown }).toDate === "function"
-  ) {
-    const parsed = (value as { toDate: () => Date }).toDate();
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
-  }
-
-  return null;
 }
 
 function getStartOfDay(date: Date) {
@@ -153,8 +117,7 @@ function buildCalendarDays(monthDate: Date) {
   return days;
 }
 
-export default function EditTripScreen() {
-  const { tripId } = useLocalSearchParams<{ tripId?: string }>();
+export default function CreateTripScreen() {
   const { user, initializing } = useAuth();
   const theme = useThemedValues();
 
@@ -162,9 +125,7 @@ export default function EditTripScreen() {
   const [tripDate, setTripDate] = useState(getNoonDate(new Date()));
   const [calendarMonth, setCalendarMonth] = useState(getStartOfDay(new Date()));
   const [isCalendarVisible, setIsCalendarVisible] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
 
   const calendarDays = useMemo(
     () => buildCalendarDays(calendarMonth),
@@ -177,64 +138,23 @@ export default function EditTripScreen() {
     }
   }, [initializing, user]);
 
-  useEffect(() => {
-    if (initializing || !user || !tripId) {
-      if (!initializing && !tripId) {
-        setIsLoading(false);
-      }
-
-      return;
-    }
-
-    loadTrip();
-  }, [initializing, user, tripId]);
-
-  async function loadTrip() {
-    if (!user || !tripId) {
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-
-      const tripSnap = await getDoc(doc(db, "users", user.uid, "trips", tripId));
-
-      if (!tripSnap.exists()) {
-        Alert.alert("Trip not found", "This trip could not be found.");
-        router.back();
-        return;
-      }
-
-      const data = tripSnap.data();
-
-      const loadedName =
-        typeof data.name === "string" && data.name.trim().length > 0
-          ? data.name.trim()
-          : typeof data.title === "string" && data.title.trim().length > 0
-            ? data.title.trim()
-            : "Upcoming Trip";
-
-      const loadedDate =
-        parseTripDate(data.startDate) ??
-        parseTripDate(data.tripDate) ??
-        parseTripDate(data.date) ??
-        parseTripDate(data.departureDate) ??
-        getNoonDate(new Date());
-
-      setTripName(loadedName);
-      setTripDate(getNoonDate(loadedDate));
-      setCalendarMonth(new Date(loadedDate.getFullYear(), loadedDate.getMonth(), 1));
-    } catch (error) {
-      console.error("Failed to load trip:", error);
-      Alert.alert("Trip not loaded", "Something went wrong while loading this trip.");
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
   function handleBack() {
-    router.back();
+    if (tripName.trim().length === 0) {
+      router.back();
+      return;
+    }
+
+    Alert.alert("Discard Trip?", "Go back without saving this trip?", [
+      {
+        text: "Keep Editing",
+        style: "cancel",
+      },
+      {
+        text: "Discard",
+        style: "destructive",
+        onPress: () => router.back(),
+      },
+    ]);
   }
 
   function handlePreviousMonth() {
@@ -260,7 +180,7 @@ export default function EditTripScreen() {
   }
 
   async function handleSaveTrip() {
-    if (!user || !tripId || isSaving || isDeleting) {
+    if (!user || isSaving) {
       return;
     }
 
@@ -274,55 +194,20 @@ export default function EditTripScreen() {
     try {
       setIsSaving(true);
 
-      await updateDoc(doc(db, "users", user.uid, "trips", tripId), {
+      await addDoc(collection(db, "users", user.uid, "trips"), {
         name: trimmedName,
         startDate: Timestamp.fromDate(tripDate),
+        createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
 
       router.back();
     } catch (error) {
-      console.error("Failed to update trip:", error);
-      Alert.alert("Trip not saved", "Something went wrong while updating this trip.");
+      console.error("Failed to create trip:", error);
+      Alert.alert("Trip not saved", "Something went wrong while saving this trip.");
     } finally {
       setIsSaving(false);
     }
-  }
-
-  function handleDeleteTrip() {
-    if (!user || !tripId || isDeleting) {
-      return;
-    }
-
-    Alert.alert(
-      "Delete Trip",
-      `Delete "${tripName.trim() || "this trip"}"? This cannot be undone.`,
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              setIsDeleting(true);
-              await deleteDoc(doc(db, "users", user.uid, "trips", tripId));
-              router.back();
-            } catch (error) {
-              console.error("Failed to delete trip:", error);
-              Alert.alert(
-                "Trip not deleted",
-                "Something went wrong while deleting this trip."
-              );
-            } finally {
-              setIsDeleting(false);
-            }
-          },
-        },
-      ]
-    );
   }
 
   if (!initializing && !user) {
@@ -352,122 +237,103 @@ export default function EditTripScreen() {
                 </View>
 
                 <ThemedText variant="header" style={styles.headerTitle}>
-                  Edit Trip
+                  Create Trip
                 </ThemedText>
               </View>
 
-              <View style={styles.headerSpacer} />
+              <Pressable style={styles.cancelIconButton} onPress={handleBack}>
+                <X size={19} color={LABEL_WHITE} />
+              </Pressable>
             </View>
 
             <ThemedText style={styles.headerSubtitle}>
-              Update this trip name or date for your upcoming trip countdowns.
+              Add a trip so the dashboard can show countdowns and future packing
+              reminders.
             </ThemedText>
 
-            {isLoading ? (
-              <ThemedCard style={styles.helperCard}>
-                <ThemedText variant="bodyStrong" style={styles.helperTitle}>
-                  Loading trip
+            <FrostedCard style={styles.formCard}>
+              <View style={styles.inputGroup}>
+                <ThemedText variant="bodyStrong" style={styles.inputLabel}>
+                  Trip Name
                 </ThemedText>
-                <ThemedText color="secondary" style={styles.helperText}>
-                  Checking your saved trip details.
-                </ThemedText>
-              </ThemedCard>
-            ) : (
-              <>
-                <FrostedCard style={styles.formCard}>
-                  <View style={styles.inputGroup}>
-                    <ThemedText variant="bodyStrong" style={styles.inputLabel}>
-                      Trip Name
-                    </ThemedText>
 
-                    <TextInput
-                      value={tripName}
-                      onChangeText={setTripName}
-                      placeholder="Example: Weekend Camping Trip"
-                      placeholderTextColor={theme.colors.textMuted}
-                      style={[
-                        styles.input,
-                        {
-                          color: theme.colors.text,
-                          borderColor: theme.colors.border,
-                          backgroundColor: theme.colors.card,
-                        },
-                      ]}
-                      autoCapitalize="words"
-                      autoCorrect
-                      returnKeyType="done"
-                    />
-                  </View>
-
-                  <View style={styles.inputGroupLast}>
-                    <ThemedText variant="bodyStrong" style={styles.inputLabel}>
-                      Trip Date
-                    </ThemedText>
-
-                    <Pressable
-                      style={[
-                        styles.datePickerButton,
-                        {
-                          borderColor: theme.colors.border,
-                          backgroundColor: theme.colors.card,
-                        },
-                      ]}
-                      onPress={handleOpenCalendar}
-                    >
-                      <View style={styles.datePickerLeft}>
-                        <CalendarDays size={18} color={theme.colors.text} />
-                        <ThemedText variant="bodyStrong">
-                          {formatTripDate(tripDate)}
-                        </ThemedText>
-                      </View>
-
-                      <ChevronRight size={18} color={theme.colors.textMuted} />
-                    </Pressable>
-
-                    <ThemedText color="secondary" style={styles.inputHint}>
-                      Tap the date to choose from the calendar.
-                    </ThemedText>
-                  </View>
-                </FrostedCard>
-
-                <ThemedButton
+                <TextInput
+                  value={tripName}
+                  onChangeText={setTripName}
+                  placeholder="Example: Weekend Camping Trip"
+                  placeholderTextColor={theme.colors.textMuted}
                   style={[
-                    styles.saveButton,
-                    isSaving || isDeleting ? styles.disabledButton : {},
+                    styles.input,
+                    {
+                      color: theme.colors.text,
+                      borderColor: theme.colors.border,
+                      backgroundColor: theme.colors.card,
+                    },
                   ]}
-                  onPress={handleSaveTrip}
-                  disabled={isSaving || isDeleting}
-                >
-                  <ThemedText style={styles.saveButtonText}>
-                    {isSaving ? "Saving Changes..." : "Save Changes"}
-                  </ThemedText>
-                </ThemedButton>
+                  autoCapitalize="words"
+                  autoCorrect
+                  returnKeyType="done"
+                />
+              </View>
+
+              <View style={styles.inputGroupLast}>
+                <ThemedText variant="bodyStrong" style={styles.inputLabel}>
+                  Trip Date
+                </ThemedText>
 
                 <Pressable
                   style={[
-                    styles.deleteButton,
-                    isSaving || isDeleting ? styles.disabledButton : {},
+                    styles.datePickerButton,
+                    {
+                      borderColor: theme.colors.border,
+                      backgroundColor: theme.colors.card,
+                    },
                   ]}
-                  onPress={handleDeleteTrip}
-                  disabled={isSaving || isDeleting}
+                  onPress={handleOpenCalendar}
                 >
-                  <Trash2 size={18} color={LABEL_WHITE} />
-                  <ThemedText style={styles.deleteButtonText}>
-                    {isDeleting ? "Deleting Trip..." : "Delete Trip"}
-                  </ThemedText>
+                  <View style={styles.datePickerLeft}>
+                    <CalendarDays size={18} color={theme.colors.text} />
+                    <ThemedText variant="bodyStrong">
+                      {formatTripDate(tripDate)}
+                    </ThemedText>
+                  </View>
+
+                  <ChevronRight size={18} color={theme.colors.textMuted} />
                 </Pressable>
 
-                <ThemedCard style={styles.helperCard}>
-                  <ThemedText variant="bodyStrong" style={styles.helperTitle}>
-                    Trip details
-                  </ThemedText>
-                  <ThemedText color="secondary" style={styles.helperText}>
-                    Changes save to your trip record and update the Upcoming Trips
-                    list.
-                  </ThemedText>
-                </ThemedCard>
-              </>
-            )}
+                <ThemedText color="secondary" style={styles.inputHint}>
+                  Tap the date to choose from the calendar.
+                </ThemedText>
+              </View>
+            </FrostedCard>
+
+            <ThemedButton
+              style={[styles.saveButton, isSaving ? styles.disabledButton : {}]}
+              onPress={handleSaveTrip}
+              disabled={isSaving}
+            >
+              <View style={styles.saveButtonInner}>
+                <Save size={18} color={LABEL_WHITE} />
+                <ThemedText style={styles.saveButtonText}>
+                  {isSaving ? "Saving Trip..." : "Save Trip"}
+                </ThemedText>
+              </View>
+            </ThemedButton>
+
+            <Pressable style={styles.cancelButton} onPress={handleBack}>
+              <X size={18} color={LABEL_WHITE} />
+              <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
+            </Pressable>
+
+            <ThemedCard style={styles.helperCard}>
+              <ThemedText variant="bodyStrong" style={styles.helperTitle}>
+                What happens next?
+              </ThemedText>
+              <ThemedText color="secondary" style={styles.helperText}>
+                After saving, your trip will appear on the dashboard and in the full
+                Upcoming Trips list.
+              </ThemedText>
+            </ThemedCard>
           </ScrollView>
         </KeyboardAvoidingView>
 
@@ -618,9 +484,15 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  headerSpacer: {
+  cancelIconButton: {
     width: 42,
     height: 42,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.10)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
   },
 
   disabledButton: {
@@ -649,6 +521,7 @@ const styles = StyleSheet.create({
   },
 
   inputLabel: {
+    color: LABEL_WHITE,
     marginBottom: 8,
   },
 
@@ -687,23 +560,32 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
 
-  saveButtonText: {
-    color: "#fff",
-    fontWeight: "700",
-  },
-
-  deleteButton: {
-    minHeight: 48,
-    borderRadius: 12,
-    marginBottom: 14,
-    backgroundColor: "#DC2626",
+  saveButtonInner: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
   },
 
-  deleteButtonText: {
+  saveButtonText: {
+    color: "#fff",
+    fontWeight: "700",
+  },
+
+  cancelButton: {
+    minHeight: 48,
+    borderRadius: 12,
+    marginBottom: 14,
+    backgroundColor: "rgba(255,255,255,0.14)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.18)",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+
+  cancelButtonText: {
     color: LABEL_WHITE,
     fontWeight: "700",
   },

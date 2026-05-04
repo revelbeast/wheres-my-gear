@@ -25,14 +25,14 @@ import {
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useAuth } from "../../components/auth/AuthProvider";
-import ScreenBackground from "../../components/ui/ScreenBackground";
+import { useAuth } from "../../../components/auth/AuthProvider";
+import ScreenBackground from "../../../components/ui/ScreenBackground";
 import {
   ThemedCard,
   ThemedText,
   useThemedValues,
-} from "../../components/ui/Themed";
-import { db } from "../../firebaseConfig";
+} from "../../../components/ui/Themed";
+import { db } from "../../../firebaseConfig";
 
 type UpcomingTrip = {
   id: string;

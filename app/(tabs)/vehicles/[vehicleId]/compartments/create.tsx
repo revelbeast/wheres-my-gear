@@ -14,10 +14,10 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import AppHeader from "../../../../components/ui/AppHeader";
-import ScreenBackground from "../../../../components/ui/ScreenBackground";
-import { useThemedValues } from "../../../../components/ui/Themed";
-import { createCompartment } from "../../../../lib/gearService";
+import AppHeader from "../../../../../components/ui/AppHeader";
+import ScreenBackground from "../../../../../components/ui/ScreenBackground";
+import { useThemedValues } from "../../../../../components/ui/Themed";
+import { createCompartment } from "../../../../../lib/gearService";
 
 function FrostedCard({
   children,

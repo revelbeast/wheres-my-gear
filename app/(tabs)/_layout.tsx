@@ -86,6 +86,20 @@ export default function TabsLayout() {
       />
 
       <Tabs.Screen
+        name="notes"
+        options={{
+          href: null,
+        }}
+      />
+
+      <Tabs.Screen
+        name="trips"
+        options={{
+          href: null,
+        }}
+      />
+
+      <Tabs.Screen
         name="explore"
         options={{
           href: null,

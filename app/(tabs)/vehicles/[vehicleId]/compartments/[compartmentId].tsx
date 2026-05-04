@@ -28,9 +28,9 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import AppHeader from "../../../../components/ui/AppHeader";
-import ScreenBackground from "../../../../components/ui/ScreenBackground";
-import { useThemedValues } from "../../../../components/ui/Themed";
+import AppHeader from "../../../../../components/ui/AppHeader";
+import ScreenBackground from "../../../../../components/ui/ScreenBackground";
+import { useThemedValues } from "../../../../../components/ui/Themed";
 import {
   Compartment,
   Item,
@@ -40,8 +40,8 @@ import {
   getItemsByCompartment,
   updateItem,
   updateItemPhoto,
-} from "../../../../lib/gearService";
-import { colors } from "../../../../theme/tokens";
+} from "../../../../../lib/gearService";
+import { colors } from "../../../../../theme/tokens";
 
 function FrostedCard({
   children,

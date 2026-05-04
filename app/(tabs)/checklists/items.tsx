@@ -5,11 +5,11 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useAuth } from "../../components/auth/AuthProvider";
-import AppHeader from "../../components/ui/AppHeader";
-import ScreenBackground from "../../components/ui/ScreenBackground";
-import { useThemedValues } from "../../components/ui/Themed";
-import { getAssignedChecklistItems } from "../../lib/checklistsService";
+import { useAuth } from "../../../components/auth/AuthProvider";
+import AppHeader from "../../../components/ui/AppHeader";
+import ScreenBackground from "../../../components/ui/ScreenBackground";
+import { useThemedValues } from "../../../components/ui/Themed";
+import { getAssignedChecklistItems } from "../../../lib/checklistsService";
 
 type ItemStatusFilter = "packed" | "to_pack";
 

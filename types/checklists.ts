@@ -30,9 +30,11 @@ export type ChecklistTemplateItem = {
   name: string;
   notes?: string;
   quantity: number;
+  packed?: boolean;
   sortOrder: number;
   itemPhotoUri?: string;
   createdAt?: any;
+  updatedAt?: any;
 };
 
 export type Checklist = {

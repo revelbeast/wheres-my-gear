@@ -15,12 +15,12 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useAuth } from "../../components/auth/AuthProvider";
-import AppHeader from "../../components/ui/AppHeader";
-import ScreenBackground from "../../components/ui/ScreenBackground";
-import { createChecklist } from "../../lib/checklistsService";
-import { colors } from "../../theme/tokens";
-import type { ChecklistCategory } from "../../types/checklists";
+import { useAuth } from "../../../components/auth/AuthProvider";
+import AppHeader from "../../../components/ui/AppHeader";
+import ScreenBackground from "../../../components/ui/ScreenBackground";
+import { createChecklist } from "../../../lib/checklistsService";
+import { colors } from "../../../theme/tokens";
+import type { ChecklistCategory } from "../../../types/checklists";
 
 const CATEGORY_OPTIONS: { label: string; value: ChecklistCategory }[] = [
   { label: "Trip", value: "trip" },

@@ -26,11 +26,11 @@ import {
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import ScreenBackground from "../../../../components/ui/ScreenBackground";
+import ScreenBackground from "../../../../../components/ui/ScreenBackground";
 import {
   ThemedText,
   useThemedValues,
-} from "../../../../components/ui/Themed";
+} from "../../../../../components/ui/Themed";
 import {
   deleteCompartment,
   getCompartmentsByVehicle,
@@ -40,7 +40,7 @@ import {
   type Compartment,
   type Item,
   type StorageSpace,
-} from "../../../../lib/gearService";
+} from "../../../../../lib/gearService";
 
 type CompartmentRow = Compartment & {
   itemCount: number;

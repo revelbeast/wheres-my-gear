@@ -10,6 +10,7 @@ const PREMIUM_ENTITLEMENT_ID = "premium";
 
 let configurePromise: Promise<boolean> | null = null;
 let isConfigured = false;
+let currentLoggedInUserId: string | null = null;
 
 function getRevenueCatApiKey() {
   const extra = Constants.expoConfig?.extra ?? {};
@@ -25,20 +26,46 @@ function getRevenueCatApiKey() {
   return null;
 }
 
-export async function configureRevenueCat(userId?: string | null) {
-  if (isConfigured) {
-    if (userId) {
-      await Purchases.logIn(userId);
+async function logInRevenueCatUser(userId?: string | null) {
+  const trimmedUserId = userId?.trim();
+
+  if (!trimmedUserId) {
+    return;
+  }
+
+  if (currentLoggedInUserId === trimmedUserId) {
+    return;
+  }
+
+  try {
+    await Purchases.logIn(trimmedUserId);
+    currentLoggedInUserId = trimmedUserId;
+  } catch (e: any) {
+    const message = String(e?.message ?? e ?? "");
+
+    if (
+      message.toLowerCase().includes("same as the one already cached") ||
+      message.toLowerCase().includes("already cached")
+    ) {
+      currentLoggedInUserId = trimmedUserId;
+      return;
     }
 
+    throw e;
+  }
+}
+
+export async function configureRevenueCat(userId?: string | null) {
+  if (isConfigured) {
+    await logInRevenueCatUser(userId);
     return true;
   }
 
   if (configurePromise) {
     const configured = await configurePromise;
 
-    if (configured && userId) {
-      await Purchases.logIn(userId);
+    if (configured) {
+      await logInRevenueCatUser(userId);
     }
 
     return configured;
@@ -58,15 +85,25 @@ export async function configureRevenueCat(userId?: string | null) {
       isConfigured = true;
       console.log("RevenueCat configured.");
 
-      if (userId) {
-        await Purchases.logIn(userId);
-      }
+      await logInRevenueCatUser(userId);
 
       return true;
-    } catch (e) {
+    } catch (e: any) {
+      const message = String(e?.message ?? e ?? "");
+
+      if (
+        message.toLowerCase().includes("already set") ||
+        message.toLowerCase().includes("already configured")
+      ) {
+        isConfigured = true;
+        await logInRevenueCatUser(userId);
+        return true;
+      }
+
       console.log("RevenueCat configuration failed:", e);
       isConfigured = false;
       configurePromise = null;
+      currentLoggedInUserId = null;
       return false;
     }
   })();

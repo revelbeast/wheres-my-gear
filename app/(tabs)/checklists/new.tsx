@@ -16,12 +16,12 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useAuth } from "../../components/auth/AuthProvider";
-import AppHeader from "../../components/ui/AppHeader";
-import ScreenBackground from "../../components/ui/ScreenBackground";
-import { useThemedValues } from "../../components/ui/Themed";
-import { createChecklist } from "../../lib/checklistsService";
-import type { ChecklistCategory } from "../../types/checklists";
+import { useAuth } from "../../../components/auth/AuthProvider";
+import AppHeader from "../../../components/ui/AppHeader";
+import ScreenBackground from "../../../components/ui/ScreenBackground";
+import { useThemedValues } from "../../../components/ui/Themed";
+import { createChecklist } from "../../../lib/checklistsService";
+import type { ChecklistCategory } from "../../../types/checklists";
 
 const LABEL_WHITE = "#FFFFFF";
 

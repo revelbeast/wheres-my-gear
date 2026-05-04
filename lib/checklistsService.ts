@@ -136,11 +136,16 @@ function normalizeTemplateItem(
     name: String(data.name ?? "Untitled Item"),
     notes: data.notes ?? "",
     quantity: Math.max(1, Number(data.quantity ?? 1)),
+    packed: Boolean(data.packed ?? false),
     sortOrder: Number(data.sortOrder ?? 0),
     itemPhotoUri: data.itemPhotoUri ?? "",
     createdAt: data.createdAt,
     updatedAt: data.updatedAt,
   } as ChecklistTemplateItem;
+}
+
+function getPackedCountFromTemplateItems(items: ChecklistTemplateItem[]) {
+  return items.filter((item) => Boolean(item.packed ?? false)).length;
 }
 
 export type AssignedChecklistItemSummary = ChecklistItem & {
@@ -208,6 +213,7 @@ export async function createChecklistTemplateWithItems(
       name: string;
       notes?: string;
       quantity?: number;
+      packed?: boolean;
     }[];
   }
 ) {
@@ -228,6 +234,7 @@ export async function createChecklistTemplateWithItems(
       name: String(item.name ?? "").trim(),
       notes: item.notes ?? "",
       quantity: Math.max(1, Number(item.quantity ?? 1) || 1),
+      packed: Boolean(item.packed ?? false),
     }))
     .filter((item) => item.name.length > 0);
 
@@ -256,6 +263,7 @@ export async function createChecklistTemplateWithItems(
       name: item.name,
       notes: item.notes,
       quantity: item.quantity,
+      packed: item.packed,
       sortOrder: index + 1,
       itemPhotoUri: "",
       createdAt: serverTimestamp(),
@@ -293,6 +301,7 @@ export async function addChecklistTemplateItem(
     name: trimmedName,
     notes: "",
     quantity: 1,
+    packed: false,
     sortOrder: nextSortOrder,
     itemPhotoUri: "",
     createdAt: serverTimestamp(),
@@ -330,6 +339,30 @@ export async function updateChecklistTemplateItemQuantity(
 
   await updateDoc(templateItemDoc(userId, templateId, itemId), {
     quantity: safeQuantity,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function updateChecklistTemplateItemPacked(
+  userId: string,
+  templateId: string,
+  itemId: string,
+  packed: boolean
+) {
+  await updateDoc(templateItemDoc(userId, templateId, itemId), {
+    packed: Boolean(packed),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function updateChecklistTemplateItemPhoto(
+  userId: string,
+  templateId: string,
+  itemId: string,
+  itemPhotoUri: string
+) {
+  await updateDoc(templateItemDoc(userId, templateId, itemId), {
+    itemPhotoUri: itemPhotoUri ?? "",
     updatedAt: serverTimestamp(),
   });
 }
@@ -410,6 +443,9 @@ export async function createChecklistFromTemplate(
   template: ChecklistTemplate
 ) {
   const templateItems = await getChecklistTemplateItems(userId, template.id);
+  const packedCount = getPackedCountFromTemplateItems(templateItems);
+  const totalCount = templateItems.length;
+  const missingCount = totalCount - packedCount;
 
   const checklistRef = await addDoc(checklistsCol(userId), {
     name: template.name,
@@ -417,9 +453,9 @@ export async function createChecklistFromTemplate(
     customCategoryLabel: template.customCategoryLabel ?? "",
     templateId: template.id,
     status: "active",
-    packedCount: 0,
-    totalCount: templateItems.length,
-    missingCount: templateItems.length,
+    packedCount,
+    totalCount,
+    missingCount,
     vehicleId: null,
     tripId: null,
     notes: "",
@@ -431,13 +467,15 @@ export async function createChecklistFromTemplate(
   const batch = writeBatch(db);
 
   templateItems.forEach((item) => {
+    const isPacked = Boolean(item.packed ?? false);
     const itemRef = doc(checklistItemsCol(userId, checklistRef.id));
+
     batch.set(itemRef, {
       name: item.name,
       notes: item.notes ?? "",
       quantity: item.quantity ?? 1,
-      packed: false,
-      packedAt: null,
+      packed: isPacked,
+      packedAt: isPacked ? serverTimestamp() : null,
       sortOrder: item.sortOrder ?? 0,
       sourceTemplateItemId: item.id,
       itemPhotoUri: item.itemPhotoUri ?? "",
@@ -464,15 +502,19 @@ export async function createChecklistFromSelectedTemplateItems(
     return String(item?.name ?? "").trim().length > 0;
   });
 
+  const packedCount = getPackedCountFromTemplateItems(safeSelectedItems);
+  const totalCount = safeSelectedItems.length;
+  const missingCount = totalCount - packedCount;
+
   const checklistRef = await addDoc(checklistsCol(userId), {
     name: template.name,
     category: template.category,
     customCategoryLabel: template.customCategoryLabel ?? "",
     templateId: template.id,
     status: "active",
-    packedCount: 0,
-    totalCount: safeSelectedItems.length,
-    missingCount: safeSelectedItems.length,
+    packedCount,
+    totalCount,
+    missingCount,
     vehicleId: null,
     tripId: null,
     notes: "",
@@ -488,14 +530,15 @@ export async function createChecklistFromSelectedTemplateItems(
   const batch = writeBatch(db);
 
   safeSelectedItems.forEach((item, index) => {
+    const isPacked = Boolean(item.packed ?? false);
     const itemRef = doc(checklistItemsCol(userId, checklistRef.id));
 
     batch.set(itemRef, {
       name: String(item.name ?? "").trim(),
       notes: item.notes ?? "",
       quantity: Math.max(1, Number(item.quantity ?? 1)),
-      packed: false,
-      packedAt: null,
+      packed: isPacked,
+      packedAt: isPacked ? serverTimestamp() : null,
       sortOrder: index + 1,
       sourceTemplateItemId: item.id ?? null,
       itemPhotoUri: item.itemPhotoUri ?? "",
@@ -947,6 +990,7 @@ export async function saveChecklistAsTemplate(
     batch.set(itemRef, {
       name: item.name,
       quantity: item.quantity ?? 1,
+      packed: Boolean(item.packed ?? false),
       notes: item.notes ?? "",
       sortOrder: item.sortOrder ?? index,
       itemPhotoUri: item.itemPhotoUri ?? "",
