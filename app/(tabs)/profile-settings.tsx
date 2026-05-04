@@ -13,21 +13,21 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useAuth } from "../components/auth/AuthProvider";
-import AppHeader from "../components/ui/AppHeader";
-import ScreenBackground from "../components/ui/ScreenBackground";
+import { useAuth } from "../../components/auth/AuthProvider";
+import AppHeader from "../../components/ui/AppHeader";
+import ScreenBackground from "../../components/ui/ScreenBackground";
 import {
   ThemedButton,
   ThemedCard,
   ThemedInput,
   ThemedText,
   useThemedValues,
-} from "../components/ui/Themed";
+} from "../../components/ui/Themed";
 import {
   AppProfile,
   getProfileSettings,
   saveProfileSettings,
-} from "../lib/settingsService";
+} from "../../lib/settingsService";
 
 function formatPhoneNumber(value: string) {
   const digits = value.replace(/\D/g, "").slice(0, 10);
@@ -257,7 +257,11 @@ export default function ProfileSettingsScreen() {
       <ScreenBackground>
         <SafeAreaView style={styles.safe}>
           <View style={styles.container}>
-            <AppHeader title="Profile Settings" showBackButton />
+            <AppHeader
+              title="Profile Settings"
+              showBackButton
+              backHref="/(tabs)/profile"
+            />
             <ThemedText color="secondary">Loading profile...</ThemedText>
           </View>
         </SafeAreaView>
@@ -281,7 +285,11 @@ export default function ProfileSettingsScreen() {
             automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
             showsVerticalScrollIndicator={false}
           >
-            <AppHeader title="Profile Settings" showBackButton />
+            <AppHeader
+              title="Profile Settings"
+              showBackButton
+              backHref="/(tabs)/profile"
+            />
 
             <ThemedCard style={styles.heroCard} contentStyle={styles.heroCardContent}>
               <View style={styles.heroRow}>

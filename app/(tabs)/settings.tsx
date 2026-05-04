@@ -1,22 +1,12 @@
-import React from "react";
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  Pressable,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import {
-  UserCircle2,
-  Shield,
-  ChevronRight,
-} from "lucide-react-native";
 import { router } from "expo-router";
+import { ChevronRight, Shield, UserCircle2 } from "lucide-react-native";
+import React from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import ScreenBackground from "../components/ui/ScreenBackground";
-import AppHeader from "../components/ui/AppHeader";
-import { colors } from "../theme/tokens";
+import AppHeader from "../../components/ui/AppHeader";
+import ScreenBackground from "../../components/ui/ScreenBackground";
+import { useThemedValues } from "../../components/ui/Themed";
 
 type SettingRowProps = {
   icon: React.ReactNode;
@@ -26,23 +16,57 @@ type SettingRowProps = {
 };
 
 function SettingRow({ icon, title, subtitle, onPress }: SettingRowProps) {
+  const theme = useThemedValues();
+
   return (
-    <Pressable style={styles.rowCard} onPress={onPress}>
+    <Pressable
+      style={[
+        styles.rowCard,
+        {
+          backgroundColor: theme.colors.card,
+          borderColor: theme.colors.border,
+        },
+      ]}
+      onPress={onPress}
+    >
       <View style={styles.rowLeft}>
-        <View style={styles.iconWrap}>{icon}</View>
+        <View
+          style={[
+            styles.iconWrap,
+            {
+              backgroundColor: theme.colors.iconSurface,
+              borderColor: theme.colors.border,
+            },
+          ]}
+        >
+          {icon}
+        </View>
+
         <View style={styles.textWrap}>
-          <Text style={styles.rowTitle}>{title}</Text>
-          <Text style={styles.rowSubtitle}>{subtitle}</Text>
+          <Text style={[styles.rowTitle, { color: theme.colors.text }]}>
+            {title}
+          </Text>
+          <Text
+            style={[
+              styles.rowSubtitle,
+              { color: theme.colors.textSecondary },
+            ]}
+          >
+            {subtitle}
+          </Text>
         </View>
       </View>
+
       <View style={styles.chevronWrap}>
-        <ChevronRight size={18} color={colors.textSecondary} />
+        <ChevronRight size={18} color={theme.colors.textSecondary} />
       </View>
     </Pressable>
   );
 }
 
 export default function SettingsScreen() {
+  const theme = useThemedValues();
+
   return (
     <ScreenBackground>
       <SafeAreaView style={styles.safe}>
@@ -53,44 +77,104 @@ export default function SettingsScreen() {
           <AppHeader title="Profile & Settings" showBackButton />
 
           <Pressable
-            style={styles.profileCard}
+            style={[
+              styles.profileCard,
+              {
+                backgroundColor: theme.colors.card,
+                borderColor: theme.colors.border,
+              },
+            ]}
             onPress={() => router.push("/profile")}
           >
-            <View style={styles.profileIcon}>
-              <UserCircle2 size={42} color={colors.text} />
+            <View
+              style={[
+                styles.profileIcon,
+                {
+                  backgroundColor: theme.colors.iconSurface,
+                  borderColor: theme.colors.border,
+                },
+              ]}
+            >
+              <UserCircle2 size={42} color={theme.colors.text} />
             </View>
 
             <View style={styles.profileTextWrap}>
-              <Text style={styles.profileEyebrow}>Account</Text>
-              <Text style={styles.profileTitle}>Profile</Text>
-              <Text style={styles.profileSubtitle}>
+              <Text
+                style={[
+                  styles.profileEyebrow,
+                  { color: theme.colors.textSecondary },
+                ]}
+              >
+                Account
+              </Text>
+              <Text style={[styles.profileTitle, { color: theme.colors.text }]}>
+                Profile
+              </Text>
+              <Text
+                style={[
+                  styles.profileSubtitle,
+                  { color: theme.colors.textSecondary },
+                ]}
+              >
                 Account basics and appearance settings
               </Text>
             </View>
 
             <View style={styles.chevronWrap}>
-              <ChevronRight size={18} color={colors.textSecondary} />
+              <ChevronRight size={18} color={theme.colors.textSecondary} />
             </View>
           </Pressable>
 
           <View style={styles.section}>
-            <Text style={styles.sectionEyebrow}>Security</Text>
-            <Text style={styles.sectionTitle}>Account access</Text>
+            <Text
+              style={[
+                styles.sectionEyebrow,
+                { color: theme.colors.textSecondary },
+              ]}
+            >
+              Security
+            </Text>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+              Account access
+            </Text>
 
             <SettingRow
-              icon={<Shield size={18} color={colors.text} />}
+              icon={<Shield size={18} color={theme.colors.text} />}
               title="Password Management"
               subtitle="Update password and account security settings"
               onPress={() => router.push("/password-management")}
             />
           </View>
 
-          <View style={styles.noteCard}>
-            <Text style={styles.noteEyebrow}>Current scope</Text>
-            <Text style={styles.noteTitle}>Simplified for now</Text>
-            <Text style={styles.noteText}>
+          <View
+            style={[
+              styles.noteCard,
+              {
+                backgroundColor: theme.colors.card,
+                borderColor: theme.colors.border,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.noteEyebrow,
+                { color: theme.colors.textSecondary },
+              ]}
+            >
+              Current scope
+            </Text>
+            <Text style={[styles.noteTitle, { color: theme.colors.text }]}>
+              Simplified for now
+            </Text>
+            <Text
+              style={[
+                styles.noteText,
+                { color: theme.colors.textSecondary },
+              ]}
+            >
               Communication, privacy, professional details, and activity logs
-              have been removed for now to keep settings focused and easier to manage.
+              have been removed for now to keep settings focused and easier to
+              manage.
             </Text>
           </View>
         </ScrollView>
@@ -114,44 +198,42 @@ const styles = StyleSheet.create({
     marginBottom: 18,
     padding: 16,
     borderRadius: 16,
-    backgroundColor: "rgba(255,255,255,0.03)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
     flexDirection: "row",
     alignItems: "center",
   },
+
   profileIcon: {
     width: 64,
     height: 64,
     borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.06)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
     marginRight: 14,
   },
+
   profileTextWrap: {
     flex: 1,
     paddingRight: 10,
   },
+
   profileEyebrow: {
-    color: colors.textSecondary,
     fontSize: 12,
     fontWeight: "700",
     textTransform: "uppercase",
     letterSpacing: 0.4,
     marginBottom: 4,
   },
+
   profileTitle: {
-    color: colors.text,
     fontSize: 20,
     fontWeight: "700",
     marginBottom: 4,
     lineHeight: 26,
   },
+
   profileSubtitle: {
-    color: colors.textSecondary,
     fontSize: 14,
     lineHeight: 20,
   },
@@ -159,16 +241,16 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 18,
   },
+
   sectionEyebrow: {
-    color: colors.textSecondary,
     fontSize: 12,
     fontWeight: "700",
     textTransform: "uppercase",
     letterSpacing: 0.4,
     marginBottom: 4,
   },
+
   sectionTitle: {
-    color: colors.text,
     fontSize: 16,
     fontWeight: "700",
     marginBottom: 10,
@@ -179,45 +261,45 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     padding: 16,
     borderRadius: 16,
-    backgroundColor: "rgba(255,255,255,0.03)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
+
   rowLeft: {
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
     paddingRight: 10,
   },
+
   iconWrap: {
     width: 38,
     height: 38,
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.06)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
     marginRight: 12,
   },
+
   textWrap: {
     flex: 1,
   },
+
   rowTitle: {
-    color: colors.text,
     fontSize: 15,
     fontWeight: "700",
     marginBottom: 3,
     lineHeight: 20,
   },
+
   rowSubtitle: {
-    color: colors.textSecondary,
     fontSize: 13,
     lineHeight: 18,
   },
+
   chevronWrap: {
     width: 24,
     alignItems: "flex-end",
@@ -227,27 +309,25 @@ const styles = StyleSheet.create({
   noteCard: {
     padding: 16,
     borderRadius: 16,
-    backgroundColor: "rgba(255,255,255,0.03)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
   },
+
   noteEyebrow: {
-    color: colors.textSecondary,
     fontSize: 12,
     fontWeight: "700",
     textTransform: "uppercase",
     letterSpacing: 0.4,
     marginBottom: 4,
   },
+
   noteTitle: {
-    color: colors.text,
     fontSize: 16,
     fontWeight: "700",
     marginBottom: 6,
     lineHeight: 22,
   },
+
   noteText: {
-    color: colors.textSecondary,
     fontSize: 14,
     lineHeight: 20,
   },

@@ -1,17 +1,12 @@
 import { BlurView } from "expo-blur";
 import { KeyRound, Lock } from "lucide-react-native";
 import React from "react";
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import AppHeader from "../components/ui/AppHeader";
 import ScreenBackground from "../components/ui/ScreenBackground";
-import { colors } from "../theme/tokens";
+import { useThemedValues } from "../components/ui/Themed";
 
 function FrostedCard({
   children,
@@ -20,9 +15,24 @@ function FrostedCard({
   children: React.ReactNode;
   style?: any;
 }) {
+  const theme = useThemedValues();
+
   return (
-    <View style={[styles.cardShell, style]}>
-      <BlurView intensity={35} tint="dark" style={styles.cardBlur}>
+    <View
+      style={[
+        styles.cardShell,
+        {
+          borderColor: theme.colors.border,
+          backgroundColor: theme.colors.card,
+        },
+        style,
+      ]}
+    >
+      <BlurView
+        intensity={theme.isLight ? 22 : 35}
+        tint={theme.isLight ? "light" : "dark"}
+        style={styles.cardBlur}
+      >
         {children}
       </BlurView>
     </View>
@@ -30,6 +40,8 @@ function FrostedCard({
 }
 
 export default function PasswordManagementScreen() {
+  const theme = useThemedValues();
+
   return (
     <ScreenBackground>
       <SafeAreaView style={styles.safe}>
@@ -38,12 +50,15 @@ export default function PasswordManagementScreen() {
 
           <FrostedCard style={styles.card}>
             <View style={styles.row}>
-              <Lock size={18} color={colors.text} />
-              <Text style={styles.title}>Password Settings</Text>
+              <Lock size={18} color={theme.colors.text} />
+              <Text style={[styles.title, { color: theme.colors.text }]}>
+                Password Settings
+              </Text>
             </View>
 
-            <Text style={styles.text}>
-              This screen is ready for password reset and change-password actions.
+            <Text style={[styles.text, { color: theme.colors.textSecondary }]}>
+              This screen is ready for password reset and change-password
+              actions.
             </Text>
 
             <Pressable style={styles.actionButton}>
@@ -51,9 +66,9 @@ export default function PasswordManagementScreen() {
               <Text style={styles.actionButtonText}>Change Password</Text>
             </Pressable>
 
-            <Text style={styles.note}>
-              To make this fully functional, we need to connect it to your actual
-              authentication flow.
+            <Text style={[styles.note, { color: theme.colors.textMuted }]}>
+              To make this fully functional, we need to connect it to your
+              actual authentication flow.
             </Text>
           </FrostedCard>
         </View>
@@ -76,8 +91,6 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
-    backgroundColor: "rgba(255,255,255,0.02)",
   },
 
   cardBlur: {
@@ -96,13 +109,11 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    color: colors.text,
     fontSize: 18,
     fontWeight: "700",
   },
 
   text: {
-    color: colors.textSecondary,
     fontSize: 14,
     lineHeight: 20,
     marginBottom: 16,
@@ -126,7 +137,6 @@ const styles = StyleSheet.create({
   },
 
   note: {
-    color: colors.textMuted,
     fontSize: 13,
     lineHeight: 18,
   },

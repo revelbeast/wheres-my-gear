@@ -18,8 +18,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../../components/auth/AuthProvider";
 import AppHeader from "../../../components/ui/AppHeader";
 import ScreenBackground from "../../../components/ui/ScreenBackground";
+import { useThemedValues } from "../../../components/ui/Themed";
 import { createChecklist } from "../../../lib/checklistsService";
-import { colors } from "../../../theme/tokens";
 import type { ChecklistCategory } from "../../../types/checklists";
 
 const CATEGORY_OPTIONS: { label: string; value: ChecklistCategory }[] = [
@@ -27,6 +27,7 @@ const CATEGORY_OPTIONS: { label: string; value: ChecklistCategory }[] = [
   { label: "Camping", value: "camping" },
   { label: "Hunting", value: "hunting" },
   { label: "Fishing", value: "fishing" },
+  { label: "Boating", value: "boating" },
   { label: "Clothing", value: "clothing" },
   { label: "Electronics", value: "electronics" },
   { label: "Medical", value: "medical" },
@@ -37,6 +38,7 @@ const CATEGORY_OPTIONS: { label: string; value: ChecklistCategory }[] = [
 
 export default function CreateBlankChecklistScreen() {
   const { user, initializing } = useAuth();
+  const theme = useThemedValues();
 
   const [name, setName] = useState("");
   const [category, setCategory] = useState<ChecklistCategory>("trip");
@@ -73,7 +75,10 @@ export default function CreateBlankChecklistScreen() {
     }
 
     if (category === "custom" && !trimmedCustomLabel) {
-      Alert.alert("Custom category required", "Please enter a custom category label.");
+      Alert.alert(
+        "Custom category required",
+        "Please enter a custom category label."
+      );
       return;
     }
 
@@ -116,62 +121,171 @@ export default function CreateBlankChecklistScreen() {
             <AppHeader title="New Blank Checklist" showBackButton />
 
             <View style={styles.heroSection}>
-              <Text style={styles.sectionEyebrow}>Create</Text>
-              <Text style={styles.heroTitle}>Start from scratch</Text>
-              <Text style={styles.heroSubtitle}>
-                Create an empty checklist, then add your own items and assign storage as needed.
+              <Text
+                style={[
+                  styles.sectionEyebrow,
+                  { color: theme.colors.textSecondary },
+                ]}
+              >
+                Create
+              </Text>
+              <Text style={[styles.heroTitle, { color: theme.colors.text }]}>
+                Start from scratch
+              </Text>
+              <Text
+                style={[
+                  styles.heroSubtitle,
+                  { color: theme.colors.textSecondary },
+                ]}
+              >
+                Create an empty checklist, then add your own items and assign
+                storage as needed.
               </Text>
             </View>
 
             {initializing ? (
-              <View style={styles.formCard}>
-                <Text style={styles.heroSubtitle}>Loading account...</Text>
+              <View
+                style={[
+                  styles.formCard,
+                  {
+                    backgroundColor: theme.colors.card,
+                    borderColor: theme.colors.border,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.heroSubtitle,
+                    { color: theme.colors.textSecondary },
+                  ]}
+                >
+                  Loading account...
+                </Text>
               </View>
             ) : !user ? (
-              <View style={styles.formCard}>
-                <Text style={styles.heroSubtitle}>
+              <View
+                style={[
+                  styles.formCard,
+                  {
+                    backgroundColor: theme.colors.card,
+                    borderColor: theme.colors.border,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.heroSubtitle,
+                    { color: theme.colors.textSecondary },
+                  ]}
+                >
                   Sign in first to create a checklist.
                 </Text>
               </View>
             ) : (
-              <View style={styles.formCard}>
-                <Text style={styles.label}>Checklist Name</Text>
+              <View
+                style={[
+                  styles.formCard,
+                  {
+                    backgroundColor: theme.colors.card,
+                    borderColor: theme.colors.border,
+                  },
+                ]}
+              >
+                <Text
+                  style={[styles.label, { color: theme.colors.textSecondary }]}
+                >
+                  Checklist Name
+                </Text>
                 <TextInput
                   value={name}
                   onChangeText={setName}
                   placeholder="For example, Weekend Camping Trip"
-                  placeholderTextColor={colors.textMuted}
-                  style={styles.input}
+                  placeholderTextColor={theme.colors.textMuted}
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: theme.colors.inputSurface,
+                      borderColor: theme.colors.border,
+                      color: theme.colors.text,
+                    },
+                  ]}
                   returnKeyType="done"
                 />
 
-                <Text style={styles.label}>Category</Text>
+                <Text
+                  style={[styles.label, { color: theme.colors.textSecondary }]}
+                >
+                  Category
+                </Text>
 
                 <View style={styles.dropdownWrap}>
                   <Pressable
                     style={styles.dropdownPressable}
                     onPress={() => setShowCategoryDropdown((prev) => !prev)}
                   >
-                    <BlurView intensity={20} tint="dark" style={styles.dropdownButton}>
-                      <Text style={styles.dropdownButtonText}>{selectedCategoryLabel}</Text>
-                      <ChevronDown size={18} color={colors.textSecondary} />
+                    <BlurView
+                      intensity={theme.isLight ? 18 : 20}
+                      tint={theme.isLight ? "light" : "dark"}
+                      style={[
+                        styles.dropdownButton,
+                        {
+                          backgroundColor: theme.colors.inputSurface,
+                          borderColor: theme.colors.border,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.dropdownButtonText,
+                          { color: theme.colors.text },
+                        ]}
+                      >
+                        {selectedCategoryLabel}
+                      </Text>
+                      <ChevronDown
+                        size={18}
+                        color={theme.colors.textSecondary}
+                      />
                     </BlurView>
                   </Pressable>
 
                   {showCategoryDropdown && (
-                    <BlurView intensity={20} tint="dark" style={styles.dropdownCard}>
-                      <ScrollView showsVerticalScrollIndicator={false} nestedScrollEnabled>
+                    <BlurView
+                      intensity={theme.isLight ? 22 : 20}
+                      tint={theme.isLight ? "light" : "dark"}
+                      style={[
+                        styles.dropdownCard,
+                        {
+                          backgroundColor: theme.colors.cardStrong,
+                          borderColor: theme.colors.border,
+                        },
+                      ]}
+                    >
+                      <ScrollView
+                        showsVerticalScrollIndicator={false}
+                        nestedScrollEnabled
+                      >
                         {CATEGORY_OPTIONS.map((option, index) => (
                           <Pressable
                             key={option.value}
                             style={[
                               styles.dropdownRow,
+                              {
+                                borderBottomColor: theme.colors.border,
+                              },
                               index === CATEGORY_OPTIONS.length - 1 &&
                                 styles.dropdownRowLast,
                             ]}
                             onPress={() => handleSelectCategory(option.value)}
                           >
-                            <Text style={styles.dropdownRowTitle}>{option.label}</Text>
+                            <Text
+                              style={[
+                                styles.dropdownRowTitle,
+                                { color: theme.colors.text },
+                              ]}
+                            >
+                              {option.label}
+                            </Text>
                           </Pressable>
                         ))}
                       </ScrollView>
@@ -181,20 +295,37 @@ export default function CreateBlankChecklistScreen() {
 
                 {category === "custom" && (
                   <>
-                    <Text style={styles.label}>Custom Category Label</Text>
+                    <Text
+                      style={[
+                        styles.label,
+                        { color: theme.colors.textSecondary },
+                      ]}
+                    >
+                      Custom Category Label
+                    </Text>
                     <TextInput
                       value={customCategoryLabel}
                       onChangeText={setCustomCategoryLabel}
                       placeholder="For example, Road Trip Gear"
-                      placeholderTextColor={colors.textMuted}
-                      style={styles.input}
+                      placeholderTextColor={theme.colors.textMuted}
+                      style={[
+                        styles.input,
+                        {
+                          backgroundColor: theme.colors.inputSurface,
+                          borderColor: theme.colors.border,
+                          color: theme.colors.text,
+                        },
+                      ]}
                       returnKeyType="done"
                     />
                   </>
                 )}
 
                 <Pressable
-                  style={[styles.createButton, saving && styles.createButtonDisabled]}
+                  style={[
+                    styles.createButton,
+                    saving && styles.createButtonDisabled,
+                  ]}
                   onPress={handleCreateChecklist}
                   disabled={saving}
                 >
@@ -232,7 +363,6 @@ const styles = StyleSheet.create({
   },
 
   sectionEyebrow: {
-    color: colors.textSecondary,
     fontSize: 12,
     fontWeight: "700",
     textTransform: "uppercase",
@@ -241,7 +371,6 @@ const styles = StyleSheet.create({
   },
 
   heroTitle: {
-    color: colors.text,
     fontSize: 22,
     fontWeight: "700",
     marginBottom: 6,
@@ -249,7 +378,6 @@ const styles = StyleSheet.create({
   },
 
   heroSubtitle: {
-    color: colors.textSecondary,
     fontSize: 14,
     lineHeight: 20,
   },
@@ -257,13 +385,10 @@ const styles = StyleSheet.create({
   formCard: {
     borderRadius: 16,
     padding: 16,
-    backgroundColor: "rgba(255,255,255,0.03)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
   },
 
   label: {
-    color: colors.textSecondary,
     fontSize: 12,
     fontWeight: "700",
     marginBottom: 6,
@@ -273,13 +398,10 @@ const styles = StyleSheet.create({
   },
 
   input: {
-    backgroundColor: "rgba(255,255,255,0.06)",
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 12,
-    color: colors.text,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
     fontSize: 15,
   },
 
@@ -295,18 +417,16 @@ const styles = StyleSheet.create({
   dropdownButton: {
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
     paddingHorizontal: 12,
     paddingVertical: 12,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    backgroundColor: "rgba(255,255,255,0.03)",
+    overflow: "hidden",
   },
 
   dropdownButtonText: {
     flex: 1,
-    color: colors.text,
     fontSize: 14,
     lineHeight: 18,
   },
@@ -317,15 +437,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
-    backgroundColor: "rgba(255,255,255,0.03)",
   },
 
   dropdownRow: {
     paddingHorizontal: 12,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.06)",
   },
 
   dropdownRowLast: {
@@ -333,7 +450,6 @@ const styles = StyleSheet.create({
   },
 
   dropdownRowTitle: {
-    color: colors.text,
     fontSize: 14,
     fontWeight: "600",
     lineHeight: 18,

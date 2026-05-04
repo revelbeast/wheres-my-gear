@@ -2,14 +2,14 @@ import React, { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Switch, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import AppHeader from "../components/ui/AppHeader";
-import ScreenBackground from "../components/ui/ScreenBackground";
+import AppHeader from "../../components/ui/AppHeader";
+import ScreenBackground from "../../components/ui/ScreenBackground";
 import {
   getNotificationSettings,
   NotificationSettings,
   saveNotificationSettings,
-} from "../lib/settingsService";
-import { colors } from "../theme/tokens";
+} from "../../lib/settingsService";
+import { colors } from "../../theme/tokens";
 
 type SettingKey = keyof NotificationSettings;
 

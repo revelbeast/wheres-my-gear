@@ -78,33 +78,20 @@ export default function TabsLayout() {
         }}
       />
 
-      <Tabs.Screen
-        name="vehicles"
-        options={{
-          href: null,
-        }}
-      />
+      <Tabs.Screen name="vehicles" options={{ href: null }} />
+      <Tabs.Screen name="notes" options={{ href: null }} />
+      <Tabs.Screen name="trips" options={{ href: null }} />
+      <Tabs.Screen name="explore" options={{ href: null }} />
 
-      <Tabs.Screen
-        name="notes"
-        options={{
-          href: null,
-        }}
-      />
-
-      <Tabs.Screen
-        name="trips"
-        options={{
-          href: null,
-        }}
-      />
-
-      <Tabs.Screen
-        name="explore"
-        options={{
-          href: null,
-        }}
-      />
+      <Tabs.Screen name="data-settings" options={{ href: null }} />
+      <Tabs.Screen name="faq" options={{ href: null }} />
+      <Tabs.Screen name="general-settings" options={{ href: null }} />
+      <Tabs.Screen name="help-support" options={{ href: null }} />
+      <Tabs.Screen name="notifications" options={{ href: null }} />
+      <Tabs.Screen name="privacy" options={{ href: null }} />
+      <Tabs.Screen name="profile-address" options={{ href: null }} />
+      <Tabs.Screen name="profile-settings" options={{ href: null }} />
+      <Tabs.Screen name="settings" options={{ href: null }} />
     </Tabs>
   );
 }

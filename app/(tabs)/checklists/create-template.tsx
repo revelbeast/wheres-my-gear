@@ -280,9 +280,7 @@ function FrostedCard({
         styles.card,
         {
           borderColor: theme.colors.border,
-          backgroundColor: theme.isLight
-            ? "rgba(255,255,255,0.68)"
-            : "rgba(255,255,255,0.03)",
+          backgroundColor: theme.colors.card,
         },
         style,
       ]}
@@ -674,7 +672,9 @@ export default function CreateTemplateScreen() {
                         <View
                           style={[
                             styles.statusPill,
-                            packed ? styles.statusPillPacked : styles.statusPillToPack,
+                            packed
+                              ? styles.statusPillPacked
+                              : styles.statusPillToPack,
                           ]}
                         >
                           <ThemedText style={styles.statusPillText}>
@@ -813,9 +813,7 @@ export default function CreateTemplateScreen() {
                 styles.modalCard,
                 {
                   borderColor: theme.colors.border,
-                  backgroundColor: theme.isLight
-                    ? "rgba(255,255,255,0.94)"
-                    : "rgba(255,255,255,0.04)",
+                  backgroundColor: theme.colors.cardStrong,
                 },
               ]}
             >
@@ -878,9 +876,7 @@ export default function CreateTemplateScreen() {
                 styles.starterModalCard,
                 {
                   borderColor: theme.colors.border,
-                  backgroundColor: theme.isLight
-                    ? "rgba(255,255,255,0.94)"
-                    : "rgba(255,255,255,0.04)",
+                  backgroundColor: theme.colors.cardStrong,
                 },
               ]}
             >

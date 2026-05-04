@@ -10,6 +10,7 @@ import {
   Text,
   TextInput,
   View,
+  ViewStyle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -30,7 +31,7 @@ function FrostedCard({
   style,
 }: {
   children: React.ReactNode;
-  style?: any;
+  style?: ViewStyle | ViewStyle[];
 }) {
   const theme = useThemedValues();
 
@@ -40,9 +41,7 @@ function FrostedCard({
         styles.cardShell,
         {
           borderColor: theme.colors.border,
-          backgroundColor: theme.isLight
-            ? "rgba(255,255,255,0.68)"
-            : "rgba(255,255,255,0.02)",
+          backgroundColor: theme.colors.card,
         },
         style,
       ]}
@@ -274,7 +273,7 @@ export default function ManageTemplatesScreen() {
               style={[
                 styles.modalCard,
                 {
-                  backgroundColor: theme.isLight ? "#fff" : "#111",
+                  backgroundColor: theme.colors.cardStrong,
                   borderColor: theme.colors.border,
                 },
               ]}

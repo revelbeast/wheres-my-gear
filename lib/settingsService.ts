@@ -38,7 +38,7 @@ const defaultAddress: AppAddress = {
   city: "",
   state: "",
   zipCode: "",
-  country: "United States",
+  country: "",
 };
 
 const defaultProfile: AppProfile = {
@@ -74,6 +74,31 @@ function notificationSettingsDoc() {
   return doc(db, "appSettings", "notifications");
 }
 
+function clearLegacyTestAddress(profile: AppProfile): AppProfile {
+  const address = profile.address ?? defaultAddress;
+
+  const looksLikeLegacyLaceyTestAddress =
+    address.streetAddress === "" &&
+    address.apartmentSuite === "" &&
+    address.city.trim().toLowerCase() === "lacey" &&
+    address.state === "" &&
+    address.zipCode === "" &&
+    (address.country === "" || address.country === "United States");
+
+  if (!looksLikeLegacyLaceyTestAddress) {
+    return profile;
+  }
+
+  return {
+    ...profile,
+    address: {
+      ...address,
+      city: "",
+      country: "",
+    },
+  };
+}
+
 function removeLegacyHardcodedDefaults(profile: AppProfile): AppProfile {
   const hasLegacyName =
     profile.username === legacyHardcodedProfileValues.username &&
@@ -93,15 +118,15 @@ function removeLegacyHardcodedDefaults(profile: AppProfile): AppProfile {
     profile.address.zipCode === "";
 
   if (!looksLikeUntouchedDefault) {
-    return profile;
+    return clearLegacyTestAddress(profile);
   }
 
-  return {
+  return clearLegacyTestAddress({
     ...profile,
     username: "",
     firstName: "",
     lastName: "",
-  };
+  });
 }
 
 export async function getProfileSettings(userId: string): Promise<AppProfile> {
@@ -126,11 +151,7 @@ export async function getProfileSettings(userId: string): Promise<AppProfile> {
 
   const cleanedProfile = removeLegacyHardcodedDefaults(mergedProfile);
 
-  if (
-    cleanedProfile.username !== mergedProfile.username ||
-    cleanedProfile.firstName !== mergedProfile.firstName ||
-    cleanedProfile.lastName !== mergedProfile.lastName
-  ) {
+  if (JSON.stringify(cleanedProfile) !== JSON.stringify(mergedProfile)) {
     await setDoc(ref, cleanedProfile, { merge: true });
   }
 
@@ -161,8 +182,6 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
   };
 }
 
-export async function saveNotificationSettings(
-  settings: NotificationSettings
-) {
+export async function saveNotificationSettings(settings: NotificationSettings) {
   await setDoc(notificationSettingsDoc(), settings, { merge: true });
 }

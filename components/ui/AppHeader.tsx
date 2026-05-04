@@ -1,4 +1,3 @@
-import { BlurView } from "expo-blur";
 import { router } from "expo-router";
 import { ArrowLeft } from "lucide-react-native";
 import React from "react";
@@ -12,12 +11,23 @@ export default function AppHeader({
   title,
   showBackButton = false,
   rightContent,
+  backHref,
 }: {
   title: string;
   showBackButton?: boolean;
   rightContent?: React.ReactNode;
+  backHref?: string;
 }) {
   const theme = useThemedValues();
+
+  function handleBackPress() {
+    if (backHref) {
+      router.push(backHref as any);
+      return;
+    }
+
+    router.back();
+  }
 
   return (
     <View style={styles.container}>
@@ -33,7 +43,7 @@ export default function AppHeader({
                 borderColor: theme.colors.border,
               },
             ]}
-            onPress={() => router.back()}
+            onPress={handleBackPress}
           >
             <ArrowLeft size={20} color={LABEL_WHITE} />
           </Pressable>

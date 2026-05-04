@@ -13,6 +13,7 @@ import {
   Text,
   TextInput,
   View,
+  ViewStyle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -44,7 +45,7 @@ function FrostedCard({
   style,
 }: {
   children: React.ReactNode;
-  style?: any;
+  style?: ViewStyle | ViewStyle[];
 }) {
   const theme = useThemedValues();
 
@@ -54,9 +55,7 @@ function FrostedCard({
         styles.cardShell,
         {
           borderColor: theme.colors.border,
-          backgroundColor: theme.isLight
-            ? "rgba(255,255,255,0.68)"
-            : "rgba(255,255,255,0.02)",
+          backgroundColor: theme.colors.card,
         },
         style,
       ]}
@@ -104,7 +103,10 @@ export default function NewBlankChecklistScreen() {
     }
 
     if (category === "custom" && !trimmedCustomCategory) {
-      Alert.alert("Custom category required", "Please enter a custom category label.");
+      Alert.alert(
+        "Custom category required",
+        "Please enter a custom category label."
+      );
       return;
     }
 
@@ -169,7 +171,8 @@ export default function NewBlankChecklistScreen() {
                 Create a checklist from scratch
               </Text>
               <Text style={styles.heroSubtitle}>
-                Give it a name, choose a category, then start adding your own items.
+                Give it a name, choose a category, then start adding your own
+                items.
               </Text>
             </View>
 
@@ -244,7 +247,10 @@ export default function NewBlankChecklistScreen() {
                         >
                           {selectedCategoryLabel}
                         </Text>
-                        <ChevronDown size={18} color={theme.colors.textSecondary} />
+                        <ChevronDown
+                          size={18}
+                          color={theme.colors.textSecondary}
+                        />
                       </BlurView>
                     </Pressable>
 
@@ -256,9 +262,7 @@ export default function NewBlankChecklistScreen() {
                           styles.dropdownCard,
                           {
                             borderColor: theme.colors.border,
-                            backgroundColor: theme.isLight
-                              ? "rgba(255,255,255,0.86)"
-                              : "rgba(7,20,44,0.92)",
+                            backgroundColor: theme.colors.cardStrong,
                           },
                         ]}
                       >

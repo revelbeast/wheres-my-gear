@@ -77,9 +77,7 @@ function FrostedCard({
         styles.frostedCard,
         {
           borderColor: theme.colors.border,
-          backgroundColor: theme.isLight
-            ? "rgba(255,255,255,0.68)"
-            : "rgba(255,255,255,0.02)",
+          backgroundColor: theme.colors.card,
         },
         style,
       ]}
@@ -467,19 +465,9 @@ export default function TemplateItemsScreen() {
           packed ? styles.packedItemCard : styles.unpackedItemCard,
           {
             borderColor: packed
-              ? theme.isLight
-                ? "rgba(34,197,94,0.24)"
-                : "rgba(120,255,190,0.10)"
-              : theme.isLight
-                ? "rgba(255,255,255,0.34)"
-                : "rgba(255,255,255,0.12)",
-            backgroundColor: packed
-              ? theme.isLight
-                ? "rgba(255,255,255,0.50)"
-                : "rgba(255,255,255,0.02)"
-              : theme.isLight
-                ? "rgba(255,255,255,0.62)"
-                : "rgba(255,255,255,0.04)",
+              ? "rgba(34,197,94,0.24)"
+              : theme.colors.border,
+            backgroundColor: theme.colors.card,
           },
         ]}
       >
@@ -525,9 +513,7 @@ export default function TemplateItemsScreen() {
                   styles.cancelEditButton,
                   {
                     borderColor: theme.colors.border,
-                    backgroundColor: theme.isLight
-                      ? "rgba(15,23,42,0.06)"
-                      : "rgba(255,255,255,0.06)",
+                    backgroundColor: theme.colors.iconSurface,
                   },
                 ]}
                 onPress={handleCancelEditItem}
@@ -557,9 +543,7 @@ export default function TemplateItemsScreen() {
                   style={[
                     styles.itemPhotoPlaceholder,
                     {
-                      backgroundColor: theme.isLight
-                        ? "rgba(15,23,42,0.08)"
-                        : "rgba(255,255,255,0.06)",
+                      backgroundColor: theme.colors.iconSurface,
                       borderColor: theme.colors.border,
                     },
                   ]}
@@ -601,9 +585,7 @@ export default function TemplateItemsScreen() {
                     style={[
                       styles.iconButton,
                       {
-                        backgroundColor: theme.isLight
-                          ? "rgba(15,23,42,0.08)"
-                          : "rgba(255,255,255,0.06)",
+                        backgroundColor: theme.colors.iconSurface,
                         borderColor: theme.colors.border,
                       },
                     ]}
@@ -616,9 +598,7 @@ export default function TemplateItemsScreen() {
                     style={[
                       styles.iconButton,
                       {
-                        backgroundColor: theme.isLight
-                          ? "rgba(15,23,42,0.08)"
-                          : "rgba(255,255,255,0.06)",
+                        backgroundColor: theme.colors.iconSurface,
                         borderColor: theme.colors.border,
                       },
                     ]}
@@ -631,9 +611,7 @@ export default function TemplateItemsScreen() {
                     style={[
                       styles.iconButton,
                       {
-                        backgroundColor: theme.isLight
-                          ? "rgba(15,23,42,0.08)"
-                          : "rgba(255,255,255,0.06)",
+                        backgroundColor: theme.colors.iconSurface,
                         borderColor: theme.colors.border,
                       },
                     ]}
@@ -700,9 +678,7 @@ export default function TemplateItemsScreen() {
                     style={[
                       styles.quantityButton,
                       {
-                        backgroundColor: theme.isLight
-                          ? "rgba(15,23,42,0.08)"
-                          : "rgba(255,255,255,0.06)",
+                        backgroundColor: theme.colors.iconSurface,
                         borderColor: theme.colors.border,
                       },
                     ]}
@@ -727,9 +703,7 @@ export default function TemplateItemsScreen() {
                     style={[
                       styles.quantityButton,
                       {
-                        backgroundColor: theme.isLight
-                          ? "rgba(15,23,42,0.08)"
-                          : "rgba(255,255,255,0.06)",
+                        backgroundColor: theme.colors.iconSurface,
                         borderColor: theme.colors.border,
                       },
                     ]}
@@ -745,9 +719,7 @@ export default function TemplateItemsScreen() {
                     styles.packToggleButton,
                     packed ? styles.packToggleOn : styles.packToggleOff,
                     !packed && {
-                      backgroundColor: theme.isLight
-                        ? "rgba(15,23,42,0.08)"
-                        : "rgba(255,255,255,0.06)",
+                      backgroundColor: theme.colors.iconSurface,
                       borderColor: theme.colors.border,
                     },
                     isBusy && styles.createButtonDisabled,

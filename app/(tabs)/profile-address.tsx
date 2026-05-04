@@ -10,21 +10,21 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useAuth } from "../components/auth/AuthProvider";
-import AppHeader from "../components/ui/AppHeader";
-import ScreenBackground from "../components/ui/ScreenBackground";
+import { useAuth } from "../../components/auth/AuthProvider";
+import AppHeader from "../../components/ui/AppHeader";
+import ScreenBackground from "../../components/ui/ScreenBackground";
 import {
   ThemedButton,
   ThemedCard,
   ThemedInput,
   ThemedText,
-} from "../components/ui/Themed";
+} from "../../components/ui/Themed";
 import {
   AppAddress,
   AppProfile,
   getProfileSettings,
   saveProfileSettings,
-} from "../lib/settingsService";
+} from "../../lib/settingsService";
 
 const emptyAddress: AppAddress = {
   streetAddress: "",
@@ -32,7 +32,7 @@ const emptyAddress: AppAddress = {
   city: "",
   state: "",
   zipCode: "",
-  country: "United States",
+  country: "",
 };
 
 function formatState(value: string) {
@@ -132,7 +132,7 @@ export default function ProfileAddressScreen() {
       city: address.city.trim(),
       state: formatState(address.state),
       zipCode: formatZipCode(address.zipCode),
-      country: address.country.trim() || "United States",
+      country: address.country.trim(),
     };
 
     try {
@@ -171,7 +171,11 @@ export default function ProfileAddressScreen() {
             keyboardDismissMode="on-drag"
             automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
           >
-            <AppHeader title="My Address" showBackButton />
+            <AppHeader
+              title="My Address"
+              showBackButton
+              backHref="/(tabs)/profile"
+            />
 
             {loading ? (
               <ThemedText color="secondary">Loading address...</ThemedText>

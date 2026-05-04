@@ -6,9 +6,9 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import ScreenBackground from "../components/ui/ScreenBackground";
-import AppHeader from "../components/ui/AppHeader";
-import { colors } from "../theme/tokens";
+import ScreenBackground from "../../components/ui/ScreenBackground";
+import AppHeader from "../../components/ui/AppHeader";
+import { colors } from "../../theme/tokens";
 
 export default function HelpSupportScreen() {
   return (

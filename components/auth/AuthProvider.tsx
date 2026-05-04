@@ -18,6 +18,10 @@ import React, {
 } from "react";
 
 import { auth } from "../../firebaseConfig";
+import {
+  configureRevenueCat,
+  logOutRevenueCatUser,
+} from "../../lib/revenuecat";
 
 type AuthContextValue = {
   user: User | null;
@@ -40,7 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [initializing, setInitializing] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (nextUser) => {
       console.log("Firebase auth state changed:", {
         signedIn: !!nextUser,
         uid: nextUser?.uid ?? null,
@@ -49,6 +53,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setUser(nextUser);
       setInitializing(false);
+
+      if (nextUser?.uid) {
+        await configureRevenueCat(nextUser.uid);
+      }
     });
 
     return unsubscribe;
@@ -122,6 +130,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function signOutUser() {
+    await logOutRevenueCatUser();
     await signOut(auth);
     setUser(null);
   }

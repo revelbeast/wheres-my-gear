@@ -9,21 +9,21 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useAuth } from "../components/auth/AuthProvider";
-import AppHeader from "../components/ui/AppHeader";
-import ScreenBackground from "../components/ui/ScreenBackground";
+import { useAuth } from "../../components/auth/AuthProvider";
+import AppHeader from "../../components/ui/AppHeader";
+import ScreenBackground from "../../components/ui/ScreenBackground";
 import {
   ThemedButton,
   ThemedCard,
   ThemedText,
   useThemedValues,
-} from "../components/ui/Themed";
+} from "../../components/ui/Themed";
 import {
   AppProfile,
   AppTheme,
   getProfileSettings,
   saveProfileSettings,
-} from "../lib/settingsService";
+} from "../../lib/settingsService";
 
 export default function GeneralSettingsScreen() {
   const { user } = useAuth();
@@ -116,7 +116,11 @@ export default function GeneralSettingsScreen() {
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
         >
-          <AppHeader title="General Settings" showBackButton />
+          <AppHeader
+            title="General Settings"
+            showBackButton
+            backHref="/(tabs)/profile"
+          />
 
           {loading ? (
             <ThemedText color="secondary">Loading settings...</ThemedText>
@@ -136,7 +140,8 @@ export default function GeneralSettingsScreen() {
                   Display Preferences
                 </ThemedText>
                 <ThemedText color="secondary" style={styles.heroText}>
-                  Adjust your app theme. Theme preference is saved to your profile.
+                  Adjust your app theme. Theme preference is saved to your
+                  profile.
                 </ThemedText>
               </ThemedCard>
 
@@ -151,7 +156,8 @@ export default function GeneralSettingsScreen() {
                 </View>
 
                 <ThemedText color="secondary" style={styles.helperText}>
-                  Theme is saved to your profile and applied to screens using the shared themed components.
+                  Theme is saved to your profile and applied to screens using
+                  the shared themed components.
                 </ThemedText>
               </ThemedCard>
 

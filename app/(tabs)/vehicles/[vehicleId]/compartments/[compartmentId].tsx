@@ -54,15 +54,13 @@ function FrostedCard({
 
   return (
     <BlurView
-      intensity={theme.isLight ? 22 : 35}
+      intensity={theme.isLight ? 18 : 35}
       tint={theme.isLight ? "light" : "dark"}
       style={[
         styles.frostedCard,
         {
           borderColor: theme.colors.border,
-          backgroundColor: theme.isLight
-            ? "rgba(255,255,255,0.68)"
-            : "rgba(255,255,255,0.02)",
+          backgroundColor: theme.colors.card,
         },
         style,
       ]}
@@ -450,9 +448,7 @@ export default function CompartmentDetailScreen() {
         styles.headerActionWrap,
         {
           borderColor: theme.colors.border,
-          backgroundColor: theme.isLight
-            ? "rgba(255,255,255,0.42)"
-            : "rgba(255,255,255,0.04)",
+          backgroundColor: theme.colors.card,
         },
       ]}
     >
@@ -495,19 +491,9 @@ export default function CompartmentDetailScreen() {
             packed ? styles.packedItemCard : styles.unpackedItemCard,
             {
               borderColor: packed
-                ? theme.isLight
-                  ? "rgba(34,197,94,0.24)"
-                  : "rgba(120,255,190,0.10)"
-                : theme.isLight
-                  ? "rgba(255,255,255,0.34)"
-                  : "rgba(255,255,255,0.12)",
-              backgroundColor: packed
-                ? theme.isLight
-                  ? "rgba(255,255,255,0.50)"
-                  : "rgba(255,255,255,0.02)"
-                : theme.isLight
-                  ? "rgba(255,255,255,0.62)"
-                  : "rgba(255,255,255,0.04)",
+                ? theme.colors.success
+                : theme.colors.border,
+              backgroundColor: theme.colors.card,
             },
           ]}
         >
@@ -553,9 +539,7 @@ export default function CompartmentDetailScreen() {
                     styles.cancelEditButton,
                     {
                       borderColor: theme.colors.border,
-                      backgroundColor: theme.isLight
-                        ? "rgba(15,23,42,0.06)"
-                        : "rgba(255,255,255,0.06)",
+                      backgroundColor: theme.colors.iconSurface,
                     },
                   ]}
                   onPress={cancelEditingItem}
@@ -586,9 +570,7 @@ export default function CompartmentDetailScreen() {
                     style={[
                       styles.itemPhotoPlaceholder,
                       {
-                        backgroundColor: theme.isLight
-                          ? "rgba(15,23,42,0.08)"
-                          : "rgba(255,255,255,0.06)",
+                        backgroundColor: theme.colors.iconSurface,
                         borderColor: theme.colors.border,
                       },
                     ]}
@@ -629,9 +611,7 @@ export default function CompartmentDetailScreen() {
                       style={[
                         styles.iconButton,
                         {
-                          backgroundColor: theme.isLight
-                            ? "rgba(15,23,42,0.08)"
-                            : "rgba(255,255,255,0.06)",
+                          backgroundColor: theme.colors.iconSurface,
                           borderColor: theme.colors.border,
                         },
                       ]}
@@ -644,9 +624,7 @@ export default function CompartmentDetailScreen() {
                       style={[
                         styles.iconButton,
                         {
-                          backgroundColor: theme.isLight
-                            ? "rgba(15,23,42,0.08)"
-                            : "rgba(255,255,255,0.06)",
+                          backgroundColor: theme.colors.iconSurface,
                           borderColor: theme.colors.border,
                         },
                       ]}
@@ -659,9 +637,7 @@ export default function CompartmentDetailScreen() {
                       style={[
                         styles.iconButton,
                         {
-                          backgroundColor: theme.isLight
-                            ? "rgba(15,23,42,0.08)"
-                            : "rgba(255,255,255,0.06)",
+                          backgroundColor: theme.colors.iconSurface,
                           borderColor: theme.colors.border,
                         },
                       ]}
@@ -726,9 +702,7 @@ export default function CompartmentDetailScreen() {
                       style={[
                         styles.quantityButton,
                         {
-                          backgroundColor: theme.isLight
-                            ? "rgba(15,23,42,0.08)"
-                            : "rgba(255,255,255,0.06)",
+                          backgroundColor: theme.colors.iconSurface,
                           borderColor: theme.colors.border,
                         },
                       ]}
@@ -753,9 +727,7 @@ export default function CompartmentDetailScreen() {
                       style={[
                         styles.quantityButton,
                         {
-                          backgroundColor: theme.isLight
-                            ? "rgba(15,23,42,0.08)"
-                            : "rgba(255,255,255,0.06)",
+                          backgroundColor: theme.colors.iconSurface,
                           borderColor: theme.colors.border,
                         },
                       ]}
@@ -771,9 +743,7 @@ export default function CompartmentDetailScreen() {
                       styles.packToggleButton,
                       packed ? styles.packToggleOn : styles.packToggleOff,
                       !packed && {
-                        backgroundColor: theme.isLight
-                          ? "rgba(15,23,42,0.08)"
-                          : "rgba(255,255,255,0.06)",
+                        backgroundColor: theme.colors.iconSurface,
                         borderColor: theme.colors.border,
                       },
                       isBusy && styles.createButtonDisabled,

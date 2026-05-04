@@ -132,12 +132,8 @@ function ActionCard({
 
   const actionCardStyle = highlight
     ? {
-        borderColor: theme.isLight
-          ? "rgba(59,130,246,0.40)"
-          : "rgba(55,130,245,0.35)",
-        backgroundColor: theme.isLight
-          ? "rgba(255,255,255,0.72)"
-          : "rgba(55,130,245,0.14)",
+        borderColor: theme.colors.primary,
+        backgroundColor: theme.colors.card,
       }
     : {
         borderColor: theme.colors.border,
@@ -156,9 +152,7 @@ function ActionCard({
             style={[
               styles.actionIconWrap,
               {
-                backgroundColor: theme.isLight
-                  ? "rgba(15,23,42,0.08)"
-                  : theme.colors.iconSurface,
+                backgroundColor: theme.colors.iconSurface,
                 borderColor: theme.colors.border,
               },
             ]}
@@ -211,9 +205,7 @@ function EmptyChecklistCard({
         style={[
           styles.emptyIconWrap,
           {
-            backgroundColor: theme.isLight
-              ? "rgba(15,23,42,0.08)"
-              : theme.colors.iconSurface,
+            backgroundColor: theme.colors.iconSurface,
             borderColor: theme.colors.border,
           },
         ]}

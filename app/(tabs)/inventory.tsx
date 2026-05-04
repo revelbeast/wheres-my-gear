@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   ChevronRight,
   FolderCog,
-  Plus,
   Search,
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -287,7 +286,15 @@ export default function InventoryScreen() {
           },
         ]}
       >
-        <View style={styles.emptyIconWrap}>
+        <View
+          style={[
+            styles.emptyIconWrap,
+            {
+              backgroundColor: theme.colors.iconSurface,
+              borderColor: theme.colors.border,
+            },
+          ]}
+        >
           {inventoryItems.length === 0 ? (
             <FolderCog size={24} color={theme.colors.text} />
           ) : searchQuery.trim().length > 0 ? (
@@ -458,11 +465,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: 12,
   },
+
   searchRow: {
     flexDirection: "row",
     alignItems: "center",
     padding: 12,
   },
+
   searchInput: {
     flex: 1,
     marginLeft: 10,
@@ -473,9 +482,11 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 14,
   },
+
   filterPressable: {
     flex: 1,
   },
+
   filterChip: {
     borderRadius: 14,
     borderWidth: 1,
@@ -493,10 +504,12 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 8,
   },
+
   itemRow: {
     flexDirection: "row",
     alignItems: "center",
   },
+
   statusText: {
     marginTop: 4,
     fontWeight: "700",
@@ -510,6 +523,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     overflow: "hidden",
   },
+
   emptyIconWrap: {
     width: 48,
     height: 48,
@@ -517,22 +531,24 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 12,
-    backgroundColor: "rgba(255,255,255,0.10)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.14)",
   },
+
   emptyTitle: {
     marginBottom: 6,
     textAlign: "center",
   },
+
   emptyText: {
     textAlign: "center",
     lineHeight: 20,
   },
+
   emptyButton: {
     marginTop: 14,
     alignSelf: "stretch",
   },
+
   emptyButtonText: {
     color: "#fff",
     fontWeight: "700",

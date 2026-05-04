@@ -68,15 +68,13 @@ function FrostedCard({
         styles.frostedCard,
         {
           borderColor: theme.colors.border,
-          backgroundColor: theme.isLight
-            ? "rgba(255,255,255,0.65)"
-            : theme.colors.card,
+          backgroundColor: theme.colors.card,
         },
         style,
       ]}
     >
       <BlurView
-        intensity={theme.isLight ? 22 : 35}
+        intensity={theme.isLight ? 18 : 35}
         tint={theme.isLight ? "light" : "dark"}
         style={styles.frostedBlur}
       >
@@ -299,9 +297,7 @@ export default function CompartmentsScreen() {
                 style={[
                   styles.headerIconButton,
                   {
-                    backgroundColor: theme.isLight
-                      ? "rgba(15,23,42,0.16)"
-                      : "rgba(255,255,255,0.08)",
+                    backgroundColor: theme.colors.iconSurface,
                     borderColor: theme.colors.border,
                   },
                 ]}
@@ -328,9 +324,7 @@ export default function CompartmentsScreen() {
                   style={[
                     styles.headerIconButton,
                     {
-                      backgroundColor: theme.isLight
-                        ? "rgba(15,23,42,0.16)"
-                        : "rgba(255,255,255,0.08)",
+                      backgroundColor: theme.colors.iconSurface,
                       borderColor: theme.colors.border,
                     },
                   ]}
@@ -446,9 +440,7 @@ export default function CompartmentsScreen() {
                                   styles.cancelEditButton,
                                   {
                                     borderColor: theme.colors.border,
-                                    backgroundColor: theme.isLight
-                                      ? "rgba(15,23,42,0.06)"
-                                      : "rgba(255,255,255,0.06)",
+                                    backgroundColor: theme.colors.iconSurface,
                                   },
                                 ]}
                                 onPress={cancelEditingCompartment}
@@ -489,9 +481,7 @@ export default function CompartmentsScreen() {
                                 style={[
                                   styles.iconButton,
                                   {
-                                    backgroundColor: theme.isLight
-                                      ? "rgba(15,23,42,0.08)"
-                                      : "rgba(255,255,255,0.06)",
+                                    backgroundColor: theme.colors.iconSurface,
                                     borderColor: theme.colors.border,
                                   },
                                 ]}
@@ -509,9 +499,7 @@ export default function CompartmentsScreen() {
                                 style={[
                                   styles.iconButton,
                                   {
-                                    backgroundColor: theme.isLight
-                                      ? "rgba(15,23,42,0.08)"
-                                      : "rgba(255,255,255,0.06)",
+                                    backgroundColor: theme.colors.iconSurface,
                                     borderColor: theme.colors.border,
                                   },
                                 ]}

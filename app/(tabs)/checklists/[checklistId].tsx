@@ -75,9 +75,7 @@ function FrostedCard({
         styles.card,
         {
           borderColor: theme.colors.border,
-          backgroundColor: theme.isLight
-            ? "rgba(255,255,255,0.68)"
-            : "rgba(255,255,255,0.03)",
+          backgroundColor: theme.colors.card,
         },
         style,
       ]}
@@ -731,9 +729,7 @@ export default function ChecklistDetailScreen() {
       style={[
         styles.headerActionButton,
         {
-          backgroundColor: theme.isLight
-            ? "rgba(255,255,255,0.35)"
-            : "rgba(12,24,50,0.9)",
+          backgroundColor: theme.colors.iconSurface,
           borderColor: theme.colors.border,
         },
       ]}
@@ -760,17 +756,9 @@ export default function ChecklistDetailScreen() {
           isPacked ? styles.packedItemCard : styles.unpackedItemCard,
           {
             borderColor: isPacked
-              ? theme.isLight
-                ? "rgba(34,197,94,0.24)"
-                : "rgba(120,255,190,0.10)"
-              : theme.isLight
-                ? "rgba(255,255,255,0.34)"
-                : "rgba(255,255,255,0.12)",
-            backgroundColor: theme.isLight
-              ? "rgba(255,255,255,0.64)"
-              : isPacked
-                ? "rgba(255,255,255,0.02)"
-                : "rgba(255,255,255,0.04)",
+              ? "rgba(34,197,94,0.24)"
+              : theme.colors.border,
+            backgroundColor: theme.colors.card,
           },
         ]}
       >
@@ -1253,9 +1241,7 @@ export default function ChecklistDetailScreen() {
                 style={[
                   styles.createCard,
                   {
-                    backgroundColor: theme.isLight
-                      ? "rgba(255,255,255,0.68)"
-                      : "rgba(12,24,50,0.9)",
+                    backgroundColor: theme.colors.card,
                     borderColor: theme.colors.border,
                   },
                 ]}
@@ -1432,7 +1418,7 @@ export default function ChecklistDetailScreen() {
               style={[
                 styles.modalCard,
                 {
-                  backgroundColor: theme.isLight ? "#fff" : "#111",
+                  backgroundColor: theme.colors.cardStrong,
                   borderColor: theme.colors.border,
                 },
               ]}
@@ -1491,7 +1477,7 @@ export default function ChecklistDetailScreen() {
               style={[
                 styles.modalCard,
                 {
-                  backgroundColor: theme.isLight ? "#fff" : "#111",
+                  backgroundColor: theme.colors.cardStrong,
                   borderColor: theme.colors.border,
                 },
               ]}

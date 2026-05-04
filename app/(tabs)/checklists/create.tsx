@@ -59,9 +59,7 @@ function FrostedCard({
         styles.card,
         {
           borderColor: theme.colors.border,
-          backgroundColor: theme.isLight
-            ? "rgba(255,255,255,0.68)"
-            : "rgba(255,255,255,0.03)",
+          backgroundColor: theme.colors.card,
         },
         style,
       ]}
@@ -779,9 +777,7 @@ export default function CreateChecklistScreen() {
                   styles.modalCard,
                   {
                     borderColor: theme.colors.border,
-                    backgroundColor: theme.isLight
-                      ? "rgba(255,255,255,0.94)"
-                      : "rgba(255,255,255,0.04)",
+                    backgroundColor: theme.colors.cardStrong,
                   },
                 ]}
               >

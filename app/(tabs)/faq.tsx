@@ -3,13 +3,13 @@ import React, { useState } from "react";
 import { Pressable, ScrollView, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import AppHeader from "../components/ui/AppHeader";
-import ScreenBackground from "../components/ui/ScreenBackground";
+import AppHeader from "../../components/ui/AppHeader";
+import ScreenBackground from "../../components/ui/ScreenBackground";
 import {
   ThemedCard,
   ThemedText,
   useThemedValues,
-} from "../components/ui/Themed";
+} from "../../components/ui/Themed";
 
 type FAQItem = {
   question: string;
@@ -21,6 +21,21 @@ const FAQ_ITEMS: FAQItem[] = [
     question: "What is Where's My Gear?",
     answer:
       "Where's My Gear helps you track gear by storage space, compartment, and checklist so you know where items are located and what still needs to be packed.",
+  },
+  {
+    question: "What are Upcoming Trips?",
+    answer:
+      "Upcoming Trips help you plan ahead by organizing your packing needs by date. You can create a trip, assign a date, and track what needs to be packed before you leave.",
+  },
+  {
+    question: "How do I use Upcoming Trips?",
+    answer:
+      "Create a trip from the Dashboard, select your trip date, and add or link a checklist. As your trip approaches, you can track your progress using Packed and To Pack items.",
+  },
+  {
+    question: "Will I get reminders for Upcoming Trips?",
+    answer:
+      "Upcoming Trips reminders are planned for a future update. You will be able to receive notifications as your trip date approaches.",
   },
   {
     question: "What is a Storage Space?",
@@ -94,7 +109,7 @@ export default function FAQScreen() {
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
         >
-          <AppHeader title="FAQ" showBackButton />
+          <AppHeader title="FAQ" showBackButton backHref="/(tabs)/profile" />
 
           <ThemedCard style={styles.heroCard}>
             <ThemedText variant="title" style={styles.heroTitle}>
@@ -102,7 +117,8 @@ export default function FAQScreen() {
             </ThemedText>
 
             <ThemedText color="secondary" style={styles.heroText}>
-              Quick answers about storage spaces, compartments, items, checklists, notes, photos, and account data.
+              Quick answers about storage spaces, compartments, items,
+              checklists, notes, photos, and account data.
             </ThemedText>
           </ThemedCard>
 

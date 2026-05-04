@@ -40,6 +40,10 @@ async function logInRevenueCatUser(userId?: string | null) {
   try {
     await Purchases.logIn(trimmedUserId);
     currentLoggedInUserId = trimmedUserId;
+
+    console.log("RevenueCat user linked:", {
+      appUserId: trimmedUserId,
+    });
   } catch (e: any) {
     const message = String(e?.message ?? e ?? "");
 
@@ -113,6 +117,26 @@ export async function configureRevenueCat(userId?: string | null) {
 
 export async function initRevenueCat(userId?: string | null) {
   return configureRevenueCat(userId);
+}
+
+export async function logOutRevenueCatUser() {
+  if (!isConfigured && configurePromise) {
+    await configurePromise;
+  }
+
+  if (!isConfigured || !currentLoggedInUserId) {
+    currentLoggedInUserId = null;
+    return;
+  }
+
+  try {
+    await Purchases.logOut();
+    console.log("RevenueCat user logged out.");
+  } catch (e) {
+    console.log("RevenueCat logout unavailable:", e);
+  } finally {
+    currentLoggedInUserId = null;
+  }
 }
 
 export async function getOfferings() {

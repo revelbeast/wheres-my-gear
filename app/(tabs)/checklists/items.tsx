@@ -2,7 +2,14 @@ import { BlurView } from "expo-blur";
 import { router, useLocalSearchParams } from "expo-router";
 import { CheckCircle2, ChevronRight, ListChecks } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  ViewStyle,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../../components/auth/AuthProvider";
@@ -31,7 +38,7 @@ function FrostedCard({
   style,
 }: {
   children: React.ReactNode;
-  style?: any;
+  style?: ViewStyle | ViewStyle[];
 }) {
   const theme = useThemedValues();
 
@@ -41,9 +48,7 @@ function FrostedCard({
         styles.cardShell,
         {
           borderColor: theme.colors.border,
-          backgroundColor: theme.isLight
-            ? "rgba(255,255,255,0.68)"
-            : "rgba(255,255,255,0.02)",
+          backgroundColor: theme.colors.card,
         },
         style,
       ]}
