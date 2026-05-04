@@ -1074,13 +1074,18 @@ export default function DashboardScreen() {
         >
           <View style={styles.headerRow}>
             <View style={styles.brandRow}>
-              <MapPin size={22} color={LABEL_WHITE} />
-              <ThemedText
-                variant="header"
-                style={[styles.brandText, styles.whiteLabel]}
-              >
-                Where&apos;s My Gear
-              </ThemedText>
+              <View style={styles.brandIconGlow}>
+                <MapPin size={24} color={LABEL_WHITE} />
+              </View>
+
+              <View style={styles.brandTitleWrap}>
+                <ThemedText
+                  variant="header"
+                  style={[styles.brandText, styles.whiteLabel]}
+                >
+                  Where&apos;s My Gear
+                </ThemedText>
+              </View>
             </View>
 
             <Pressable style={styles.profileButton} onPress={handleOpenProfile}>
@@ -1091,7 +1096,7 @@ export default function DashboardScreen() {
                   onError={() => setProfilePhotoFailed(true)}
                 />
               ) : (
-                <UserCircle2 size={32} color={LABEL_WHITE} />
+                <UserCircle2 size={44} color={LABEL_WHITE} />
               )}
             </Pressable>
           </View>
@@ -1623,25 +1628,56 @@ const styles = StyleSheet.create({
     paddingRight: 12,
   },
 
+  brandIconGlow: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(37,99,235,0.28)",
+    borderWidth: 1,
+    borderColor: "rgba(147,197,253,0.34)",
+    shadowColor: "#60A5FA",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.45,
+    shadowRadius: 8,
+  },
+
+  brandTitleWrap: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    backgroundColor: "rgba(37,99,235,0.20)",
+    borderWidth: 1,
+    borderColor: "rgba(147,197,253,0.26)",
+    shadowColor: "#60A5FA",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.42,
+    shadowRadius: 10,
+  },
+
   brandText: {
     fontWeight: "700",
+    textShadowColor: "rgba(96,165,250,0.85)",
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 8,
   },
 
   profileButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
+    width: 60,
+    height: 60,
+    borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.10)",
+    backgroundColor: "rgba(255,255,255,0.12)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.14)",
+    borderColor: "rgba(255,255,255,0.18)",
   },
 
   profileAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 52,
+    height: 52,
+    borderRadius: 27,
   },
 
   searchCard: {
