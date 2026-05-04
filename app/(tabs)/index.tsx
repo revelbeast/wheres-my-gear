@@ -48,7 +48,7 @@ import {
   Item,
   StorageSpace,
 } from "../../lib/gearService";
-import { getOfferings, isPremiumUser } from "../../lib/revenuecat";
+import { isPremiumUser } from "../../lib/revenuecat";
 import { getProfileSettings } from "../../lib/settingsService";
 import type {
   Checklist,
@@ -428,46 +428,75 @@ export default function DashboardScreen() {
     }
   }, [initializing, user]);
 
-  useEffect(() => {
-    async function testRevenueCat() {
-      try {
-        setIsPremiumLoading(true);
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
 
-        const offerings = await getOfferings();
-        console.log("RevenueCat offerings:", offerings);
+      async function checkPremiumAccess() {
+        if (initializing) {
+          return;
+        }
 
-        const premium = await isPremiumUser();
-        console.log("RevenueCat is premium:", premium);
-        setIsPremium(premium);
-      } catch (error) {
-        console.error("RevenueCat dashboard test failed:", error);
-        setIsPremium(false);
-      } finally {
-        setIsPremiumLoading(false);
+        if (!user) {
+          setIsPremium(false);
+          setIsPremiumLoading(false);
+          return;
+        }
+
+        try {
+          setIsPremiumLoading(true);
+
+          const premium = await isPremiumUser();
+
+          if (!isActive) {
+            return;
+          }
+
+          setIsPremium(premium);
+
+          if (!premium) {
+            router.replace("/paywall");
+          }
+        } catch (error) {
+          console.error("RevenueCat premium gate failed:", error);
+
+          if (!isActive) {
+            return;
+          }
+
+          setIsPremium(false);
+          router.replace("/paywall");
+        } finally {
+          if (isActive) {
+            setIsPremiumLoading(false);
+          }
+        }
       }
-    }
 
-    if (!initializing && user) {
-      testRevenueCat();
-    }
-  }, [initializing, user]);
+      checkPremiumAccess();
+
+      return () => {
+        isActive = false;
+      };
+    }, [initializing, user])
+  );
 
   useFocusEffect(
     useCallback(() => {
-      if (initializing || !user) {
+      if (initializing || !user || isPremiumLoading || !isPremium) {
         return;
       }
 
       loadDashboardData();
       loadProfilePhoto();
-    }, [initializing, user, selectedStorageId])
+    }, [initializing, user, isPremiumLoading, isPremium, selectedStorageId])
   );
 
   useEffect(() => {
     const runSearch = async () => {
       const trimmed = normalizeSearchValue(searchQuery);
 
-      if (initializing || !user) {
+      if (initializing || !user || isPremiumLoading || !isPremium) {
         setSearchResults([]);
         setIsSearching(false);
         return;
@@ -622,6 +651,8 @@ export default function DashboardScreen() {
     searchQuery,
     initializing,
     user,
+    isPremiumLoading,
+    isPremium,
     allItems,
     allChecklistItems,
     allTemplateItems,
@@ -826,7 +857,7 @@ export default function DashboardScreen() {
   }
 
   async function handleSelectStorage(space: StorageSpace) {
-    if (!user) {
+    if (!user || !isPremium) {
       return;
     }
 
@@ -857,6 +888,11 @@ export default function DashboardScreen() {
   }
 
   function handleSearchResultPress(item: SearchResultItem) {
+    if (!isPremium) {
+      router.replace("/paywall");
+      return;
+    }
+
     if (item.type === "item") {
       if (!item.vehicleId || !item.compartmentId) {
         return;
@@ -1005,6 +1041,29 @@ export default function DashboardScreen() {
     return null;
   }
 
+  if (!initializing && user && isPremiumLoading) {
+    return (
+      <ScreenBackground>
+        <SafeAreaView style={styles.safe}>
+          <View style={styles.loadingGateWrap}>
+            <ThemedCard style={styles.emptyCard}>
+              <ThemedText variant="bodyStrong" style={styles.emptyTitle}>
+                Checking Premium access
+              </ThemedText>
+              <ThemedText color="secondary" style={styles.emptyText}>
+                Verifying your trial or subscription.
+              </ThemedText>
+            </ThemedCard>
+          </View>
+        </SafeAreaView>
+      </ScreenBackground>
+    );
+  }
+
+  if (!initializing && user && !isPremium) {
+    return null;
+  }
+
   return (
     <ScreenBackground>
       <SafeAreaView style={styles.safe}>
@@ -1056,7 +1115,7 @@ export default function DashboardScreen() {
                 autoCapitalize="none"
                 autoCorrect={false}
                 returnKeyType="search"
-                editable={!initializing && !!user}
+                editable={!initializing && !!user && isPremium}
               />
 
               {searchQuery.length > 0 && (
@@ -1505,6 +1564,12 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: "transparent",
+  },
+
+  loadingGateWrap: {
+    flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: 16,
   },
 
   content: {

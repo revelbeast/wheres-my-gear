@@ -117,7 +117,7 @@ export default function PaywallScreen() {
         Alert.alert(
           "Premium unlocked",
           "Your Premium subscription is now active.",
-          [{ text: "Continue", onPress: () => router.back() }]
+          [{ text: "Continue", onPress: () => router.replace("/") }]
         );
         return;
       }
@@ -128,7 +128,7 @@ export default function PaywallScreen() {
         Alert.alert(
           "Premium restored",
           "Your Premium subscription is active.",
-          [{ text: "Continue", onPress: () => router.back() }]
+          [{ text: "Continue", onPress: () => router.replace("/") }]
         );
       } else {
         Alert.alert(
@@ -161,7 +161,7 @@ export default function PaywallScreen() {
         Alert.alert(
           "Purchases restored",
           "Your Premium subscription is active.",
-          [{ text: "Continue", onPress: () => router.back() }]
+          [{ text: "Continue", onPress: () => router.replace("/") }]
         );
       } else {
         Alert.alert(
@@ -238,7 +238,7 @@ export default function PaywallScreen() {
                     {priceText}
                   </ThemedText>
                   <ThemedText style={styles.trialText}>
-                    Includes your 7-day free trial when available.
+                    7 days free, then {priceText}. Cancel anytime.
                   </ThemedText>
                 </>
               )}
@@ -257,7 +257,7 @@ export default function PaywallScreen() {
               disabled={purchasing}
             >
               <ThemedText style={styles.subscribeButtonText}>
-                {purchasing ? "Processing..." : "Start Premium"}
+                {purchasing ? "Processing..." : "Start 7-Day Free Trial"}
               </ThemedText>
             </ThemedButton>
 
