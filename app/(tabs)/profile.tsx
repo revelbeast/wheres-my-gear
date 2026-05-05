@@ -17,19 +17,13 @@ import {
   User,
 } from "lucide-react-native";
 import React, { useEffect, useRef, useState } from "react";
-import {
-  Alert,
-  Linking,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
-} from "react-native";
+import { Alert, Linking, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { collection, getDocs, writeBatch } from "firebase/firestore";
 
 import ScreenBackground from "../../components/ui/ScreenBackground";
 import { useAuth } from "../../components/auth/AuthProvider";
+import HapticPressable from "../../components/ui/HapticPressable";
 import {
   ThemedCard,
   ThemedText,
@@ -72,7 +66,7 @@ function ProfileRow({
   const theme = useThemedValues();
 
   return (
-    <Pressable
+    <HapticPressable
       style={[styles.row, disabled && styles.disabledRow]}
       onPress={onPress}
       disabled={disabled || !onPress}
@@ -110,7 +104,7 @@ function ProfileRow({
       {showChevron ? (
         <ChevronRight size={18} color={theme.colors.textSecondary} />
       ) : null}
-    </Pressable>
+    </HapticPressable>
   );
 }
 

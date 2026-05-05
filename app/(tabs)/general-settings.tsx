@@ -1,16 +1,11 @@
 import { Check, Moon, Sun } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
-import {
-  Alert,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
-} from "react-native";
+import { Alert, ScrollView, StyleSheet, Switch, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../components/auth/AuthProvider";
 import AppHeader from "../../components/ui/AppHeader";
+import HapticPressable from "../../components/ui/HapticPressable";
 import ScreenBackground from "../../components/ui/ScreenBackground";
 import {
   ThemedButton,
@@ -18,6 +13,7 @@ import {
   ThemedText,
   useThemedValues,
 } from "../../components/ui/Themed";
+import { setHapticsEnabled as setGlobalHapticsEnabled } from "../../lib/haptics";
 import {
   AppProfile,
   AppTheme,
@@ -31,6 +27,7 @@ export default function GeneralSettingsScreen() {
 
   const [profile, setProfile] = useState<AppProfile | null>(null);
   const [theme, setTheme] = useState<AppTheme>("dark");
+  const [hapticsEnabled, setHapticsEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -49,9 +46,12 @@ export default function GeneralSettingsScreen() {
       setLoading(true);
 
       const data = await getProfileSettings(user.uid);
+      const nextHapticsEnabled = data.hapticsEnabled ?? true;
 
       setProfile(data);
       setTheme(data.theme ?? "dark");
+      setHapticsEnabled(nextHapticsEnabled);
+      setGlobalHapticsEnabled(nextHapticsEnabled);
     } catch (err) {
       console.error("Failed to load general settings:", err);
       Alert.alert("Error", "Failed to load general settings.");
@@ -69,9 +69,11 @@ export default function GeneralSettingsScreen() {
       const nextProfile: AppProfile = {
         ...profile,
         theme,
+        hapticsEnabled,
       };
 
       await saveProfileSettings(user.uid, nextProfile);
+      setGlobalHapticsEnabled(hapticsEnabled);
       setProfile(nextProfile);
 
       Alert.alert("Saved", "General settings have been updated.");
@@ -89,7 +91,7 @@ export default function GeneralSettingsScreen() {
     const label = option === "dark" ? "Dark" : "Light";
 
     return (
-      <Pressable
+      <HapticPressable
         style={[
           styles.themeOption,
           {
@@ -105,7 +107,7 @@ export default function GeneralSettingsScreen() {
       >
         <Icon size={20} color={activeTheme.colors.text} />
         <ThemedText variant="bodyStrong">{label}</ThemedText>
-      </Pressable>
+      </HapticPressable>
     );
   }
 
@@ -140,8 +142,8 @@ export default function GeneralSettingsScreen() {
                   Display Preferences
                 </ThemedText>
                 <ThemedText color="secondary" style={styles.heroText}>
-                  Adjust your app theme. Theme preference is saved to your
-                  profile.
+                  Adjust your app theme and feedback preferences. Settings are
+                  saved to your profile.
                 </ThemedText>
               </ThemedCard>
 
@@ -159,6 +161,35 @@ export default function GeneralSettingsScreen() {
                   Theme is saved to your profile and applied to screens using
                   the shared themed components.
                 </ThemedText>
+              </ThemedCard>
+
+              <ThemedCard style={styles.feedbackCard}>
+                <View style={styles.settingRow}>
+                  <View style={styles.settingTextBlock}>
+                    <ThemedText variant="bodyStrong">
+                      Haptic Feedback
+                    </ThemedText>
+                    <ThemedText color="secondary" style={styles.settingHelper}>
+                      Enable subtle vibration feedback for supported app
+                      interactions.
+                    </ThemedText>
+                  </View>
+
+                  <Switch
+                    value={hapticsEnabled}
+                    onValueChange={setHapticsEnabled}
+                    trackColor={{
+                      false: activeTheme.colors.inputSurface,
+                      true: "rgba(55,130,245,0.45)",
+                    }}
+                    thumbColor={
+                      hapticsEnabled
+                        ? activeTheme.colors.primary
+                        : activeTheme.colors.textMuted
+                    }
+                    ios_backgroundColor={activeTheme.colors.inputSurface}
+                  />
+                </View>
               </ThemedCard>
 
               <ThemedButton onPress={handleSaveSettings} disabled={saving}>
@@ -215,6 +246,26 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
+  },
+
+  feedbackCard: {
+    marginTop: 16,
+  },
+
+  settingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 16,
+  },
+
+  settingTextBlock: {
+    flex: 1,
+  },
+
+  settingHelper: {
+    marginTop: 4,
+    lineHeight: 20,
   },
 
   saveButtonText: {

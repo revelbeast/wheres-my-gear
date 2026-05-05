@@ -1,10 +1,11 @@
 import { router } from "expo-router";
 import { ChevronRight, Shield, UserCircle2 } from "lucide-react-native";
 import React, { useEffect, useRef } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import AppHeader from "../../components/ui/AppHeader";
+import HapticPressable from "../../components/ui/HapticPressable";
 import ScreenBackground from "../../components/ui/ScreenBackground";
 import { useThemedValues } from "../../components/ui/Themed";
 import { useInteractionLock } from "../../lib/useInteractionLock";
@@ -27,7 +28,7 @@ function SettingRow({
   const theme = useThemedValues();
 
   return (
-    <Pressable
+    <HapticPressable
       style={[
         styles.rowCard,
         {
@@ -70,7 +71,7 @@ function SettingRow({
       <View style={styles.chevronWrap}>
         <ChevronRight size={18} color={theme.colors.textSecondary} />
       </View>
-    </Pressable>
+    </HapticPressable>
   );
 }
 
@@ -146,7 +147,7 @@ export default function SettingsScreen() {
         >
           <AppHeader title="Profile & Settings" showBackButton />
 
-          <Pressable
+          <HapticPressable
             style={[
               styles.profileCard,
               {
@@ -195,7 +196,7 @@ export default function SettingsScreen() {
             <View style={styles.chevronWrap}>
               <ChevronRight size={18} color={theme.colors.textSecondary} />
             </View>
-          </Pressable>
+          </HapticPressable>
 
           <View style={styles.section}>
             <Text
