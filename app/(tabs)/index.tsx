@@ -13,7 +13,7 @@ import {
   Search,
   UserCircle2,
 } from "lucide-react-native";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Image,
   Pressable,
@@ -50,6 +50,7 @@ import {
 } from "../../lib/gearService";
 import { isPremiumUser } from "../../lib/revenuecat";
 import { getProfileSettings } from "../../lib/settingsService";
+import { useInteractionLock } from "../../lib/useInteractionLock";
 import type {
   Checklist,
   ChecklistTemplate,
@@ -157,13 +158,19 @@ function NoteCard({
   icon,
   title,
   onPress,
+  disabled = false,
 }: {
   icon: React.ReactNode;
   title: string;
   onPress: () => void;
+  disabled?: boolean;
 }) {
   return (
-    <Pressable style={styles.statPressable} onPress={onPress}>
+    <Pressable
+      style={[styles.statPressable, disabled && styles.disabledInteraction]}
+      onPress={onPress}
+      disabled={disabled}
+    >
       <BlurView
         intensity={20}
         tint="dark"
@@ -198,12 +205,14 @@ function StatCard({
   label,
   tone = "default",
   onPress,
+  disabled = false,
 }: {
   icon: React.ReactNode;
   value: number;
   label: string;
   tone?: StatTone;
   onPress: () => void;
+  disabled?: boolean;
 }) {
   const toneStyles =
     tone === "success"
@@ -235,7 +244,11 @@ function StatCard({
         : null;
 
   return (
-    <Pressable style={styles.statPressable} onPress={onPress}>
+    <Pressable
+      style={[styles.statPressable, disabled && styles.disabledInteraction]}
+      onPress={onPress}
+      disabled={disabled}
+    >
       <BlurView
         intensity={20}
         tint="dark"
@@ -348,6 +361,16 @@ function formatTripDate(date: Date) {
 export default function DashboardScreen() {
   const { user, initializing } = useAuth();
   const theme = useThemedValues();
+  const {
+    isLocked: interactionLocked,
+    lock: lockInteraction,
+    unlock: unlockInteraction,
+  } = useInteractionLock(450);
+
+  const navigationTransitionLockedRef = useRef(false);
+  const navigationUnlockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResultItem[]>([]);
@@ -423,6 +446,14 @@ export default function DashboardScreen() {
   const hasStorageSpaces = storageSpaces.length > 0;
 
   useEffect(() => {
+    return () => {
+      if (navigationUnlockTimeoutRef.current) {
+        clearTimeout(navigationUnlockTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (!initializing && !user) {
       router.replace("/sign-in");
     }
@@ -491,6 +522,55 @@ export default function DashboardScreen() {
       loadProfilePhoto();
     }, [initializing, user, isPremiumLoading, isPremium, selectedStorageId])
   );
+
+  async function runWithLock(action: () => Promise<void> | void) {
+    if (interactionLocked) return;
+
+    lockInteraction();
+
+    try {
+      await action();
+    } finally {
+      unlockInteraction();
+    }
+  }
+
+  function isNavigationBusy() {
+    return interactionLocked || navigationTransitionLockedRef.current;
+  }
+
+  function lockNavigationTransition() {
+    if (navigationTransitionLockedRef.current) {
+      return false;
+    }
+
+    navigationTransitionLockedRef.current = true;
+
+    if (navigationUnlockTimeoutRef.current) {
+      clearTimeout(navigationUnlockTimeoutRef.current);
+    }
+
+    navigationUnlockTimeoutRef.current = setTimeout(() => {
+      navigationTransitionLockedRef.current = false;
+      navigationUnlockTimeoutRef.current = null;
+    }, 1500);
+
+    return true;
+  }
+
+  function pushWithNavigationLock(action: () => void) {
+    if (isNavigationBusy()) {
+      return;
+    }
+
+    const lockAcquired = lockNavigationTransition();
+
+    if (!lockAcquired) {
+      return;
+    }
+
+    action();
+  }
 
   useEffect(() => {
     const runSearch = async () => {
@@ -857,34 +937,36 @@ export default function DashboardScreen() {
   }
 
   async function handleSelectStorage(space: StorageSpace) {
-    if (!user || !isPremium) {
+    if (!user || !isPremium || interactionLocked) {
       return;
     }
 
-    try {
-      setSelectedStorageId(space.id);
-      setShowStorageDropdown(false);
+    await runWithLock(async () => {
+      try {
+        setSelectedStorageId(space.id);
+        setShowStorageDropdown(false);
 
-      const compartments = await getCompartments(space.id);
-      setSelectedCompartments(compartments);
+        const compartments = await getCompartments(space.id);
+        setSelectedCompartments(compartments);
 
-      const scopedItems = allItems.filter((item) => item.vehicleId === space.id);
+        const scopedItems = allItems.filter((item) => item.vehicleId === space.id);
 
-      const quickData = compartments
-        .map((compartment) => ({
-          id: compartment.id,
-          name: compartment.name,
-          itemCount: scopedItems
-            .filter((item) => item.compartmentId === compartment.id)
-            .reduce((total, item) => total + getItemQuantity(item), 0),
-        }))
-        .sort((a, b) => b.itemCount - a.itemCount || a.name.localeCompare(b.name))
-        .slice(0, 4);
+        const quickData = compartments
+          .map((compartment) => ({
+            id: compartment.id,
+            name: compartment.name,
+            itemCount: scopedItems
+              .filter((item) => item.compartmentId === compartment.id)
+              .reduce((total, item) => total + getItemQuantity(item), 0),
+          }))
+          .sort((a, b) => b.itemCount - a.itemCount || a.name.localeCompare(b.name))
+          .slice(0, 4);
 
-      setQuickCompartments(quickData);
-    } catch (err) {
-      console.error("Failed to switch storage space:", err);
-    }
+        setQuickCompartments(quickData);
+      } catch (err) {
+        console.error("Failed to switch storage space:", err);
+      }
+    });
   }
 
   function handleSearchResultPress(item: SearchResultItem) {
@@ -893,149 +975,187 @@ export default function DashboardScreen() {
       return;
     }
 
-    if (item.type === "item") {
-      if (!item.vehicleId || !item.compartmentId) {
+    pushWithNavigationLock(() => {
+      if (item.type === "item") {
+        if (!item.vehicleId || !item.compartmentId) {
+          return;
+        }
+
+        router.push({
+          pathname: "/vehicles/[vehicleId]/compartments/[compartmentId]",
+          params: {
+            vehicleId: item.vehicleId,
+            compartmentId: item.compartmentId,
+          },
+        });
         return;
       }
 
-      router.push({
-        pathname: "/vehicles/[vehicleId]/compartments/[compartmentId]",
-        params: {
-          vehicleId: item.vehicleId,
-          compartmentId: item.compartmentId,
-        },
-      });
-      return;
-    }
+      if (item.type === "checklistItem") {
+        router.push({
+          pathname: "/checklists/[checklistId]",
+          params: {
+            checklistId: item.checklistId,
+          },
+        });
+        return;
+      }
 
-    if (item.type === "checklistItem") {
-      router.push({
-        pathname: "/checklists/[checklistId]",
-        params: {
-          checklistId: item.checklistId,
-        },
-      });
-      return;
-    }
+      if (item.type === "templateItem") {
+        router.push({
+          pathname: "/checklists/template-items",
+          params: {
+            templateId: item.templateId,
+          },
+        });
+        return;
+      }
 
-    if (item.type === "templateItem") {
-      router.push({
-        pathname: "/checklists/template-items",
-        params: {
-          templateId: item.templateId,
-        },
-      });
-      return;
-    }
+      if (item.type === "storage") {
+        router.push({
+          pathname: "/vehicles/[vehicleId]/compartments",
+          params: {
+            vehicleId: item.vehicleId,
+          },
+        });
+        return;
+      }
 
-    if (item.type === "storage") {
-      router.push({
-        pathname: "/vehicles/[vehicleId]/compartments",
-        params: {
-          vehicleId: item.vehicleId,
-        },
-      });
-      return;
-    }
+      if (item.type === "compartment") {
+        router.push({
+          pathname: "/vehicles/[vehicleId]/compartments/[compartmentId]",
+          params: {
+            vehicleId: item.vehicleId,
+            compartmentId: item.compartmentId,
+          },
+        });
+        return;
+      }
 
-    if (item.type === "compartment") {
-      router.push({
-        pathname: "/vehicles/[vehicleId]/compartments/[compartmentId]",
-        params: {
-          vehicleId: item.vehicleId,
-          compartmentId: item.compartmentId,
-        },
-      });
-      return;
-    }
-
-    if (item.type === "checklist") {
-      router.push({
-        pathname: "/checklists/[checklistId]",
-        params: {
-          checklistId: item.checklistId,
-        },
-      });
-    }
+      if (item.type === "checklist") {
+        router.push({
+          pathname: "/checklists/[checklistId]",
+          params: {
+            checklistId: item.checklistId,
+          },
+        });
+      }
+    });
   }
 
   function handleOpenPackedItems() {
-    router.push({
-      pathname: "/(tabs)/inventory",
-      params: { status: "packed" },
+    pushWithNavigationLock(() => {
+      router.push({
+        pathname: "/(tabs)/inventory",
+        params: { status: "packed" },
+      });
     });
   }
 
   function handleOpenToPack() {
-    router.push({
-      pathname: "/(tabs)/inventory",
-      params: { status: "missing" },
+    pushWithNavigationLock(() => {
+      router.push({
+        pathname: "/(tabs)/inventory",
+        params: { status: "missing" },
+      });
     });
   }
 
   function handleOpenCompartment(compartmentId: string) {
     if (!selectedStorageId) return;
 
-    router.push({
-      pathname: "/vehicles/[vehicleId]/compartments/[compartmentId]",
-      params: {
-        vehicleId: selectedStorageId,
-        compartmentId,
-      },
+    pushWithNavigationLock(() => {
+      router.push({
+        pathname: "/vehicles/[vehicleId]/compartments/[compartmentId]",
+        params: {
+          vehicleId: selectedStorageId,
+          compartmentId,
+        },
+      });
     });
   }
 
   function handleOpenAllCompartments() {
     if (!selectedStorageId) return;
 
-    router.push({
-      pathname: "/vehicles/[vehicleId]/compartments",
-      params: {
-        vehicleId: selectedStorageId,
-      },
+    pushWithNavigationLock(() => {
+      router.push({
+        pathname: "/vehicles/[vehicleId]/compartments",
+        params: {
+          vehicleId: selectedStorageId,
+        },
+      });
     });
   }
 
   function handleAddCompartment() {
     if (!selectedStorageId) return;
 
-    router.push({
-      pathname: "/vehicles/[vehicleId]/compartments/create",
-      params: {
-        vehicleId: selectedStorageId,
-      },
+    pushWithNavigationLock(() => {
+      router.push({
+        pathname: "/vehicles/[vehicleId]/compartments/create",
+        params: {
+          vehicleId: selectedStorageId,
+        },
+      });
     });
   }
 
   function handleOpenNotes() {
-    router.push({
-      pathname: "/notes",
-      params: {
-        storageId: selectedStorageId ?? "",
-        storageName: selectedStorage?.name ?? "",
-      },
+    pushWithNavigationLock(() => {
+      router.push({
+        pathname: "/notes",
+        params: {
+          storageId: selectedStorageId ?? "",
+          storageName: selectedStorage?.name ?? "",
+        },
+      });
     });
   }
 
   function handleAddStorageSpace() {
-    router.push("/storage/create");
+    pushWithNavigationLock(() => {
+      router.push("/(tabs)/storage/create");
+    });
   }
 
   function handleOpenTrips() {
-    router.push("/trips");
+    pushWithNavigationLock(() => {
+      router.push("/trips");
+    });
   }
 
   function handleOpenTrip(tripId: string) {
-    router.push(`/trips/${tripId}`);
+    pushWithNavigationLock(() => {
+      router.push(`/trips/${tripId}`);
+    });
   }
 
   function handleAddTrip() {
-    router.push("/trips/create");
+    pushWithNavigationLock(() => {
+      router.push("/trips/create");
+    });
   }
 
   function handleOpenProfile() {
-    router.push("/(tabs)/profile");
+    pushWithNavigationLock(() => {
+      router.push("/(tabs)/profile");
+    });
   }
+
+  function handleToggleStorageDropdown() {
+    if (interactionLocked || navigationTransitionLockedRef.current) return;
+
+    setShowStorageDropdown((prev) => !prev);
+  }
+
+  function handleClearSearch() {
+    if (interactionLocked) return;
+
+    setSearchQuery("");
+  }
+
+  const navigationDisabled = isNavigationBusy();
 
   if (!initializing && !user) {
     return null;
@@ -1092,7 +1212,14 @@ export default function DashboardScreen() {
               </View>
             </View>
 
-            <Pressable style={styles.profileButton} onPress={handleOpenProfile}>
+            <Pressable
+              style={[
+                styles.profileButton,
+                navigationDisabled && styles.disabledInteraction,
+              ]}
+              onPress={handleOpenProfile}
+              disabled={navigationDisabled}
+            >
               {profilePhotoUri.trim().length > 0 && !profilePhotoFailed ? (
                 <Image
                   source={{ uri: profilePhotoUri }}
@@ -1129,9 +1256,10 @@ export default function DashboardScreen() {
 
               {searchQuery.length > 0 && (
                 <Pressable
-                  onPress={() => setSearchQuery("")}
+                  onPress={handleClearSearch}
                   style={styles.clearSearchButton}
                   hitSlop={10}
+                  disabled={interactionLocked}
                 >
                   <ThemedText color="secondary" style={styles.clearSearchButtonText}>
                     ✕
@@ -1174,7 +1302,11 @@ export default function DashboardScreen() {
                         key={`${item.type}:${item.id}`}
                         style={styles.searchResultCard}
                       >
-                        <Pressable onPress={() => handleSearchResultPress(item)}>
+                        <Pressable
+                          onPress={() => handleSearchResultPress(item)}
+                          disabled={navigationDisabled}
+                          style={navigationDisabled && styles.disabledInteraction}
+                        >
                           <ThemedText variant="bodyStrong" style={styles.searchTitle}>
                             {item.name}
                           </ThemedText>
@@ -1243,6 +1375,7 @@ export default function DashboardScreen() {
                   <ThemedButton
                     style={styles.firstRunButton}
                     onPress={handleAddStorageSpace}
+                    disabled={navigationDisabled}
                   >
                     <ThemedText style={styles.signInButtonText}>
                       Add Storage Space
@@ -1254,8 +1387,12 @@ export default function DashboardScreen() {
                   <View style={styles.selectorWrap}>
                     <View style={styles.selectorHeaderRow}>
                       <Pressable
-                        style={styles.selectorAddButton}
+                        style={[
+                          styles.selectorAddButton,
+                          navigationDisabled && styles.disabledInteraction,
+                        ]}
                         onPress={handleAddStorageSpace}
+                        disabled={navigationDisabled}
                       >
                         <Plus size={18} color={LABEL_WHITE} />
                       </Pressable>
@@ -1269,8 +1406,12 @@ export default function DashboardScreen() {
                     </View>
 
                     <Pressable
-                      style={styles.selectorPressable}
-                      onPress={() => setShowStorageDropdown((prev) => !prev)}
+                      style={[
+                        styles.selectorPressable,
+                        navigationDisabled && styles.disabledInteraction,
+                      ]}
+                      onPress={handleToggleStorageDropdown}
+                      disabled={navigationDisabled}
                     >
                       <BlurView
                         intensity={theme.isLight ? 18 : 35}
@@ -1325,8 +1466,10 @@ export default function DashboardScreen() {
                                   },
                                   index === sortedStorageSpaces.length - 1 &&
                                     styles.dropdownRowLast,
+                                  interactionLocked && styles.disabledInteraction,
                                 ]}
                                 onPress={() => handleSelectStorage(space)}
+                                disabled={interactionLocked}
                               >
                                 <View style={styles.dropdownRowLeft}>
                                   <ThemedText
@@ -1358,6 +1501,7 @@ export default function DashboardScreen() {
                       icon={<FileText size={20} color={LABEL_WHITE} />}
                       title="Notes"
                       onPress={handleOpenNotes}
+                      disabled={navigationDisabled}
                     />
 
                     <StatCard
@@ -1366,6 +1510,7 @@ export default function DashboardScreen() {
                       label="Items Packed"
                       tone="success"
                       onPress={handleOpenPackedItems}
+                      disabled={navigationDisabled}
                     />
 
                     <StatCard
@@ -1374,6 +1519,7 @@ export default function DashboardScreen() {
                       label="To Pack"
                       tone="danger"
                       onPress={handleOpenToPack}
+                      disabled={navigationDisabled}
                     />
                   </View>
 
@@ -1383,9 +1529,10 @@ export default function DashboardScreen() {
                         style={[
                           styles.compartmentAddButton,
                           !selectedStorageId && styles.compartmentAddButtonDisabled,
+                          navigationDisabled && styles.disabledInteraction,
                         ]}
                         onPress={handleAddCompartment}
-                        disabled={!selectedStorageId}
+                        disabled={!selectedStorageId || navigationDisabled}
                       >
                         <Plus size={18} color={LABEL_WHITE} />
                       </Pressable>
@@ -1400,13 +1547,14 @@ export default function DashboardScreen() {
 
                     <Pressable
                       onPress={handleOpenAllCompartments}
-                      disabled={!selectedStorageId}
+                      disabled={!selectedStorageId || navigationDisabled}
                     >
                       <ThemedText
                         style={[
                           styles.viewAllText,
                           styles.whiteLabelMuted,
-                          !selectedStorageId && styles.disabledText,
+                          (!selectedStorageId || navigationDisabled) &&
+                            styles.disabledText,
                         ]}
                       >
                         View All
@@ -1436,6 +1584,7 @@ export default function DashboardScreen() {
                       <ThemedButton
                         style={styles.emptyActionButton}
                         onPress={handleAddCompartment}
+                        disabled={navigationDisabled}
                       >
                         <ThemedText style={styles.signInButtonText}>
                           Add Compartment
@@ -1451,8 +1600,12 @@ export default function DashboardScreen() {
                           contentStyle={styles.quickGridCardContent}
                         >
                           <Pressable
-                            style={styles.quickGridRow}
+                            style={[
+                              styles.quickGridRow,
+                              navigationDisabled && styles.disabledInteraction,
+                            ]}
                             onPress={() => handleOpenCompartment(compartment.id)}
+                            disabled={navigationDisabled}
                           >
                             <View style={styles.quickGridLeft}>
                               <ThemedText
@@ -1484,8 +1637,12 @@ export default function DashboardScreen() {
                     <View style={styles.upcomingTripsHeaderRow}>
                       <View style={styles.sectionHeaderLeft}>
                         <Pressable
-                          style={styles.upcomingTripsAddButton}
+                          style={[
+                            styles.upcomingTripsAddButton,
+                            navigationDisabled && styles.disabledInteraction,
+                          ]}
                           onPress={handleAddTrip}
+                          disabled={navigationDisabled}
                         >
                           <Plus size={18} color={LABEL_WHITE} />
                         </Pressable>
@@ -1498,8 +1655,17 @@ export default function DashboardScreen() {
                         </ThemedText>
                       </View>
 
-                      <Pressable onPress={handleOpenTrips}>
-                        <ThemedText style={[styles.viewAllText, styles.whiteLabelMuted]}>
+                      <Pressable
+                        onPress={handleOpenTrips}
+                        disabled={navigationDisabled}
+                      >
+                        <ThemedText
+                          style={[
+                            styles.viewAllText,
+                            styles.whiteLabelMuted,
+                            navigationDisabled && styles.disabledText,
+                          ]}
+                        >
                           View All
                         </ThemedText>
                       </Pressable>
@@ -1524,6 +1690,8 @@ export default function DashboardScreen() {
                     ) : (
                       <Pressable
                         onPress={() => handleOpenTrip(nextUpcomingTrip.id)}
+                        disabled={navigationDisabled}
+                        style={navigationDisabled && styles.disabledInteraction}
                       >
                         <FrostedCard style={styles.upcomingTripCard}>
                           <View style={styles.upcomingTripRow}>
@@ -1610,6 +1778,10 @@ const styles = StyleSheet.create({
     opacity: 0.45,
   },
 
+  disabledInteraction: {
+    opacity: 0.6,
+  },
+
   frostedCard: {
     overflow: "hidden",
     borderRadius: 14,
@@ -1645,8 +1817,8 @@ const styles = StyleSheet.create({
   },
 
   brandLogo: {
-  width: 80,
-  height: 80,
+    width: 80,
+    height: 80,
   },
 
   brandTitleWrap: {

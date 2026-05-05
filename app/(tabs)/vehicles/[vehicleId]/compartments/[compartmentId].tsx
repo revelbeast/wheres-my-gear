@@ -43,6 +43,7 @@ import {
   updateItem,
   updateItemPhoto,
 } from "../../../../../lib/gearService";
+import { useInteractionLock } from "../../../../../lib/useInteractionLock";
 import { colors } from "../../../../../theme/tokens";
 
 function FrostedCard({
@@ -94,6 +95,12 @@ export default function CompartmentDetailScreen() {
   }>();
 
   const theme = useThemedValues();
+  const {
+    isLocked: interactionLocked,
+    lock: lockInteraction,
+    unlock: unlockInteraction,
+  } = useInteractionLock();
+
   const scrollRef = useRef<ScrollView | null>(null);
   const itemCardYPositions = useRef<Record<string, number>>({});
 
@@ -125,6 +132,18 @@ export default function CompartmentDetailScreen() {
   const [selectedPhotoItem, setSelectedPhotoItem] = useState<Item | null>(null);
 
   const selectedPhotoUri = selectedPhotoItem?.itemPhotoUri ?? "";
+
+  async function runWithLock(action: () => Promise<void> | void) {
+    if (interactionLocked) return;
+
+    lockInteraction();
+
+    try {
+      await action();
+    } finally {
+      unlockInteraction();
+    }
+  }
 
   useEffect(() => {
     if (!compartmentId) return;
@@ -169,199 +188,244 @@ export default function CompartmentDetailScreen() {
     }
   }
 
+  function handleToggleCreateBox() {
+    if (interactionLocked) return;
+
+    runWithLock(() => {
+      setShowCreateBox((prev) => !prev);
+      scrollToCreateBox(120);
+    });
+  }
+
   async function handleShareCompartment() {
-    const compartmentName = compartment?.name?.trim() || "Compartment";
-    const packedItems = sortedItems.filter((item) => isPackedItem(item));
-    const toPackItems = sortedItems.filter((item) => !isPackedItem(item));
+    if (interactionLocked) return;
 
-    const totalNeeded = sortedItems.reduce(
-      (sum, item) => sum + getSafeQuantity(item.quantity),
-      0
-    );
+    await runWithLock(async () => {
+      const compartmentName = compartment?.name?.trim() || "Compartment";
+      const packedItems = sortedItems.filter((item) => isPackedItem(item));
+      const toPackItems = sortedItems.filter((item) => !isPackedItem(item));
 
-    const totalPacked = packedItems.reduce(
-      (sum, item) => sum + getSafeQuantity(item.quantity),
-      0
-    );
-
-    const totalToPack = toPackItems.reduce(
-      (sum, item) => sum + getSafeQuantity(item.quantity),
-      0
-    );
-
-    const toPackText =
-      toPackItems.length > 0
-        ? toPackItems.map(formatItemForShare).join("\n")
-        : "- Nothing left to pack";
-
-    const packedText =
-      packedItems.length > 0
-        ? packedItems.map(formatItemForShare).join("\n")
-        : "- No packed items yet";
-
-    const message = [
-      `Where's My Gear Compartment`,
-      ``,
-      `Compartment: ${compartmentName}`,
-      `Items: ${sortedItems.length}`,
-      `Needed: ${totalNeeded}`,
-      `Packed: ${totalPacked}`,
-      `To Pack: ${totalToPack}`,
-      ``,
-      `To Pack`,
-      toPackText,
-      ``,
-      `Packed`,
-      packedText,
-    ].join("\n");
-
-    try {
-      await Share.share({
-        title: compartmentName,
-        message,
-      });
-    } catch (err) {
-      console.error("Failed to share compartment:", err);
-      Alert.alert(
-        "Compartment not shared",
-        "Something went wrong while sharing this compartment."
+      const totalNeeded = sortedItems.reduce(
+        (sum, item) => sum + getSafeQuantity(item.quantity),
+        0
       );
-    }
+
+      const totalPacked = packedItems.reduce(
+        (sum, item) => sum + getSafeQuantity(item.quantity),
+        0
+      );
+
+      const totalToPack = toPackItems.reduce(
+        (sum, item) => sum + getSafeQuantity(item.quantity),
+        0
+      );
+
+      const toPackText =
+        toPackItems.length > 0
+          ? toPackItems.map(formatItemForShare).join("\n")
+          : "- Nothing left to pack";
+
+      const packedText =
+        packedItems.length > 0
+          ? packedItems.map(formatItemForShare).join("\n")
+          : "- No packed items yet";
+
+      const message = [
+        `Where's My Gear Compartment`,
+        ``,
+        `Compartment: ${compartmentName}`,
+        `Items: ${sortedItems.length}`,
+        `Needed: ${totalNeeded}`,
+        `Packed: ${totalPacked}`,
+        `To Pack: ${totalToPack}`,
+        ``,
+        `To Pack`,
+        toPackText,
+        ``,
+        `Packed`,
+        packedText,
+      ].join("\n");
+
+      try {
+        await Share.share({
+          title: compartmentName,
+          message,
+        });
+      } catch (err) {
+        console.error("Failed to share compartment:", err);
+        Alert.alert(
+          "Compartment not shared",
+          "Something went wrong while sharing this compartment."
+        );
+      }
+    });
   }
 
   async function handleCreateItem() {
-    if (!compartmentId || !vehicleId || saving) return;
+    if (!compartmentId || !vehicleId || saving || interactionLocked) return;
 
     const trimmedName = itemName.trim();
     const parsedQty = Math.max(1, Number(quantity) || 1);
 
     if (!trimmedName) return;
 
-    try {
-      setSaving(true);
+    await runWithLock(async () => {
+      try {
+        setSaving(true);
 
-      await createItem({
-        name: trimmedName,
-        quantity: parsedQty,
-        status: "packed",
-        compartmentId: String(compartmentId),
-        compartmentName: compartment?.name ?? "",
-        vehicleId: String(vehicleId),
-        notes: "",
-        itemPhotoUri: "",
-      });
+        await createItem({
+          name: trimmedName,
+          quantity: parsedQty,
+          status: "packed",
+          compartmentId: String(compartmentId),
+          compartmentName: compartment?.name ?? "",
+          vehicleId: String(vehicleId),
+          notes: "",
+          itemPhotoUri: "",
+        });
 
-      setItemName("");
-      setQuantity("1");
-      setShowCreateBox(false);
-      await loadItems();
-    } catch (err) {
-      console.error("Failed to create item:", err);
-      Alert.alert("Error", "Failed to create item.");
-    } finally {
-      setSaving(false);
-    }
+        setItemName("");
+        setQuantity("1");
+        setShowCreateBox(false);
+        await loadItems();
+      } catch (err) {
+        console.error("Failed to create item:", err);
+        Alert.alert("Error", "Failed to create item.");
+      } finally {
+        setSaving(false);
+      }
+    });
   }
 
   function startEditingItem(item: Item) {
-    setEditingItemId(item.id);
-    setEditingItemName(item.name);
-    scrollToItemCard(item.id, 220);
+    if (interactionLocked) return;
+
+    runWithLock(() => {
+      setEditingItemId(item.id);
+      setEditingItemName(item.name);
+      scrollToItemCard(item.id, 220);
+    });
   }
 
   function cancelEditingItem() {
-    setEditingItemId(null);
-    setEditingItemName("");
+    if (interactionLocked) return;
+
+    runWithLock(() => {
+      setEditingItemId(null);
+      setEditingItemName("");
+    });
   }
 
   async function saveEditingItem(item: Item) {
     const trimmed = editingItemName.trim();
-    if (!trimmed) return;
+    if (!trimmed || savingEdit || interactionLocked) return;
 
-    try {
-      setSavingEdit(true);
-      await updateItem(item.id, { name: trimmed });
-      setEditingItemId(null);
-      setEditingItemName("");
-      await loadItems();
-    } catch (err) {
-      console.error("Failed to update item:", err);
-      Alert.alert("Error", "Failed to update item.");
-    } finally {
-      setSavingEdit(false);
-    }
+    await runWithLock(async () => {
+      try {
+        setSavingEdit(true);
+        await updateItem(item.id, { name: trimmed });
+        setEditingItemId(null);
+        setEditingItemName("");
+        await loadItems();
+      } catch (err) {
+        console.error("Failed to update item:", err);
+        Alert.alert("Error", "Failed to update item.");
+      } finally {
+        setSavingEdit(false);
+      }
+    });
   }
 
   async function handleChangeQuantity(item: Item, delta: number) {
-    const currentQuantity = getSafeQuantity(item.quantity);
-    const nextQuantity = currentQuantity + delta;
+    if (interactionLocked || updatingQuantityId === item.id) return;
 
-    try {
-      setUpdatingQuantityId(item.id);
+    await runWithLock(async () => {
+      const currentQuantity = getSafeQuantity(item.quantity);
+      const nextQuantity = currentQuantity + delta;
 
-      if (nextQuantity <= 0) {
-        await deleteItem(item.id);
-      } else {
-        await updateItem(item.id, {
-          quantity: nextQuantity,
-        });
+      try {
+        setUpdatingQuantityId(item.id);
+
+        if (nextQuantity <= 0) {
+          await deleteItem(item.id);
+        } else {
+          await updateItem(item.id, {
+            quantity: nextQuantity,
+          });
+        }
+
+        await loadItems();
+      } catch (err) {
+        console.error("Failed to update item quantity:", err);
+        Alert.alert("Error", "Failed to update quantity.");
+      } finally {
+        setUpdatingQuantityId(null);
       }
-
-      await loadItems();
-    } catch (err) {
-      console.error("Failed to update item quantity:", err);
-      Alert.alert("Error", "Failed to update quantity.");
-    } finally {
-      setUpdatingQuantityId(null);
-    }
+    });
   }
 
   async function handleTogglePacked(item: Item) {
-    const nextStatus = isPackedItem(item) ? "missing" : "packed";
+    if (interactionLocked || updatingStatusId === item.id) return;
 
-    try {
-      setUpdatingStatusId(item.id);
-      await updateItem(item.id, { status: nextStatus });
-      await loadItems();
-    } catch (err) {
-      console.error("Failed to update item status:", err);
-      Alert.alert("Error", "Failed to update packed status.");
-    } finally {
-      setUpdatingStatusId(null);
-    }
+    await runWithLock(async () => {
+      const nextStatus = isPackedItem(item) ? "missing" : "packed";
+
+      try {
+        setUpdatingStatusId(item.id);
+        await updateItem(item.id, { status: nextStatus });
+        await loadItems();
+      } catch (err) {
+        console.error("Failed to update item status:", err);
+        Alert.alert("Error", "Failed to update packed status.");
+      } finally {
+        setUpdatingStatusId(null);
+      }
+    });
   }
 
   function confirmDeleteItem(item: Item) {
-    Alert.alert(
-      "Delete item?",
-      `Delete "${item.name}"? This cannot be undone.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await deleteItem(item.id);
-              await loadItems();
-            } catch (err) {
-              console.error("Failed to delete item:", err);
-              Alert.alert("Error", "Failed to delete item.");
-            }
+    if (interactionLocked) return;
+
+    runWithLock(() => {
+      Alert.alert(
+        "Delete item?",
+        `Delete "${item.name}"? This cannot be undone.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: async () => {
+              if (interactionLocked) return;
+
+              await runWithLock(async () => {
+                try {
+                  await deleteItem(item.id);
+                  await loadItems();
+                } catch (err) {
+                  console.error("Failed to delete item:", err);
+                  Alert.alert("Error", "Failed to delete item.");
+                }
+              });
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+    });
   }
 
   function handleOpenPhotoViewer(item: Item) {
-    if (!item.itemPhotoUri) {
-      handleItemPhotoAction(item);
-      return;
-    }
+    if (interactionLocked) return;
 
-    setSelectedPhotoItem(item);
-    setPhotoViewerVisible(true);
+    runWithLock(() => {
+      if (!item.itemPhotoUri) {
+        handleItemPhotoAction(item);
+        return;
+      }
+
+      setSelectedPhotoItem(item);
+      setPhotoViewerVisible(true);
+    });
   }
 
   function handleClosePhotoViewer() {
@@ -370,127 +434,152 @@ export default function CompartmentDetailScreen() {
   }
 
   function handleItemPhotoAction(item: Item) {
-    Alert.alert("Item Photo", item.name, [
-      {
-        text: "Take Photo",
-        onPress: () => handleTakeItemPhoto(item),
-      },
-      {
-        text: "Choose Photo",
-        onPress: () => handlePickItemPhoto(item),
-      },
-      ...(item.itemPhotoUri
-        ? [
-            {
-              text: "Remove Photo",
-              style: "destructive" as const,
-              onPress: () => handleRemoveItemPhoto(item),
-            },
-          ]
-        : []),
-      {
-        text: "Cancel",
-        style: "cancel",
-      },
-    ]);
+    if (interactionLocked || updatingPhotoId === item.id) return;
+
+    runWithLock(() => {
+      Alert.alert("Item Photo", item.name, [
+        {
+          text: "Take Photo",
+          onPress: () => handleTakeItemPhoto(item),
+        },
+        {
+          text: "Choose Photo",
+          onPress: () => handlePickItemPhoto(item),
+        },
+        ...(item.itemPhotoUri
+          ? [
+              {
+                text: "Remove Photo",
+                style: "destructive" as const,
+                onPress: () => handleRemoveItemPhoto(item),
+              },
+            ]
+          : []),
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+      ]);
+    });
   }
 
   async function handleTakeItemPhoto(item: Item) {
-    try {
-      const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (interactionLocked || updatingPhotoId === item.id) return;
 
-      if (!permission.granted) {
-        Alert.alert("Camera access needed", "Please allow camera access first.");
-        return;
+    await runWithLock(async () => {
+      try {
+        const permission = await ImagePicker.requestCameraPermissionsAsync();
+
+        if (!permission.granted) {
+          Alert.alert(
+            "Camera access needed",
+            "Please allow camera access first."
+          );
+          return;
+        }
+
+        setUpdatingPhotoId(item.id);
+
+        const result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ["images"],
+          allowsEditing: true,
+          quality: 0.8,
+        });
+
+        if (result.canceled) return;
+
+        const asset = result.assets?.[0];
+        if (!asset?.uri) {
+          Alert.alert("Photo not captured", "No valid image was returned.");
+          return;
+        }
+
+        await updateItemPhoto(item.id, asset.uri);
+        setSelectedPhotoItem({ ...item, itemPhotoUri: asset.uri });
+        await loadItems();
+      } catch (err: any) {
+        const message = String(err?.message ?? err ?? "");
+        if (
+          message.toLowerCase().includes("camera not available on simulator")
+        ) {
+          Alert.alert(
+            "Simulator Limitation",
+            "Take Photo is not available on the iPhone Simulator. Use Choose Photo here, or test Take Photo on a real iPhone."
+          );
+        } else {
+          console.error("Failed to take item photo:", err);
+          Alert.alert("Error", "Failed to save item photo.");
+        }
+      } finally {
+        setUpdatingPhotoId(null);
       }
-
-      setUpdatingPhotoId(item.id);
-
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ["images"],
-        allowsEditing: true,
-        quality: 0.8,
-      });
-
-      if (result.canceled) return;
-
-      const asset = result.assets?.[0];
-      if (!asset?.uri) {
-        Alert.alert("Photo not captured", "No valid image was returned.");
-        return;
-      }
-
-      await updateItemPhoto(item.id, asset.uri);
-      setSelectedPhotoItem({ ...item, itemPhotoUri: asset.uri });
-      await loadItems();
-    } catch (err: any) {
-      const message = String(err?.message ?? err ?? "");
-      if (message.toLowerCase().includes("camera not available on simulator")) {
-        Alert.alert(
-          "Simulator Limitation",
-          "Take Photo is not available on the iPhone Simulator. Use Choose Photo here, or test Take Photo on a real iPhone."
-        );
-      } else {
-        console.error("Failed to take item photo:", err);
-        Alert.alert("Error", "Failed to save item photo.");
-      }
-    } finally {
-      setUpdatingPhotoId(null);
-    }
+    });
   }
 
   async function handlePickItemPhoto(item: Item) {
-    try {
-      setUpdatingPhotoId(item.id);
+    if (interactionLocked || updatingPhotoId === item.id) return;
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images"],
-        allowsEditing: true,
-        quality: 0.8,
-      });
+    await runWithLock(async () => {
+      try {
+        setUpdatingPhotoId(item.id);
 
-      if (result.canceled) return;
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ["images"],
+          allowsEditing: true,
+          quality: 0.8,
+        });
 
-      const asset = result.assets?.[0];
-      if (!asset?.uri) {
-        Alert.alert("Photo not selected", "No valid image was returned.");
-        return;
+        if (result.canceled) return;
+
+        const asset = result.assets?.[0];
+        if (!asset?.uri) {
+          Alert.alert("Photo not selected", "No valid image was returned.");
+          return;
+        }
+
+        await updateItemPhoto(item.id, asset.uri);
+        setSelectedPhotoItem({ ...item, itemPhotoUri: asset.uri });
+        await loadItems();
+      } catch (err) {
+        console.error("Failed to choose item photo:", err);
+        Alert.alert("Error", "Failed to save item photo.");
+      } finally {
+        setUpdatingPhotoId(null);
       }
-
-      await updateItemPhoto(item.id, asset.uri);
-      setSelectedPhotoItem({ ...item, itemPhotoUri: asset.uri });
-      await loadItems();
-    } catch (err) {
-      console.error("Failed to choose item photo:", err);
-      Alert.alert("Error", "Failed to save item photo.");
-    } finally {
-      setUpdatingPhotoId(null);
-    }
+    });
   }
 
   async function handleRemoveItemPhoto(item: Item) {
-    try {
-      setUpdatingPhotoId(item.id);
-      await updateItemPhoto(item.id, "");
-      handleClosePhotoViewer();
-      await loadItems();
-    } catch (err) {
-      console.error("Failed to remove item photo:", err);
-      Alert.alert("Error", "Failed to remove item photo.");
-    } finally {
-      setUpdatingPhotoId(null);
-    }
+    if (interactionLocked || updatingPhotoId === item.id) return;
+
+    await runWithLock(async () => {
+      try {
+        setUpdatingPhotoId(item.id);
+        await updateItemPhoto(item.id, "");
+        handleClosePhotoViewer();
+        await loadItems();
+      } catch (err) {
+        console.error("Failed to remove item photo:", err);
+        Alert.alert("Error", "Failed to remove item photo.");
+      } finally {
+        setUpdatingPhotoId(null);
+      }
+    });
   }
 
   function confirmRemovePhoto(item: Item) {
-    Alert.alert("Delete photo?", `Remove the photo for "${item.name}"?`, [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete Photo",
-        style: "destructive",
-        onPress: () => handleRemoveItemPhoto(item),
-      },
-    ]);
+    if (interactionLocked || updatingPhotoId === item.id) return;
+
+    runWithLock(() => {
+      Alert.alert("Delete photo?", `Remove the photo for "${item.name}"?`, [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete Photo",
+          style: "destructive",
+          onPress: () => handleRemoveItemPhoto(item),
+        },
+      ]);
+    });
   }
 
   const sortedItems = useMemo(() => {
@@ -522,10 +611,8 @@ export default function CompartmentDetailScreen() {
     >
       <Pressable
         style={styles.headerActionButton}
-        onPress={() => {
-          setShowCreateBox((prev) => !prev);
-          scrollToCreateBox(120);
-        }}
+        onPress={handleToggleCreateBox}
+        disabled={interactionLocked}
       >
         {showCreateBox ? (
           <X size={18} color={theme.colors.text} />
@@ -543,6 +630,7 @@ export default function CompartmentDetailScreen() {
     const packedQty = packed ? neededQty : 0;
     const stillToPackQty = packed ? 0 : neededQty;
     const isBusy =
+      interactionLocked ||
       updatingQuantityId === item.id ||
       updatingPhotoId === item.id ||
       updatingStatusId === item.id;
@@ -592,11 +680,15 @@ export default function CompartmentDetailScreen() {
                 <Pressable
                   style={[
                     styles.saveEditButton,
-                    (!editingItemName.trim() || savingEdit) &&
+                    (!editingItemName.trim() ||
+                      savingEdit ||
+                      interactionLocked) &&
                       styles.createButtonDisabled,
                   ]}
                   onPress={() => saveEditingItem(item)}
-                  disabled={!editingItemName.trim() || savingEdit}
+                  disabled={
+                    !editingItemName.trim() || savingEdit || interactionLocked
+                  }
                 >
                   <Check size={16} color="#fff" />
                   <Text style={styles.saveEditText}>Save</Text>
@@ -609,8 +701,10 @@ export default function CompartmentDetailScreen() {
                       borderColor: theme.colors.border,
                       backgroundColor: theme.colors.iconSurface,
                     },
+                    interactionLocked && styles.createButtonDisabled,
                   ]}
                   onPress={cancelEditingItem}
+                  disabled={interactionLocked}
                 >
                   <X size={16} color={theme.colors.text} />
                   <Text
@@ -626,7 +720,7 @@ export default function CompartmentDetailScreen() {
               <Pressable
                 style={styles.itemPhotoWrap}
                 onPress={() => handleOpenPhotoViewer(item)}
-                disabled={updatingPhotoId === item.id}
+                disabled={isBusy}
               >
                 {item.itemPhotoUri ? (
                   <Image
@@ -682,8 +776,10 @@ export default function CompartmentDetailScreen() {
                           backgroundColor: theme.colors.iconSurface,
                           borderColor: theme.colors.border,
                         },
+                        isBusy && styles.createButtonDisabled,
                       ]}
                       onPress={() => handleItemPhotoAction(item)}
+                      disabled={isBusy}
                     >
                       <ImageIcon size={16} color={theme.colors.textSecondary} />
                     </Pressable>
@@ -695,8 +791,10 @@ export default function CompartmentDetailScreen() {
                           backgroundColor: theme.colors.iconSurface,
                           borderColor: theme.colors.border,
                         },
+                        interactionLocked && styles.createButtonDisabled,
                       ]}
                       onPress={() => startEditingItem(item)}
+                      disabled={interactionLocked}
                     >
                       <Pencil size={16} color={theme.colors.textSecondary} />
                     </Pressable>
@@ -708,8 +806,10 @@ export default function CompartmentDetailScreen() {
                           backgroundColor: theme.colors.iconSurface,
                           borderColor: theme.colors.border,
                         },
+                        interactionLocked && styles.createButtonDisabled,
                       ]}
                       onPress={() => confirmDeleteItem(item)}
+                      disabled={interactionLocked}
                     >
                       <Trash2 size={16} color={theme.colors.danger} />
                     </Pressable>
@@ -773,6 +873,7 @@ export default function CompartmentDetailScreen() {
                           backgroundColor: theme.colors.iconSurface,
                           borderColor: theme.colors.border,
                         },
+                        isBusy && styles.createButtonDisabled,
                       ]}
                       onPress={() => handleChangeQuantity(item, -1)}
                       disabled={isBusy}
@@ -798,6 +899,7 @@ export default function CompartmentDetailScreen() {
                           backgroundColor: theme.colors.iconSurface,
                           borderColor: theme.colors.border,
                         },
+                        isBusy && styles.createButtonDisabled,
                       ]}
                       onPress={() => handleChangeQuantity(item, 1)}
                       disabled={isBusy}
@@ -871,8 +973,10 @@ export default function CompartmentDetailScreen() {
                   borderColor: theme.colors.border,
                   backgroundColor: theme.colors.card,
                 },
+                interactionLocked && styles.createButtonDisabled,
               ]}
               onPress={handleShareCompartment}
+              disabled={interactionLocked}
             >
               <Share2 size={18} color={theme.colors.text} />
               <Text
@@ -943,11 +1047,11 @@ export default function CompartmentDetailScreen() {
                   <Pressable
                     style={[
                       styles.createButton,
-                      (!itemName.trim() || saving) &&
+                      (!itemName.trim() || saving || interactionLocked) &&
                         styles.createButtonDisabled,
                     ]}
                     onPress={handleCreateItem}
-                    disabled={!itemName.trim() || saving}
+                    disabled={!itemName.trim() || saving || interactionLocked}
                   >
                     <Plus size={18} color="#fff" />
                   </Pressable>
@@ -1015,18 +1119,32 @@ export default function CompartmentDetailScreen() {
                 style={styles.photoViewerActions}
               >
                 <Pressable
-                  style={styles.photoViewerActionButton}
+                  style={[
+                    styles.photoViewerActionButton,
+                    updatingPhotoId === selectedPhotoItem.id &&
+                      styles.createButtonDisabled,
+                  ]}
                   onPress={() => handleTakeItemPhoto(selectedPhotoItem)}
-                  disabled={updatingPhotoId === selectedPhotoItem.id}
+                  disabled={
+                    interactionLocked ||
+                    updatingPhotoId === selectedPhotoItem.id
+                  }
                 >
                   <Camera size={18} color="#fff" />
                   <Text style={styles.photoViewerActionText}>Retake</Text>
                 </Pressable>
 
                 <Pressable
-                  style={styles.photoViewerActionButton}
+                  style={[
+                    styles.photoViewerActionButton,
+                    updatingPhotoId === selectedPhotoItem.id &&
+                      styles.createButtonDisabled,
+                  ]}
                   onPress={() => handlePickItemPhoto(selectedPhotoItem)}
-                  disabled={updatingPhotoId === selectedPhotoItem.id}
+                  disabled={
+                    interactionLocked ||
+                    updatingPhotoId === selectedPhotoItem.id
+                  }
                 >
                   <ImageIcon size={18} color="#fff" />
                   <Text style={styles.photoViewerActionText}>Choose New</Text>
@@ -1036,9 +1154,14 @@ export default function CompartmentDetailScreen() {
                   style={[
                     styles.photoViewerActionButton,
                     styles.photoViewerDeleteButton,
+                    updatingPhotoId === selectedPhotoItem.id &&
+                      styles.createButtonDisabled,
                   ]}
                   onPress={() => confirmRemovePhoto(selectedPhotoItem)}
-                  disabled={updatingPhotoId === selectedPhotoItem.id}
+                  disabled={
+                    interactionLocked ||
+                    updatingPhotoId === selectedPhotoItem.id
+                  }
                 >
                   <Trash2 size={18} color="#fff" />
                   <Text style={styles.photoViewerActionText}>Delete</Text>

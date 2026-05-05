@@ -21,6 +21,7 @@ import {
   useThemedValues,
 } from "../../../components/ui/Themed";
 import { subscribeToChecklists } from "../../../lib/checklistsService";
+import { useInteractionLock } from "../../../lib/useInteractionLock";
 import type { Checklist, ChecklistCategory } from "../../../types/checklists";
 
 const LABEL_WHITE = "#FFFFFF";
@@ -62,11 +63,13 @@ function StatCard({
   value,
   label,
   onPress,
+  disabled = false,
 }: {
   icon: React.ReactNode;
   value: number;
   label: string;
   onPress?: () => void;
+  disabled?: boolean;
 }) {
   const theme = useThemedValues();
 
@@ -109,7 +112,11 @@ function StatCard({
   }
 
   return (
-    <Pressable onPress={onPress} style={styles.statCardWrap}>
+    <Pressable
+      onPress={onPress}
+      style={[styles.statCardWrap, disabled && styles.disabledInteraction]}
+      disabled={disabled}
+    >
       {content}
     </Pressable>
   );
@@ -121,12 +128,14 @@ function ActionCard({
   subtitle,
   onPress,
   highlight = false,
+  disabled = false,
 }: {
   icon: React.ReactNode;
   title: string;
   subtitle: string;
   onPress: () => void;
   highlight?: boolean;
+  disabled?: boolean;
 }) {
   const theme = useThemedValues();
 
@@ -141,7 +150,11 @@ function ActionCard({
       };
 
   return (
-    <Pressable onPress={onPress} style={styles.actionPressable}>
+    <Pressable
+      onPress={onPress}
+      style={[styles.actionPressable, disabled && styles.disabledInteraction]}
+      disabled={disabled}
+    >
       <BlurView
         intensity={theme.isLight ? 22 : 24}
         tint={theme.isLight ? "light" : "dark"}
@@ -181,11 +194,13 @@ function EmptyChecklistCard({
   text,
   showAction,
   onPress,
+  disabled = false,
 }: {
   title: string;
   text: string;
   showAction?: boolean;
   onPress?: () => void;
+  disabled?: boolean;
 }) {
   const theme = useThemedValues();
 
@@ -222,7 +237,14 @@ function EmptyChecklistCard({
       </ThemedText>
 
       {showAction && onPress ? (
-        <ThemedButton style={styles.emptyActionButton} onPress={onPress}>
+        <ThemedButton
+          style={{
+            ...styles.emptyActionButton,
+            ...(disabled ? styles.disabledButton : {}),
+          }}
+          onPress={onPress}
+          disabled={disabled}
+        >
           <ThemedText style={styles.emptyActionButtonText}>
             Create Checklist
           </ThemedText>
@@ -235,6 +257,11 @@ function EmptyChecklistCard({
 export default function ChecklistsTabScreen() {
   const { user, initializing } = useAuth();
   const theme = useThemedValues();
+  const {
+    isLocked: interactionLocked,
+    lock: lockInteraction,
+    unlock: unlockInteraction,
+  } = useInteractionLock(450);
 
   const [checklists, setChecklists] = useState<Checklist[]>([]);
 
@@ -254,6 +281,18 @@ export default function ChecklistsTabScreen() {
 
     return unsubscribe;
   }, [initializing, user]);
+
+  function runWithLock(action: () => void) {
+    if (interactionLocked) return;
+
+    lockInteraction();
+
+    try {
+      action();
+    } finally {
+      unlockInteraction();
+    }
+  }
 
   const sortedChecklists = useMemo(() => {
     return [...checklists].sort((a, b) => {
@@ -281,35 +320,47 @@ export default function ChecklistsTabScreen() {
   }, [checklists]);
 
   function handleOpenChecklist(checklistId: string) {
-    router.push({
-      pathname: "/checklists/[checklistId]",
-      params: { checklistId },
+    runWithLock(() => {
+      router.push({
+        pathname: "/checklists/[checklistId]",
+        params: { checklistId },
+      });
     });
   }
 
   function handleCreateBlankChecklist() {
-    router.push("/checklists/new");
+    runWithLock(() => {
+      router.push("/checklists/new");
+    });
   }
 
   function handleCreateTemplate() {
-    router.push("/checklists/create-template");
+    runWithLock(() => {
+      router.push("/checklists/create-template");
+    });
   }
 
   function handleManageTemplates() {
-    router.push("/checklists/templates");
+    runWithLock(() => {
+      router.push("/checklists/templates");
+    });
   }
 
   function handleOpenPackedItems() {
-    router.push({
-      pathname: "/checklists/items",
-      params: { status: "packed" },
+    runWithLock(() => {
+      router.push({
+        pathname: "/checklists/items",
+        params: { status: "packed" },
+      });
     });
   }
 
   function handleOpenToPackItems() {
-    router.push({
-      pathname: "/checklists/items",
-      params: { status: "to_pack" },
+    runWithLock(() => {
+      router.push({
+        pathname: "/checklists/items",
+        params: { status: "to_pack" },
+      });
     });
   }
 
@@ -359,6 +410,7 @@ export default function ChecklistsTabScreen() {
               value={packedCount}
               label="Packed"
               onPress={handleOpenPackedItems}
+              disabled={interactionLocked}
             />
 
             <StatCard
@@ -366,6 +418,7 @@ export default function ChecklistsTabScreen() {
               value={toPackCount}
               label="To Pack"
               onPress={handleOpenToPackItems}
+              disabled={interactionLocked}
             />
           </View>
 
@@ -393,6 +446,7 @@ export default function ChecklistsTabScreen() {
               subtitle="Start from scratch and add your own items"
               onPress={handleCreateBlankChecklist}
               highlight
+              disabled={interactionLocked}
             />
 
             <ActionCard
@@ -400,6 +454,7 @@ export default function ChecklistsTabScreen() {
               title="Create Template"
               subtitle="Build reusable checklist templates"
               onPress={handleCreateTemplate}
+              disabled={interactionLocked}
             />
 
             <ActionCard
@@ -407,6 +462,7 @@ export default function ChecklistsTabScreen() {
               title="Manage Templates"
               subtitle="Rename and delete your saved checklist templates"
               onPress={handleManageTemplates}
+              disabled={interactionLocked}
             />
           </View>
 
@@ -439,13 +495,18 @@ export default function ChecklistsTabScreen() {
               text="Create your first checklist to track what is packed and what still needs to be packed."
               showAction
               onPress={handleCreateBlankChecklist}
+              disabled={interactionLocked}
             />
           ) : (
             sortedChecklists.map((checklist) => (
               <ThemedCard key={checklist.id} style={styles.checklistCard}>
                 <Pressable
-                  style={styles.row}
+                  style={[
+                    styles.row,
+                    interactionLocked && styles.disabledInteraction,
+                  ]}
                   onPress={() => handleOpenChecklist(checklist.id)}
+                  disabled={interactionLocked}
                 >
                   <View style={styles.left}>
                     <ThemedText variant="title" style={styles.title}>
@@ -718,5 +779,13 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "700",
     textAlign: "center",
+  },
+
+  disabledInteraction: {
+    opacity: 0.6,
+  },
+
+  disabledButton: {
+    opacity: 0.6,
   },
 });

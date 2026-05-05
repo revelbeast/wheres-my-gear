@@ -129,7 +129,9 @@ function getCategoryLabel(
 
 function formatChecklistItemForShare(item: any) {
   const quantity = getSafeQuantity(item.quantity);
-  const storage = item.compartmentName ? `, Storage: ${item.compartmentName}` : "";
+  const storage = item.compartmentName
+    ? `, Storage: ${item.compartmentName}`
+    : "";
   return `- ${item.name} (Qty: ${quantity}${storage})`;
 }
 
@@ -137,7 +139,11 @@ export default function ChecklistDetailScreen() {
   const { user, initializing } = useAuth();
   const { checklistId } = useLocalSearchParams<{ checklistId: string }>();
   const theme = useThemedValues();
-  const interactionLock = useInteractionLock(450);
+  const {
+    isLocked: interactionLocked,
+    lock: lockInteraction,
+    unlock: unlockInteraction,
+  } = useInteractionLock(450);
 
   const [checklist, setChecklist] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
@@ -187,6 +193,18 @@ export default function ChecklistDetailScreen() {
     return unsubscribe;
   }, [initializing, user, checklistId]);
 
+  async function runWithLock(action: () => Promise<void> | void) {
+    if (interactionLocked) return;
+
+    lockInteraction();
+
+    try {
+      await action();
+    } finally {
+      unlockInteraction();
+    }
+  }
+
   async function loadChecklist() {
     if (!user || !checklistId) return;
 
@@ -204,20 +222,20 @@ export default function ChecklistDetailScreen() {
       savingNewItem ||
       savingItemEdit ||
       savingAssignment ||
-      interactionLock.isLocked ||
+      interactionLocked ||
       (!!itemId && updatingItemId === itemId)
     );
   }
 
   function handleOpenRenameChecklist() {
-    if (!checklist || savingRename || interactionLock.isLocked) return;
+    if (!checklist || savingRename || interactionLocked) return;
 
     setRenameValue(checklist.name);
     setRenameModal(true);
   }
 
   function confirmDeleteChecklist() {
-    if (!checklist || !user || interactionLock.isLocked) return;
+    if (!checklist || !user || interactionLocked) return;
 
     Alert.alert(
       "Delete checklist?",
@@ -231,14 +249,15 @@ export default function ChecklistDetailScreen() {
           text: "Delete",
           style: "destructive",
           onPress: async () => {
-            try {
-              interactionLock.lock();
-              await deleteChecklist(user.uid, checklistId);
-              router.replace("/checklists");
-            } catch (err) {
-              console.error(err);
-              Alert.alert("Error", "Failed to delete checklist.");
-            }
+            await runWithLock(async () => {
+              try {
+                await deleteChecklist(user.uid, checklistId);
+                router.replace("/checklists");
+              } catch (err) {
+                console.error(err);
+                Alert.alert("Error", "Failed to delete checklist.");
+              }
+            });
           },
         },
       ]
@@ -247,37 +266,40 @@ export default function ChecklistDetailScreen() {
 
   async function handleRenameChecklist() {
     const trimmed = renameValue.trim();
-    if (!trimmed || !user || savingRename || interactionLock.isLocked) return;
+    if (!trimmed || !user || savingRename || interactionLocked) return;
 
-    try {
-      setSavingRename(true);
-      interactionLock.lock();
-      await updateChecklistName(user.uid, checklistId, trimmed);
-      setRenameModal(false);
-      await loadChecklist();
-    } catch (err) {
-      console.error(err);
-      Alert.alert("Error", "Failed to rename checklist.");
-    } finally {
-      setSavingRename(false);
-    }
+    setSavingRename(true);
+
+    await runWithLock(async () => {
+      try {
+        await updateChecklistName(user.uid, checklistId, trimmed);
+        setRenameModal(false);
+        await loadChecklist();
+      } catch (err) {
+        console.error(err);
+        Alert.alert("Error", "Failed to rename checklist.");
+      } finally {
+        setSavingRename(false);
+      }
+    });
   }
 
   async function handleSaveTemplate() {
-    if (!user || interactionLock.isLocked) return;
+    if (!user || interactionLocked) return;
 
-    try {
-      interactionLock.lock();
-      await saveChecklistAsTemplate(user.uid, checklistId);
-      Alert.alert("Saved", "Checklist saved as template.");
-    } catch (err) {
-      console.error(err);
-      Alert.alert("Error", "Failed to save checklist as template.");
-    }
+    await runWithLock(async () => {
+      try {
+        await saveChecklistAsTemplate(user.uid, checklistId);
+        Alert.alert("Saved", "Checklist saved as template.");
+      } catch (err) {
+        console.error(err);
+        Alert.alert("Error", "Failed to save checklist as template.");
+      }
+    });
   }
 
   async function handleShareChecklist() {
-    if (!checklist || interactionLock.isLocked) return;
+    if (!checklist || interactionLocked) return;
 
     const packedItems = sortedItems.filter((item) => !!item.packed);
     const toPackItems = sortedItems.filter((item) => !item.packed);
@@ -312,42 +334,49 @@ export default function ChecklistDetailScreen() {
       packedText,
     ].join("\n");
 
-    try {
-      await Share.share({
-        title: checklist.name,
-        message,
-      });
-    } catch (err) {
-      console.error(err);
-      Alert.alert("Error", "Failed to share checklist.");
-    }
+    await runWithLock(async () => {
+      try {
+        await Share.share({
+          title: checklist.name,
+          message,
+        });
+      } catch (err) {
+        console.error(err);
+        Alert.alert("Error", "Failed to share checklist.");
+      }
+    });
   }
 
   function handleAddItem() {
     if (isBusyWithItemActions()) return;
 
-    setShowCreateBox((prev) => !prev);
-    if (showCreateBox) {
-      setNewItemName("");
-    }
+    setShowCreateBox((prev) => {
+      if (prev) {
+        setNewItemName("");
+      }
+
+      return !prev;
+    });
   }
 
   async function handleCreateItem() {
     const trimmed = newItemName.trim();
-    if (!trimmed || !user || savingNewItem || interactionLock.isLocked) return;
+    if (!trimmed || !user || savingNewItem || interactionLocked) return;
 
-    try {
-      setSavingNewItem(true);
-      interactionLock.lock();
-      await addChecklistItem(user.uid, checklistId, trimmed);
-      setNewItemName("");
-      setShowCreateBox(false);
-    } catch (err) {
-      console.error(err);
-      Alert.alert("Error", "Failed to add checklist item.");
-    } finally {
-      setSavingNewItem(false);
-    }
+    setSavingNewItem(true);
+
+    await runWithLock(async () => {
+      try {
+        await addChecklistItem(user.uid, checklistId, trimmed);
+        setNewItemName("");
+        setShowCreateBox(false);
+      } catch (err) {
+        console.error(err);
+        Alert.alert("Error", "Failed to add checklist item.");
+      } finally {
+        setSavingNewItem(false);
+      }
+    });
   }
 
   function startEditingItem(item: any) {
@@ -366,20 +395,22 @@ export default function ChecklistDetailScreen() {
 
   async function handleSaveItemEdit(itemId: string) {
     const trimmed = editingItemName.trim();
-    if (!trimmed || !user || savingItemEdit || interactionLock.isLocked) return;
+    if (!trimmed || !user || savingItemEdit || interactionLocked) return;
 
-    try {
-      setSavingItemEdit(true);
-      interactionLock.lock();
-      await updateChecklistItemName(user.uid, checklistId, itemId, trimmed);
-      setEditingItemId(null);
-      setEditingItemName("");
-    } catch (err) {
-      console.error(err);
-      Alert.alert("Error", "Failed to update checklist item.");
-    } finally {
-      setSavingItemEdit(false);
-    }
+    setSavingItemEdit(true);
+
+    await runWithLock(async () => {
+      try {
+        await updateChecklistItemName(user.uid, checklistId, itemId, trimmed);
+        setEditingItemId(null);
+        setEditingItemName("");
+      } catch (err) {
+        console.error(err);
+        Alert.alert("Error", "Failed to update checklist item.");
+      } finally {
+        setSavingItemEdit(false);
+      }
+    });
   }
 
   async function handleChangeNeededQuantity(item: any, delta: number) {
@@ -389,80 +420,86 @@ export default function ChecklistDetailScreen() {
     const nextQuantity = Math.max(1, currentQuantity + delta);
     const quantityDelta = nextQuantity - currentQuantity;
 
-    try {
-      setUpdatingItemId(item.id);
-      interactionLock.lock();
-      await updateChecklistItemQuantity(
-        user.uid,
-        checklistId,
-        item.id,
-        nextQuantity
-      );
+    if (quantityDelta === 0) return;
 
-      if (item.compartmentId && quantityDelta !== 0) {
-        if (quantityDelta > 0) {
-          await createOrUpdateInventoryItemFromChecklist(
-            {
-              name: item.name,
-              quantity: quantityDelta,
-            },
-            {
-              id: item.compartmentId,
-              name: item.compartmentName ?? "",
-              vehicleId: item.vehicleId ?? "",
-            }
-          );
-        } else {
-          await removeOrDecrementInventoryItemFromChecklist(
-            {
-              name: item.name,
-              quantity: Math.abs(quantityDelta),
-            },
-            item.compartmentId
-          );
+    setUpdatingItemId(item.id);
+
+    await runWithLock(async () => {
+      try {
+        await updateChecklistItemQuantity(
+          user.uid,
+          checklistId,
+          item.id,
+          nextQuantity
+        );
+
+        if (item.compartmentId) {
+          if (quantityDelta > 0) {
+            await createOrUpdateInventoryItemFromChecklist(
+              {
+                name: item.name,
+                quantity: quantityDelta,
+              },
+              {
+                id: item.compartmentId,
+                name: item.compartmentName ?? "",
+                vehicleId: item.vehicleId ?? "",
+              }
+            );
+          } else {
+            await removeOrDecrementInventoryItemFromChecklist(
+              {
+                name: item.name,
+                quantity: Math.abs(quantityDelta),
+              },
+              item.compartmentId
+            );
+          }
+
+          await syncInventoryItemStatusFromChecklist({
+            name: item.name,
+            quantity: nextQuantity,
+            packed: !!item.packed,
+            compartmentId: item.compartmentId,
+            compartmentName: item.compartmentName ?? "",
+            vehicleId: item.vehicleId ?? "",
+          });
         }
-
-        await syncInventoryItemStatusFromChecklist({
-          name: item.name,
-          quantity: nextQuantity,
-          packed: !!item.packed,
-          compartmentId: item.compartmentId,
-          compartmentName: item.compartmentName ?? "",
-          vehicleId: item.vehicleId ?? "",
-        });
+      } catch (err) {
+        console.error(err);
+        Alert.alert("Error", "Failed to update quantity.");
+      } finally {
+        setUpdatingItemId(null);
       }
-    } catch (err) {
-      console.error(err);
-      Alert.alert("Error", "Failed to update quantity.");
-    } finally {
-      setUpdatingItemId(null);
-    }
+    });
   }
 
   async function handleTogglePacked(item: any) {
     if (!user || isBusyWithItemActions(item.id)) return;
 
-    try {
-      setUpdatingItemId(item.id);
-      interactionLock.lock();
-      await toggleChecklistItemPacked(user.uid, checklistId, item);
+    setUpdatingItemId(item.id);
 
-      if (item.compartmentId) {
-        await syncInventoryItemStatusFromChecklist({
-          name: item.name,
-          quantity: getSafeQuantity(item.quantity),
-          packed: !item.packed,
-          compartmentId: item.compartmentId,
-          compartmentName: item.compartmentName ?? "",
-          vehicleId: item.vehicleId ?? "",
-        });
+    await runWithLock(async () => {
+      try {
+        await toggleChecklistItemPacked(user.uid, checklistId, item);
+
+        if (item.compartmentId) {
+          await syncInventoryItemStatusFromChecklist({
+            name: item.name,
+            quantity: getSafeQuantity(item.quantity),
+            packed: !item.packed,
+            compartmentId: item.compartmentId,
+            compartmentName: item.compartmentName ?? "",
+            vehicleId: item.vehicleId ?? "",
+          });
+        }
+      } catch (err) {
+        console.error(err);
+        Alert.alert("Error", "Failed to update packed status.");
+      } finally {
+        setUpdatingItemId(null);
       }
-    } catch (err) {
-      console.error(err);
-      Alert.alert("Error", "Failed to update packed status.");
-    } finally {
-      setUpdatingItemId(null);
-    }
+    });
   }
 
   async function handleItemPhotoAction(item: any) {
@@ -503,110 +540,121 @@ export default function ChecklistDetailScreen() {
         Alert.alert("Camera access needed", "Please allow camera access first.");
         return;
       }
-
-      setUpdatingItemId(item.id);
-      interactionLock.lock();
-
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ["images"],
-        allowsEditing: true,
-        quality: 0.8,
-      });
-
-      if (result.canceled) return;
-
-      const asset = result.assets?.[0];
-      if (!asset?.uri) {
-        Alert.alert("Photo not captured", "No valid image was returned.");
-        return;
-      }
-
-      await updateChecklistItemPhoto(
-        user.uid,
-        checklistId,
-        item.id,
-        asset.uri
-      );
     } catch (err) {
       console.error(err);
-      Alert.alert("Error", "Failed to save item photo.");
-    } finally {
-      setUpdatingItemId(null);
+      Alert.alert("Error", "Failed to request camera permission.");
+      return;
     }
+
+    setUpdatingItemId(item.id);
+
+    await runWithLock(async () => {
+      try {
+        const result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ["images"],
+          allowsEditing: true,
+          quality: 0.8,
+        });
+
+        if (result.canceled) return;
+
+        const asset = result.assets?.[0];
+        if (!asset?.uri) {
+          Alert.alert("Photo not captured", "No valid image was returned.");
+          return;
+        }
+
+        await updateChecklistItemPhoto(
+          user.uid,
+          checklistId,
+          item.id,
+          asset.uri
+        );
+      } catch (err) {
+        console.error(err);
+        Alert.alert("Error", "Failed to save item photo.");
+      } finally {
+        setUpdatingItemId(null);
+      }
+    });
   }
 
   async function handlePickItemPhoto(item: any) {
     if (!user || isBusyWithItemActions(item.id)) return;
 
-    try {
-      setUpdatingItemId(item.id);
-      interactionLock.lock();
+    setUpdatingItemId(item.id);
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images"],
-        allowsEditing: true,
-        quality: 0.8,
-      });
+    await runWithLock(async () => {
+      try {
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ["images"],
+          allowsEditing: true,
+          quality: 0.8,
+        });
 
-      if (result.canceled) return;
+        if (result.canceled) return;
 
-      const asset = result.assets?.[0];
-      if (!asset?.uri) {
-        Alert.alert("Photo not selected", "No valid image was returned.");
-        return;
+        const asset = result.assets?.[0];
+        if (!asset?.uri) {
+          Alert.alert("Photo not selected", "No valid image was returned.");
+          return;
+        }
+
+        await updateChecklistItemPhoto(
+          user.uid,
+          checklistId,
+          item.id,
+          asset.uri
+        );
+      } catch (err) {
+        console.error(err);
+        Alert.alert("Error", "Failed to save item photo.");
+      } finally {
+        setUpdatingItemId(null);
       }
-
-      await updateChecklistItemPhoto(
-        user.uid,
-        checklistId,
-        item.id,
-        asset.uri
-      );
-    } catch (err) {
-      console.error(err);
-      Alert.alert("Error", "Failed to save item photo.");
-    } finally {
-      setUpdatingItemId(null);
-    }
+    });
   }
 
   async function handleRemoveItemPhoto(item: any) {
     if (!user || isBusyWithItemActions(item.id)) return;
 
-    try {
-      setUpdatingItemId(item.id);
-      interactionLock.lock();
-      await updateChecklistItemPhoto(user.uid, checklistId, item.id, "");
-    } catch (err) {
-      console.error(err);
-      Alert.alert("Error", "Failed to remove item photo.");
-    } finally {
-      setUpdatingItemId(null);
-    }
+    setUpdatingItemId(item.id);
+
+    await runWithLock(async () => {
+      try {
+        await updateChecklistItemPhoto(user.uid, checklistId, item.id, "");
+      } catch (err) {
+        console.error(err);
+        Alert.alert("Error", "Failed to remove item photo.");
+      } finally {
+        setUpdatingItemId(null);
+      }
+    });
   }
 
   async function openAssignStorage(item: any) {
     if (isBusyWithItemActions(item.id)) return;
 
-    try {
-      interactionLock.lock();
-      setAssigningItem(item);
-      setSelectedVehicleId(item.vehicleId ?? "");
-      setSelectedCompartmentId(item.compartmentId ?? "");
-      setCompartments([]);
-      setAssignModalVisible(true);
+    await runWithLock(async () => {
+      try {
+        setAssigningItem(item);
+        setSelectedVehicleId(item.vehicleId ?? "");
+        setSelectedCompartmentId(item.compartmentId ?? "");
+        setCompartments([]);
+        setAssignModalVisible(true);
 
-      const spaces = await getStorageSpaces();
-      setStorageSpaces(spaces);
+        const spaces = await getStorageSpaces();
+        setStorageSpaces(spaces);
 
-      const initialVehicleId = item.vehicleId ?? "";
-      if (initialVehicleId) {
-        await loadCompartmentsForVehicle(initialVehicleId);
+        const initialVehicleId = item.vehicleId ?? "";
+        if (initialVehicleId) {
+          await loadCompartmentsForVehicle(initialVehicleId);
+        }
+      } catch (err) {
+        console.error(err);
+        Alert.alert("Error", "Failed to load storage spaces.");
       }
-    } catch (err) {
-      console.error(err);
-      Alert.alert("Error", "Failed to load storage spaces.");
-    }
+    });
   }
 
   function closeAssignStorage() {
@@ -659,7 +707,7 @@ export default function ChecklistDetailScreen() {
   }
 
   async function handleSaveAssignment() {
-    if (!assigningItem || !user || savingAssignment || interactionLock.isLocked) {
+    if (!assigningItem || !user || savingAssignment || interactionLocked) {
       return;
     }
 
@@ -689,61 +737,62 @@ export default function ChecklistDetailScreen() {
     const isNewAssignment = !previousCompartmentId;
     const isSameAssignment = previousCompartmentId === selectedCompartment.id;
 
-    try {
-      setSavingAssignment(true);
-      interactionLock.lock();
+    setSavingAssignment(true);
 
-      if (isReassignment) {
-        await removeOrDecrementInventoryItemFromChecklist(
-          {
-            name: assigningItem.name,
-            quantity: getSafeQuantity(assigningItem.quantity),
-          },
-          previousCompartmentId
+    await runWithLock(async () => {
+      try {
+        if (isReassignment) {
+          await removeOrDecrementInventoryItemFromChecklist(
+            {
+              name: assigningItem.name,
+              quantity: getSafeQuantity(assigningItem.quantity),
+            },
+            previousCompartmentId
+          );
+        }
+
+        await updateChecklistItemCompartment(
+          user.uid,
+          checklistId,
+          assigningItem.id,
+          selectedCompartment.id,
+          selectedCompartment.name,
+          selectedVehicleId
         );
-      }
 
-      await updateChecklistItemCompartment(
-        user.uid,
-        checklistId,
-        assigningItem.id,
-        selectedCompartment.id,
-        selectedCompartment.name,
-        selectedVehicleId
-      );
+        if (isNewAssignment || isReassignment) {
+          await createOrUpdateInventoryItemFromChecklist(
+            {
+              name: assigningItem.name,
+              quantity: getSafeQuantity(assigningItem.quantity),
+            },
+            {
+              id: selectedCompartment.id,
+              name: selectedCompartment.name,
+              vehicleId: selectedVehicleId,
+            }
+          );
+        }
 
-      if (isNewAssignment || isReassignment) {
-        await createOrUpdateInventoryItemFromChecklist(
-          {
+        if (!isSameAssignment || isNewAssignment) {
+          await syncInventoryItemStatusFromChecklist({
             name: assigningItem.name,
             quantity: getSafeQuantity(assigningItem.quantity),
-          },
-          {
-            id: selectedCompartment.id,
-            name: selectedCompartment.name,
+            packed: !!assigningItem.packed,
+            compartmentId: selectedCompartment.id,
+            compartmentName: selectedCompartment.name,
             vehicleId: selectedVehicleId,
-          }
-        );
-      }
+          });
+        }
 
-      if (!isSameAssignment || isNewAssignment) {
-        await syncInventoryItemStatusFromChecklist({
-          name: assigningItem.name,
-          quantity: getSafeQuantity(assigningItem.quantity),
-          packed: !!assigningItem.packed,
-          compartmentId: selectedCompartment.id,
-          compartmentName: selectedCompartment.name,
-          vehicleId: selectedVehicleId,
-        });
+        closeAssignStorage();
+      } catch (err) {
+        console.error(err);
+        Alert.alert("Error", "Failed to assign storage.");
+      } finally {
+        setSavingAssignment(false);
       }
-
-      closeAssignStorage();
-    } catch (err) {
-      console.error(err);
-      Alert.alert("Error", "Failed to assign storage.");
-    } finally {
-      setSavingAssignment(false);
-    }
+    });
   }
 
   function confirmDeleteItem(item: any) {
@@ -755,24 +804,30 @@ export default function ChecklistDetailScreen() {
         text: "Delete",
         style: "destructive",
         onPress: async () => {
-          try {
-            interactionLock.lock();
+          if (isBusyWithItemActions(item.id)) return;
 
-            if (item.compartmentId) {
-              await removeOrDecrementInventoryItemFromChecklist(
-                {
-                  name: item.name,
-                  quantity: getSafeQuantity(item.quantity),
-                },
-                item.compartmentId
-              );
+          setUpdatingItemId(item.id);
+
+          await runWithLock(async () => {
+            try {
+              if (item.compartmentId) {
+                await removeOrDecrementInventoryItemFromChecklist(
+                  {
+                    name: item.name,
+                    quantity: getSafeQuantity(item.quantity),
+                  },
+                  item.compartmentId
+                );
+              }
+
+              await deleteChecklistItem(user.uid, checklistId, item.id);
+            } catch (err) {
+              console.error(err);
+              Alert.alert("Error", "Failed to delete checklist item.");
+            } finally {
+              setUpdatingItemId(null);
             }
-
-            await deleteChecklistItem(user.uid, checklistId, item.id);
-          } catch (err) {
-            console.error(err);
-            Alert.alert("Error", "Failed to delete checklist item.");
-          }
+          });
         },
       },
     ]);
@@ -1337,7 +1392,7 @@ export default function ChecklistDetailScreen() {
                     onPress={() =>
                       setFilter(option.key as "all" | "unpacked" | "packed")
                     }
-                    disabled={interactionLock.isLocked}
+                    disabled={interactionLocked}
                   >
                     <Text
                       style={[
@@ -1419,10 +1474,10 @@ export default function ChecklistDetailScreen() {
                       backgroundColor: theme.colors.iconSurface,
                       borderColor: theme.colors.border,
                     },
-                    interactionLock.isLocked && styles.disabledButton,
+                    interactionLocked && styles.disabledButton,
                   ]}
                   onPress={handleShareChecklist}
-                  disabled={interactionLock.isLocked}
+                  disabled={interactionLocked}
                 >
                   <Share2 size={18} color={theme.colors.text} />
                   <Text
@@ -1439,10 +1494,10 @@ export default function ChecklistDetailScreen() {
                   <Pressable
                     style={[
                       styles.saveTemplatePressable,
-                      interactionLock.isLocked && styles.disabledInteraction,
+                      interactionLocked && styles.disabledInteraction,
                     ]}
                     onPress={handleSaveTemplate}
-                    disabled={interactionLock.isLocked}
+                    disabled={interactionLocked}
                   >
                     <View
                       style={[
@@ -1468,10 +1523,10 @@ export default function ChecklistDetailScreen() {
                           backgroundColor: theme.colors.iconSurface,
                           borderColor: theme.colors.border,
                         },
-                        interactionLock.isLocked && styles.disabledInteraction,
+                        interactionLocked && styles.disabledInteraction,
                       ]}
                       onPress={handleOpenRenameChecklist}
-                      disabled={interactionLock.isLocked}
+                      disabled={interactionLocked}
                     >
                       <Pencil size={16} color={theme.colors.textSecondary} />
                     </Pressable>
@@ -1483,10 +1538,10 @@ export default function ChecklistDetailScreen() {
                           backgroundColor: theme.colors.iconSurface,
                           borderColor: theme.colors.border,
                         },
-                        interactionLock.isLocked && styles.disabledInteraction,
+                        interactionLocked && styles.disabledInteraction,
                       ]}
                       onPress={confirmDeleteChecklist}
-                      disabled={interactionLock.isLocked}
+                      disabled={interactionLocked}
                     >
                       <Trash2 size={16} color={theme.colors.danger} />
                     </Pressable>

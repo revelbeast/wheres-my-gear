@@ -21,6 +21,7 @@ import {
   getStorageSpaceById,
   updateStorageSpace,
 } from "../../lib/gearService";
+import { useInteractionLock } from "../../lib/useInteractionLock";
 import { colors } from "../../theme/tokens";
 
 const VEHICLE_SUBTYPES = [
@@ -57,6 +58,12 @@ function getSubtypePlaceholder(category: "vehicle" | "storage") {
 export default function EditStorageScreen() {
   const params = useLocalSearchParams();
   const storageId = typeof params.id === "string" ? params.id : "";
+
+  const {
+    isLocked: interactionLocked,
+    lock: lockInteraction,
+    unlock: unlockInteraction,
+  } = useInteractionLock(450);
 
   const [name, setName] = useState("");
   const [category, setCategory] = useState<"vehicle" | "storage">("vehicle");
@@ -99,6 +106,22 @@ export default function EditStorageScreen() {
       }
     };
   }, []);
+
+  async function runWithLock(action: () => Promise<void> | void) {
+    if (interactionLocked) return;
+
+    lockInteraction();
+
+    try {
+      await action();
+    } finally {
+      unlockInteraction();
+    }
+  }
+
+  function isBusy() {
+    return saving || deleting || loading || interactionLocked;
+  }
 
   async function loadStorage() {
     if (!storageId) {
@@ -157,7 +180,17 @@ export default function EditStorageScreen() {
     setShowSubtypeDropdown(false);
   }
 
+  function handleBack() {
+    if (saving || deleting || interactionLocked) return;
+
+    runWithLock(() => {
+      router.back();
+    });
+  }
+
   function handleToggleSubtypeDropdown() {
+    if (isBusy()) return;
+
     if (showSubtypeDropdown) {
       closeSubtypeDropdown();
       return;
@@ -173,6 +206,8 @@ export default function EditStorageScreen() {
   }
 
   function handleSelectSubtype(value: string) {
+    if (isBusy()) return;
+
     blurInputs();
     clearPendingDropdownOpen();
     setSubtype(value);
@@ -183,7 +218,19 @@ export default function EditStorageScreen() {
     }
   }
 
+  function handleSelectCategory(nextCategory: "vehicle" | "storage") {
+    if (isBusy()) return;
+
+    blurInputs();
+    setCategory(nextCategory);
+    setSubtype("");
+    setCustomSubtype("");
+    closeSubtypeDropdown();
+  }
+
   async function handleSave() {
+    if (saving || deleting || interactionLocked) return;
+
     blurInputs();
     closeSubtypeDropdown();
 
@@ -194,25 +241,31 @@ export default function EditStorageScreen() {
 
     if (!finalSubtype) return;
 
-    try {
-      setSaving(true);
+    setSaving(true);
 
-      await updateStorageSpace(storageId, {
-        name: name.trim(),
-        category,
-        subtype: finalSubtype,
-      });
+    await runWithLock(async () => {
+      try {
+        await updateStorageSpace(storageId, {
+          name: name.trim(),
+          category,
+          subtype: finalSubtype,
+        });
 
-      router.back();
-    } catch (err) {
-      console.error("Failed to update storage space:", err);
-    } finally {
-      setSaving(false);
-    }
+        router.back();
+      } catch (err) {
+        console.error("Failed to update storage space:", err);
+        Alert.alert(
+          "Save failed",
+          "Unable to update this storage space. Please try again."
+        );
+      } finally {
+        setSaving(false);
+      }
+    });
   }
 
   function handleDelete() {
-    if (!storageId || deleting) return;
+    if (!storageId || saving || deleting || interactionLocked) return;
 
     Alert.alert(
       "Delete Storage Space",
@@ -229,15 +282,24 @@ export default function EditStorageScreen() {
   }
 
   async function confirmDelete() {
-    try {
-      setDeleting(true);
-      await deleteStorageSpace(storageId);
-      router.replace("/storage");
-    } catch (err) {
-      console.error("Failed to delete storage space:", err);
-    } finally {
-      setDeleting(false);
-    }
+    if (!storageId || saving || deleting || interactionLocked) return;
+
+    setDeleting(true);
+
+    await runWithLock(async () => {
+      try {
+        await deleteStorageSpace(storageId);
+        router.replace("/storage");
+      } catch (err) {
+        console.error("Failed to delete storage space:", err);
+        Alert.alert(
+          "Delete failed",
+          "Unable to delete this storage space. Please try again."
+        );
+      } finally {
+        setDeleting(false);
+      }
+    });
   }
 
   return (
@@ -256,7 +318,15 @@ export default function EditStorageScreen() {
             contentContainerStyle={styles.scrollContent}
           >
             <View style={styles.headerRow}>
-              <Pressable onPress={() => router.back()} style={styles.backButton}>
+              <Pressable
+                onPress={handleBack}
+                style={[
+                  styles.backButton,
+                  (saving || deleting || interactionLocked) &&
+                    styles.disabledInteraction,
+                ]}
+                disabled={saving || deleting || interactionLocked}
+              >
                 <ChevronLeft size={24} color={colors.text} />
               </Pressable>
 
@@ -266,8 +336,12 @@ export default function EditStorageScreen() {
 
               <Pressable
                 onPress={handleDelete}
-                disabled={deleting}
-                style={styles.deleteButton}
+                disabled={saving || deleting || loading || interactionLocked}
+                style={[
+                  styles.deleteButton,
+                  (saving || deleting || loading || interactionLocked) &&
+                    styles.disabledInteraction,
+                ]}
               >
                 <Trash2 size={20} color={colors.danger} />
               </Pressable>
@@ -283,7 +357,14 @@ export default function EditStorageScreen() {
               ) : notFound ? (
                 <>
                   <Text style={styles.loadingText}>Storage space not found.</Text>
-                  <Pressable style={styles.secondaryButton} onPress={() => router.back()}>
+                  <Pressable
+                    style={[
+                      styles.secondaryButton,
+                      interactionLocked && styles.disabledInteraction,
+                    ]}
+                    onPress={handleBack}
+                    disabled={interactionLocked}
+                  >
                     <Text style={styles.secondaryButtonText}>Go Back</Text>
                   </Pressable>
                 </>
@@ -299,6 +380,7 @@ export default function EditStorageScreen() {
                     placeholderTextColor={colors.textMuted}
                     style={styles.input}
                     returnKeyType="done"
+                    editable={!saving && !deleting && !interactionLocked}
                   />
 
                   <Text style={styles.label}>Category</Text>
@@ -307,14 +389,10 @@ export default function EditStorageScreen() {
                       style={[
                         styles.toggle,
                         category === "vehicle" && styles.toggleActive,
+                        isBusy() && styles.disabledInteraction,
                       ]}
-                      onPress={() => {
-                        blurInputs();
-                        setCategory("vehicle");
-                        setSubtype("");
-                        setCustomSubtype("");
-                        closeSubtypeDropdown();
-                      }}
+                      onPress={() => handleSelectCategory("vehicle")}
+                      disabled={isBusy()}
                     >
                       <Text
                         style={[
@@ -330,14 +408,10 @@ export default function EditStorageScreen() {
                       style={[
                         styles.toggle,
                         category === "storage" && styles.toggleActive,
+                        isBusy() && styles.disabledInteraction,
                       ]}
-                      onPress={() => {
-                        blurInputs();
-                        setCategory("storage");
-                        setSubtype("");
-                        setCustomSubtype("");
-                        closeSubtypeDropdown();
-                      }}
+                      onPress={() => handleSelectCategory("storage")}
+                      disabled={isBusy()}
                     >
                       <Text
                         style={[
@@ -354,11 +428,19 @@ export default function EditStorageScreen() {
 
                   <View style={styles.dropdownWrap}>
                     <Pressable
-                      style={styles.dropdownPressable}
+                      style={[
+                        styles.dropdownPressable,
+                        isBusy() && styles.disabledInteraction,
+                      ]}
                       onPressIn={blurInputs}
                       onPress={handleToggleSubtypeDropdown}
+                      disabled={isBusy()}
                     >
-                      <BlurView intensity={20} tint="dark" style={styles.dropdownButton}>
+                      <BlurView
+                        intensity={20}
+                        tint="dark"
+                        style={styles.dropdownButton}
+                      >
                         <Text
                           style={[
                             styles.dropdownButtonText,
@@ -373,7 +455,11 @@ export default function EditStorageScreen() {
                     </Pressable>
 
                     {showSubtypeDropdown && (
-                      <BlurView intensity={20} tint="dark" style={styles.dropdownCard}>
+                      <BlurView
+                        intensity={20}
+                        tint="dark"
+                        style={styles.dropdownCard}
+                      >
                         <ScrollView
                           showsVerticalScrollIndicator={false}
                           nestedScrollEnabled
@@ -386,8 +472,10 @@ export default function EditStorageScreen() {
                                 styles.dropdownRow,
                                 index === subtypeOptions.length - 1 &&
                                   styles.dropdownRowLast,
+                                isBusy() && styles.disabledInteraction,
                               ]}
                               onPress={() => handleSelectSubtype(option)}
+                              disabled={isBusy()}
                             >
                               <Text style={styles.dropdownRowTitle}>{option}</Text>
                             </Pressable>
@@ -409,14 +497,19 @@ export default function EditStorageScreen() {
                         placeholderTextColor={colors.textMuted}
                         style={styles.input}
                         returnKeyType="done"
+                        editable={!saving && !deleting && !interactionLocked}
                       />
                     </>
                   )}
 
                   <Pressable
-                    style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+                    style={[
+                      styles.saveButton,
+                      (saving || deleting || interactionLocked) &&
+                        styles.saveButtonDisabled,
+                    ]}
                     onPress={handleSave}
-                    disabled={saving}
+                    disabled={saving || deleting || interactionLocked}
                   >
                     <Text style={styles.saveText}>
                       {saving ? "Saving..." : "Save Changes"}
@@ -635,5 +728,9 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: "700",
     fontSize: 14,
+  },
+
+  disabledInteraction: {
+    opacity: 0.6,
   },
 });

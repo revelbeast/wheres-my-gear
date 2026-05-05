@@ -79,6 +79,7 @@ export default function TabsLayout() {
       />
 
       <Tabs.Screen name="vehicles" options={{ href: null }} />
+      <Tabs.Screen name="storage/create" options={{ href: null }} />
       <Tabs.Screen name="notes" options={{ href: null }} />
       <Tabs.Screen name="trips" options={{ href: null }} />
       <Tabs.Screen name="explore" options={{ href: null }} />

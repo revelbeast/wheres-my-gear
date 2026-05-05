@@ -47,7 +47,20 @@ export default function VehicleDetailScreen() {
     : params.vehicleId;
 
   const scrollRef = useRef<ScrollView | null>(null);
-  const navigationLock = useInteractionLock(450);
+  const navigationTransitionLockedRef = useRef(false);
+  const headerAddLockedRef = useRef(false);
+  const navigationUnlockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+  const headerAddUnlockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+
+  const {
+    isLocked: interactionLocked,
+    lock: lockInteraction,
+    unlock: unlockInteraction,
+  } = useInteractionLock(450);
 
   const [storageSpace, setStorageSpace] = useState<StorageSpace | null>(null);
   const [compartments, setCompartments] = useState<Compartment[]>([]);
@@ -60,6 +73,9 @@ export default function VehicleDetailScreen() {
   );
   const [editingCompartmentName, setEditingCompartmentName] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
+  const [deletingCompartmentId, setDeletingCompartmentId] = useState<
+    string | null
+  >(null);
 
   const headerTitle = storageSpace?.name
     ? `${storageSpace.name} Compartments`
@@ -70,6 +86,30 @@ export default function VehicleDetailScreen() {
     loadStorageSpace();
     loadCompartments();
   }, [vehicleId]);
+
+  useEffect(() => {
+    return () => {
+      if (navigationUnlockTimeoutRef.current) {
+        clearTimeout(navigationUnlockTimeoutRef.current);
+      }
+
+      if (headerAddUnlockTimeoutRef.current) {
+        clearTimeout(headerAddUnlockTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  async function runWithLock(action: () => Promise<void> | void) {
+    if (interactionLocked) return;
+
+    lockInteraction();
+
+    try {
+      await action();
+    } finally {
+      unlockInteraction();
+    }
+  }
 
   async function loadStorageSpace() {
     try {
@@ -91,13 +131,43 @@ export default function VehicleDetailScreen() {
     }
   }
 
+  function isBusy() {
+    return (
+      isCreating ||
+      savingEdit ||
+      !!deletingCompartmentId ||
+      interactionLocked ||
+      navigationTransitionLockedRef.current ||
+      headerAddLockedRef.current
+    );
+  }
+
   function scrollToBottom(delay = 120) {
     setTimeout(() => {
       scrollRef.current?.scrollToEnd({ animated: true });
     }, delay);
   }
 
+  function unlockHeaderAddAfterDelay() {
+    if (headerAddUnlockTimeoutRef.current) {
+      clearTimeout(headerAddUnlockTimeoutRef.current);
+    }
+
+    headerAddUnlockTimeoutRef.current = setTimeout(() => {
+      headerAddLockedRef.current = false;
+      headerAddUnlockTimeoutRef.current = null;
+    }, 700);
+  }
+
   function toggleCreateBox() {
+    if (isBusy()) return;
+
+    if (headerAddLockedRef.current) {
+      return;
+    }
+
+    headerAddLockedRef.current = true;
+
     Keyboard.dismiss();
     setEditingCompartmentId(null);
     setEditingCompartmentName("");
@@ -111,9 +181,13 @@ export default function VehicleDetailScreen() {
       }
       return next;
     });
+
+    unlockHeaderAddAfterDelay();
   }
 
   async function handleShareStorageSpace() {
+    if (isBusy()) return;
+
     const storageName = storageSpace?.name?.trim() || "Storage Space";
 
     const compartmentText =
@@ -133,44 +207,48 @@ export default function VehicleDetailScreen() {
       compartmentText,
     ].join("\n");
 
-    try {
-      await Share.share({
-        title: storageName,
-        message,
-      });
-    } catch (err) {
-      console.error("Failed to share storage space:", err);
-      Alert.alert(
-        "Storage not shared",
-        "Something went wrong while sharing this storage space."
-      );
-    }
+    await runWithLock(async () => {
+      try {
+        await Share.share({
+          title: storageName,
+          message,
+        });
+      } catch (err) {
+        console.error("Failed to share storage space:", err);
+        Alert.alert(
+          "Storage not shared",
+          "Something went wrong while sharing this storage space."
+        );
+      }
+    });
   }
 
   async function handleCreateCompartment() {
-    if (!vehicleId || isCreating) return;
+    if (!vehicleId || isCreating || interactionLocked) return;
 
     const trimmed = newCompartmentName.trim();
     if (!trimmed) return;
 
-    try {
-      setIsCreating(true);
-      navigationLock.lock();
-      Keyboard.dismiss();
-      await createCompartment(trimmed, String(vehicleId));
-      setNewCompartmentName("");
-      setShowCreateBox(false);
-      await loadCompartments();
-    } catch (err) {
-      console.error("Failed to create compartment:", err);
-      Alert.alert("Error", "Failed to create compartment.");
-    } finally {
-      setIsCreating(false);
-    }
+    setIsCreating(true);
+
+    await runWithLock(async () => {
+      try {
+        Keyboard.dismiss();
+        await createCompartment(trimmed, String(vehicleId));
+        setNewCompartmentName("");
+        setShowCreateBox(false);
+        await loadCompartments();
+      } catch (err) {
+        console.error("Failed to create compartment:", err);
+        Alert.alert("Error", "Failed to create compartment.");
+      } finally {
+        setIsCreating(false);
+      }
+    });
   }
 
   function startEditing(compartment: Compartment) {
-    if (isCreating || navigationLock.isLocked) return;
+    if (isBusy()) return;
 
     setShowCreateBox(false);
     setNewCompartmentName("");
@@ -181,34 +259,39 @@ export default function VehicleDetailScreen() {
   }
 
   function cancelEditing() {
+    if (savingEdit) return;
+
     Keyboard.dismiss();
     setEditingCompartmentId(null);
     setEditingCompartmentName("");
   }
 
   async function saveEditing(compartmentId: string) {
-    if (savingEdit) return;
+    if (savingEdit || interactionLocked) return;
 
     const trimmed = editingCompartmentName.trim();
     if (!trimmed) return;
 
-    try {
-      setSavingEdit(true);
-      Keyboard.dismiss();
-      await updateCompartment(compartmentId, { name: trimmed });
-      setEditingCompartmentId(null);
-      setEditingCompartmentName("");
-      await loadCompartments();
-    } catch (err) {
-      console.error("Failed to update compartment:", err);
-      Alert.alert("Error", "Failed to update compartment name.");
-    } finally {
-      setSavingEdit(false);
-    }
+    setSavingEdit(true);
+
+    await runWithLock(async () => {
+      try {
+        Keyboard.dismiss();
+        await updateCompartment(compartmentId, { name: trimmed });
+        setEditingCompartmentId(null);
+        setEditingCompartmentName("");
+        await loadCompartments();
+      } catch (err) {
+        console.error("Failed to update compartment:", err);
+        Alert.alert("Error", "Failed to update compartment name.");
+      } finally {
+        setSavingEdit(false);
+      }
+    });
   }
 
   function confirmDelete(compartment: Compartment) {
-    if (isCreating || navigationLock.isLocked) return;
+    if (isBusy()) return;
 
     Alert.alert(
       "Delete compartment?",
@@ -225,20 +308,32 @@ export default function VehicleDetailScreen() {
   }
 
   async function handleDelete(compartment: Compartment) {
-    try {
-      await deleteCompartment(compartment.id);
-      await loadCompartments();
-    } catch (err) {
-      console.error("Failed to delete compartment:", err);
-      Alert.alert("Error", "Failed to delete compartment.");
-    }
+    if (deletingCompartmentId || interactionLocked) return;
+
+    setDeletingCompartmentId(compartment.id);
+
+    await runWithLock(async () => {
+      try {
+        await deleteCompartment(compartment.id);
+        await loadCompartments();
+      } catch (err) {
+        console.error("Failed to delete compartment:", err);
+        Alert.alert("Error", "Failed to delete compartment.");
+      } finally {
+        setDeletingCompartmentId(null);
+      }
+    });
   }
 
   function renderRightActions(compartment: Compartment) {
     return (
       <Pressable
-        style={styles.swipeDeleteAction}
+        style={[
+          styles.swipeDeleteAction,
+          isBusy() && styles.disabledInteraction,
+        ]}
         onPress={() => confirmDelete(compartment)}
+        disabled={isBusy()}
       >
         <Trash2 size={18} color="#fff" />
         <Text style={styles.swipeDeleteText}>Delete</Text>
@@ -247,8 +342,20 @@ export default function VehicleDetailScreen() {
   }
 
   function handleOpenCompartment(compartmentId: string) {
-    if (!vehicleId || !compartmentId || isCreating || navigationLock.isLocked) {
+    if (!vehicleId || !compartmentId) return;
+
+    if (isCreating || savingEdit || !!deletingCompartmentId || interactionLocked) {
       return;
+    }
+
+    if (navigationTransitionLockedRef.current) {
+      return;
+    }
+
+    navigationTransitionLockedRef.current = true;
+
+    if (navigationUnlockTimeoutRef.current) {
+      clearTimeout(navigationUnlockTimeoutRef.current);
     }
 
     Keyboard.dismiss();
@@ -260,7 +367,30 @@ export default function VehicleDetailScreen() {
         compartmentId: String(compartmentId),
       },
     });
+
+    navigationUnlockTimeoutRef.current = setTimeout(() => {
+      navigationTransitionLockedRef.current = false;
+      navigationUnlockTimeoutRef.current = null;
+    }, 1500);
   }
+
+  const headerRight = (
+    <Pressable
+      style={[styles.headerAddButton, isBusy() && styles.disabledInteraction]}
+      onPress={toggleCreateBox}
+      disabled={isBusy()}
+      accessibilityRole="button"
+      accessibilityLabel={showCreateBox ? "Close add compartment" : "Add compartment"}
+    >
+      <BlurView intensity={18} tint="dark" style={styles.headerAddButtonInner}>
+        {showCreateBox ? (
+          <X size={22} color="#fff" />
+        ) : (
+          <Plus size={24} color="#fff" />
+        )}
+      </BlurView>
+    </Pressable>
+  );
 
   return (
     <ScreenBackground>
@@ -278,7 +408,11 @@ export default function VehicleDetailScreen() {
             keyboardDismissMode="interactive"
             automaticallyAdjustKeyboardInsets
           >
-            <AppHeader title={headerTitle} showBackButton />
+            <AppHeader
+              title={headerTitle}
+              showBackButton
+              rightContent={headerRight}
+            />
 
             <BlurView intensity={18} tint="dark" style={styles.topActionCard}>
               <View style={styles.topActionTextWrap}>
@@ -289,7 +423,14 @@ export default function VehicleDetailScreen() {
                 </Text>
               </View>
 
-              <Pressable style={styles.topActionButton} onPress={toggleCreateBox}>
+              <Pressable
+                style={[
+                  styles.topActionButton,
+                  isBusy() && styles.disabledInteraction,
+                ]}
+                onPress={toggleCreateBox}
+                disabled={isBusy()}
+              >
                 <BlurView
                   intensity={18}
                   tint="dark"
@@ -308,8 +449,12 @@ export default function VehicleDetailScreen() {
             </BlurView>
 
             <Pressable
-              style={styles.shareStorageButton}
+              style={[
+                styles.shareStorageButton,
+                isBusy() && styles.disabledInteraction,
+              ]}
               onPress={handleShareStorageSpace}
+              disabled={isBusy()}
             >
               <Share2 size={18} color="#fff" />
               <Text style={styles.shareStorageButtonText}>
@@ -331,18 +476,24 @@ export default function VehicleDetailScreen() {
                     returnKeyType="done"
                     onFocus={() => scrollToBottom(180)}
                     onSubmitEditing={handleCreateCompartment}
-                    editable={!isCreating}
+                    editable={!isCreating && !interactionLocked}
                     autoFocus
                   />
 
                   <Pressable
                     style={[
                       styles.createButton,
-                      (!newCompartmentName.trim() || isCreating) &&
+                      (!newCompartmentName.trim() ||
+                        isCreating ||
+                        interactionLocked) &&
                         styles.createButtonDisabled,
                     ]}
                     onPress={handleCreateCompartment}
-                    disabled={!newCompartmentName.trim() || isCreating}
+                    disabled={
+                      !newCompartmentName.trim() ||
+                      isCreating ||
+                      interactionLocked
+                    }
                   >
                     <Plus size={18} color="#fff" />
                   </Pressable>
@@ -370,7 +521,7 @@ export default function VehicleDetailScreen() {
               compartments.map((compartment) => {
                 const isEditing = editingCompartmentId === compartment.id;
                 const interactionDisabled =
-                  isCreating || navigationLock.isLocked;
+                  isBusy() || deletingCompartmentId === compartment.id;
 
                 return (
                   <Swipeable
@@ -382,7 +533,9 @@ export default function VehicleDetailScreen() {
                     <BlurView intensity={18} tint="dark" style={styles.card}>
                       {isEditing ? (
                         <View style={styles.editWrap}>
-                          <Text style={styles.editLabel}>Edit compartment name</Text>
+                          <Text style={styles.editLabel}>
+                            Edit compartment name
+                          </Text>
 
                           <TextInput
                             value={editingCompartmentName}
@@ -394,7 +547,7 @@ export default function VehicleDetailScreen() {
                             returnKeyType="done"
                             onFocus={() => scrollToBottom(180)}
                             onSubmitEditing={() => saveEditing(compartment.id)}
-                            editable={!savingEdit}
+                            editable={!savingEdit && !interactionLocked}
                             selectTextOnFocus
                           />
 
@@ -402,12 +555,16 @@ export default function VehicleDetailScreen() {
                             <Pressable
                               style={[
                                 styles.saveEditButton,
-                                (!editingCompartmentName.trim() || savingEdit) &&
+                                (!editingCompartmentName.trim() ||
+                                  savingEdit ||
+                                  interactionLocked) &&
                                   styles.createButtonDisabled,
                               ]}
                               onPress={() => saveEditing(compartment.id)}
                               disabled={
-                                !editingCompartmentName.trim() || savingEdit
+                                !editingCompartmentName.trim() ||
+                                savingEdit ||
+                                interactionLocked
                               }
                             >
                               <Check size={16} color="#fff" />
@@ -417,9 +574,13 @@ export default function VehicleDetailScreen() {
                             </Pressable>
 
                             <Pressable
-                              style={styles.cancelEditButton}
+                              style={[
+                                styles.cancelEditButton,
+                                (savingEdit || interactionLocked) &&
+                                  styles.disabledInteraction,
+                              ]}
                               onPress={cancelEditing}
-                              disabled={savingEdit}
+                              disabled={savingEdit || interactionLocked}
                             >
                               <X size={16} color={colors.text} />
                               <Text style={styles.cancelEditText}>Cancel</Text>
@@ -447,7 +608,8 @@ export default function VehicleDetailScreen() {
                             <Pressable
                               style={[
                                 styles.iconButton,
-                                interactionDisabled && styles.disabledInteraction,
+                                interactionDisabled &&
+                                  styles.disabledInteraction,
                               ]}
                               onPress={() => startEditing(compartment)}
                               disabled={interactionDisabled}
@@ -461,7 +623,8 @@ export default function VehicleDetailScreen() {
                             <Pressable
                               style={[
                                 styles.iconButton,
-                                interactionDisabled && styles.disabledInteraction,
+                                interactionDisabled &&
+                                  styles.disabledInteraction,
                               ]}
                               onPress={() =>
                                 handleOpenCompartment(compartment.id)
@@ -500,6 +663,22 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
     paddingBottom: 180,
+  },
+
+  headerAddButton: {
+    borderRadius: 18,
+    overflow: "hidden",
+  },
+
+  headerAddButtonInner: {
+    width: 58,
+    height: 58,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "rgba(255,255,255,0.06)",
   },
 
   topActionCard: {

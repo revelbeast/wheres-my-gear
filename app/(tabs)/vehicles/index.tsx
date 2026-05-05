@@ -142,7 +142,7 @@ export default function VehiclesScreen() {
 
         <Pressable
           style={styles.addButton}
-          onPress={() => router.push("/storage/create")}
+          onPress={() => router.push("/(tabs)/storage/create")}
         >
           <Plus size={22} color="#fff" />
         </Pressable>

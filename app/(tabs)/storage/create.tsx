@@ -16,10 +16,10 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import ScreenBackground from "../../components/ui/ScreenBackground";
-import { useThemedValues } from "../../components/ui/Themed";
-import { createStorageSpace } from "../../lib/gearService";
-import { useInteractionLock } from "../../lib/useInteractionLock";
+import ScreenBackground from "../../../components/ui/ScreenBackground";
+import { useThemedValues } from "../../../components/ui/Themed";
+import { createStorageSpace } from "../../../lib/gearService";
+import { useInteractionLock } from "../../../lib/useInteractionLock";
 
 const LABEL_WHITE = "#FFFFFF";
 

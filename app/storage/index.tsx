@@ -7,7 +7,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react-native";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   FlatList,
@@ -25,11 +25,31 @@ import {
   getStorageSpaces,
   StorageSpace,
 } from "../../lib/gearService";
+import { useInteractionLock } from "../../lib/useInteractionLock";
 import { colors } from "../../theme/tokens";
 
 export default function StorageManagementScreen() {
+  const {
+    isLocked: interactionLocked,
+    lock: lockInteraction,
+    unlock: unlockInteraction,
+  } = useInteractionLock(450);
+
+  const navigationTransitionLockedRef = useRef(false);
+  const navigationUnlockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+
   const [storageSpaces, setStorageSpaces] = useState<StorageSpace[]>([]);
   const [deletingStorageId, setDeletingStorageId] = useState<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (navigationUnlockTimeoutRef.current) {
+        clearTimeout(navigationUnlockTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const sortedStorageSpaces = useMemo(() => {
     return [...storageSpaces].sort((a, b) => {
@@ -46,6 +66,45 @@ export default function StorageManagementScreen() {
     }, [])
   );
 
+  async function runWithLock(action: () => Promise<void> | void) {
+    if (interactionLocked) return;
+
+    lockInteraction();
+
+    try {
+      await action();
+    } finally {
+      unlockInteraction();
+    }
+  }
+
+  function isBusy() {
+    return (
+      interactionLocked ||
+      !!deletingStorageId ||
+      navigationTransitionLockedRef.current
+    );
+  }
+
+  function lockNavigationTransition() {
+    if (navigationTransitionLockedRef.current) {
+      return false;
+    }
+
+    navigationTransitionLockedRef.current = true;
+
+    if (navigationUnlockTimeoutRef.current) {
+      clearTimeout(navigationUnlockTimeoutRef.current);
+    }
+
+    navigationUnlockTimeoutRef.current = setTimeout(() => {
+      navigationTransitionLockedRef.current = false;
+      navigationUnlockTimeoutRef.current = null;
+    }, 1500);
+
+    return true;
+  }
+
   async function loadStorageSpaces() {
     try {
       const spaces = await getStorageSpaces();
@@ -56,15 +115,39 @@ export default function StorageManagementScreen() {
     }
   }
 
+  function handleBack() {
+    if (isBusy()) return;
+
+    const lockAcquired = lockNavigationTransition();
+    if (!lockAcquired) return;
+
+    router.back();
+  }
+
   function handleCreateStorage() {
-    router.push("/storage/create");
+    if (isBusy()) return;
+
+    const lockAcquired = lockNavigationTransition();
+    if (!lockAcquired) return;
+
+    router.push("/(tabs)/storage/create");
   }
 
   function handleOpenCompartments(space: StorageSpace) {
+    if (!space.id || isBusy()) return;
+
+    const lockAcquired = lockNavigationTransition();
+    if (!lockAcquired) return;
+
     router.push(`/vehicles/${encodeURIComponent(String(space.id))}`);
   }
 
   function handleEditStorage(space: StorageSpace) {
+    if (!space.id || isBusy()) return;
+
+    const lockAcquired = lockNavigationTransition();
+    if (!lockAcquired) return;
+
     router.push({
       pathname: "/storage/edit",
       params: { id: String(space.id) },
@@ -72,6 +155,8 @@ export default function StorageManagementScreen() {
   }
 
   function handleConfirmDeleteStorage(space: StorageSpace) {
+    if (!space.id || isBusy()) return;
+
     Alert.alert(
       "Delete Storage Space?",
       `This will permanently delete "${space.name}", its compartments, and all inventory items stored inside it. This cannot be undone.`,
@@ -87,29 +172,35 @@ export default function StorageManagementScreen() {
   }
 
   async function handleDeleteStorage(space: StorageSpace) {
-    try {
-      setDeletingStorageId(space.id);
-      await deleteStorageSpace(space.id);
-      await loadStorageSpaces();
-    } catch (error) {
-      console.error("Failed to delete storage space:", error);
-      Alert.alert(
-        "Delete Failed",
-        "Unable to delete this storage space. Please try again."
-      );
-    } finally {
-      setDeletingStorageId(null);
-    }
+    if (!space.id || deletingStorageId || interactionLocked) return;
+
+    setDeletingStorageId(space.id);
+
+    await runWithLock(async () => {
+      try {
+        await deleteStorageSpace(space.id);
+        await loadStorageSpaces();
+      } catch (error) {
+        console.error("Failed to delete storage space:", error);
+        Alert.alert(
+          "Delete Failed",
+          "Unable to delete this storage space. Please try again."
+        );
+      } finally {
+        setDeletingStorageId(null);
+      }
+    });
   }
 
   function renderRightActions(space: StorageSpace) {
     const isDeleting = deletingStorageId === space.id;
+    const disabled = isDeleting || isBusy();
 
     return (
       <Pressable
-        style={styles.deleteAction}
+        style={[styles.deleteAction, disabled && styles.disabledInteraction]}
         onPress={() => handleConfirmDeleteStorage(space)}
-        disabled={isDeleting}
+        disabled={disabled}
       >
         <Trash2 size={20} color={colors.text} />
         <Text style={styles.deleteActionText}>
@@ -120,15 +211,23 @@ export default function StorageManagementScreen() {
   }
 
   function renderStorageCard(space: StorageSpace) {
+    const isDeleting = deletingStorageId === space.id;
+    const interactionDisabled = isDeleting || isBusy();
+
     return (
       <Swipeable
         overshootRight={false}
         renderRightActions={() => renderRightActions(space)}
+        enabled={!interactionDisabled}
       >
         <BlurView intensity={18} tint="dark" style={styles.storageCard}>
           <Pressable
-            style={styles.storageCardMainPressable}
+            style={[
+              styles.storageCardMainPressable,
+              interactionDisabled && styles.disabledInteraction,
+            ]}
             onPress={() => handleOpenCompartments(space)}
+            disabled={interactionDisabled}
           >
             <View style={styles.storageCardLeft}>
               <Text style={styles.storageTitle}>{space.name}</Text>
@@ -140,9 +239,13 @@ export default function StorageManagementScreen() {
 
             <View style={styles.storageCardRight}>
               <Pressable
-                style={styles.iconButton}
+                style={[
+                  styles.iconButton,
+                  interactionDisabled && styles.disabledInteraction,
+                ]}
                 onPress={() => handleEditStorage(space)}
                 hitSlop={8}
+                disabled={interactionDisabled}
               >
                 <Pencil size={16} color={colors.textSecondary} />
               </Pressable>
@@ -162,7 +265,11 @@ export default function StorageManagementScreen() {
       <SafeAreaView style={styles.safe}>
         <View style={styles.container}>
           <View style={styles.headerRow}>
-            <Pressable onPress={() => router.back()} style={styles.backButton}>
+            <Pressable
+              onPress={handleBack}
+              style={[styles.backButton, isBusy() && styles.disabledInteraction]}
+              disabled={isBusy()}
+            >
               <ChevronLeft size={24} color={colors.text} />
             </Pressable>
 
@@ -170,7 +277,11 @@ export default function StorageManagementScreen() {
               <Text style={styles.headerTitle}>Manage Storage Spaces</Text>
             </View>
 
-            <Pressable onPress={handleCreateStorage} style={styles.addButton}>
+            <Pressable
+              onPress={handleCreateStorage}
+              style={[styles.addButton, isBusy() && styles.disabledInteraction]}
+              disabled={isBusy()}
+            >
               <BlurView intensity={20} tint="dark" style={styles.addButtonInner}>
                 <Plus size={18} color={colors.text} />
               </BlurView>
@@ -350,5 +461,9 @@ const styles = StyleSheet.create({
   emptyText: {
     color: colors.textSecondary,
     fontSize: 13,
+  },
+
+  disabledInteraction: {
+    opacity: 0.6,
   },
 });

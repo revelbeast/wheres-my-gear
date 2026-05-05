@@ -28,6 +28,7 @@ import {
   Item,
   StorageSpace,
 } from "../../lib/gearService";
+import { useInteractionLock } from "../../lib/useInteractionLock";
 import { useTheme } from "../../lib/useTheme";
 
 type StatusFilter = "all" | "packed" | "toPack";
@@ -49,6 +50,11 @@ export default function InventoryScreen() {
   const { user, initializing } = useAuth();
   const params = useLocalSearchParams<{ status?: string }>();
   const theme = useTheme();
+  const {
+    isLocked: interactionLocked,
+    lock: lockInteraction,
+    unlock: unlockInteraction,
+  } = useInteractionLock(450);
 
   const [inventoryItems, setInventoryItems] = useState<Item[]>([]);
   const [storageSpaces, setStorageSpaces] = useState<StorageSpace[]>([]);
@@ -82,6 +88,18 @@ export default function InventoryScreen() {
       loadInventoryData();
     }, [initializing, user])
   );
+
+  function runWithLock(action: () => void) {
+    if (interactionLocked) return;
+
+    lockInteraction();
+
+    try {
+      action();
+    } finally {
+      unlockInteraction();
+    }
+  }
 
   async function loadInventoryData() {
     if (!user) return;
@@ -218,7 +236,9 @@ export default function InventoryScreen() {
   }
 
   function handleAddStorageSpace() {
-    router.push("/storage/create");
+    runWithLock(() => {
+      router.push("/(tabs)/storage/create");
+    });
   }
 
   function handleOpenItem(item: Item) {
@@ -226,12 +246,14 @@ export default function InventoryScreen() {
       return;
     }
 
-    router.push({
-      pathname: "/vehicles/[vehicleId]/compartments/[compartmentId]",
-      params: {
-        vehicleId: item.vehicleId,
-        compartmentId: item.compartmentId,
-      },
+    runWithLock(() => {
+      router.push({
+        pathname: "/vehicles/[vehicleId]/compartments/[compartmentId]",
+        params: {
+          vehicleId: item.vehicleId,
+          compartmentId: item.compartmentId,
+        },
+      });
     });
   }
 
@@ -246,8 +268,12 @@ export default function InventoryScreen() {
     return (
       <Pressable
         key={value}
-        style={styles.filterPressable}
+        style={[
+          styles.filterPressable,
+          interactionLocked && styles.disabledInteraction,
+        ]}
         onPress={() => setStatusFilter(value)}
+        disabled={interactionLocked}
       >
         <BlurView
           intensity={theme.isLight ? 18 : 18}
@@ -313,7 +339,11 @@ export default function InventoryScreen() {
         </ThemedText>
 
         {showAddStorageAction && (
-          <ThemedButton style={styles.emptyButton} onPress={handleAddStorageSpace}>
+          <ThemedButton
+            style={styles.emptyButton}
+            onPress={handleAddStorageSpace}
+            disabled={interactionLocked}
+          >
             <ThemedText style={styles.emptyButtonText}>
               Add Storage Space
             </ThemedText>
@@ -403,11 +433,13 @@ export default function InventoryScreen() {
             ListEmptyComponent={renderEmptyState}
             renderItem={({ item }) => {
               const canOpenItem = !!item.vehicleId && !!item.compartmentId;
+              const itemDisabled = !canOpenItem || interactionLocked;
 
               return (
                 <Pressable
                   onPress={() => handleOpenItem(item)}
-                  disabled={!canOpenItem}
+                  disabled={itemDisabled}
+                  style={interactionLocked && styles.disabledInteraction}
                 >
                   <BlurView
                     intensity={theme.isLight ? 18 : 18}
@@ -553,5 +585,9 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "700",
     textAlign: "center",
+  },
+
+  disabledInteraction: {
+    opacity: 0.6,
   },
 });
