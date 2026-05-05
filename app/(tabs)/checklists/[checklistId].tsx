@@ -21,7 +21,6 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  Pressable,
   ScrollView,
   Share,
   StyleSheet,
@@ -33,6 +32,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../../components/auth/AuthProvider";
 import AppHeader from "../../../components/ui/AppHeader";
+import HapticPressable from "../../../components/ui/HapticPressable";
 import ScreenBackground from "../../../components/ui/ScreenBackground";
 import { useThemedValues } from "../../../components/ui/Themed";
 import {
@@ -44,6 +44,7 @@ import {
   type Compartment,
   type StorageSpace,
 } from "../../../lib/gearService";
+import { triggerSuccessHaptic } from "../../../lib/haptics";
 import { useInteractionLock } from "../../../lib/useInteractionLock";
 import {
   addChecklistItem,
@@ -273,6 +274,7 @@ export default function ChecklistDetailScreen() {
     await runWithLock(async () => {
       try {
         await updateChecklistName(user.uid, checklistId, trimmed);
+        void triggerSuccessHaptic();
         setRenameModal(false);
         await loadChecklist();
       } catch (err) {
@@ -290,6 +292,7 @@ export default function ChecklistDetailScreen() {
     await runWithLock(async () => {
       try {
         await saveChecklistAsTemplate(user.uid, checklistId);
+        void triggerSuccessHaptic();
         Alert.alert("Saved", "Checklist saved as template.");
       } catch (err) {
         console.error(err);
@@ -368,6 +371,7 @@ export default function ChecklistDetailScreen() {
     await runWithLock(async () => {
       try {
         await addChecklistItem(user.uid, checklistId, trimmed);
+        void triggerSuccessHaptic();
         setNewItemName("");
         setShowCreateBox(false);
       } catch (err) {
@@ -402,6 +406,7 @@ export default function ChecklistDetailScreen() {
     await runWithLock(async () => {
       try {
         await updateChecklistItemName(user.uid, checklistId, itemId, trimmed);
+        void triggerSuccessHaptic();
         setEditingItemId(null);
         setEditingItemName("");
       } catch (err) {
@@ -570,6 +575,8 @@ export default function ChecklistDetailScreen() {
           item.id,
           asset.uri
         );
+
+        void triggerSuccessHaptic();
       } catch (err) {
         console.error(err);
         Alert.alert("Error", "Failed to save item photo.");
@@ -606,6 +613,8 @@ export default function ChecklistDetailScreen() {
           item.id,
           asset.uri
         );
+
+        void triggerSuccessHaptic();
       } catch (err) {
         console.error(err);
         Alert.alert("Error", "Failed to save item photo.");
@@ -706,6 +715,12 @@ export default function ChecklistDetailScreen() {
     await loadCompartmentsForVehicle(vehicleId);
   }
 
+  function handleSelectCompartment(compartmentId: string) {
+    if (savingAssignment) return;
+
+    setSelectedCompartmentId(compartmentId);
+  }
+
   async function handleSaveAssignment() {
     if (!assigningItem || !user || savingAssignment || interactionLocked) {
       return;
@@ -785,6 +800,7 @@ export default function ChecklistDetailScreen() {
           });
         }
 
+        void triggerSuccessHaptic();
         closeAssignStorage();
       } catch (err) {
         console.error(err);
@@ -833,6 +849,12 @@ export default function ChecklistDetailScreen() {
     ]);
   }
 
+  function handleFilterChange(nextFilter: "all" | "unpacked" | "packed") {
+    if (interactionLocked) return;
+
+    setFilter(nextFilter);
+  }
+
   const checklistTotals = useMemo(() => {
     const needed = items.reduce(
       (sum, item) => sum + getSafeQuantity(item.quantity),
@@ -875,7 +897,7 @@ export default function ChecklistDetailScreen() {
   }, [sortedItems, filter]);
 
   const headerRight = (
-    <Pressable
+    <HapticPressable
       style={[
         styles.headerActionButton,
         {
@@ -894,7 +916,7 @@ export default function ChecklistDetailScreen() {
       ) : (
         <Plus size={18} color="#fff" />
       )}
-    </Pressable>
+    </HapticPressable>
   );
 
   function renderChecklistItem(item: any) {
@@ -937,7 +959,7 @@ export default function ChecklistDetailScreen() {
             />
 
             <View style={styles.editActions}>
-              <Pressable
+              <HapticPressable
                 style={[
                   styles.saveItemButton,
                   (!editingItemName.trim() || savingItemEdit) &&
@@ -950,9 +972,9 @@ export default function ChecklistDetailScreen() {
                 <Text style={styles.saveItemButtonText}>
                   {savingItemEdit ? "Saving..." : "Save"}
                 </Text>
-              </Pressable>
+              </HapticPressable>
 
-              <Pressable
+              <HapticPressable
                 style={[
                   styles.cancelItemButton,
                   {
@@ -973,12 +995,12 @@ export default function ChecklistDetailScreen() {
                 >
                   Cancel
                 </Text>
-              </Pressable>
+              </HapticPressable>
             </View>
           </View>
         ) : (
           <View style={styles.itemContentRow}>
-            <Pressable
+            <HapticPressable
               style={[
                 styles.itemPhotoWrap,
                 interactionDisabled && styles.disabledInteraction,
@@ -1012,7 +1034,7 @@ export default function ChecklistDetailScreen() {
                   </Text>
                 </View>
               )}
-            </Pressable>
+            </HapticPressable>
 
             <View style={styles.itemMainContent}>
               <View style={styles.itemTopRow}>
@@ -1033,7 +1055,7 @@ export default function ChecklistDetailScreen() {
                 </View>
 
                 <View style={styles.itemActions}>
-                  <Pressable
+                  <HapticPressable
                     style={[
                       styles.iconButton,
                       {
@@ -1046,9 +1068,9 @@ export default function ChecklistDetailScreen() {
                     disabled={interactionDisabled}
                   >
                     <ImageIcon size={16} color={theme.colors.textSecondary} />
-                  </Pressable>
+                  </HapticPressable>
 
-                  <Pressable
+                  <HapticPressable
                     style={[
                       styles.iconButton,
                       {
@@ -1061,9 +1083,9 @@ export default function ChecklistDetailScreen() {
                     disabled={interactionDisabled}
                   >
                     <Pencil size={16} color={theme.colors.textSecondary} />
-                  </Pressable>
+                  </HapticPressable>
 
-                  <Pressable
+                  <HapticPressable
                     style={[
                       styles.iconButton,
                       {
@@ -1076,7 +1098,7 @@ export default function ChecklistDetailScreen() {
                     disabled={interactionDisabled}
                   >
                     <Trash2 size={16} color={theme.colors.danger} />
-                  </Pressable>
+                  </HapticPressable>
                 </View>
               </View>
 
@@ -1129,7 +1151,7 @@ export default function ChecklistDetailScreen() {
               </View>
 
               <View style={styles.secondaryActionsRow}>
-                <Pressable
+                <HapticPressable
                   style={[
                     styles.assignButton,
                     {
@@ -1151,12 +1173,12 @@ export default function ChecklistDetailScreen() {
                       ? "Change Storage"
                       : "Assign Storage"}
                   </Text>
-                </Pressable>
+                </HapticPressable>
               </View>
 
               <View style={styles.controlsRow}>
                 <View style={styles.quantityControls}>
-                  <Pressable
+                  <HapticPressable
                     style={[
                       styles.quantityButton,
                       {
@@ -1169,7 +1191,7 @@ export default function ChecklistDetailScreen() {
                     disabled={interactionDisabled}
                   >
                     <Minus size={16} color={theme.colors.text} />
-                  </Pressable>
+                  </HapticPressable>
 
                   <View style={styles.quantityValueWrap}>
                     <Text
@@ -1182,7 +1204,7 @@ export default function ChecklistDetailScreen() {
                     </Text>
                   </View>
 
-                  <Pressable
+                  <HapticPressable
                     style={[
                       styles.quantityButton,
                       {
@@ -1195,10 +1217,10 @@ export default function ChecklistDetailScreen() {
                     disabled={interactionDisabled}
                   >
                     <Plus size={16} color={theme.colors.text} />
-                  </Pressable>
+                  </HapticPressable>
                 </View>
 
-                <Pressable
+                <HapticPressable
                   style={[
                     styles.packToggleButton,
                     isPacked ? styles.packToggleOn : styles.packToggleOff,
@@ -1224,7 +1246,7 @@ export default function ChecklistDetailScreen() {
                   >
                     {isPacked ? "Packed" : "Mark Packed"}
                   </Text>
-                </Pressable>
+                </HapticPressable>
               </View>
             </View>
           </View>
@@ -1379,7 +1401,7 @@ export default function ChecklistDetailScreen() {
                 const isActive = filter === option.key;
 
                 return (
-                  <Pressable
+                  <HapticPressable
                     key={option.key}
                     style={[
                       styles.filterChip,
@@ -1390,7 +1412,9 @@ export default function ChecklistDetailScreen() {
                       isActive && styles.filterChipActive,
                     ]}
                     onPress={() =>
-                      setFilter(option.key as "all" | "unpacked" | "packed")
+                      handleFilterChange(
+                        option.key as "all" | "unpacked" | "packed"
+                      )
                     }
                     disabled={interactionLocked}
                   >
@@ -1403,7 +1427,7 @@ export default function ChecklistDetailScreen() {
                     >
                       {option.label}
                     </Text>
-                  </Pressable>
+                  </HapticPressable>
                 );
               })}
             </View>
@@ -1450,7 +1474,7 @@ export default function ChecklistDetailScreen() {
                     editable={!savingNewItem}
                   />
 
-                  <Pressable
+                  <HapticPressable
                     style={[
                       styles.createButton,
                       (!newItemName.trim() || savingNewItem) &&
@@ -1460,14 +1484,14 @@ export default function ChecklistDetailScreen() {
                     disabled={!newItemName.trim() || savingNewItem}
                   >
                     <Plus size={18} color="#fff" />
-                  </Pressable>
+                  </HapticPressable>
                 </View>
               </View>
             )}
 
             <FrostedCard style={styles.actionCard}>
               <View style={styles.actionStack}>
-                <Pressable
+                <HapticPressable
                   style={[
                     styles.shareChecklistButton,
                     {
@@ -1488,10 +1512,10 @@ export default function ChecklistDetailScreen() {
                   >
                     Share Checklist
                   </Text>
-                </Pressable>
+                </HapticPressable>
 
                 <View style={styles.row}>
-                  <Pressable
+                  <HapticPressable
                     style={[
                       styles.saveTemplatePressable,
                       interactionLocked && styles.disabledInteraction,
@@ -1513,10 +1537,10 @@ export default function ChecklistDetailScreen() {
                     <Text style={[styles.rowText, { color: theme.colors.text }]}>
                       Save as Template
                     </Text>
-                  </Pressable>
+                  </HapticPressable>
 
                   <View style={styles.checklistActionButtons}>
-                    <Pressable
+                    <HapticPressable
                       style={[
                         styles.iconButton,
                         {
@@ -1529,9 +1553,9 @@ export default function ChecklistDetailScreen() {
                       disabled={interactionLocked}
                     >
                       <Pencil size={16} color={theme.colors.textSecondary} />
-                    </Pressable>
+                    </HapticPressable>
 
-                    <Pressable
+                    <HapticPressable
                       style={[
                         styles.iconButton,
                         {
@@ -1544,7 +1568,7 @@ export default function ChecklistDetailScreen() {
                       disabled={interactionLocked}
                     >
                       <Trash2 size={16} color={theme.colors.danger} />
-                    </Pressable>
+                    </HapticPressable>
                   </View>
                 </View>
               </View>
@@ -1649,7 +1673,7 @@ export default function ChecklistDetailScreen() {
                 editable={!savingRename}
               />
 
-              <Pressable
+              <HapticPressable
                 style={[styles.addButton, savingRename && styles.disabledButton]}
                 onPress={handleRenameChecklist}
                 disabled={savingRename}
@@ -1657,9 +1681,9 @@ export default function ChecklistDetailScreen() {
                 <Text style={styles.addText}>
                   {savingRename ? "Saving..." : "Save"}
                 </Text>
-              </Pressable>
+              </HapticPressable>
 
-              <Pressable
+              <HapticPressable
                 onPress={() => setRenameModal(false)}
                 disabled={savingRename}
               >
@@ -1671,7 +1695,7 @@ export default function ChecklistDetailScreen() {
                 >
                   Cancel
                 </Text>
-              </Pressable>
+              </HapticPressable>
             </View>
           </View>
         </Modal>
@@ -1719,7 +1743,7 @@ export default function ChecklistDetailScreen() {
                     const selected = selectedVehicleId === space.id;
 
                     return (
-                      <Pressable
+                      <HapticPressable
                         key={space.id}
                         style={[
                           styles.optionButton,
@@ -1741,7 +1765,7 @@ export default function ChecklistDetailScreen() {
                         >
                           {space.name}
                         </Text>
-                      </Pressable>
+                      </HapticPressable>
                     );
                   })
                 )}
@@ -1788,7 +1812,7 @@ export default function ChecklistDetailScreen() {
                     const selected = selectedCompartmentId === compartment.id;
 
                     return (
-                      <Pressable
+                      <HapticPressable
                         key={compartment.id}
                         style={[
                           styles.optionButton,
@@ -1798,7 +1822,7 @@ export default function ChecklistDetailScreen() {
                           },
                           selected && styles.optionButtonSelected,
                         ]}
-                        onPress={() => setSelectedCompartmentId(compartment.id)}
+                        onPress={() => handleSelectCompartment(compartment.id)}
                         disabled={savingAssignment}
                       >
                         <Text
@@ -1810,13 +1834,13 @@ export default function ChecklistDetailScreen() {
                         >
                           {compartment.name}
                         </Text>
-                      </Pressable>
+                      </HapticPressable>
                     );
                   })
                 )}
               </View>
 
-              <Pressable
+              <HapticPressable
                 style={[
                   styles.addButton,
                   savingAssignment && styles.disabledButton,
@@ -1827,9 +1851,12 @@ export default function ChecklistDetailScreen() {
                 <Text style={styles.addText}>
                   {savingAssignment ? "Saving..." : "Save Assignment"}
                 </Text>
-              </Pressable>
+              </HapticPressable>
 
-              <Pressable onPress={closeAssignStorage} disabled={savingAssignment}>
+              <HapticPressable
+                onPress={closeAssignStorage}
+                disabled={savingAssignment}
+              >
                 <Text
                   style={[
                     styles.cancelText,
@@ -1838,7 +1865,7 @@ export default function ChecklistDetailScreen() {
                 >
                   Cancel
                 </Text>
-              </Pressable>
+              </HapticPressable>
             </View>
           </View>
         </Modal>
