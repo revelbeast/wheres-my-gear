@@ -7,6 +7,7 @@ import {
   UserCircle2,
 } from "lucide-react-native";
 
+import { HapticTab } from "../../components/haptic-tab";
 import { useTheme } from "../../lib/useTheme";
 
 export default function TabsLayout() {
@@ -16,6 +17,7 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        tabBarButton: HapticTab,
 
         tabBarStyle: {
           backgroundColor: theme.isLight

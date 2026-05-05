@@ -23,6 +23,7 @@ export type AppProfile = {
   fontSize: AppFontSize;
   profilePhotoUri: string;
   backgroundPhotoUri?: string;
+  hapticsEnabled: boolean;
   address: AppAddress;
 };
 
@@ -51,6 +52,7 @@ const defaultProfile: AppProfile = {
   fontSize: "medium",
   profilePhotoUri: "",
   backgroundPhotoUri: "",
+  hapticsEnabled: true,
   address: defaultAddress,
 };
 
@@ -143,6 +145,7 @@ export async function getProfileSettings(userId: string): Promise<AppProfile> {
   const mergedProfile: AppProfile = {
     ...defaultProfile,
     ...data,
+    hapticsEnabled: data.hapticsEnabled ?? defaultProfile.hapticsEnabled,
     address: {
       ...defaultAddress,
       ...(data.address ?? {}),

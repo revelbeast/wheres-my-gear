@@ -1,9 +1,11 @@
-import React from "react";
-import { LogBox } from "react-native";
 import { Stack } from "expo-router";
+import React, { useEffect } from "react";
+import { LogBox } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
-import { AuthProvider } from "../components/auth/AuthProvider";
+import { AuthProvider, useAuth } from "../components/auth/AuthProvider";
+import { setHapticsEnabled } from "../lib/haptics";
+import { getProfileSettings } from "../lib/settingsService";
 
 LogBox.ignoreLogs([
   "[RevenueCat]",
@@ -13,7 +15,30 @@ LogBox.ignoreLogs([
 ]);
 
 function RootLayoutInner() {
-  return <Stack screenOptions={{ headerShown: false }} />;
+  const { user } = useAuth();
+
+  useEffect(() => {
+    async function loadHaptics() {
+      if (!user) return;
+
+      try {
+        const profile = await getProfileSettings(user.uid);
+        setHapticsEnabled(profile.hapticsEnabled ?? true);
+      } catch (err) {
+        console.error("Failed to load haptics setting:", err);
+      }
+    }
+
+    loadHaptics();
+  }, [user]);
+
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+      }}
+    />
+  );
 }
 
 export default function RootLayout() {
