@@ -12,7 +12,6 @@ import {
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FlatList,
-  Pressable,
   StyleSheet,
   TextInput,
   View,
@@ -21,6 +20,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../components/auth/AuthProvider";
 import ScreenBackground from "../../components/ui/ScreenBackground";
+import HapticPressable from "../../components/ui/HapticPressable";
 import { ThemedButton, ThemedText } from "../../components/ui/Themed";
 import {
   getAllItems,
@@ -28,6 +28,7 @@ import {
   Item,
   StorageSpace,
 } from "../../lib/gearService";
+import { triggerSuccessHaptic } from "../../lib/haptics";
 import { useInteractionLock } from "../../lib/useInteractionLock";
 import { useTheme } from "../../lib/useTheme";
 
@@ -237,6 +238,7 @@ export default function InventoryScreen() {
 
   function handleAddStorageSpace() {
     runWithLock(() => {
+      void triggerSuccessHaptic();
       router.push("/(tabs)/storage/create");
     });
   }
@@ -266,7 +268,7 @@ export default function InventoryScreen() {
     const selected = statusFilter === value;
 
     return (
-      <Pressable
+      <HapticPressable
         key={value}
         style={[
           styles.filterPressable,
@@ -292,7 +294,7 @@ export default function InventoryScreen() {
           <ThemedText variant="title">{count}</ThemedText>
           <ThemedText color="secondary">{label}</ThemedText>
         </BlurView>
-      </Pressable>
+      </HapticPressable>
     );
   }
 
@@ -436,7 +438,7 @@ export default function InventoryScreen() {
               const itemDisabled = !canOpenItem || interactionLocked;
 
               return (
-                <Pressable
+                <HapticPressable
                   onPress={() => handleOpenItem(item)}
                   disabled={itemDisabled}
                   style={interactionLocked && styles.disabledInteraction}
@@ -478,7 +480,7 @@ export default function InventoryScreen() {
                       )}
                     </View>
                   </BlurView>
-                </Pressable>
+                </HapticPressable>
               );
             }}
           />

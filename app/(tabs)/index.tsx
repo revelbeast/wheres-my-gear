@@ -16,7 +16,6 @@ import {
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Image,
-  Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -26,6 +25,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import SafeBannerAd from "../../components/ads/SafeBannerAd";
 import { useAuth } from "../../components/auth/AuthProvider";
+import HapticPressable from "../../components/ui/HapticPressable";
 import ScreenBackground from "../../components/ui/ScreenBackground";
 import {
   ThemedButton,
@@ -48,6 +48,7 @@ import {
   Item,
   StorageSpace,
 } from "../../lib/gearService";
+import { triggerSuccessHaptic } from "../../lib/haptics";
 import { isPremiumUser } from "../../lib/revenuecat";
 import { getProfileSettings } from "../../lib/settingsService";
 import { useInteractionLock } from "../../lib/useInteractionLock";
@@ -166,7 +167,7 @@ function NoteCard({
   disabled?: boolean;
 }) {
   return (
-    <Pressable
+    <HapticPressable
       style={[styles.statPressable, disabled && styles.disabledInteraction]}
       onPress={onPress}
       disabled={disabled}
@@ -195,7 +196,7 @@ function NoteCard({
           </View>
         </View>
       </BlurView>
-    </Pressable>
+    </HapticPressable>
   );
 }
 
@@ -244,7 +245,7 @@ function StatCard({
         : null;
 
   return (
-    <Pressable
+    <HapticPressable
       style={[styles.statPressable, disabled && styles.disabledInteraction]}
       onPress={onPress}
       disabled={disabled}
@@ -274,7 +275,7 @@ function StatCard({
           </View>
         </View>
       </BlurView>
-    </Pressable>
+    </HapticPressable>
   );
 }
 
@@ -1155,6 +1156,13 @@ export default function DashboardScreen() {
     setSearchQuery("");
   }
 
+  function handleFirstRunAddStorageSpace() {
+    if (navigationDisabled) return;
+
+    void triggerSuccessHaptic();
+    handleAddStorageSpace();
+  }
+
   const navigationDisabled = isNavigationBusy();
 
   if (!initializing && !user) {
@@ -1212,7 +1220,7 @@ export default function DashboardScreen() {
               </View>
             </View>
 
-            <Pressable
+            <HapticPressable
               style={[
                 styles.profileButton,
                 navigationDisabled && styles.disabledInteraction,
@@ -1229,7 +1237,7 @@ export default function DashboardScreen() {
               ) : (
                 <UserCircle2 size={44} color={LABEL_WHITE} />
               )}
-            </Pressable>
+            </HapticPressable>
           </View>
 
           <FrostedCard style={styles.searchCard}>
@@ -1255,7 +1263,7 @@ export default function DashboardScreen() {
               />
 
               {searchQuery.length > 0 && (
-                <Pressable
+                <HapticPressable
                   onPress={handleClearSearch}
                   style={styles.clearSearchButton}
                   hitSlop={10}
@@ -1264,7 +1272,7 @@ export default function DashboardScreen() {
                   <ThemedText color="secondary" style={styles.clearSearchButtonText}>
                     ✕
                   </ThemedText>
-                </Pressable>
+                </HapticPressable>
               )}
             </View>
           </FrostedCard>
@@ -1302,7 +1310,7 @@ export default function DashboardScreen() {
                         key={`${item.type}:${item.id}`}
                         style={styles.searchResultCard}
                       >
-                        <Pressable
+                        <HapticPressable
                           onPress={() => handleSearchResultPress(item)}
                           disabled={navigationDisabled}
                           style={navigationDisabled && styles.disabledInteraction}
@@ -1331,7 +1339,7 @@ export default function DashboardScreen() {
                               {item.statusLabel}
                             </ThemedText>
                           )}
-                        </Pressable>
+                        </HapticPressable>
                       </ThemedCard>
                     ))
                   )}
@@ -1374,7 +1382,7 @@ export default function DashboardScreen() {
 
                   <ThemedButton
                     style={styles.firstRunButton}
-                    onPress={handleAddStorageSpace}
+                    onPress={handleFirstRunAddStorageSpace}
                     disabled={navigationDisabled}
                   >
                     <ThemedText style={styles.signInButtonText}>
@@ -1386,7 +1394,7 @@ export default function DashboardScreen() {
                 <>
                   <View style={styles.selectorWrap}>
                     <View style={styles.selectorHeaderRow}>
-                      <Pressable
+                      <HapticPressable
                         style={[
                           styles.selectorAddButton,
                           navigationDisabled && styles.disabledInteraction,
@@ -1395,7 +1403,7 @@ export default function DashboardScreen() {
                         disabled={navigationDisabled}
                       >
                         <Plus size={18} color={LABEL_WHITE} />
-                      </Pressable>
+                      </HapticPressable>
 
                       <ThemedText
                         variant="bodyStrong"
@@ -1405,7 +1413,7 @@ export default function DashboardScreen() {
                       </ThemedText>
                     </View>
 
-                    <Pressable
+                    <HapticPressable
                       style={[
                         styles.selectorPressable,
                         navigationDisabled && styles.disabledInteraction,
@@ -1436,7 +1444,7 @@ export default function DashboardScreen() {
                           color={theme.colors.textSecondary}
                         />
                       </BlurView>
-                    </Pressable>
+                    </HapticPressable>
 
                     {showStorageDropdown && (
                       <BlurView
@@ -1457,7 +1465,7 @@ export default function DashboardScreen() {
                         ) : (
                           <ScrollView showsVerticalScrollIndicator={false}>
                             {sortedStorageSpaces.map((space, index) => (
-                              <Pressable
+                              <HapticPressable
                                 key={space.id}
                                 style={[
                                   styles.dropdownRow,
@@ -1488,7 +1496,7 @@ export default function DashboardScreen() {
                                     {space.subtype ? ` • ${space.subtype}` : ""}
                                   </ThemedText>
                                 </View>
-                              </Pressable>
+                              </HapticPressable>
                             ))}
                           </ScrollView>
                         )}
@@ -1525,7 +1533,7 @@ export default function DashboardScreen() {
 
                   <View style={styles.sectionHeaderRow}>
                     <View style={styles.sectionHeaderLeft}>
-                      <Pressable
+                      <HapticPressable
                         style={[
                           styles.compartmentAddButton,
                           !selectedStorageId && styles.compartmentAddButtonDisabled,
@@ -1535,7 +1543,7 @@ export default function DashboardScreen() {
                         disabled={!selectedStorageId || navigationDisabled}
                       >
                         <Plus size={18} color={LABEL_WHITE} />
-                      </Pressable>
+                      </HapticPressable>
 
                       <ThemedText
                         variant="title"
@@ -1545,7 +1553,7 @@ export default function DashboardScreen() {
                       </ThemedText>
                     </View>
 
-                    <Pressable
+                    <HapticPressable
                       onPress={handleOpenAllCompartments}
                       disabled={!selectedStorageId || navigationDisabled}
                     >
@@ -1559,7 +1567,7 @@ export default function DashboardScreen() {
                       >
                         View All
                       </ThemedText>
-                    </Pressable>
+                    </HapticPressable>
                   </View>
 
                   {selectedStorageId == null ? (
@@ -1599,7 +1607,7 @@ export default function DashboardScreen() {
                           style={styles.quickGridCard}
                           contentStyle={styles.quickGridCardContent}
                         >
-                          <Pressable
+                          <HapticPressable
                             style={[
                               styles.quickGridRow,
                               navigationDisabled && styles.disabledInteraction,
@@ -1627,7 +1635,7 @@ export default function DashboardScreen() {
                               size={16}
                               color={theme.colors.textSecondary}
                             />
-                          </Pressable>
+                          </HapticPressable>
                         </ThemedCard>
                       ))}
                     </View>
@@ -1636,7 +1644,7 @@ export default function DashboardScreen() {
                   <View style={styles.upcomingTripsSection}>
                     <View style={styles.upcomingTripsHeaderRow}>
                       <View style={styles.sectionHeaderLeft}>
-                        <Pressable
+                        <HapticPressable
                           style={[
                             styles.upcomingTripsAddButton,
                             navigationDisabled && styles.disabledInteraction,
@@ -1645,7 +1653,7 @@ export default function DashboardScreen() {
                           disabled={navigationDisabled}
                         >
                           <Plus size={18} color={LABEL_WHITE} />
-                        </Pressable>
+                        </HapticPressable>
 
                         <ThemedText
                           variant="title"
@@ -1655,7 +1663,7 @@ export default function DashboardScreen() {
                         </ThemedText>
                       </View>
 
-                      <Pressable
+                      <HapticPressable
                         onPress={handleOpenTrips}
                         disabled={navigationDisabled}
                       >
@@ -1668,7 +1676,7 @@ export default function DashboardScreen() {
                         >
                           View All
                         </ThemedText>
-                      </Pressable>
+                      </HapticPressable>
                     </View>
 
                     {!nextUpcomingTrip ? (
@@ -1688,7 +1696,7 @@ export default function DashboardScreen() {
                         </ThemedText>
                       </FrostedCard>
                     ) : (
-                      <Pressable
+                      <HapticPressable
                         onPress={() => handleOpenTrip(nextUpcomingTrip.id)}
                         disabled={navigationDisabled}
                         style={navigationDisabled && styles.disabledInteraction}
@@ -1718,7 +1726,7 @@ export default function DashboardScreen() {
                             </View>
                           </View>
                         </FrostedCard>
-                      </Pressable>
+                      </HapticPressable>
                     )}
                   </View>
                 </>
