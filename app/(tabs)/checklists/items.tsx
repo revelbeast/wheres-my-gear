@@ -1,7 +1,7 @@
 import { BlurView } from "expo-blur";
 import { router, useLocalSearchParams } from "expo-router";
 import { CheckCircle2, ChevronRight, ListChecks } from "lucide-react-native";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -17,6 +17,7 @@ import AppHeader from "../../../components/ui/AppHeader";
 import ScreenBackground from "../../../components/ui/ScreenBackground";
 import { useThemedValues } from "../../../components/ui/Themed";
 import { getAssignedChecklistItems } from "../../../lib/checklistsService";
+import { useInteractionLock } from "../../../lib/useInteractionLock";
 
 type ItemStatusFilter = "packed" | "to_pack";
 
@@ -74,6 +75,17 @@ export default function ChecklistItemsSummaryScreen() {
   const params = useLocalSearchParams<{ status?: string }>();
   const theme = useThemedValues();
 
+  const {
+    isLocked: interactionLocked,
+    lock: lockInteraction,
+    unlock: unlockInteraction,
+  } = useInteractionLock(450);
+
+  const navigationTransitionLockedRef = useRef(false);
+  const navigationUnlockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+
   const [items, setItems] = useState<ChecklistItemSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -81,6 +93,14 @@ export default function ChecklistItemsSummaryScreen() {
     String(params.status ?? "").toLowerCase().trim() === "packed"
       ? "packed"
       : "to_pack";
+
+  useEffect(() => {
+    return () => {
+      if (navigationUnlockTimeoutRef.current) {
+        clearTimeout(navigationUnlockTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (initializing) {
@@ -96,8 +116,42 @@ export default function ChecklistItemsSummaryScreen() {
     loadItems();
   }, [initializing, user]);
 
+  function lockNavigationTransition() {
+    if (navigationTransitionLockedRef.current) {
+      return false;
+    }
+
+    navigationTransitionLockedRef.current = true;
+
+    if (navigationUnlockTimeoutRef.current) {
+      clearTimeout(navigationUnlockTimeoutRef.current);
+    }
+
+    navigationUnlockTimeoutRef.current = setTimeout(() => {
+      navigationTransitionLockedRef.current = false;
+      navigationUnlockTimeoutRef.current = null;
+    }, 1500);
+
+    return true;
+  }
+
+  function runNavigationAction(action: () => void) {
+    if (interactionLocked || navigationTransitionLockedRef.current) {
+      return;
+    }
+
+    const lockAcquired = lockNavigationTransition();
+    if (!lockAcquired) return;
+
+    action();
+  }
+
   async function loadItems() {
     if (!user) return;
+
+    if (interactionLocked) return;
+
+    lockInteraction();
 
     try {
       setLoading(true);
@@ -108,6 +162,7 @@ export default function ChecklistItemsSummaryScreen() {
       setItems([]);
     } finally {
       setLoading(false);
+      unlockInteraction();
     }
   }
 
@@ -131,9 +186,11 @@ export default function ChecklistItemsSummaryScreen() {
   }, [items, statusFilter]);
 
   function handleOpenChecklist(checklistId: string) {
-    router.push({
-      pathname: "/checklists/[checklistId]",
-      params: { checklistId },
+    runNavigationAction(() => {
+      router.push({
+        pathname: "/checklists/[checklistId]",
+        params: { checklistId },
+      });
     });
   }
 
@@ -206,8 +263,14 @@ export default function ChecklistItemsSummaryScreen() {
             filteredItems.map((item) => (
               <FrostedCard key={`${item.checklistId}-${item.id}`}>
                 <Pressable
-                  style={styles.row}
+                  style={[
+                    styles.row,
+                    (interactionLocked ||
+                      navigationTransitionLockedRef.current) &&
+                      styles.disabledButton,
+                  ]}
                   onPress={() => handleOpenChecklist(item.checklistId)}
+                  disabled={interactionLocked}
                 >
                   <View style={styles.left}>
                     <View style={styles.titleRow}>
@@ -380,5 +443,9 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 14,
     lineHeight: 20,
+  },
+
+  disabledButton: {
+    opacity: 0.55,
   },
 });

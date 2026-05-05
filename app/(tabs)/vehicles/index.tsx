@@ -1,13 +1,7 @@
 import { BlurView } from "expo-blur";
 import { router, useFocusEffect } from "expo-router";
-import {
-  ChevronLeft,
-  ChevronRight,
-  Pencil,
-  Plus,
-  Trash2,
-} from "lucide-react-native";
-import React, { useCallback, useState } from "react";
+import { ChevronRight, Plus, Trash2 } from "lucide-react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
   FlatList,
@@ -25,6 +19,7 @@ import {
   getStorageSpaces,
   StorageSpace,
 } from "../../../lib/gearService";
+import { useInteractionLock } from "../../../lib/useInteractionLock";
 import { colors } from "../../../theme/tokens";
 
 function FrostedCard({
@@ -53,13 +48,74 @@ function FrostedCard({
 }
 
 export default function VehiclesScreen() {
+  const {
+    isLocked: interactionLocked,
+    lock: lockInteraction,
+    unlock: unlockInteraction,
+  } = useInteractionLock(450);
+
+  const navigationTransitionLockedRef = useRef(false);
+  const navigationUnlockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+
   const [vehicles, setVehicles] = useState<StorageSpace[]>([]);
+
+  useEffect(() => {
+    return () => {
+      if (navigationUnlockTimeoutRef.current) {
+        clearTimeout(navigationUnlockTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
       loadVehicles();
     }, [])
   );
+
+  async function runWithLock(action: () => Promise<void> | void) {
+    if (interactionLocked) return;
+
+    lockInteraction();
+
+    try {
+      await action();
+    } finally {
+      unlockInteraction();
+    }
+  }
+
+  function lockNavigationTransition() {
+    if (navigationTransitionLockedRef.current) {
+      return false;
+    }
+
+    navigationTransitionLockedRef.current = true;
+
+    if (navigationUnlockTimeoutRef.current) {
+      clearTimeout(navigationUnlockTimeoutRef.current);
+    }
+
+    navigationUnlockTimeoutRef.current = setTimeout(() => {
+      navigationTransitionLockedRef.current = false;
+      navigationUnlockTimeoutRef.current = null;
+    }, 1500);
+
+    return true;
+  }
+
+  function runNavigationAction(action: () => void) {
+    if (interactionLocked || navigationTransitionLockedRef.current) {
+      return;
+    }
+
+    const lockAcquired = lockNavigationTransition();
+    if (!lockAcquired) return;
+
+    action();
+  }
 
   async function loadVehicles() {
     try {
@@ -70,26 +126,42 @@ export default function VehiclesScreen() {
     }
   }
 
+  function handleOpenVehicle(vehicleId: string) {
+    runNavigationAction(() => {
+      router.push(`/vehicles/${vehicleId}`);
+    });
+  }
+
+  function handleAddStorage() {
+    runNavigationAction(() => {
+      router.push("/(tabs)/storage/create");
+    });
+  }
+
   function handleDelete(vehicle: StorageSpace) {
-    Alert.alert(
-      "Delete Vehicle",
-      `Delete "${vehicle.name}"?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
+    if (interactionLocked) return;
+
+    Alert.alert("Delete Vehicle", `Delete "${vehicle.name}"?`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: () => {
+          void runWithLock(async () => {
             try {
               await deleteStorageSpace(vehicle.id);
-              loadVehicles();
+              await loadVehicles();
             } catch (err) {
               console.error("Failed to delete vehicle:", err);
+              Alert.alert(
+                "Vehicle not deleted",
+                "Something went wrong while deleting this vehicle."
+              );
             }
-          },
+          });
         },
-      ]
-    );
+      },
+    ]);
   }
 
   function renderVehicle({ item }: { item: StorageSpace }) {
@@ -97,8 +169,12 @@ export default function VehiclesScreen() {
       <Swipeable
         renderRightActions={() => (
           <Pressable
-            style={styles.deleteAction}
+            style={[
+              styles.deleteAction,
+              interactionLocked && styles.disabledButton,
+            ]}
             onPress={() => handleDelete(item)}
+            disabled={interactionLocked}
           >
             <Trash2 size={18} color="#fff" />
             <Text style={styles.deleteText}>Delete</Text>
@@ -108,9 +184,8 @@ export default function VehiclesScreen() {
         <FrostedCard>
           <Pressable
             style={styles.row}
-            onPress={() =>
-              router.push(`/vehicles/${item.id}`)
-            }
+            onPress={() => handleOpenVehicle(item.id)}
+            disabled={interactionLocked}
           >
             <View style={styles.left}>
               <Text style={styles.title}>{item.name}</Text>
@@ -141,8 +216,13 @@ export default function VehiclesScreen() {
         />
 
         <Pressable
-          style={styles.addButton}
-          onPress={() => router.push("/(tabs)/storage/create")}
+          style={[
+            styles.addButton,
+            (interactionLocked || navigationTransitionLockedRef.current) &&
+              styles.disabledButton,
+          ]}
+          onPress={handleAddStorage}
+          disabled={interactionLocked}
         >
           <Plus size={22} color="#fff" />
         </Pressable>
@@ -212,5 +292,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
+  },
+
+  disabledButton: {
+    opacity: 0.55,
   },
 });

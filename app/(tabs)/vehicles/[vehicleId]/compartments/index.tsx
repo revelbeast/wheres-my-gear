@@ -10,10 +10,17 @@ import {
   Trash2,
   X,
 } from "lucide-react-native";
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   Alert,
+  GestureResponderEvent,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -41,6 +48,7 @@ import {
   type Item,
   type StorageSpace,
 } from "../../../../../lib/gearService";
+import { useInteractionLock } from "../../../../../lib/useInteractionLock";
 
 type CompartmentRow = Compartment & {
   itemCount: number;
@@ -88,7 +96,17 @@ export default function CompartmentsScreen() {
   const { vehicleId } = useLocalSearchParams<{ vehicleId: string }>();
   const theme = useThemedValues();
 
+  const {
+    isLocked: interactionLocked,
+    lock: lockInteraction,
+    unlock: unlockInteraction,
+  } = useInteractionLock(450);
+
   const scrollRef = useRef<ScrollView | null>(null);
+  const navigationTransitionLockedRef = useRef(false);
+  const navigationUnlockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
 
   const [rows, setRows] = useState<CompartmentRow[]>([]);
   const [storageSpace, setStorageSpace] = useState<StorageSpace | null>(null);
@@ -111,6 +129,14 @@ export default function CompartmentsScreen() {
     : hasVehicleId
       ? "Loading..."
       : "Compartments";
+
+  useEffect(() => {
+    return () => {
+      if (navigationUnlockTimeoutRef.current) {
+        clearTimeout(navigationUnlockTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const loadCompartments = useCallback(async () => {
     if (!hasVehicleId || !vehicleId) {
@@ -165,10 +191,60 @@ export default function CompartmentsScreen() {
     }, [loadCompartments])
   );
 
+  async function runWithLock(action: () => Promise<void> | void) {
+    if (interactionLocked) return;
+
+    lockInteraction();
+
+    try {
+      await action();
+    } finally {
+      unlockInteraction();
+    }
+  }
+
+  function lockNavigationTransition() {
+    if (navigationTransitionLockedRef.current) {
+      return false;
+    }
+
+    navigationTransitionLockedRef.current = true;
+
+    if (navigationUnlockTimeoutRef.current) {
+      clearTimeout(navigationUnlockTimeoutRef.current);
+    }
+
+    navigationUnlockTimeoutRef.current = setTimeout(() => {
+      navigationTransitionLockedRef.current = false;
+      navigationUnlockTimeoutRef.current = null;
+    }, 1500);
+
+    return true;
+  }
+
+  function runNavigationAction(action: () => void) {
+    if (interactionLocked || navigationTransitionLockedRef.current) {
+      return;
+    }
+
+    const lockAcquired = lockNavigationTransition();
+    if (!lockAcquired) return;
+
+    action();
+  }
+
   function scrollToBottom(delay = 140) {
     setTimeout(() => {
       scrollRef.current?.scrollToEnd({ animated: true });
     }, delay);
+  }
+
+  function handleBack() {
+    Keyboard.dismiss();
+
+    runNavigationAction(() => {
+      router.replace("/(tabs)");
+    });
   }
 
   function handleOpenCompartment(compartmentId: string) {
@@ -176,12 +252,14 @@ export default function CompartmentsScreen() {
 
     Keyboard.dismiss();
 
-    router.push({
-      pathname: "/vehicles/[vehicleId]/compartments/[compartmentId]",
-      params: {
-        vehicleId,
-        compartmentId,
-      },
+    runNavigationAction(() => {
+      router.push({
+        pathname: "/vehicles/[vehicleId]/compartments/[compartmentId]",
+        params: {
+          vehicleId,
+          compartmentId,
+        },
+      });
     });
   }
 
@@ -190,28 +268,34 @@ export default function CompartmentsScreen() {
 
     Keyboard.dismiss();
 
-    router.push({
-      pathname: "/vehicles/[vehicleId]/compartments/create",
-      params: {
-        vehicleId,
-      },
+    runNavigationAction(() => {
+      router.push({
+        pathname: "/vehicles/[vehicleId]/compartments/create",
+        params: {
+          vehicleId,
+        },
+      });
     });
   }
 
   function startEditingCompartment(compartment: CompartmentRow) {
+    if (interactionLocked || savingEdit || deletingId) return;
+
     setEditingCompartmentId(compartment.id);
     setEditingCompartmentName(compartment.name);
     scrollToBottom(180);
   }
 
   function cancelEditingCompartment() {
+    if (savingEdit || interactionLocked) return;
+
     Keyboard.dismiss();
     setEditingCompartmentId(null);
     setEditingCompartmentName("");
   }
 
   async function saveEditingCompartment(compartmentId: string) {
-    if (savingEdit) return;
+    if (savingEdit || interactionLocked) return;
 
     const trimmedName = editingCompartmentName.trim();
 
@@ -220,24 +304,28 @@ export default function CompartmentsScreen() {
       return;
     }
 
-    try {
-      setSavingEdit(true);
-      Keyboard.dismiss();
+    await runWithLock(async () => {
+      try {
+        setSavingEdit(true);
+        Keyboard.dismiss();
 
-      await updateCompartment(compartmentId, { name: trimmedName });
+        await updateCompartment(compartmentId, { name: trimmedName });
 
-      setEditingCompartmentId(null);
-      setEditingCompartmentName("");
-      await loadCompartments();
-    } catch (error) {
-      console.error("Failed to update compartment:", error);
-      Alert.alert("Unable to update compartment", "Please try again.");
-    } finally {
-      setSavingEdit(false);
-    }
+        setEditingCompartmentId(null);
+        setEditingCompartmentName("");
+        await loadCompartments();
+      } catch (error) {
+        console.error("Failed to update compartment:", error);
+        Alert.alert("Unable to update compartment", "Please try again.");
+      } finally {
+        setSavingEdit(false);
+      }
+    });
   }
 
   function confirmDeleteCompartment(compartment: CompartmentRow) {
+    if (interactionLocked || deletingId) return;
+
     Alert.alert(
       "Delete compartment",
       `Are you sure you want to delete "${compartment.name}"?`,
@@ -249,17 +337,19 @@ export default function CompartmentsScreen() {
         {
           text: "Delete",
           style: "destructive",
-          onPress: async () => {
-            try {
-              setDeletingId(compartment.id);
-              await deleteCompartment(compartment.id);
-              await loadCompartments();
-            } catch (error) {
-              console.error("Failed to delete compartment:", error);
-              Alert.alert("Unable to delete compartment", "Please try again.");
-            } finally {
-              setDeletingId(null);
-            }
+          onPress: () => {
+            void runWithLock(async () => {
+              try {
+                setDeletingId(compartment.id);
+                await deleteCompartment(compartment.id);
+                await loadCompartments();
+              } catch (error) {
+                console.error("Failed to delete compartment:", error);
+                Alert.alert("Unable to delete compartment", "Please try again.");
+              } finally {
+                setDeletingId(null);
+              }
+            });
           },
         },
       ]
@@ -267,7 +357,8 @@ export default function CompartmentsScreen() {
   }
 
   function renderRightActions(compartment: CompartmentRow) {
-    const disabled = deletingId === compartment.id;
+    const disabled =
+      deletingId === compartment.id || interactionLocked || savingEdit;
 
     return (
       <Pressable
@@ -277,7 +368,7 @@ export default function CompartmentsScreen() {
       >
         <Trash2 size={18} color="#fff" />
         <ThemedText style={styles.deleteActionText}>
-          {disabled ? "Deleting..." : "Delete"}
+          {deletingId === compartment.id ? "Deleting..." : "Delete"}
         </ThemedText>
       </Pressable>
     );
@@ -300,11 +391,11 @@ export default function CompartmentsScreen() {
                     backgroundColor: theme.colors.iconSurface,
                     borderColor: theme.colors.border,
                   },
+                  (interactionLocked || navigationTransitionLockedRef.current) &&
+                    styles.actionDisabled,
                 ]}
-                onPress={() => {
-                  Keyboard.dismiss();
-                  router.back();
-                }}
+                onPress={handleBack}
+                disabled={interactionLocked}
               >
                 <ArrowLeft size={20} color={LABEL_WHITE} />
               </Pressable>
@@ -327,8 +418,12 @@ export default function CompartmentsScreen() {
                       backgroundColor: theme.colors.iconSurface,
                       borderColor: theme.colors.border,
                     },
+                    (interactionLocked ||
+                      navigationTransitionLockedRef.current) &&
+                      styles.actionDisabled,
                   ]}
                   onPress={handleCreateCompartment}
+                  disabled={interactionLocked}
                 >
                   <Plus size={20} color={LABEL_WHITE} />
                 </Pressable>
@@ -370,6 +465,11 @@ export default function CompartmentsScreen() {
               ) : (
                 rows.map((compartment) => {
                   const isEditing = editingCompartmentId === compartment.id;
+                  const rowDisabled =
+                    interactionLocked ||
+                    navigationTransitionLockedRef.current ||
+                    savingEdit ||
+                    deletingId !== null;
 
                   return (
                     <Swipeable
@@ -379,7 +479,7 @@ export default function CompartmentsScreen() {
                       }
                       overshootRight={false}
                       rightThreshold={40}
-                      enabled={!isEditing}
+                      enabled={!isEditing && !rowDisabled}
                     >
                       <FrostedCard style={styles.card}>
                         {isEditing ? (
@@ -407,7 +507,7 @@ export default function CompartmentsScreen() {
                               autoFocus
                               selectTextOnFocus
                               returnKeyType="done"
-                              editable={!savingEdit}
+                              editable={!savingEdit && !interactionLocked}
                               onFocus={() => scrollToBottom(180)}
                               onSubmitEditing={() =>
                                 saveEditingCompartment(compartment.id)
@@ -419,14 +519,17 @@ export default function CompartmentsScreen() {
                                 style={[
                                   styles.saveEditButton,
                                   (!editingCompartmentName.trim() ||
-                                    savingEdit) &&
+                                    savingEdit ||
+                                    interactionLocked) &&
                                     styles.actionDisabled,
                                 ]}
                                 onPress={() =>
                                   saveEditingCompartment(compartment.id)
                                 }
                                 disabled={
-                                  !editingCompartmentName.trim() || savingEdit
+                                  !editingCompartmentName.trim() ||
+                                  savingEdit ||
+                                  interactionLocked
                                 }
                               >
                                 <Check size={16} color="#fff" />
@@ -442,9 +545,11 @@ export default function CompartmentsScreen() {
                                     borderColor: theme.colors.border,
                                     backgroundColor: theme.colors.iconSurface,
                                   },
+                                  (savingEdit || interactionLocked) &&
+                                    styles.actionDisabled,
                                 ]}
                                 onPress={cancelEditingCompartment}
-                                disabled={savingEdit}
+                                disabled={savingEdit || interactionLocked}
                               >
                                 <X size={16} color={theme.colors.text} />
                                 <ThemedText
@@ -465,6 +570,7 @@ export default function CompartmentsScreen() {
                               onPress={() =>
                                 handleOpenCompartment(compartment.id)
                               }
+                              disabled={rowDisabled}
                             >
                               <ThemedText variant="title" style={styles.title}>
                                 {compartment.name}
@@ -484,10 +590,12 @@ export default function CompartmentsScreen() {
                                     backgroundColor: theme.colors.iconSurface,
                                     borderColor: theme.colors.border,
                                   },
+                                  rowDisabled && styles.actionDisabled,
                                 ]}
                                 onPress={() =>
                                   startEditingCompartment(compartment)
                                 }
+                                disabled={rowDisabled}
                               >
                                 <Pencil
                                   size={16}
@@ -502,10 +610,13 @@ export default function CompartmentsScreen() {
                                     backgroundColor: theme.colors.iconSurface,
                                     borderColor: theme.colors.border,
                                   },
+                                  rowDisabled && styles.actionDisabled,
                                 ]}
-                                onPress={() =>
-                                  handleOpenCompartment(compartment.id)
-                                }
+                                onPress={(event: GestureResponderEvent) => {
+                                  event.stopPropagation();
+                                  handleOpenCompartment(compartment.id);
+                                }}
+                                disabled={rowDisabled}
                               >
                                 <ChevronRight
                                   size={18}

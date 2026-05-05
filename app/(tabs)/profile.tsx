@@ -16,7 +16,7 @@ import {
   Trash2,
   User,
 } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Linking,
@@ -41,6 +41,7 @@ import {
   isPremiumUser,
   restorePurchases,
 } from "../../lib/revenuecat";
+import { useInteractionLock } from "../../lib/useInteractionLock";
 
 const USER_AGREEMENT_URL =
   "https://sites.google.com/view/wheresmygearapp/home";
@@ -117,6 +118,17 @@ export default function ProfileScreen() {
   const { user, initializing, signOutUser } = useAuth();
   const theme = useThemedValues();
 
+  const {
+    isLocked: interactionLocked,
+    lock: lockInteraction,
+    unlock: unlockInteraction,
+  } = useInteractionLock(450);
+
+  const navigationTransitionLockedRef = useRef(false);
+  const navigationUnlockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+
   const [isDeletingAllData, setIsDeletingAllData] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
   const [isRestoringPurchases, setIsRestoringPurchases] = useState(false);
@@ -125,6 +137,14 @@ export default function ProfileScreen() {
     Constants.expoConfig?.version ||
     Constants.manifest2?.extra?.expoClient?.version ||
     "1.0.0";
+
+  useEffect(() => {
+    return () => {
+      if (navigationUnlockTimeoutRef.current) {
+        clearTimeout(navigationUnlockTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!initializing && !user) {
@@ -153,6 +173,48 @@ export default function ProfileScreen() {
     }
   }, [initializing, user]);
 
+  async function runWithLock(action: () => Promise<void> | void) {
+    if (interactionLocked) return;
+
+    lockInteraction();
+
+    try {
+      await action();
+    } finally {
+      unlockInteraction();
+    }
+  }
+
+  function lockNavigationTransition() {
+    if (navigationTransitionLockedRef.current) {
+      return false;
+    }
+
+    navigationTransitionLockedRef.current = true;
+
+    if (navigationUnlockTimeoutRef.current) {
+      clearTimeout(navigationUnlockTimeoutRef.current);
+    }
+
+    navigationUnlockTimeoutRef.current = setTimeout(() => {
+      navigationTransitionLockedRef.current = false;
+      navigationUnlockTimeoutRef.current = null;
+    }, 1500);
+
+    return true;
+  }
+
+  function runNavigationAction(action: () => void) {
+    if (interactionLocked || navigationTransitionLockedRef.current) {
+      return;
+    }
+
+    const lockAcquired = lockNavigationTransition();
+    if (!lockAcquired) return;
+
+    action();
+  }
+
   async function deleteDocsInBatches(docsToDelete: Array<{ ref: any }>) {
     const batchSize = 450;
 
@@ -168,44 +230,76 @@ export default function ProfileScreen() {
     }
   }
 
+  function handleOpenPaywall() {
+    runNavigationAction(() => {
+      router.push("/paywall");
+    });
+  }
+
+  function handleOpenProfileSettings() {
+    runNavigationAction(() => {
+      router.push("/profile-settings");
+    });
+  }
+
+  function handleOpenProfileAddress() {
+    runNavigationAction(() => {
+      router.push("/profile-address");
+    });
+  }
+
+  function handleOpenFaq() {
+    runNavigationAction(() => {
+      router.push("/faq");
+    });
+  }
+
+  function handleOpenGeneralSettings() {
+    runNavigationAction(() => {
+      router.push("/general-settings");
+    });
+  }
+
   async function handleRestorePurchases() {
-    if (isRestoringPurchases) {
+    if (isRestoringPurchases || interactionLocked) {
       return;
     }
 
-    try {
-      setIsRestoringPurchases(true);
+    await runWithLock(async () => {
+      try {
+        setIsRestoringPurchases(true);
 
-      const customerInfo = await restorePurchases();
-      const hasPremium = hasActivePremiumEntitlement(customerInfo);
+        const customerInfo = await restorePurchases();
+        const hasPremium = hasActivePremiumEntitlement(customerInfo);
 
-      setIsPremium(hasPremium);
+        setIsPremium(hasPremium);
 
-      if (hasPremium) {
+        if (hasPremium) {
+          Alert.alert(
+            "Purchases Restored",
+            "Your Premium access has been restored."
+          );
+          return;
+        }
+
         Alert.alert(
-          "Purchases Restored",
-          "Your Premium access has been restored."
+          "No Purchases Found",
+          "No active Premium purchase was found for this Apple ID."
         );
-        return;
+      } catch (err) {
+        console.error("Failed to restore purchases:", err);
+        Alert.alert(
+          "Restore Failed",
+          "Unable to restore purchases right now. Please try again."
+        );
+      } finally {
+        setIsRestoringPurchases(false);
       }
-
-      Alert.alert(
-        "No Purchases Found",
-        "No active Premium purchase was found for this Apple ID."
-      );
-    } catch (err) {
-      console.error("Failed to restore purchases:", err);
-      Alert.alert(
-        "Restore Failed",
-        "Unable to restore purchases right now. Please try again."
-      );
-    } finally {
-      setIsRestoringPurchases(false);
-    }
+    });
   }
 
   async function handleDeleteAllData() {
-    if (!user || isDeletingAllData) {
+    if (!user || isDeletingAllData || interactionLocked) {
       return;
     }
 
@@ -220,80 +314,84 @@ export default function ProfileScreen() {
         {
           text: "Delete Everything",
           style: "destructive",
-          onPress: async () => {
-            try {
-              setIsDeletingAllData(true);
+          onPress: () => {
+            void runWithLock(async () => {
+              if (!user) return;
 
-              const userId = user.uid;
+              try {
+                setIsDeletingAllData(true);
 
-              const [
-                storageSpacesSnapshot,
-                compartmentsSnapshot,
-                inventoryItemsSnapshot,
-                checklistsSnapshot,
-                checklistTemplatesSnapshot,
-              ] = await Promise.all([
-                getDocs(collection(db, "users", userId, "storageSpaces")),
-                getDocs(collection(db, "users", userId, "compartments")),
-                getDocs(collection(db, "users", userId, "inventoryItems")),
-                getDocs(collection(db, "users", userId, "checklists")),
-                getDocs(collection(db, "users", userId, "checklistTemplates")),
-              ]);
+                const userId = user.uid;
 
-              const checklistItemDocs: Array<{ ref: any }> = [];
+                const [
+                  storageSpacesSnapshot,
+                  compartmentsSnapshot,
+                  inventoryItemsSnapshot,
+                  checklistsSnapshot,
+                  checklistTemplatesSnapshot,
+                ] = await Promise.all([
+                  getDocs(collection(db, "users", userId, "storageSpaces")),
+                  getDocs(collection(db, "users", userId, "compartments")),
+                  getDocs(collection(db, "users", userId, "inventoryItems")),
+                  getDocs(collection(db, "users", userId, "checklists")),
+                  getDocs(collection(db, "users", userId, "checklistTemplates")),
+                ]);
 
-              for (const checklistDoc of checklistsSnapshot.docs) {
-                const itemsSnapshot = await getDocs(
-                  collection(
-                    db,
-                    "users",
-                    userId,
-                    "checklists",
-                    checklistDoc.id,
-                    "items"
-                  )
+                const checklistItemDocs: Array<{ ref: any }> = [];
+
+                for (const checklistDoc of checklistsSnapshot.docs) {
+                  const itemsSnapshot = await getDocs(
+                    collection(
+                      db,
+                      "users",
+                      userId,
+                      "checklists",
+                      checklistDoc.id,
+                      "items"
+                    )
+                  );
+
+                  checklistItemDocs.push(...itemsSnapshot.docs);
+                }
+
+                const templateItemDocs: Array<{ ref: any }> = [];
+
+                for (const templateDoc of checklistTemplatesSnapshot.docs) {
+                  const itemsSnapshot = await getDocs(
+                    collection(
+                      db,
+                      "users",
+                      userId,
+                      "checklistTemplates",
+                      templateDoc.id,
+                      "items"
+                    )
+                  );
+
+                  templateItemDocs.push(...itemsSnapshot.docs);
+                }
+
+                await deleteDocsInBatches([
+                  ...checklistItemDocs,
+                  ...templateItemDocs,
+                  ...inventoryItemsSnapshot.docs,
+                  ...compartmentsSnapshot.docs,
+                  ...storageSpacesSnapshot.docs,
+                  ...checklistsSnapshot.docs,
+                  ...checklistTemplatesSnapshot.docs,
+                ]);
+
+                Alert.alert("Data Deleted", "All app data has been deleted.");
+              } catch (err) {
+                console.error("Failed to delete all data:", err);
+                Alert.alert(
+                  "Delete Failed",
+                  "Unable to delete all data. Please try again."
                 );
-
-                checklistItemDocs.push(...itemsSnapshot.docs);
+              } finally {
+                setIsDeletingAllData(false);
               }
-
-              const templateItemDocs: Array<{ ref: any }> = [];
-
-              for (const templateDoc of checklistTemplatesSnapshot.docs) {
-                const itemsSnapshot = await getDocs(
-                  collection(
-                    db,
-                    "users",
-                    userId,
-                    "checklistTemplates",
-                    templateDoc.id,
-                    "items"
-                  )
-                );
-
-                templateItemDocs.push(...itemsSnapshot.docs);
-              }
-
-              await deleteDocsInBatches([
-                ...checklistItemDocs,
-                ...templateItemDocs,
-                ...inventoryItemsSnapshot.docs,
-                ...compartmentsSnapshot.docs,
-                ...storageSpacesSnapshot.docs,
-                ...checklistsSnapshot.docs,
-                ...checklistTemplatesSnapshot.docs,
-              ]);
-
-              Alert.alert("Data Deleted", "All app data has been deleted.");
-            } catch (err) {
-              console.error("Failed to delete all data:", err);
-              Alert.alert(
-                "Delete Failed",
-                "Unable to delete all data. Please try again."
-              );
-            } finally {
-              setIsDeletingAllData(false);
-            }
+            });
           },
         },
       ]
@@ -301,66 +399,82 @@ export default function ProfileScreen() {
   }
 
   async function handleOpenUserAgreement() {
-    try {
-      await Linking.openURL(USER_AGREEMENT_URL);
-    } catch (err) {
-      console.error("Failed to open user agreement:", err);
-      Alert.alert("Unable to Open", "The user agreement could not be opened.");
-    }
+    if (interactionLocked) return;
+
+    await runWithLock(async () => {
+      try {
+        await Linking.openURL(USER_AGREEMENT_URL);
+      } catch (err) {
+        console.error("Failed to open user agreement:", err);
+        Alert.alert("Unable to Open", "The user agreement could not be opened.");
+      }
+    });
   }
 
   async function handleOpenPrivacyPolicy() {
-    try {
-      await Linking.openURL(PRIVACY_POLICY_URL);
-    } catch (err) {
-      console.error("Failed to open privacy policy:", err);
-      Alert.alert("Unable to Open", "The privacy policy could not be opened.");
-    }
+    if (interactionLocked) return;
+
+    await runWithLock(async () => {
+      try {
+        await Linking.openURL(PRIVACY_POLICY_URL);
+      } catch (err) {
+        console.error("Failed to open privacy policy:", err);
+        Alert.alert("Unable to Open", "The privacy policy could not be opened.");
+      }
+    });
   }
 
   async function handleRateApp() {
-    try {
-      const isAvailable = await StoreReview.isAvailableAsync();
+    if (interactionLocked) return;
 
-      if (isAvailable) {
-        await StoreReview.requestReview();
-        return;
+    await runWithLock(async () => {
+      try {
+        const isAvailable = await StoreReview.isAvailableAsync();
+
+        if (isAvailable) {
+          await StoreReview.requestReview();
+          return;
+        }
+
+        const canOpenStore = await Linking.canOpenURL(APP_STORE_REVIEW_URL);
+
+        if (canOpenStore) {
+          await Linking.openURL(APP_STORE_REVIEW_URL);
+          return;
+        }
+
+        Alert.alert(
+          "Rate the App",
+          "Ratings and reviews will be available after the App Store listing is live."
+        );
+      } catch (err) {
+        console.error("Failed to open app review:", err);
+        Alert.alert(
+          "Unable to Open",
+          "The review screen could not be opened right now."
+        );
       }
-
-      const canOpenStore = await Linking.canOpenURL(APP_STORE_REVIEW_URL);
-
-      if (canOpenStore) {
-        await Linking.openURL(APP_STORE_REVIEW_URL);
-        return;
-      }
-
-      Alert.alert(
-        "Rate the App",
-        "Ratings and reviews will be available after the App Store listing is live."
-      );
-    } catch (err) {
-      console.error("Failed to open app review:", err);
-      Alert.alert(
-        "Unable to Open",
-        "The review screen could not be opened right now."
-      );
-    }
+    });
   }
 
   async function handleSignOut() {
+    if (interactionLocked) return;
+
     Alert.alert("Sign Out", "Are you sure you want to sign out?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Sign Out",
         style: "destructive",
-        onPress: async () => {
-          try {
-            await signOutUser();
-            router.replace("/");
-          } catch (err) {
-            console.error(err);
-            Alert.alert("Error", "Failed to sign out.");
-          }
+        onPress: () => {
+          void runWithLock(async () => {
+            try {
+              await signOutUser();
+              router.replace("/");
+            } catch (err) {
+              console.error(err);
+              Alert.alert("Error", "Failed to sign out.");
+            }
+          });
         },
       },
     ]);
@@ -368,6 +482,8 @@ export default function ProfileScreen() {
 
   const iconColor = theme.colors.text;
   const dangerIconColor = theme.colors.danger;
+  const rowActionsDisabled =
+    interactionLocked || isDeletingAllData || isRestoringPurchases;
 
   if (initializing) {
     return (
@@ -418,8 +534,9 @@ export default function ProfileScreen() {
                   ? "Your Premium subscription is active"
                   : "Remove ads and unlock premium features"
               }
-              onPress={isPremium ? undefined : () => router.push("/paywall")}
+              onPress={isPremium ? undefined : handleOpenPaywall}
               showChevron={!isPremium}
+              disabled={!isPremium && rowActionsDisabled}
             />
 
             <View
@@ -439,7 +556,7 @@ export default function ProfileScreen() {
               subtitle="Recover a previous Premium purchase"
               onPress={handleRestorePurchases}
               showChevron={false}
-              disabled={isRestoringPurchases}
+              disabled={rowActionsDisabled}
             />
           </ThemedCard>
 
@@ -448,7 +565,8 @@ export default function ProfileScreen() {
               icon={<User size={20} color={iconColor} />}
               title="My Account"
               subtitle="Update your name, email, phone, photo, and background"
-              onPress={() => router.push("/profile-settings")}
+              onPress={handleOpenProfileSettings}
+              disabled={rowActionsDisabled}
             />
 
             <View
@@ -462,7 +580,8 @@ export default function ProfileScreen() {
               icon={<MapPin size={20} color={iconColor} />}
               title="My Address"
               subtitle="Edit your address information"
-              onPress={() => router.push("/profile-address")}
+              onPress={handleOpenProfileAddress}
+              disabled={rowActionsDisabled}
             />
           </ThemedCard>
 
@@ -472,6 +591,7 @@ export default function ProfileScreen() {
               title="Rate the App"
               subtitle="Leave a rating or review in the App Store"
               onPress={handleRateApp}
+              disabled={rowActionsDisabled}
             />
 
             <View
@@ -486,6 +606,7 @@ export default function ProfileScreen() {
               title="User Agreement"
               subtitle="View app terms and conditions"
               onPress={handleOpenUserAgreement}
+              disabled={rowActionsDisabled}
             />
 
             <View
@@ -500,6 +621,7 @@ export default function ProfileScreen() {
               title="Privacy Policy"
               subtitle="View how your data is handled"
               onPress={handleOpenPrivacyPolicy}
+              disabled={rowActionsDisabled}
             />
 
             <View
@@ -513,7 +635,8 @@ export default function ProfileScreen() {
               icon={<CircleHelp size={20} color={iconColor} />}
               title="FAQ"
               subtitle="Get answers to common questions"
-              onPress={() => router.push("/faq")}
+              onPress={handleOpenFaq}
+              disabled={rowActionsDisabled}
             />
 
             <View
@@ -527,7 +650,8 @@ export default function ProfileScreen() {
               icon={<Moon size={20} color={iconColor} />}
               title="General Settings"
               subtitle="Edit theme and display preferences"
-              onPress={() => router.push("/general-settings")}
+              onPress={handleOpenGeneralSettings}
+              disabled={rowActionsDisabled}
             />
           </ThemedCard>
 
@@ -548,7 +672,7 @@ export default function ProfileScreen() {
               destructive
               onPress={handleDeleteAllData}
               showChevron={false}
-              disabled={isDeletingAllData}
+              disabled={rowActionsDisabled}
             />
           </ThemedCard>
 
@@ -560,6 +684,7 @@ export default function ProfileScreen() {
               destructive
               onPress={handleSignOut}
               showChevron={false}
+              disabled={rowActionsDisabled}
             />
           </ThemedCard>
         </ScrollView>

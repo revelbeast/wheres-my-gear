@@ -1,21 +1,29 @@
 import { router } from "expo-router";
 import { ChevronRight, Shield, UserCircle2 } from "lucide-react-native";
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import AppHeader from "../../components/ui/AppHeader";
 import ScreenBackground from "../../components/ui/ScreenBackground";
 import { useThemedValues } from "../../components/ui/Themed";
+import { useInteractionLock } from "../../lib/useInteractionLock";
 
 type SettingRowProps = {
   icon: React.ReactNode;
   title: string;
   subtitle: string;
   onPress: () => void;
+  disabled?: boolean;
 };
 
-function SettingRow({ icon, title, subtitle, onPress }: SettingRowProps) {
+function SettingRow({
+  icon,
+  title,
+  subtitle,
+  onPress,
+  disabled = false,
+}: SettingRowProps) {
   const theme = useThemedValues();
 
   return (
@@ -26,8 +34,10 @@ function SettingRow({ icon, title, subtitle, onPress }: SettingRowProps) {
           backgroundColor: theme.colors.card,
           borderColor: theme.colors.border,
         },
+        disabled && styles.disabledButton,
       ]}
       onPress={onPress}
+      disabled={disabled}
     >
       <View style={styles.rowLeft}>
         <View
@@ -67,6 +77,66 @@ function SettingRow({ icon, title, subtitle, onPress }: SettingRowProps) {
 export default function SettingsScreen() {
   const theme = useThemedValues();
 
+  const { isLocked: interactionLocked } = useInteractionLock(450);
+
+  const navigationTransitionLockedRef = useRef(false);
+  const navigationUnlockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+
+  useEffect(() => {
+    return () => {
+      if (navigationUnlockTimeoutRef.current) {
+        clearTimeout(navigationUnlockTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  function lockNavigationTransition() {
+    if (navigationTransitionLockedRef.current) {
+      return false;
+    }
+
+    navigationTransitionLockedRef.current = true;
+
+    if (navigationUnlockTimeoutRef.current) {
+      clearTimeout(navigationUnlockTimeoutRef.current);
+    }
+
+    navigationUnlockTimeoutRef.current = setTimeout(() => {
+      navigationTransitionLockedRef.current = false;
+      navigationUnlockTimeoutRef.current = null;
+    }, 1500);
+
+    return true;
+  }
+
+  function runNavigationAction(action: () => void) {
+    if (interactionLocked || navigationTransitionLockedRef.current) {
+      return;
+    }
+
+    const lockAcquired = lockNavigationTransition();
+    if (!lockAcquired) return;
+
+    action();
+  }
+
+  function handleOpenProfile() {
+    runNavigationAction(() => {
+      router.push("/profile");
+    });
+  }
+
+  function handleOpenPasswordManagement() {
+    runNavigationAction(() => {
+      router.push("/password-management");
+    });
+  }
+
+  const navigationDisabled =
+    interactionLocked || navigationTransitionLockedRef.current;
+
   return (
     <ScreenBackground>
       <SafeAreaView style={styles.safe}>
@@ -83,8 +153,10 @@ export default function SettingsScreen() {
                 backgroundColor: theme.colors.card,
                 borderColor: theme.colors.border,
               },
+              navigationDisabled && styles.disabledButton,
             ]}
-            onPress={() => router.push("/profile")}
+            onPress={handleOpenProfile}
+            disabled={navigationDisabled}
           >
             <View
               style={[
@@ -142,7 +214,8 @@ export default function SettingsScreen() {
               icon={<Shield size={18} color={theme.colors.text} />}
               title="Password Management"
               subtitle="Update password and account security settings"
-              onPress={() => router.push("/password-management")}
+              onPress={handleOpenPasswordManagement}
+              disabled={navigationDisabled}
             />
           </View>
 
@@ -330,5 +403,9 @@ const styles = StyleSheet.create({
   noteText: {
     fontSize: 14,
     lineHeight: 20,
+  },
+
+  disabledButton: {
+    opacity: 0.55,
   },
 });

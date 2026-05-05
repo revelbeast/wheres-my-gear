@@ -1,7 +1,7 @@
 import { BlurView } from "expo-blur";
 import { router, useFocusEffect } from "expo-router";
 import { Pencil, Trash2 } from "lucide-react-native";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
   Pressable,
@@ -24,6 +24,7 @@ import {
   getChecklistTemplates,
   updateChecklistTemplateName,
 } from "../../../lib/checklistsService";
+import { useInteractionLock } from "../../../lib/useInteractionLock";
 import type { ChecklistTemplate } from "../../../types/checklists";
 
 function FrostedCard({
@@ -61,6 +62,17 @@ export default function ManageTemplatesScreen() {
   const { user, initializing } = useAuth();
   const theme = useThemedValues();
 
+  const {
+    isLocked: interactionLocked,
+    lock: lockInteraction,
+    unlock: unlockInteraction,
+  } = useInteractionLock(450);
+
+  const navigationTransitionLockedRef = useRef(false);
+  const navigationUnlockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+
   const [templates, setTemplates] = useState<ChecklistTemplate[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -70,6 +82,14 @@ export default function ManageTemplatesScreen() {
 
   const [selectedTemplate, setSelectedTemplate] =
     useState<ChecklistTemplate | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (navigationUnlockTimeoutRef.current) {
+        clearTimeout(navigationUnlockTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -84,6 +104,48 @@ export default function ManageTemplatesScreen() {
       loadTemplates();
     }, [initializing, user])
   );
+
+  async function runWithLock(action: () => Promise<void> | void) {
+    if (interactionLocked) return;
+
+    lockInteraction();
+
+    try {
+      await action();
+    } finally {
+      unlockInteraction();
+    }
+  }
+
+  function lockNavigationTransition() {
+    if (navigationTransitionLockedRef.current) {
+      return false;
+    }
+
+    navigationTransitionLockedRef.current = true;
+
+    if (navigationUnlockTimeoutRef.current) {
+      clearTimeout(navigationUnlockTimeoutRef.current);
+    }
+
+    navigationUnlockTimeoutRef.current = setTimeout(() => {
+      navigationTransitionLockedRef.current = false;
+      navigationUnlockTimeoutRef.current = null;
+    }, 1500);
+
+    return true;
+  }
+
+  function runNavigationAction(action: () => void) {
+    if (interactionLocked || navigationTransitionLockedRef.current) {
+      return;
+    }
+
+    const lockAcquired = lockNavigationTransition();
+    if (!lockAcquired) return;
+
+    action();
+  }
 
   async function loadTemplates() {
     if (!user) return;
@@ -101,33 +163,41 @@ export default function ManageTemplatesScreen() {
   }
 
   async function handlePreviewTemplate(template: ChecklistTemplate) {
-    if (!user) return;
+    if (!user || interactionLocked) return;
 
-    try {
-      const items = await getChecklistTemplateItems(user.uid, template.id);
+    await runWithLock(async () => {
+      if (!user) return;
 
-      Alert.alert(
-        template.name,
-        items.map((i) => `• ${i.name}`).join("\n") || "No items"
-      );
-    } catch (err) {
-      console.error(err);
-      Alert.alert("Error", "Failed to load template preview.");
-    }
+      try {
+        const items = await getChecklistTemplateItems(user.uid, template.id);
+
+        Alert.alert(
+          template.name,
+          items.map((i) => `• ${i.name}`).join("\n") || "No items"
+        );
+      } catch (err) {
+        console.error(err);
+        Alert.alert("Error", "Failed to load template preview.");
+      }
+    });
   }
 
   function handleEditTemplateItems(template: ChecklistTemplate) {
-    router.push(`/checklists/template-items?templateId=${template.id}`);
+    runNavigationAction(() => {
+      router.push(`/checklists/template-items?templateId=${template.id}`);
+    });
   }
 
   function handleOpenRename(template: ChecklistTemplate) {
+    if (interactionLocked || savingRename) return;
+
     setSelectedTemplate(template);
     setRenameValue(template.name);
     setRenameVisible(true);
   }
 
   function handleCloseRename() {
-    if (savingRename) return;
+    if (savingRename || interactionLocked) return;
 
     setRenameVisible(false);
     setSelectedTemplate(null);
@@ -137,44 +207,52 @@ export default function ManageTemplatesScreen() {
   async function handleSaveRename() {
     const trimmed = renameValue.trim();
 
-    if (!selectedTemplate || !trimmed || !user) {
+    if (!selectedTemplate || !trimmed || !user || savingRename || interactionLocked) {
       return;
     }
 
-    try {
-      setSavingRename(true);
+    await runWithLock(async () => {
+      if (!selectedTemplate || !user) return;
 
-      await updateChecklistTemplateName(user.uid, selectedTemplate.id, trimmed);
+      try {
+        setSavingRename(true);
 
-      setRenameVisible(false);
-      setSelectedTemplate(null);
-      setRenameValue("");
+        await updateChecklistTemplateName(user.uid, selectedTemplate.id, trimmed);
 
-      await loadTemplates();
-    } catch (err) {
-      console.error(err);
-      Alert.alert("Error", "Failed to rename template.");
-    } finally {
-      setSavingRename(false);
-    }
+        setRenameVisible(false);
+        setSelectedTemplate(null);
+        setRenameValue("");
+
+        await loadTemplates();
+      } catch (err) {
+        console.error(err);
+        Alert.alert("Error", "Failed to rename template.");
+      } finally {
+        setSavingRename(false);
+      }
+    });
   }
 
   function handleDeleteTemplate(template: ChecklistTemplate) {
-    if (!user) return;
+    if (!user || interactionLocked || savingRename) return;
 
     Alert.alert("Delete Template", `Delete "${template.name}"?`, [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
         style: "destructive",
-        onPress: async () => {
-          try {
-            await deleteChecklistTemplate(user.uid, template.id);
-            await loadTemplates();
-          } catch (err) {
-            console.error(err);
-            Alert.alert("Error", "Failed to delete template.");
-          }
+        onPress: () => {
+          void runWithLock(async () => {
+            if (!user) return;
+
+            try {
+              await deleteChecklistTemplate(user.uid, template.id);
+              await loadTemplates();
+            } catch (err) {
+              console.error(err);
+              Alert.alert("Error", "Failed to delete template.");
+            }
+          });
         },
       },
     ]);
@@ -203,6 +281,7 @@ export default function ManageTemplatesScreen() {
                   <Pressable
                     style={styles.templateMainPressable}
                     onPress={() => handleEditTemplateItems(template)}
+                    disabled={interactionLocked}
                   >
                     <View style={styles.templateLeft}>
                       <Text
@@ -218,8 +297,16 @@ export default function ManageTemplatesScreen() {
                         <Pressable
                           onPress={() => handlePreviewTemplate(template)}
                           hitSlop={10}
+                          disabled={interactionLocked}
                         >
-                          <Text style={styles.previewText}>Preview</Text>
+                          <Text
+                            style={[
+                              styles.previewText,
+                              interactionLocked && styles.disabledButton,
+                            ]}
+                          >
+                            Preview
+                          </Text>
                         </Pressable>
 
                         <Text
@@ -237,12 +324,15 @@ export default function ManageTemplatesScreen() {
                   <View style={styles.templateActions}>
                     <Pressable
                       onPress={() => handleOpenRename(template)}
+                      disabled={interactionLocked || savingRename}
                       style={[
                         styles.iconButton,
                         {
                           backgroundColor: theme.colors.iconSurface,
                           borderColor: theme.colors.border,
                         },
+                        (interactionLocked || savingRename) &&
+                          styles.disabledButton,
                       ]}
                     >
                       <Pencil size={17} color={theme.colors.text} />
@@ -250,12 +340,15 @@ export default function ManageTemplatesScreen() {
 
                     <Pressable
                       onPress={() => handleDeleteTemplate(template)}
+                      disabled={interactionLocked || savingRename}
                       style={[
                         styles.iconButton,
                         {
                           backgroundColor: theme.colors.iconSurface,
                           borderColor: theme.colors.border,
                         },
+                        (interactionLocked || savingRename) &&
+                          styles.disabledButton,
                       ]}
                     >
                       <Trash2 size={17} color={theme.colors.danger} />
@@ -297,25 +390,33 @@ export default function ManageTemplatesScreen() {
                 ]}
                 autoFocus
                 returnKeyType="done"
+                editable={!savingRename && !interactionLocked}
                 onSubmitEditing={handleSaveRename}
               />
 
               <Pressable
                 style={[
                   styles.saveButton,
-                  !renameValue.trim() || savingRename
+                  !renameValue.trim() || savingRename || interactionLocked
                     ? styles.disabledButton
                     : {},
                 ]}
                 onPress={handleSaveRename}
-                disabled={!renameValue.trim() || savingRename}
+                disabled={!renameValue.trim() || savingRename || interactionLocked}
               >
                 <Text style={styles.saveButtonText}>
                   {savingRename ? "Saving..." : "Save"}
                 </Text>
               </Pressable>
 
-              <Pressable onPress={handleCloseRename} style={styles.cancelButton}>
+              <Pressable
+                onPress={handleCloseRename}
+                style={[
+                  styles.cancelButton,
+                  (savingRename || interactionLocked) && styles.disabledButton,
+                ]}
+                disabled={savingRename || interactionLocked}
+              >
                 <Text
                   style={[
                     styles.cancelButtonText,
