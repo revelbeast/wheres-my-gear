@@ -5,6 +5,7 @@ import {
   ChevronRight,
   Pencil,
   Plus,
+  Share2,
   Trash2,
   X,
 } from "lucide-react-native";
@@ -16,6 +17,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -35,6 +37,7 @@ import {
   getStorageSpaceById,
   updateCompartment,
 } from "../../../lib/gearService";
+import { useInteractionLock } from "../../../lib/useInteractionLock";
 import { colors } from "../../../theme/tokens";
 
 export default function VehicleDetailScreen() {
@@ -44,6 +47,7 @@ export default function VehicleDetailScreen() {
     : params.vehicleId;
 
   const scrollRef = useRef<ScrollView | null>(null);
+  const navigationLock = useInteractionLock(450);
 
   const [storageSpace, setStorageSpace] = useState<StorageSpace | null>(null);
   const [compartments, setCompartments] = useState<Compartment[]>([]);
@@ -109,6 +113,40 @@ export default function VehicleDetailScreen() {
     });
   }
 
+  async function handleShareStorageSpace() {
+    const storageName = storageSpace?.name?.trim() || "Storage Space";
+
+    const compartmentText =
+      compartments.length > 0
+        ? compartments
+            .map((compartment, index) => `${index + 1}. ${compartment.name}`)
+            .join("\n")
+        : "- No compartments added yet";
+
+    const message = [
+      `Where's My Gear Storage Space`,
+      ``,
+      `Storage: ${storageName}`,
+      `Compartments: ${compartments.length}`,
+      ``,
+      `Compartment List`,
+      compartmentText,
+    ].join("\n");
+
+    try {
+      await Share.share({
+        title: storageName,
+        message,
+      });
+    } catch (err) {
+      console.error("Failed to share storage space:", err);
+      Alert.alert(
+        "Storage not shared",
+        "Something went wrong while sharing this storage space."
+      );
+    }
+  }
+
   async function handleCreateCompartment() {
     if (!vehicleId || isCreating) return;
 
@@ -117,6 +155,7 @@ export default function VehicleDetailScreen() {
 
     try {
       setIsCreating(true);
+      navigationLock.lock();
       Keyboard.dismiss();
       await createCompartment(trimmed, String(vehicleId));
       setNewCompartmentName("");
@@ -131,6 +170,8 @@ export default function VehicleDetailScreen() {
   }
 
   function startEditing(compartment: Compartment) {
+    if (isCreating || navigationLock.isLocked) return;
+
     setShowCreateBox(false);
     setNewCompartmentName("");
     setEditingCompartmentId(compartment.id);
@@ -167,6 +208,8 @@ export default function VehicleDetailScreen() {
   }
 
   function confirmDelete(compartment: Compartment) {
+    if (isCreating || navigationLock.isLocked) return;
+
     Alert.alert(
       "Delete compartment?",
       `Delete "${compartment.name}"? This cannot be undone.`,
@@ -204,7 +247,9 @@ export default function VehicleDetailScreen() {
   }
 
   function handleOpenCompartment(compartmentId: string) {
-    if (!vehicleId || !compartmentId) return;
+    if (!vehicleId || !compartmentId || isCreating || navigationLock.isLocked) {
+      return;
+    }
 
     Keyboard.dismiss();
 
@@ -262,6 +307,16 @@ export default function VehicleDetailScreen() {
               </Pressable>
             </BlurView>
 
+            <Pressable
+              style={styles.shareStorageButton}
+              onPress={handleShareStorageSpace}
+            >
+              <Share2 size={18} color="#fff" />
+              <Text style={styles.shareStorageButtonText}>
+                Share Storage Space
+              </Text>
+            </Pressable>
+
             {showCreateBox && (
               <BlurView intensity={18} tint="dark" style={styles.createCard}>
                 <Text style={styles.createTitle}>Create Compartment</Text>
@@ -314,13 +369,15 @@ export default function VehicleDetailScreen() {
             ) : (
               compartments.map((compartment) => {
                 const isEditing = editingCompartmentId === compartment.id;
+                const interactionDisabled =
+                  isCreating || navigationLock.isLocked;
 
                 return (
                   <Swipeable
                     key={compartment.id}
                     renderRightActions={() => renderRightActions(compartment)}
                     overshootRight={false}
-                    enabled={!isEditing}
+                    enabled={!isEditing && !interactionDisabled}
                   >
                     <BlurView intensity={18} tint="dark" style={styles.card}>
                       {isEditing ? (
@@ -372,10 +429,14 @@ export default function VehicleDetailScreen() {
                       ) : (
                         <>
                           <Pressable
-                            style={styles.cardLeft}
+                            style={[
+                              styles.cardLeft,
+                              interactionDisabled && styles.disabledInteraction,
+                            ]}
                             onPress={() =>
                               handleOpenCompartment(compartment.id)
                             }
+                            disabled={interactionDisabled}
                           >
                             <Text style={styles.cardTitle}>
                               {compartment.name}
@@ -384,8 +445,12 @@ export default function VehicleDetailScreen() {
 
                           <View style={styles.cardRight}>
                             <Pressable
-                              style={styles.iconButton}
+                              style={[
+                                styles.iconButton,
+                                interactionDisabled && styles.disabledInteraction,
+                              ]}
                               onPress={() => startEditing(compartment)}
+                              disabled={interactionDisabled}
                             >
                               <Pencil
                                 size={16}
@@ -394,10 +459,14 @@ export default function VehicleDetailScreen() {
                             </Pressable>
 
                             <Pressable
-                              style={styles.iconButton}
+                              style={[
+                                styles.iconButton,
+                                interactionDisabled && styles.disabledInteraction,
+                              ]}
                               onPress={() =>
                                 handleOpenCompartment(compartment.id)
                               }
+                              disabled={interactionDisabled}
                             >
                               <ChevronRight
                                 size={18}
@@ -434,7 +503,7 @@ const styles = StyleSheet.create({
   },
 
   topActionCard: {
-    marginBottom: 16,
+    marginBottom: 12,
     padding: 16,
     borderRadius: 18,
     overflow: "hidden",
@@ -487,6 +556,25 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
+  shareStorageButton: {
+    minHeight: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(12,24,50,0.28)",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginBottom: 16,
+  },
+
+  shareStorageButtonText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+
   createCard: {
     marginBottom: 16,
     padding: 16,
@@ -533,6 +621,10 @@ const styles = StyleSheet.create({
 
   createButtonDisabled: {
     opacity: 0.5,
+  },
+
+  disabledInteraction: {
+    opacity: 0.6,
   },
 
   sectionHeader: {

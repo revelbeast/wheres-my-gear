@@ -50,6 +50,15 @@ export default function PaywallScreen() {
     loadPaywall();
   }, []);
 
+  function handleBackPress() {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+
+    router.replace("/(tabs)/profile");
+  }
+
   async function loadPaywall() {
     try {
       setLoading(true);
@@ -188,7 +197,7 @@ export default function PaywallScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.headerRow}>
-            <Pressable style={styles.backButton} onPress={() => router.back()}>
+            <Pressable style={styles.backButton} onPress={handleBackPress}>
               <ArrowLeft size={22} color="#FFFFFF" />
             </Pressable>
 

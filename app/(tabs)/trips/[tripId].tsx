@@ -12,6 +12,7 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  Share2,
   Trash2,
 } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
@@ -22,6 +23,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   TextInput,
   View,
@@ -153,6 +155,14 @@ function buildCalendarDays(monthDate: Date) {
   return days;
 }
 
+function getDaysUntilTrip(date: Date) {
+  const today = getStartOfDay(new Date());
+  const tripDay = getStartOfDay(date);
+  const diffMs = tripDay.getTime() - today.getTime();
+
+  return Math.ceil(diffMs / 86_400_000);
+}
+
 export default function EditTripScreen() {
   const { tripId } = useLocalSearchParams<{ tripId?: string }>();
   const { user, initializing } = useAuth();
@@ -257,6 +267,38 @@ export default function EditTripScreen() {
   function handleSelectDate(date: Date) {
     setTripDate(getNoonDate(date));
     setIsCalendarVisible(false);
+  }
+
+  async function handleShareTrip() {
+    const trimmedName = tripName.trim() || "Upcoming Trip";
+    const daysUntilTrip = getDaysUntilTrip(tripDate);
+
+    const countdownText =
+      daysUntilTrip > 1
+        ? `${daysUntilTrip} days away`
+        : daysUntilTrip === 1
+          ? "Tomorrow"
+          : daysUntilTrip === 0
+            ? "Today"
+            : `${Math.abs(daysUntilTrip)} days ago`;
+
+    const message = [
+      `Where's My Gear Trip`,
+      ``,
+      `Trip: ${trimmedName}`,
+      `Date: ${formatTripDate(tripDate)}`,
+      `Countdown: ${countdownText}`,
+    ].join("\n");
+
+    try {
+      await Share.share({
+        title: trimmedName,
+        message,
+      });
+    } catch (error) {
+      console.error("Failed to share trip:", error);
+      Alert.alert("Trip not shared", "Something went wrong while sharing this trip.");
+    }
   }
 
   async function handleSaveTrip() {
@@ -429,6 +471,26 @@ export default function EditTripScreen() {
                     </ThemedText>
                   </View>
                 </FrostedCard>
+
+                <Pressable
+                  style={[
+                    styles.shareButton,
+                    {
+                      borderColor: theme.colors.border,
+                      backgroundColor: theme.colors.card,
+                    },
+                  ]}
+                  onPress={handleShareTrip}
+                  disabled={isSaving || isDeleting}
+                >
+                  <Share2 size={18} color={theme.colors.text} />
+                  <ThemedText
+                    variant="bodyStrong"
+                    style={[styles.shareButtonText, { color: theme.colors.text }]}
+                  >
+                    Share Trip
+                  </ThemedText>
+                </Pressable>
 
                 <ThemedButton
                   style={[
@@ -681,6 +743,21 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+  },
+
+  shareButton: {
+    minHeight: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+
+  shareButtonText: {
+    fontWeight: "700",
   },
 
   saveButton: {

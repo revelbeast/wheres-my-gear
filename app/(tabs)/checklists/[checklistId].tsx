@@ -10,6 +10,7 @@ import {
   Pencil,
   Plus,
   Save,
+  Share2,
   Trash2,
   X,
 } from "lucide-react-native";
@@ -22,6 +23,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -42,6 +44,7 @@ import {
   type Compartment,
   type StorageSpace,
 } from "../../../lib/gearService";
+import { useInteractionLock } from "../../../lib/useInteractionLock";
 import {
   addChecklistItem,
   deleteChecklist,
@@ -124,10 +127,17 @@ function getCategoryLabel(
   }
 }
 
+function formatChecklistItemForShare(item: any) {
+  const quantity = getSafeQuantity(item.quantity);
+  const storage = item.compartmentName ? `, Storage: ${item.compartmentName}` : "";
+  return `- ${item.name} (Qty: ${quantity}${storage})`;
+}
+
 export default function ChecklistDetailScreen() {
   const { user, initializing } = useAuth();
   const { checklistId } = useLocalSearchParams<{ checklistId: string }>();
   const theme = useThemedValues();
+  const interactionLock = useInteractionLock(450);
 
   const [checklist, setChecklist] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
@@ -189,15 +199,25 @@ export default function ChecklistDetailScreen() {
     }
   }
 
+  function isBusyWithItemActions(itemId?: string) {
+    return (
+      savingNewItem ||
+      savingItemEdit ||
+      savingAssignment ||
+      interactionLock.isLocked ||
+      (!!itemId && updatingItemId === itemId)
+    );
+  }
+
   function handleOpenRenameChecklist() {
-    if (!checklist) return;
+    if (!checklist || savingRename || interactionLock.isLocked) return;
 
     setRenameValue(checklist.name);
     setRenameModal(true);
   }
 
   function confirmDeleteChecklist() {
-    if (!checklist || !user) return;
+    if (!checklist || !user || interactionLock.isLocked) return;
 
     Alert.alert(
       "Delete checklist?",
@@ -212,6 +232,7 @@ export default function ChecklistDetailScreen() {
           style: "destructive",
           onPress: async () => {
             try {
+              interactionLock.lock();
               await deleteChecklist(user.uid, checklistId);
               router.replace("/checklists");
             } catch (err) {
@@ -226,10 +247,11 @@ export default function ChecklistDetailScreen() {
 
   async function handleRenameChecklist() {
     const trimmed = renameValue.trim();
-    if (!trimmed || !user) return;
+    if (!trimmed || !user || savingRename || interactionLock.isLocked) return;
 
     try {
       setSavingRename(true);
+      interactionLock.lock();
       await updateChecklistName(user.uid, checklistId, trimmed);
       setRenameModal(false);
       await loadChecklist();
@@ -242,9 +264,10 @@ export default function ChecklistDetailScreen() {
   }
 
   async function handleSaveTemplate() {
-    if (!user) return;
+    if (!user || interactionLock.isLocked) return;
 
     try {
+      interactionLock.lock();
       await saveChecklistAsTemplate(user.uid, checklistId);
       Alert.alert("Saved", "Checklist saved as template.");
     } catch (err) {
@@ -253,7 +276,56 @@ export default function ChecklistDetailScreen() {
     }
   }
 
+  async function handleShareChecklist() {
+    if (!checklist || interactionLock.isLocked) return;
+
+    const packedItems = sortedItems.filter((item) => !!item.packed);
+    const toPackItems = sortedItems.filter((item) => !item.packed);
+
+    const categoryLabel = getCategoryLabel(
+      checklist.category,
+      checklist.customCategoryLabel
+    );
+
+    const toPackText =
+      toPackItems.length > 0
+        ? toPackItems.map(formatChecklistItemForShare).join("\n")
+        : "- Nothing left to pack";
+
+    const packedText =
+      packedItems.length > 0
+        ? packedItems.map(formatChecklistItemForShare).join("\n")
+        : "- No packed items yet";
+
+    const message = [
+      `Where's My Gear Checklist`,
+      ``,
+      `Checklist: ${checklist.name}`,
+      `Category: ${categoryLabel}`,
+      `Needed: ${checklistTotals.needed}`,
+      `To Pack: ${checklistTotals.toPack}`,
+      ``,
+      `To Pack`,
+      toPackText,
+      ``,
+      `Packed`,
+      packedText,
+    ].join("\n");
+
+    try {
+      await Share.share({
+        title: checklist.name,
+        message,
+      });
+    } catch (err) {
+      console.error(err);
+      Alert.alert("Error", "Failed to share checklist.");
+    }
+  }
+
   function handleAddItem() {
+    if (isBusyWithItemActions()) return;
+
     setShowCreateBox((prev) => !prev);
     if (showCreateBox) {
       setNewItemName("");
@@ -262,10 +334,11 @@ export default function ChecklistDetailScreen() {
 
   async function handleCreateItem() {
     const trimmed = newItemName.trim();
-    if (!trimmed || !user) return;
+    if (!trimmed || !user || savingNewItem || interactionLock.isLocked) return;
 
     try {
       setSavingNewItem(true);
+      interactionLock.lock();
       await addChecklistItem(user.uid, checklistId, trimmed);
       setNewItemName("");
       setShowCreateBox(false);
@@ -278,21 +351,26 @@ export default function ChecklistDetailScreen() {
   }
 
   function startEditingItem(item: any) {
+    if (isBusyWithItemActions(item.id)) return;
+
     setEditingItemId(item.id);
     setEditingItemName(item.name ?? "");
   }
 
   function cancelEditingItem() {
+    if (savingItemEdit) return;
+
     setEditingItemId(null);
     setEditingItemName("");
   }
 
   async function handleSaveItemEdit(itemId: string) {
     const trimmed = editingItemName.trim();
-    if (!trimmed || !user) return;
+    if (!trimmed || !user || savingItemEdit || interactionLock.isLocked) return;
 
     try {
       setSavingItemEdit(true);
+      interactionLock.lock();
       await updateChecklistItemName(user.uid, checklistId, itemId, trimmed);
       setEditingItemId(null);
       setEditingItemName("");
@@ -305,7 +383,7 @@ export default function ChecklistDetailScreen() {
   }
 
   async function handleChangeNeededQuantity(item: any, delta: number) {
-    if (!user) return;
+    if (!user || isBusyWithItemActions(item.id)) return;
 
     const currentQuantity = getSafeQuantity(item.quantity);
     const nextQuantity = Math.max(1, currentQuantity + delta);
@@ -313,6 +391,7 @@ export default function ChecklistDetailScreen() {
 
     try {
       setUpdatingItemId(item.id);
+      interactionLock.lock();
       await updateChecklistItemQuantity(
         user.uid,
         checklistId,
@@ -361,10 +440,11 @@ export default function ChecklistDetailScreen() {
   }
 
   async function handleTogglePacked(item: any) {
-    if (!user) return;
+    if (!user || isBusyWithItemActions(item.id)) return;
 
     try {
       setUpdatingItemId(item.id);
+      interactionLock.lock();
       await toggleChecklistItemPacked(user.uid, checklistId, item);
 
       if (item.compartmentId) {
@@ -386,6 +466,8 @@ export default function ChecklistDetailScreen() {
   }
 
   async function handleItemPhotoAction(item: any) {
+    if (isBusyWithItemActions(item.id)) return;
+
     Alert.alert("Item Photo", item.name, [
       {
         text: "Take Photo",
@@ -412,7 +494,7 @@ export default function ChecklistDetailScreen() {
   }
 
   async function handleTakeItemPhoto(item: any) {
-    if (!user) return;
+    if (!user || isBusyWithItemActions(item.id)) return;
 
     try {
       const permission = await ImagePicker.requestCameraPermissionsAsync();
@@ -423,6 +505,7 @@ export default function ChecklistDetailScreen() {
       }
 
       setUpdatingItemId(item.id);
+      interactionLock.lock();
 
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ["images"],
@@ -453,10 +536,11 @@ export default function ChecklistDetailScreen() {
   }
 
   async function handlePickItemPhoto(item: any) {
-    if (!user) return;
+    if (!user || isBusyWithItemActions(item.id)) return;
 
     try {
       setUpdatingItemId(item.id);
+      interactionLock.lock();
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
@@ -487,10 +571,11 @@ export default function ChecklistDetailScreen() {
   }
 
   async function handleRemoveItemPhoto(item: any) {
-    if (!user) return;
+    if (!user || isBusyWithItemActions(item.id)) return;
 
     try {
       setUpdatingItemId(item.id);
+      interactionLock.lock();
       await updateChecklistItemPhoto(user.uid, checklistId, item.id, "");
     } catch (err) {
       console.error(err);
@@ -501,7 +586,10 @@ export default function ChecklistDetailScreen() {
   }
 
   async function openAssignStorage(item: any) {
+    if (isBusyWithItemActions(item.id)) return;
+
     try {
+      interactionLock.lock();
       setAssigningItem(item);
       setSelectedVehicleId(item.vehicleId ?? "");
       setSelectedCompartmentId(item.compartmentId ?? "");
@@ -563,13 +651,17 @@ export default function ChecklistDetailScreen() {
   }
 
   async function handleSelectVehicle(vehicleId: string) {
+    if (savingAssignment || loadingCompartments) return;
+
     setSelectedVehicleId(vehicleId);
     setSelectedCompartmentId("");
     await loadCompartmentsForVehicle(vehicleId);
   }
 
   async function handleSaveAssignment() {
-    if (!assigningItem || !user) return;
+    if (!assigningItem || !user || savingAssignment || interactionLock.isLocked) {
+      return;
+    }
 
     if (!selectedVehicleId) {
       Alert.alert("Select storage", "Please choose a storage space first.");
@@ -599,6 +691,7 @@ export default function ChecklistDetailScreen() {
 
     try {
       setSavingAssignment(true);
+      interactionLock.lock();
 
       if (isReassignment) {
         await removeOrDecrementInventoryItemFromChecklist(
@@ -654,7 +747,7 @@ export default function ChecklistDetailScreen() {
   }
 
   function confirmDeleteItem(item: any) {
-    if (!user) return;
+    if (!user || isBusyWithItemActions(item.id)) return;
 
     Alert.alert("Delete item?", `Delete "${item.name}" from this checklist?`, [
       { text: "Cancel", style: "cancel" },
@@ -663,6 +756,8 @@ export default function ChecklistDetailScreen() {
         style: "destructive",
         onPress: async () => {
           try {
+            interactionLock.lock();
+
             if (item.compartmentId) {
               await removeOrDecrementInventoryItemFromChecklist(
                 {
@@ -732,8 +827,12 @@ export default function ChecklistDetailScreen() {
           backgroundColor: theme.colors.iconSurface,
           borderColor: theme.colors.border,
         },
+        isBusyWithItemActions() && styles.disabledButton,
       ]}
       onPress={handleAddItem}
+      disabled={isBusyWithItemActions()}
+      accessibilityRole="button"
+      accessibilityLabel={showCreateBox ? "Close add item" : "Add checklist item"}
     >
       {showCreateBox ? (
         <X size={18} color="#fff" />
@@ -748,6 +847,7 @@ export default function ChecklistDetailScreen() {
     const neededQty = getSafeQuantity(item.quantity);
     const toPackQty = item.packed ? 0 : neededQty;
     const isPacked = !!item.packed;
+    const interactionDisabled = isBusyWithItemActions(item.id);
 
     return (
       <FrostedCard
@@ -778,6 +878,7 @@ export default function ChecklistDetailScreen() {
                 },
               ]}
               autoFocus
+              editable={!savingItemEdit}
             />
 
             <View style={styles.editActions}>
@@ -803,8 +904,10 @@ export default function ChecklistDetailScreen() {
                     backgroundColor: theme.colors.iconSurface,
                     borderColor: theme.colors.border,
                   },
+                  savingItemEdit && styles.disabledButton,
                 ]}
                 onPress={cancelEditingItem}
+                disabled={savingItemEdit}
               >
                 <X size={16} color={theme.colors.text} />
                 <Text
@@ -821,9 +924,12 @@ export default function ChecklistDetailScreen() {
         ) : (
           <View style={styles.itemContentRow}>
             <Pressable
-              style={styles.itemPhotoWrap}
+              style={[
+                styles.itemPhotoWrap,
+                interactionDisabled && styles.disabledInteraction,
+              ]}
               onPress={() => handleItemPhotoAction(item)}
-              disabled={updatingItemId === item.id}
+              disabled={interactionDisabled}
             >
               {item.itemPhotoUri ? (
                 <Image
@@ -879,8 +985,10 @@ export default function ChecklistDetailScreen() {
                         backgroundColor: theme.colors.iconSurface,
                         borderColor: theme.colors.border,
                       },
+                      interactionDisabled && styles.disabledInteraction,
                     ]}
                     onPress={() => handleItemPhotoAction(item)}
+                    disabled={interactionDisabled}
                   >
                     <ImageIcon size={16} color={theme.colors.textSecondary} />
                   </Pressable>
@@ -892,8 +1000,10 @@ export default function ChecklistDetailScreen() {
                         backgroundColor: theme.colors.iconSurface,
                         borderColor: theme.colors.border,
                       },
+                      interactionDisabled && styles.disabledInteraction,
                     ]}
                     onPress={() => startEditingItem(item)}
+                    disabled={interactionDisabled}
                   >
                     <Pencil size={16} color={theme.colors.textSecondary} />
                   </Pressable>
@@ -905,8 +1015,10 @@ export default function ChecklistDetailScreen() {
                         backgroundColor: theme.colors.iconSurface,
                         borderColor: theme.colors.border,
                       },
+                      interactionDisabled && styles.disabledInteraction,
                     ]}
                     onPress={() => confirmDeleteItem(item)}
+                    disabled={interactionDisabled}
                   >
                     <Trash2 size={16} color={theme.colors.danger} />
                   </Pressable>
@@ -969,8 +1081,10 @@ export default function ChecklistDetailScreen() {
                       backgroundColor: theme.colors.iconSurface,
                       borderColor: theme.colors.border,
                     },
+                    interactionDisabled && styles.disabledInteraction,
                   ]}
                   onPress={() => openAssignStorage(item)}
+                  disabled={interactionDisabled}
                 >
                   <Text
                     style={[
@@ -994,9 +1108,10 @@ export default function ChecklistDetailScreen() {
                         backgroundColor: theme.colors.iconSurface,
                         borderColor: theme.colors.border,
                       },
+                      interactionDisabled && styles.disabledInteraction,
                     ]}
                     onPress={() => handleChangeNeededQuantity(item, -1)}
-                    disabled={updatingItemId === item.id}
+                    disabled={interactionDisabled}
                   >
                     <Minus size={16} color={theme.colors.text} />
                   </Pressable>
@@ -1019,9 +1134,10 @@ export default function ChecklistDetailScreen() {
                         backgroundColor: theme.colors.iconSurface,
                         borderColor: theme.colors.border,
                       },
+                      interactionDisabled && styles.disabledInteraction,
                     ]}
                     onPress={() => handleChangeNeededQuantity(item, 1)}
-                    disabled={updatingItemId === item.id}
+                    disabled={interactionDisabled}
                   >
                     <Plus size={16} color={theme.colors.text} />
                   </Pressable>
@@ -1035,10 +1151,10 @@ export default function ChecklistDetailScreen() {
                       backgroundColor: theme.colors.iconSurface,
                       borderColor: theme.colors.border,
                     },
-                    updatingItemId === item.id && styles.disabledButton,
+                    interactionDisabled && styles.disabledButton,
                   ]}
                   onPress={() => handleTogglePacked(item)}
-                  disabled={updatingItemId === item.id}
+                  disabled={interactionDisabled}
                 >
                   <CheckCircle2
                     size={16}
@@ -1221,6 +1337,7 @@ export default function ChecklistDetailScreen() {
                     onPress={() =>
                       setFilter(option.key as "all" | "unpacked" | "packed")
                     }
+                    disabled={interactionLock.isLocked}
                   >
                     <Text
                       style={[
@@ -1275,6 +1392,7 @@ export default function ChecklistDetailScreen() {
                     autoFocus
                     returnKeyType="done"
                     onSubmitEditing={handleCreateItem}
+                    editable={!savingNewItem}
                   />
 
                   <Pressable
@@ -1293,53 +1411,86 @@ export default function ChecklistDetailScreen() {
             )}
 
             <FrostedCard style={styles.actionCard}>
-              <View style={styles.row}>
+              <View style={styles.actionStack}>
                 <Pressable
-                  style={styles.saveTemplatePressable}
-                  onPress={handleSaveTemplate}
+                  style={[
+                    styles.shareChecklistButton,
+                    {
+                      backgroundColor: theme.colors.iconSurface,
+                      borderColor: theme.colors.border,
+                    },
+                    interactionLock.isLocked && styles.disabledButton,
+                  ]}
+                  onPress={handleShareChecklist}
+                  disabled={interactionLock.isLocked}
                 >
-                  <View
+                  <Share2 size={18} color={theme.colors.text} />
+                  <Text
                     style={[
-                      styles.rowIconWrap,
-                      {
-                        backgroundColor: theme.colors.iconSurface,
-                        borderColor: theme.colors.border,
-                      },
+                      styles.shareChecklistButtonText,
+                      { color: theme.colors.text },
                     ]}
                   >
-                    <Save size={18} color={theme.colors.text} />
-                  </View>
-                  <Text style={[styles.rowText, { color: theme.colors.text }]}>
-                    Save as Template
+                    Share Checklist
                   </Text>
                 </Pressable>
 
-                <View style={styles.checklistActionButtons}>
+                <View style={styles.row}>
                   <Pressable
                     style={[
-                      styles.iconButton,
-                      {
-                        backgroundColor: theme.colors.iconSurface,
-                        borderColor: theme.colors.border,
-                      },
+                      styles.saveTemplatePressable,
+                      interactionLock.isLocked && styles.disabledInteraction,
                     ]}
-                    onPress={handleOpenRenameChecklist}
+                    onPress={handleSaveTemplate}
+                    disabled={interactionLock.isLocked}
                   >
-                    <Pencil size={16} color={theme.colors.textSecondary} />
+                    <View
+                      style={[
+                        styles.rowIconWrap,
+                        {
+                          backgroundColor: theme.colors.iconSurface,
+                          borderColor: theme.colors.border,
+                        },
+                      ]}
+                    >
+                      <Save size={18} color={theme.colors.text} />
+                    </View>
+                    <Text style={[styles.rowText, { color: theme.colors.text }]}>
+                      Save as Template
+                    </Text>
                   </Pressable>
 
-                  <Pressable
-                    style={[
-                      styles.iconButton,
-                      {
-                        backgroundColor: theme.colors.iconSurface,
-                        borderColor: theme.colors.border,
-                      },
-                    ]}
-                    onPress={confirmDeleteChecklist}
-                  >
-                    <Trash2 size={16} color={theme.colors.danger} />
-                  </Pressable>
+                  <View style={styles.checklistActionButtons}>
+                    <Pressable
+                      style={[
+                        styles.iconButton,
+                        {
+                          backgroundColor: theme.colors.iconSurface,
+                          borderColor: theme.colors.border,
+                        },
+                        interactionLock.isLocked && styles.disabledInteraction,
+                      ]}
+                      onPress={handleOpenRenameChecklist}
+                      disabled={interactionLock.isLocked}
+                    >
+                      <Pencil size={16} color={theme.colors.textSecondary} />
+                    </Pressable>
+
+                    <Pressable
+                      style={[
+                        styles.iconButton,
+                        {
+                          backgroundColor: theme.colors.iconSurface,
+                          borderColor: theme.colors.border,
+                        },
+                        interactionLock.isLocked && styles.disabledInteraction,
+                      ]}
+                      onPress={confirmDeleteChecklist}
+                      disabled={interactionLock.isLocked}
+                    >
+                      <Trash2 size={16} color={theme.colors.danger} />
+                    </Pressable>
+                  </View>
                 </View>
               </View>
             </FrostedCard>
@@ -1440,6 +1591,7 @@ export default function ChecklistDetailScreen() {
                 ]}
                 placeholder="Checklist name"
                 placeholderTextColor={theme.colors.textMuted}
+                editable={!savingRename}
               />
 
               <Pressable
@@ -1452,7 +1604,10 @@ export default function ChecklistDetailScreen() {
                 </Text>
               </Pressable>
 
-              <Pressable onPress={() => setRenameModal(false)}>
+              <Pressable
+                onPress={() => setRenameModal(false)}
+                disabled={savingRename}
+              >
                 <Text
                   style={[
                     styles.cancelText,
@@ -1520,6 +1675,7 @@ export default function ChecklistDetailScreen() {
                           selected && styles.optionButtonSelected,
                         ]}
                         onPress={() => handleSelectVehicle(space.id)}
+                        disabled={savingAssignment || loadingCompartments}
                       >
                         <Text
                           style={[
@@ -1588,6 +1744,7 @@ export default function ChecklistDetailScreen() {
                           selected && styles.optionButtonSelected,
                         ]}
                         onPress={() => setSelectedCompartmentId(compartment.id)}
+                        disabled={savingAssignment}
                       >
                         <Text
                           style={[
@@ -1617,7 +1774,7 @@ export default function ChecklistDetailScreen() {
                 </Text>
               </Pressable>
 
-              <Pressable onPress={closeAssignStorage}>
+              <Pressable onPress={closeAssignStorage} disabled={savingAssignment}>
                 <Text
                   style={[
                     styles.cancelText,
@@ -1710,6 +1867,10 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
 
+  disabledInteraction: {
+    opacity: 0.6,
+  },
+
   card: {
     marginBottom: 12,
     borderRadius: 16,
@@ -1720,6 +1881,25 @@ const styles = StyleSheet.create({
 
   actionCard: {
     paddingVertical: 12,
+  },
+
+  actionStack: {
+    gap: 12,
+  },
+
+  shareChecklistButton: {
+    minHeight: 46,
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+
+  shareChecklistButtonText: {
+    fontSize: 15,
+    fontWeight: "800",
   },
 
   unpackedItemCard: {},

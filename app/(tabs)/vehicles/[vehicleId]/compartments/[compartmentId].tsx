@@ -9,6 +9,7 @@ import {
   Minus,
   Pencil,
   Plus,
+  Share2,
   Trash2,
   X,
 } from "lucide-react-native";
@@ -21,6 +22,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -77,6 +79,12 @@ function getSafeQuantity(value?: number) {
 
 function isPackedItem(item: Item) {
   return item.status === "packed";
+}
+
+function formatItemForShare(item: Item) {
+  const quantity = getSafeQuantity(item.quantity);
+  const status = isPackedItem(item) ? "Packed" : "To Pack";
+  return `- ${item.name} (Qty: ${quantity}, ${status})`;
 }
 
 export default function CompartmentDetailScreen() {
@@ -158,6 +166,66 @@ export default function CompartmentDetailScreen() {
     } catch (err) {
       console.error("Failed to load compartment items:", err);
       setItems([]);
+    }
+  }
+
+  async function handleShareCompartment() {
+    const compartmentName = compartment?.name?.trim() || "Compartment";
+    const packedItems = sortedItems.filter((item) => isPackedItem(item));
+    const toPackItems = sortedItems.filter((item) => !isPackedItem(item));
+
+    const totalNeeded = sortedItems.reduce(
+      (sum, item) => sum + getSafeQuantity(item.quantity),
+      0
+    );
+
+    const totalPacked = packedItems.reduce(
+      (sum, item) => sum + getSafeQuantity(item.quantity),
+      0
+    );
+
+    const totalToPack = toPackItems.reduce(
+      (sum, item) => sum + getSafeQuantity(item.quantity),
+      0
+    );
+
+    const toPackText =
+      toPackItems.length > 0
+        ? toPackItems.map(formatItemForShare).join("\n")
+        : "- Nothing left to pack";
+
+    const packedText =
+      packedItems.length > 0
+        ? packedItems.map(formatItemForShare).join("\n")
+        : "- No packed items yet";
+
+    const message = [
+      `Where's My Gear Compartment`,
+      ``,
+      `Compartment: ${compartmentName}`,
+      `Items: ${sortedItems.length}`,
+      `Needed: ${totalNeeded}`,
+      `Packed: ${totalPacked}`,
+      `To Pack: ${totalToPack}`,
+      ``,
+      `To Pack`,
+      toPackText,
+      ``,
+      `Packed`,
+      packedText,
+    ].join("\n");
+
+    try {
+      await Share.share({
+        title: compartmentName,
+        message,
+      });
+    } catch (err) {
+      console.error("Failed to share compartment:", err);
+      Alert.alert(
+        "Compartment not shared",
+        "Something went wrong while sharing this compartment."
+      );
     }
   }
 
@@ -796,6 +864,27 @@ export default function CompartmentDetailScreen() {
               rightContent={headerRight}
             />
 
+            <Pressable
+              style={[
+                styles.shareCompartmentButton,
+                {
+                  borderColor: theme.colors.border,
+                  backgroundColor: theme.colors.card,
+                },
+              ]}
+              onPress={handleShareCompartment}
+            >
+              <Share2 size={18} color={theme.colors.text} />
+              <Text
+                style={[
+                  styles.shareCompartmentButtonText,
+                  { color: theme.colors.text },
+                ]}
+              >
+                Share Compartment
+              </Text>
+            </Pressable>
+
             {showCreateBox && (
               <FrostedCard style={styles.createCard}>
                 <Text style={[styles.createTitle, { color: theme.colors.text }]}>
@@ -995,6 +1084,22 @@ const styles = StyleSheet.create({
     height: 40,
     alignItems: "center",
     justifyContent: "center",
+  },
+
+  shareCompartmentButton: {
+    minHeight: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+
+  shareCompartmentButtonText: {
+    fontSize: 15,
+    fontWeight: "800",
   },
 
   createCard: {
