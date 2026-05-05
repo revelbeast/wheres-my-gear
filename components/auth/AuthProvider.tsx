@@ -14,6 +14,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -43,8 +44,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [initializing, setInitializing] = useState(true);
 
+  const revenueCatConfiguredUserIdRef = useRef<string | null>(null);
+
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (nextUser) => {
+    const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
       console.log("Firebase auth state changed:", {
         signedIn: !!nextUser,
         uid: nextUser?.uid ?? null,
@@ -54,9 +57,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(nextUser);
       setInitializing(false);
 
-      if (nextUser?.uid) {
-        await configureRevenueCat(nextUser.uid);
+      if (!nextUser?.uid) {
+        revenueCatConfiguredUserIdRef.current = null;
+        return;
       }
+
+      if (revenueCatConfiguredUserIdRef.current === nextUser.uid) {
+        return;
+      }
+
+      revenueCatConfiguredUserIdRef.current = nextUser.uid;
+
+      void configureRevenueCat(nextUser.uid).catch((error) => {
+        console.error("Failed to configure RevenueCat for user:", error);
+        revenueCatConfiguredUserIdRef.current = null;
+      });
     });
 
     return unsubscribe;
@@ -130,6 +145,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function signOutUser() {
+    revenueCatConfiguredUserIdRef.current = null;
     await logOutRevenueCatUser();
     await signOut(auth);
     setUser(null);
