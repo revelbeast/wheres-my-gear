@@ -3,7 +3,6 @@ import { useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,13 +12,14 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import AppHeader from "../../components/ui/AppHeader";
+import HapticPressable from "../../components/ui/HapticPressable";
 import ScreenBackground from "../../components/ui/ScreenBackground";
+import { useThemedValues } from "../../components/ui/Themed";
 import {
   getStorageSpaceById,
   updateStorageSpaceNotes,
 } from "../../lib/gearService";
 import { colors } from "../../theme/tokens";
-import { useThemedValues } from "../../components/ui/Themed";
 
 function FrostedCard({
   children,
@@ -216,7 +216,7 @@ export default function NotesScreen() {
               ]}
             />
 
-            <Pressable
+            <HapticPressable
               style={[
                 styles.saveButton,
                 saving && styles.saveButtonDisabled,
@@ -227,7 +227,7 @@ export default function NotesScreen() {
               <Text style={styles.saveText}>
                 {saving ? "Saving..." : "Save Notes"}
               </Text>
-            </Pressable>
+            </HapticPressable>
           </FrostedCard>
         </ScrollView>
       </SafeAreaView>

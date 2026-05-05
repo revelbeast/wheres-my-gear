@@ -7,7 +7,6 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -15,6 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../components/auth/AuthProvider";
+import HapticPressable from "../components/ui/HapticPressable";
 import ScreenBackground from "../components/ui/ScreenBackground";
 import { colors } from "../theme/tokens";
 
@@ -164,7 +164,7 @@ export default function SignInScreen() {
             style={styles.input}
           />
 
-          <Pressable style={styles.primaryBtn} onPress={handleEmailAuth}>
+          <HapticPressable style={styles.primaryBtn} onPress={handleEmailAuth}>
             {signingIn ? (
               <ActivityIndicator color="#fff" />
             ) : (
@@ -172,9 +172,9 @@ export default function SignInScreen() {
                 {mode === "signIn" ? "Sign In" : "Create Account"}
               </Text>
             )}
-          </Pressable>
+          </HapticPressable>
 
-          <Pressable
+          <HapticPressable
             onPress={() => setMode(mode === "signIn" ? "signUp" : "signIn")}
           >
             <Text style={styles.link}>
@@ -182,11 +182,11 @@ export default function SignInScreen() {
                 ? "Need an account? Sign up"
                 : "Have an account? Sign in"}
             </Text>
-          </Pressable>
+          </HapticPressable>
 
-          <Pressable onPress={handleResetPassword}>
+          <HapticPressable onPress={handleResetPassword}>
             <Text style={styles.smallLink}>Forgot password?</Text>
-          </Pressable>
+          </HapticPressable>
 
           <Text style={styles.or}>OR</Text>
 

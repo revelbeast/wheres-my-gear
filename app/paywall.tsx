@@ -6,7 +6,6 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
-  Pressable,
   ScrollView,
   StyleSheet,
   View,
@@ -14,6 +13,7 @@ import {
 import type { PurchasesPackage } from "react-native-purchases";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import HapticPressable from "../components/ui/HapticPressable";
 import ScreenBackground from "../components/ui/ScreenBackground";
 import {
   ThemedButton,
@@ -197,9 +197,9 @@ export default function PaywallScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.headerRow}>
-            <Pressable style={styles.backButton} onPress={handleBackPress}>
+            <HapticPressable style={styles.backButton} onPress={handleBackPress}>
               <ArrowLeft size={22} color="#FFFFFF" />
-            </Pressable>
+            </HapticPressable>
 
             <ThemedText variant="title" style={styles.headerTitle}>
               Premium
@@ -270,7 +270,7 @@ export default function PaywallScreen() {
               </ThemedText>
             </ThemedButton>
 
-            <Pressable
+            <HapticPressable
               style={styles.restoreButton}
               onPress={handleRestore}
               disabled={restoring}
@@ -278,7 +278,7 @@ export default function PaywallScreen() {
               <ThemedText style={styles.restoreText}>
                 {restoring ? "Restoring..." : "Restore Purchases"}
               </ThemedText>
-            </Pressable>
+            </HapticPressable>
 
             <ThemedText style={styles.disclaimerText}>
               Premium is an auto-renewable annual subscription. Subscription
@@ -288,25 +288,25 @@ export default function PaywallScreen() {
             </ThemedText>
 
             <View style={styles.legalLinksRow}>
-              <Pressable
+              <HapticPressable
                 onPress={() => openLink(PRIVACY_POLICY_URL)}
                 style={styles.legalLinkButton}
               >
                 <ThemedText style={styles.legalLinkText}>
                   Privacy Policy
                 </ThemedText>
-              </Pressable>
+              </HapticPressable>
 
               <ThemedText style={styles.legalDivider}>•</ThemedText>
 
-              <Pressable
+              <HapticPressable
                 onPress={() => openLink(TERMS_OF_USE_URL)}
                 style={styles.legalLinkButton}
               >
                 <ThemedText style={styles.legalLinkText}>
                   Terms of Use
                 </ThemedText>
-              </Pressable>
+              </HapticPressable>
             </View>
           </BlurView>
         </ScrollView>

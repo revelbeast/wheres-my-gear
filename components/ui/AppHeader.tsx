@@ -1,8 +1,9 @@
 import { router } from "expo-router";
 import { ArrowLeft } from "lucide-react-native";
 import React from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 
+import HapticPressable from "./HapticPressable";
 import { ThemedText, useThemedValues } from "./Themed";
 
 const LABEL_WHITE = "#FFFFFF";
@@ -33,7 +34,7 @@ export default function AppHeader({
     <View style={styles.container}>
       <View style={styles.inner}>
         {showBackButton ? (
-          <Pressable
+          <HapticPressable
             style={[
               styles.iconButton,
               {
@@ -46,7 +47,7 @@ export default function AppHeader({
             onPress={handleBackPress}
           >
             <ArrowLeft size={20} color={LABEL_WHITE} />
-          </Pressable>
+          </HapticPressable>
         ) : (
           <View style={styles.iconSpacer} />
         )}
