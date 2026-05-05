@@ -16,7 +16,6 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -27,6 +26,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../../components/auth/AuthProvider";
 import AppHeader from "../../../components/ui/AppHeader";
+import HapticPressable from "../../../components/ui/HapticPressable";
 import ScreenBackground from "../../../components/ui/ScreenBackground";
 import { useThemedValues } from "../../../components/ui/Themed";
 import {
@@ -494,7 +494,7 @@ export default function TemplateItemsScreen() {
             />
 
             <View style={styles.editActions}>
-              <Pressable
+              <HapticPressable
                 style={[
                   styles.saveEditButton,
                   (!editingItemName.trim() || savingItemName) &&
@@ -506,9 +506,9 @@ export default function TemplateItemsScreen() {
                 <Text style={styles.saveEditText}>
                   {savingItemName ? "Saving..." : "Save"}
                 </Text>
-              </Pressable>
+              </HapticPressable>
 
-              <Pressable
+              <HapticPressable
                 style={[
                   styles.cancelEditButton,
                   {
@@ -523,12 +523,12 @@ export default function TemplateItemsScreen() {
                 >
                   Cancel
                 </Text>
-              </Pressable>
+              </HapticPressable>
             </View>
           </View>
         ) : (
           <View style={styles.itemContentRow}>
-            <Pressable
+            <HapticPressable
               style={styles.itemPhotoWrap}
               onPress={() => handleItemPhotoAction(item)}
               disabled={updatingPhotoId === item.id}
@@ -559,7 +559,7 @@ export default function TemplateItemsScreen() {
                   </Text>
                 </View>
               )}
-            </Pressable>
+            </HapticPressable>
 
             <View style={styles.itemMainContent}>
               <View style={styles.itemTopRow}>
@@ -581,7 +581,7 @@ export default function TemplateItemsScreen() {
                 </View>
 
                 <View style={styles.itemActions}>
-                  <Pressable
+                  <HapticPressable
                     style={[
                       styles.iconButton,
                       {
@@ -592,9 +592,9 @@ export default function TemplateItemsScreen() {
                     onPress={() => handleItemPhotoAction(item)}
                   >
                     <ImageIcon size={16} color={theme.colors.textSecondary} />
-                  </Pressable>
+                  </HapticPressable>
 
-                  <Pressable
+                  <HapticPressable
                     style={[
                       styles.iconButton,
                       {
@@ -605,9 +605,9 @@ export default function TemplateItemsScreen() {
                     onPress={() => handleStartEditItem(item)}
                   >
                     <Pencil size={16} color={theme.colors.textSecondary} />
-                  </Pressable>
+                  </HapticPressable>
 
-                  <Pressable
+                  <HapticPressable
                     style={[
                       styles.iconButton,
                       {
@@ -618,7 +618,7 @@ export default function TemplateItemsScreen() {
                     onPress={() => handleDeleteItem(item)}
                   >
                     <Trash2 size={16} color={theme.colors.danger} />
-                  </Pressable>
+                  </HapticPressable>
                 </View>
               </View>
 
@@ -674,7 +674,7 @@ export default function TemplateItemsScreen() {
 
               <View style={styles.controlsRow}>
                 <View style={styles.quantityControls}>
-                  <Pressable
+                  <HapticPressable
                     style={[
                       styles.quantityButton,
                       {
@@ -686,7 +686,7 @@ export default function TemplateItemsScreen() {
                     disabled={isBusy}
                   >
                     <Minus size={16} color={theme.colors.text} />
-                  </Pressable>
+                  </HapticPressable>
 
                   <View style={styles.quantityValueWrap}>
                     <Text
@@ -699,7 +699,7 @@ export default function TemplateItemsScreen() {
                     </Text>
                   </View>
 
-                  <Pressable
+                  <HapticPressable
                     style={[
                       styles.quantityButton,
                       {
@@ -711,10 +711,10 @@ export default function TemplateItemsScreen() {
                     disabled={isBusy}
                   >
                     <Plus size={16} color={theme.colors.text} />
-                  </Pressable>
+                  </HapticPressable>
                 </View>
 
-                <Pressable
+                <HapticPressable
                   style={[
                     styles.packToggleButton,
                     packed ? styles.packToggleOn : styles.packToggleOff,
@@ -740,7 +740,7 @@ export default function TemplateItemsScreen() {
                   >
                     {packed ? "Packed" : "Mark Packed"}
                   </Text>
-                </Pressable>
+                </HapticPressable>
               </View>
             </View>
           </View>
@@ -845,7 +845,7 @@ export default function TemplateItemsScreen() {
                       onSubmitEditing={handleAddItem}
                     />
 
-                    <Pressable
+                    <HapticPressable
                       style={[
                         styles.createButton,
                         (!newItemName.trim() || addingItem) &&
@@ -855,7 +855,7 @@ export default function TemplateItemsScreen() {
                       disabled={!newItemName.trim() || addingItem}
                     >
                       <Plus size={18} color="#fff" />
-                    </Pressable>
+                    </HapticPressable>
                   </View>
                 </FrostedCard>
 

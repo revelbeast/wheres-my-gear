@@ -3,7 +3,6 @@ import { router, useLocalSearchParams } from "expo-router";
 import { CheckCircle2, ChevronRight, ListChecks } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../../components/auth/AuthProvider";
 import AppHeader from "../../../components/ui/AppHeader";
+import HapticPressable from "../../../components/ui/HapticPressable";
 import ScreenBackground from "../../../components/ui/ScreenBackground";
 import { useThemedValues } from "../../../components/ui/Themed";
 import { getAssignedChecklistItems } from "../../../lib/checklistsService";
@@ -262,7 +262,7 @@ export default function ChecklistItemsSummaryScreen() {
           ) : (
             filteredItems.map((item) => (
               <FrostedCard key={`${item.checklistId}-${item.id}`}>
-                <Pressable
+                <HapticPressable
                   style={[
                     styles.row,
                     (interactionLocked ||
@@ -332,7 +332,7 @@ export default function ChecklistItemsSummaryScreen() {
                   </View>
 
                   <ChevronRight size={18} color={theme.colors.textSecondary} />
-                </Pressable>
+                </HapticPressable>
               </FrostedCard>
             ))
           )}

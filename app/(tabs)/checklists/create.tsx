@@ -19,7 +19,6 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -30,6 +29,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../../components/auth/AuthProvider";
 import AppHeader from "../../../components/ui/AppHeader";
+import HapticPressable from "../../../components/ui/HapticPressable";
 import ScreenBackground from "../../../components/ui/ScreenBackground";
 import { useThemedValues } from "../../../components/ui/Themed";
 import {
@@ -405,7 +405,7 @@ export default function CreateChecklistScreen() {
 
     return (
       <FrostedCard key={template.id}>
-        <Pressable
+        <HapticPressable
           style={styles.row}
           onPress={() => openPreview(template)}
           onLongPress={() => openTemplateActions(template)}
@@ -432,7 +432,7 @@ export default function CreateChecklistScreen() {
           </View>
 
           <ChevronRight size={18} color={theme.colors.textSecondary} />
-        </Pressable>
+        </HapticPressable>
       </FrostedCard>
     );
   }
@@ -520,7 +520,7 @@ export default function CreateChecklistScreen() {
                       const selected = selectedCategory === option.key;
 
                       return (
-                        <Pressable
+                        <HapticPressable
                           key={option.key}
                           style={[
                             styles.categoryButton,
@@ -547,7 +547,7 @@ export default function CreateChecklistScreen() {
                           >
                             {option.label}
                           </Text>
-                        </Pressable>
+                        </HapticPressable>
                       );
                     })}
                   </View>
@@ -580,7 +580,7 @@ export default function CreateChecklistScreen() {
                     </View>
                   ) : null}
 
-                  <Pressable
+                  <HapticPressable
                     style={[
                       styles.primaryButton,
                       creatingNewChecklist && styles.primaryButtonDisabled,
@@ -593,7 +593,7 @@ export default function CreateChecklistScreen() {
                         ? "Creating..."
                         : "Create New Checklist"}
                     </Text>
-                  </Pressable>
+                  </HapticPressable>
                 </FrostedCard>
 
                 <FrostedCard style={styles.heroCard}>
@@ -692,7 +692,7 @@ export default function CreateChecklistScreen() {
 
                     return (
                       <FrostedCard key={itemId}>
-                        <Pressable
+                        <HapticPressable
                           style={styles.templateItemRow}
                           onPress={() => toggleTemplateItem(item, index)}
                         >
@@ -720,13 +720,13 @@ export default function CreateChecklistScreen() {
                           >
                             {item.name}
                           </Text>
-                        </Pressable>
+                        </HapticPressable>
                       </FrostedCard>
                     );
                   })
                 )}
 
-                <Pressable
+                <HapticPressable
                   style={[
                     styles.primaryButton,
                     (creatingChecklist || selectedTemplateItemCount === 0) &&
@@ -742,9 +742,12 @@ export default function CreateChecklistScreen() {
                           selectedTemplateItemCount === 1 ? "item" : "items"
                         })`}
                   </Text>
-                </Pressable>
+                </HapticPressable>
 
-                <Pressable style={styles.secondaryButton} onPress={closePreview}>
+                <HapticPressable
+                  style={styles.secondaryButton}
+                  onPress={closePreview}
+                >
                   <Text
                     style={[
                       styles.secondaryButtonText,
@@ -753,7 +756,7 @@ export default function CreateChecklistScreen() {
                   >
                     Cancel
                   </Text>
-                </Pressable>
+                </HapticPressable>
               </ScrollView>
             </SafeAreaView>
           </ScreenBackground>
@@ -802,7 +805,7 @@ export default function CreateChecklistScreen() {
                   returnKeyType="done"
                 />
 
-                <Pressable
+                <HapticPressable
                   style={[
                     styles.primaryButton,
                     savingRename && styles.primaryButtonDisabled,
@@ -813,9 +816,9 @@ export default function CreateChecklistScreen() {
                   <Text style={styles.primaryButtonText}>
                     {savingRename ? "Saving..." : "Save"}
                   </Text>
-                </Pressable>
+                </HapticPressable>
 
-                <Pressable
+                <HapticPressable
                   style={styles.secondaryButton}
                   onPress={closeRenameModal}
                 >
@@ -827,7 +830,7 @@ export default function CreateChecklistScreen() {
                   >
                     Cancel
                   </Text>
-                </Pressable>
+                </HapticPressable>
               </BlurView>
             </KeyboardAvoidingView>
           </View>

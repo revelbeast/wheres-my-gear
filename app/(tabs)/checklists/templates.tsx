@@ -4,7 +4,6 @@ import { Pencil, Trash2 } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -16,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../../components/auth/AuthProvider";
 import AppHeader from "../../../components/ui/AppHeader";
+import HapticPressable from "../../../components/ui/HapticPressable";
 import ScreenBackground from "../../../components/ui/ScreenBackground";
 import { useThemedValues } from "../../../components/ui/Themed";
 import {
@@ -278,7 +278,7 @@ export default function ManageTemplatesScreen() {
             templates.map((template) => (
               <FrostedCard key={template.id}>
                 <View style={styles.templateRow}>
-                  <Pressable
+                  <HapticPressable
                     style={styles.templateMainPressable}
                     onPress={() => handleEditTemplateItems(template)}
                     disabled={interactionLocked}
@@ -294,7 +294,7 @@ export default function ManageTemplatesScreen() {
                       </Text>
 
                       <View style={styles.templateLinks}>
-                        <Pressable
+                        <HapticPressable
                           onPress={() => handlePreviewTemplate(template)}
                           hitSlop={10}
                           disabled={interactionLocked}
@@ -307,7 +307,7 @@ export default function ManageTemplatesScreen() {
                           >
                             Preview
                           </Text>
-                        </Pressable>
+                        </HapticPressable>
 
                         <Text
                           style={[
@@ -319,10 +319,10 @@ export default function ManageTemplatesScreen() {
                         </Text>
                       </View>
                     </View>
-                  </Pressable>
+                  </HapticPressable>
 
                   <View style={styles.templateActions}>
-                    <Pressable
+                    <HapticPressable
                       onPress={() => handleOpenRename(template)}
                       disabled={interactionLocked || savingRename}
                       style={[
@@ -336,9 +336,9 @@ export default function ManageTemplatesScreen() {
                       ]}
                     >
                       <Pencil size={17} color={theme.colors.text} />
-                    </Pressable>
+                    </HapticPressable>
 
-                    <Pressable
+                    <HapticPressable
                       onPress={() => handleDeleteTemplate(template)}
                       disabled={interactionLocked || savingRename}
                       style={[
@@ -352,7 +352,7 @@ export default function ManageTemplatesScreen() {
                       ]}
                     >
                       <Trash2 size={17} color={theme.colors.danger} />
-                    </Pressable>
+                    </HapticPressable>
                   </View>
                 </View>
               </FrostedCard>
@@ -394,7 +394,7 @@ export default function ManageTemplatesScreen() {
                 onSubmitEditing={handleSaveRename}
               />
 
-              <Pressable
+              <HapticPressable
                 style={[
                   styles.saveButton,
                   !renameValue.trim() || savingRename || interactionLocked
@@ -407,9 +407,9 @@ export default function ManageTemplatesScreen() {
                 <Text style={styles.saveButtonText}>
                   {savingRename ? "Saving..." : "Save"}
                 </Text>
-              </Pressable>
+              </HapticPressable>
 
-              <Pressable
+              <HapticPressable
                 onPress={handleCloseRename}
                 style={[
                   styles.cancelButton,
@@ -425,7 +425,7 @@ export default function ManageTemplatesScreen() {
                 >
                   Cancel
                 </Text>
-              </Pressable>
+              </HapticPressable>
             </View>
           </View>
         )}

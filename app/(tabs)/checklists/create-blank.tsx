@@ -6,7 +6,6 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -17,6 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../../components/auth/AuthProvider";
 import AppHeader from "../../../components/ui/AppHeader";
+import HapticPressable from "../../../components/ui/HapticPressable";
 import ScreenBackground from "../../../components/ui/ScreenBackground";
 import { useThemedValues } from "../../../components/ui/Themed";
 import { createChecklist } from "../../../lib/checklistsService";
@@ -219,7 +219,7 @@ export default function CreateBlankChecklistScreen() {
                 </Text>
 
                 <View style={styles.dropdownWrap}>
-                  <Pressable
+                  <HapticPressable
                     style={styles.dropdownPressable}
                     onPress={() => setShowCategoryDropdown((prev) => !prev)}
                   >
@@ -247,7 +247,7 @@ export default function CreateBlankChecklistScreen() {
                         color={theme.colors.textSecondary}
                       />
                     </BlurView>
-                  </Pressable>
+                  </HapticPressable>
 
                   {showCategoryDropdown && (
                     <BlurView
@@ -266,7 +266,7 @@ export default function CreateBlankChecklistScreen() {
                         nestedScrollEnabled
                       >
                         {CATEGORY_OPTIONS.map((option, index) => (
-                          <Pressable
+                          <HapticPressable
                             key={option.value}
                             style={[
                               styles.dropdownRow,
@@ -286,7 +286,7 @@ export default function CreateBlankChecklistScreen() {
                             >
                               {option.label}
                             </Text>
-                          </Pressable>
+                          </HapticPressable>
                         ))}
                       </ScrollView>
                     </BlurView>
@@ -321,7 +321,7 @@ export default function CreateBlankChecklistScreen() {
                   </>
                 )}
 
-                <Pressable
+                <HapticPressable
                   style={[
                     styles.createButton,
                     saving && styles.createButtonDisabled,
@@ -332,7 +332,7 @@ export default function CreateBlankChecklistScreen() {
                   <Text style={styles.createButtonText}>
                     {saving ? "Creating..." : "Create Checklist"}
                   </Text>
-                </Pressable>
+                </HapticPressable>
               </View>
             )}
           </ScrollView>

@@ -13,7 +13,6 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -23,6 +22,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../../components/auth/AuthProvider";
 import AppHeader from "../../../components/ui/AppHeader";
+import HapticPressable from "../../../components/ui/HapticPressable";
 import ScreenBackground from "../../../components/ui/ScreenBackground";
 import {
   ThemedButton,
@@ -527,7 +527,7 @@ export default function CreateTemplateScreen() {
                 template name, items, and quantities will be filled in for you.
               </ThemedText>
 
-              <Pressable
+              <HapticPressable
                 style={[
                   styles.starterButton,
                   {
@@ -541,7 +541,7 @@ export default function CreateTemplateScreen() {
                 <ThemedText style={styles.starterButtonText}>
                   Choose Starter Template
                 </ThemedText>
-              </Pressable>
+              </HapticPressable>
             </FrostedCard>
 
             <FrostedCard>
@@ -573,7 +573,7 @@ export default function CreateTemplateScreen() {
                 Category
               </ThemedText>
 
-              <Pressable
+              <HapticPressable
                 style={[
                   styles.dropdownButton,
                   {
@@ -587,7 +587,7 @@ export default function CreateTemplateScreen() {
                   {selectedCategoryLabel}
                 </ThemedText>
                 <ChevronDown size={18} color={theme.colors.textSecondary} />
-              </Pressable>
+              </HapticPressable>
 
               {category === "custom" ? (
                 <View style={styles.customCategoryWrap}>
@@ -625,7 +625,7 @@ export default function CreateTemplateScreen() {
                   </ThemedText>
                 </View>
 
-                <Pressable
+                <HapticPressable
                   style={[
                     styles.addIconButton,
                     {
@@ -636,7 +636,7 @@ export default function CreateTemplateScreen() {
                   onPress={addItem}
                 >
                   <Plus size={18} color={theme.colors.text} />
-                </Pressable>
+                </HapticPressable>
               </View>
 
               {items.map((item, index) => {
@@ -683,7 +683,7 @@ export default function CreateTemplateScreen() {
                         </View>
                       </View>
 
-                      <Pressable
+                      <HapticPressable
                         style={[
                           styles.deleteButton,
                           {
@@ -694,7 +694,7 @@ export default function CreateTemplateScreen() {
                         onPress={() => removeItem(item.id)}
                       >
                         <Trash2 size={17} color={theme.colors.danger} />
-                      </Pressable>
+                      </HapticPressable>
                     </View>
 
                     <View style={styles.quantityRow}>
@@ -703,7 +703,7 @@ export default function CreateTemplateScreen() {
                       </ThemedText>
 
                       <View style={styles.quantityControls}>
-                        <Pressable
+                        <HapticPressable
                           style={[
                             styles.quantityButton,
                             {
@@ -716,13 +716,13 @@ export default function CreateTemplateScreen() {
                           }
                         >
                           <Minus size={15} color={theme.colors.text} />
-                        </Pressable>
+                        </HapticPressable>
 
                         <ThemedText style={styles.quantityValue}>
                           {item.quantity}
                         </ThemedText>
 
-                        <Pressable
+                        <HapticPressable
                           style={[
                             styles.quantityButton,
                             {
@@ -735,11 +735,11 @@ export default function CreateTemplateScreen() {
                           }
                         >
                           <Plus size={15} color={theme.colors.text} />
-                        </Pressable>
+                        </HapticPressable>
                       </View>
                     </View>
 
-                    <Pressable
+                    <HapticPressable
                       style={[
                         styles.packedToggleButton,
                         packed
@@ -752,12 +752,12 @@ export default function CreateTemplateScreen() {
                       <ThemedText style={styles.packedToggleButtonText}>
                         {packed ? "Mark To Pack" : "Mark Packed"}
                       </ThemedText>
-                    </Pressable>
+                    </HapticPressable>
                   </View>
                 );
               })}
 
-              <Pressable
+              <HapticPressable
                 style={[
                   styles.addItemButton,
                   {
@@ -771,7 +771,7 @@ export default function CreateTemplateScreen() {
                 <ThemedText style={styles.addItemButtonText}>
                   Add Item
                 </ThemedText>
-              </Pressable>
+              </HapticPressable>
             </FrostedCard>
 
             <ThemedButton
@@ -787,7 +787,7 @@ export default function CreateTemplateScreen() {
               </ThemedText>
             </ThemedButton>
 
-            <Pressable
+            <HapticPressable
               style={styles.discardButton}
               onPress={handleDiscardDraft}
               disabled={saving}
@@ -795,7 +795,7 @@ export default function CreateTemplateScreen() {
               <ThemedText color="secondary" style={styles.discardButtonText}>
                 Discard
               </ThemedText>
-            </Pressable>
+            </HapticPressable>
           </ScrollView>
         </KeyboardAvoidingView>
 
@@ -825,7 +825,7 @@ export default function CreateTemplateScreen() {
                 const selected = category === option.key;
 
                 return (
-                  <Pressable
+                  <HapticPressable
                     key={option.key}
                     style={[
                       styles.modalOption,
@@ -845,18 +845,18 @@ export default function CreateTemplateScreen() {
                     >
                       {option.label}
                     </ThemedText>
-                  </Pressable>
+                  </HapticPressable>
                 );
               })}
 
-              <Pressable
+              <HapticPressable
                 style={styles.modalCancelButton}
                 onPress={() => setCategoryModalVisible(false)}
               >
                 <ThemedText color="secondary" style={styles.modalCancelText}>
                   Cancel
                 </ThemedText>
-              </Pressable>
+              </HapticPressable>
             </BlurView>
           </View>
         </Modal>
@@ -891,7 +891,7 @@ export default function CreateTemplateScreen() {
 
               <ScrollView showsVerticalScrollIndicator={false}>
                 {STARTER_TEMPLATE_OPTIONS.map((starter) => (
-                  <Pressable
+                  <HapticPressable
                     key={starter.id}
                     style={[
                       styles.modalOption,
@@ -909,18 +909,18 @@ export default function CreateTemplateScreen() {
                     <ThemedText color="secondary" style={styles.starterItemCount}>
                       {starter.categoryLabel} • {starter.items.length} items
                     </ThemedText>
-                  </Pressable>
+                  </HapticPressable>
                 ))}
               </ScrollView>
 
-              <Pressable
+              <HapticPressable
                 style={styles.modalCancelButton}
                 onPress={() => setStarterModalVisible(false)}
               >
                 <ThemedText color="secondary" style={styles.modalCancelText}>
                   Cancel
                 </ThemedText>
-              </Pressable>
+              </HapticPressable>
             </BlurView>
           </View>
         </Modal>
