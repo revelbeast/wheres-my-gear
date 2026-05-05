@@ -1,7 +1,8 @@
 import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { ChevronRight } from "lucide-react-native";
 import { colors } from "../../theme/tokens";
+import HapticPressable from "../ui/HapticPressable";
 
 type Item = {
   id: string;
@@ -26,7 +27,7 @@ export default function ChecklistPreviewCard({ data, onPressItem }: Props) {
   return (
     <View style={styles.card}>
       {data.map((item, index) => (
-        <Pressable
+        <HapticPressable
           key={item.id}
           style={[
             styles.row,
@@ -37,12 +38,13 @@ export default function ChecklistPreviewCard({ data, onPressItem }: Props) {
           <View style={styles.left}>
             <Text style={styles.title}>{item.title}</Text>
             <Text style={styles.meta}>
-              {item.missingCount} {item.missingCount === 1 ? "Item" : "Items"} to Pack
+              {item.missingCount}{" "}
+              {item.missingCount === 1 ? "Item" : "Items"} to Pack
             </Text>
           </View>
 
           <ChevronRight size={18} color={colors.textSecondary} />
-        </Pressable>
+        </HapticPressable>
       ))}
     </View>
   );

@@ -1,9 +1,10 @@
 import { ChevronDown, ChevronUp } from "lucide-react-native";
 import React, { useState } from "react";
-import { Pressable, ScrollView, StyleSheet } from "react-native";
+import { ScrollView, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import AppHeader from "../../components/ui/AppHeader";
+import HapticPressable from "../../components/ui/HapticPressable";
 import ScreenBackground from "../../components/ui/ScreenBackground";
 import {
   ThemedCard,
@@ -127,7 +128,7 @@ export default function FAQScreen() {
 
             return (
               <ThemedCard key={item.question}>
-                <Pressable
+                <HapticPressable
                   style={styles.questionRow}
                   onPress={() => toggleItem(index)}
                 >
@@ -143,7 +144,7 @@ export default function FAQScreen() {
                   ) : (
                     <ChevronDown size={18} color={theme.colors.textSecondary} />
                   )}
-                </Pressable>
+                </HapticPressable>
 
                 {isOpen ? (
                   <ThemedText color="secondary" style={styles.answerText}>

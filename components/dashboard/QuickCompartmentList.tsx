@@ -1,7 +1,8 @@
 import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { ChevronRight } from "lucide-react-native";
 import { colors } from "../../theme/tokens";
+import HapticPressable from "../ui/HapticPressable";
 
 type Item = {
   id: string;
@@ -26,7 +27,7 @@ export default function QuickCompartmentList({ data, onPressItem }: Props) {
   return (
     <View style={styles.card}>
       {data.map((item, index) => (
-        <Pressable
+        <HapticPressable
           key={item.id}
           onPress={() => onPressItem?.(item.id)}
           style={[
@@ -40,7 +41,7 @@ export default function QuickCompartmentList({ data, onPressItem }: Props) {
           </View>
 
           <ChevronRight size={18} color={colors.textSecondary} />
-        </Pressable>
+        </HapticPressable>
       ))}
     </View>
   );

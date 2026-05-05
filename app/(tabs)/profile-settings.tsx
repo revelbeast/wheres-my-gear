@@ -6,7 +6,6 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   View,
@@ -15,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../components/auth/AuthProvider";
 import AppHeader from "../../components/ui/AppHeader";
+import HapticPressable from "../../components/ui/HapticPressable";
 import ScreenBackground from "../../components/ui/ScreenBackground";
 import {
   ThemedButton,
@@ -423,11 +423,11 @@ export default function ProfileSettingsScreen() {
                 </ThemedButton>
 
                 {profile.backgroundPhotoUri ? (
-                  <Pressable onPress={handleRemoveBackground}>
+                  <HapticPressable onPress={handleRemoveBackground}>
                     <ThemedText color="secondary" style={styles.cancelText}>
                       Remove Custom Background
                     </ThemedText>
-                  </Pressable>
+                  </HapticPressable>
                 ) : null}
               </View>
             </ThemedCard>

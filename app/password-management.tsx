@@ -1,10 +1,11 @@
 import { BlurView } from "expo-blur";
 import { KeyRound, Lock } from "lucide-react-native";
 import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import AppHeader from "../components/ui/AppHeader";
+import HapticPressable from "../components/ui/HapticPressable";
 import ScreenBackground from "../components/ui/ScreenBackground";
 import { useThemedValues } from "../components/ui/Themed";
 
@@ -61,10 +62,10 @@ export default function PasswordManagementScreen() {
               actions.
             </Text>
 
-            <Pressable style={styles.actionButton}>
+            <HapticPressable style={styles.actionButton}>
               <KeyRound size={18} color="#fff" />
               <Text style={styles.actionButtonText}>Change Password</Text>
-            </Pressable>
+            </HapticPressable>
 
             <Text style={[styles.note, { color: theme.colors.textMuted }]}>
               To make this fully functional, we need to connect it to your

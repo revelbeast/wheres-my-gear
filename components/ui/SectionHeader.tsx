@@ -1,7 +1,8 @@
 import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { ChevronRight } from "lucide-react-native";
 import { colors } from "../../theme/tokens";
+import HapticPressable from "./HapticPressable";
 
 type Props = {
   title: string;
@@ -19,10 +20,10 @@ export default function SectionHeader({
       <Text style={styles.title}>{title}</Text>
 
       {actionLabel ? (
-        <Pressable style={styles.action} onPress={onPressAction}>
+        <HapticPressable style={styles.action} onPress={onPressAction}>
           <Text style={styles.actionText}>{actionLabel}</Text>
           <ChevronRight size={16} color={colors.textSecondary} />
-        </Pressable>
+        </HapticPressable>
       ) : null}
     </View>
   );
