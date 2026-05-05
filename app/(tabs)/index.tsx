@@ -1075,7 +1075,11 @@ export default function DashboardScreen() {
           <View style={styles.headerRow}>
             <View style={styles.brandRow}>
               <View style={styles.brandIconGlow}>
-                <MapPin size={24} color={LABEL_WHITE} />
+                <Image
+                  source={require("../../assets/images/logo.png")}
+                  style={styles.brandLogo}
+                  resizeMode="contain"
+                />
               </View>
 
               <View style={styles.brandTitleWrap}>
@@ -1579,7 +1583,7 @@ const styles = StyleSheet.create({
 
   content: {
     paddingHorizontal: 16,
-    paddingTop: 4,
+    paddingTop: -4,
     paddingBottom: 260,
   },
 
@@ -1616,68 +1620,62 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 14,
+    marginBottom: 10,
+    paddingLeft: 6,
+    paddingRight: 6,
   },
 
   brandRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 12,
     marginTop: -10,
     flex: 1,
     paddingRight: 12,
+    marginLeft: -12,
   },
 
   brandIconGlow: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 80,
+    height: 80,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(37,99,235,0.28)",
-    borderWidth: 1,
-    borderColor: "rgba(147,197,253,0.34)",
-    shadowColor: "#60A5FA",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.45,
-    shadowRadius: 8,
+    marginRight: 6,
+  },
+
+  brandLogo: {
+  width: 80,
+  height: 80,
   },
 
   brandTitleWrap: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-    backgroundColor: "rgba(37,99,235,0.20)",
-    borderWidth: 1,
-    borderColor: "rgba(147,197,253,0.26)",
-    shadowColor: "#60A5FA",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.42,
-    shadowRadius: 10,
+    marginLeft: -2,
   },
 
   brandText: {
-    fontWeight: "700",
-    textShadowColor: "rgba(96,165,250,0.85)",
+    fontWeight: "800",
+    fontSize: 22,
+    color: "#FFFFFF",
+    textShadowColor: "rgba(59,130,246,0.5)",
     textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 8,
+    textShadowRadius: 6,
   },
 
   profileButton: {
-    width: 60,
-    height: 60,
-    borderRadius: 22,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.12)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.18)",
+    backgroundColor: "transparent",
+    borderWidth: 0,
   },
 
   profileAvatar: {
     width: 52,
     height: 52,
-    borderRadius: 27,
+    borderRadius: 26,
   },
 
   searchCard: {
