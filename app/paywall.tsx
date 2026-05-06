@@ -1,7 +1,7 @@
 import { BlurView } from "expo-blur";
 import { router } from "expo-router";
 import { ArrowLeft, CheckCircle2, Crown } from "lucide-react-native";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -34,6 +34,11 @@ const TERMS_OF_USE_URL =
 
 export default function PaywallScreen() {
   const theme = useThemedValues();
+  const isMountedRef = useRef(true);
+  const paywallLoadVersionRef = useRef(0);
+  const purchaseVersionRef = useRef(0);
+  const restoreVersionRef = useRef(0);
+  const linkOpenVersionRef = useRef(0);
 
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
@@ -47,10 +52,27 @@ export default function PaywallScreen() {
   }, [annualPackage]);
 
   useEffect(() => {
-    loadPaywall();
+    isMountedRef.current = true;
+
+    const loadVersion = paywallLoadVersionRef.current + 1;
+    paywallLoadVersionRef.current = loadVersion;
+
+    void loadPaywall(loadVersion);
+
+    return () => {
+      isMountedRef.current = false;
+      paywallLoadVersionRef.current += 1;
+      purchaseVersionRef.current += 1;
+      restoreVersionRef.current += 1;
+      linkOpenVersionRef.current += 1;
+    };
   }, []);
 
   function handleBackPress() {
+    if (purchasing || restoring) {
+      return;
+    }
+
     if (router.canGoBack()) {
       router.back();
       return;
@@ -59,11 +81,27 @@ export default function PaywallScreen() {
     router.replace("/(tabs)/profile");
   }
 
-  async function loadPaywall() {
+  async function loadPaywall(loadVersion?: number) {
+    const activeLoadVersion =
+      loadVersion ?? paywallLoadVersionRef.current + 1;
+
+    if (!loadVersion) {
+      paywallLoadVersionRef.current = activeLoadVersion;
+    }
+
     try {
-      setLoading(true);
+      if (isMountedRef.current) {
+        setLoading(true);
+      }
 
       const offerings = await getOfferings();
+
+      if (
+        !isMountedRef.current ||
+        paywallLoadVersionRef.current !== activeLoadVersion
+      ) {
+        return;
+      }
 
       const pkg =
         offerings?.current?.annual ??
@@ -73,15 +111,38 @@ export default function PaywallScreen() {
       setAnnualPackage(pkg);
     } catch (error) {
       console.error("Failed to load paywall:", error);
+
+      if (
+        !isMountedRef.current ||
+        paywallLoadVersionRef.current !== activeLoadVersion
+      ) {
+        return;
+      }
+
       setAnnualPackage(null);
     } finally {
-      setLoading(false);
+      if (
+        isMountedRef.current &&
+        paywallLoadVersionRef.current === activeLoadVersion
+      ) {
+        setLoading(false);
+      }
     }
   }
 
   async function openLink(url: string) {
+    const activeLinkVersion = linkOpenVersionRef.current + 1;
+    linkOpenVersionRef.current = activeLinkVersion;
+
     try {
       const supported = await Linking.canOpenURL(url);
+
+      if (
+        !isMountedRef.current ||
+        linkOpenVersionRef.current !== activeLinkVersion
+      ) {
+        return;
+      }
 
       if (!supported) {
         Alert.alert("Unable to open link", "Please try again later.");
@@ -91,11 +152,23 @@ export default function PaywallScreen() {
       await Linking.openURL(url);
     } catch (error) {
       console.error("Failed to open link:", error);
+
+      if (
+        !isMountedRef.current ||
+        linkOpenVersionRef.current !== activeLinkVersion
+      ) {
+        return;
+      }
+
       Alert.alert("Unable to open link", "Please try again later.");
     }
   }
 
   async function handlePurchase() {
+    if (purchasing || restoring) {
+      return;
+    }
+
     if (loading) {
       Alert.alert(
         "Subscription loading",
@@ -109,35 +182,73 @@ export default function PaywallScreen() {
         "Subscription unavailable",
         "The Premium subscription could not be loaded. Please check your connection and try again.",
         [
-          { text: "Try Again", onPress: loadPaywall },
+          { text: "Try Again", onPress: () => void loadPaywall() },
           { text: "OK", style: "cancel" },
         ]
       );
       return;
     }
 
+    const activePurchaseVersion = purchaseVersionRef.current + 1;
+    purchaseVersionRef.current = activePurchaseVersion;
+
     try {
-      setPurchasing(true);
+      if (isMountedRef.current) {
+        setPurchasing(true);
+      }
 
       const customerInfo = await purchasePackage(annualPackage);
+
+      if (
+        !isMountedRef.current ||
+        purchaseVersionRef.current !== activePurchaseVersion
+      ) {
+        return;
+      }
+
       const activePremium = hasActivePremiumEntitlement(customerInfo);
 
       if (activePremium) {
         Alert.alert(
           "Premium unlocked",
           "Your Premium subscription is now active.",
-          [{ text: "Continue", onPress: () => router.replace("/") }]
+          [
+            {
+              text: "Continue",
+              onPress: () => {
+                if (isMountedRef.current) {
+                  router.replace("/");
+                }
+              },
+            },
+          ]
         );
         return;
       }
 
       const premium = await isPremiumUser();
 
+      if (
+        !isMountedRef.current ||
+        purchaseVersionRef.current !== activePurchaseVersion
+      ) {
+        return;
+      }
+
       if (premium) {
         Alert.alert(
           "Premium restored",
           "Your Premium subscription is active.",
-          [{ text: "Continue", onPress: () => router.replace("/") }]
+          [
+            {
+              text: "Continue",
+              onPress: () => {
+                if (isMountedRef.current) {
+                  router.replace("/");
+                }
+              },
+            },
+          ]
         );
       } else {
         Alert.alert(
@@ -148,6 +259,13 @@ export default function PaywallScreen() {
     } catch (error: any) {
       console.error("Purchase failed:", error);
 
+      if (
+        !isMountedRef.current ||
+        purchaseVersionRef.current !== activePurchaseVersion
+      ) {
+        return;
+      }
+
       if (error?.userCancelled) return;
 
       Alert.alert(
@@ -155,22 +273,53 @@ export default function PaywallScreen() {
         "We could not complete the Premium purchase. Please try again."
       );
     } finally {
-      setPurchasing(false);
+      if (
+        isMountedRef.current &&
+        purchaseVersionRef.current === activePurchaseVersion
+      ) {
+        setPurchasing(false);
+      }
     }
   }
 
   async function handleRestore() {
+    if (purchasing || restoring) {
+      return;
+    }
+
+    const activeRestoreVersion = restoreVersionRef.current + 1;
+    restoreVersionRef.current = activeRestoreVersion;
+
     try {
-      setRestoring(true);
+      if (isMountedRef.current) {
+        setRestoring(true);
+      }
 
       const customerInfo = await restorePurchases();
+
+      if (
+        !isMountedRef.current ||
+        restoreVersionRef.current !== activeRestoreVersion
+      ) {
+        return;
+      }
+
       const activePremium = hasActivePremiumEntitlement(customerInfo);
 
       if (activePremium) {
         Alert.alert(
           "Purchases restored",
           "Your Premium subscription is active.",
-          [{ text: "Continue", onPress: () => router.replace("/") }]
+          [
+            {
+              text: "Continue",
+              onPress: () => {
+                if (isMountedRef.current) {
+                  router.replace("/");
+                }
+              },
+            },
+          ]
         );
       } else {
         Alert.alert(
@@ -180,14 +329,29 @@ export default function PaywallScreen() {
       }
     } catch (error) {
       console.error("Restore failed:", error);
+
+      if (
+        !isMountedRef.current ||
+        restoreVersionRef.current !== activeRestoreVersion
+      ) {
+        return;
+      }
+
       Alert.alert(
         "Restore unavailable",
         "We could not restore purchases. Please try again."
       );
     } finally {
-      setRestoring(false);
+      if (
+        isMountedRef.current &&
+        restoreVersionRef.current === activeRestoreVersion
+      ) {
+        setRestoring(false);
+      }
     }
   }
+
+  const actionDisabled = purchasing || restoring;
 
   return (
     <ScreenBackground>
@@ -197,7 +361,11 @@ export default function PaywallScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.headerRow}>
-            <HapticPressable style={styles.backButton} onPress={handleBackPress}>
+            <HapticPressable
+              style={[styles.backButton, actionDisabled && styles.disabledAction]}
+              onPress={handleBackPress}
+              disabled={actionDisabled}
+            >
               <ArrowLeft size={22} color="#FFFFFF" />
             </HapticPressable>
 
@@ -263,7 +431,7 @@ export default function PaywallScreen() {
             <ThemedButton
               style={styles.subscribeButton}
               onPress={handlePurchase}
-              disabled={purchasing}
+              disabled={loading || actionDisabled}
             >
               <ThemedText style={styles.subscribeButtonText}>
                 {purchasing ? "Processing..." : "Start 7-Day Free Trial"}
@@ -271,9 +439,9 @@ export default function PaywallScreen() {
             </ThemedButton>
 
             <HapticPressable
-              style={styles.restoreButton}
+              style={[styles.restoreButton, actionDisabled && styles.disabledAction]}
               onPress={handleRestore}
-              disabled={restoring}
+              disabled={actionDisabled}
             >
               <ThemedText style={styles.restoreText}>
                 {restoring ? "Restoring..." : "Restore Purchases"}
@@ -290,7 +458,11 @@ export default function PaywallScreen() {
             <View style={styles.legalLinksRow}>
               <HapticPressable
                 onPress={() => openLink(PRIVACY_POLICY_URL)}
-                style={styles.legalLinkButton}
+                style={[
+                  styles.legalLinkButton,
+                  actionDisabled && styles.disabledAction,
+                ]}
+                disabled={actionDisabled}
               >
                 <ThemedText style={styles.legalLinkText}>
                   Privacy Policy
@@ -301,7 +473,11 @@ export default function PaywallScreen() {
 
               <HapticPressable
                 onPress={() => openLink(TERMS_OF_USE_URL)}
-                style={styles.legalLinkButton}
+                style={[
+                  styles.legalLinkButton,
+                  actionDisabled && styles.disabledAction,
+                ]}
+                disabled={actionDisabled}
               >
                 <ThemedText style={styles.legalLinkText}>
                   Terms of Use
@@ -472,5 +648,8 @@ const styles = StyleSheet.create({
   legalDivider: {
     color: "rgba(255,255,255,0.55)",
     fontSize: 13,
+  },
+  disabledAction: {
+    opacity: 0.6,
   },
 });
