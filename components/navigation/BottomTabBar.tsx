@@ -1,6 +1,6 @@
 import { router, usePathname } from "expo-router";
 import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   Boxes,
@@ -9,6 +9,7 @@ import {
   UserCircle2,
 } from "lucide-react-native";
 
+import HapticPressable from "../ui/HapticPressable";
 import { useThemedValues } from "../ui/Themed";
 
 type TabItem = {
@@ -90,7 +91,7 @@ export default function BottomTabBar() {
         const active = isActive(tab);
 
         return (
-          <Pressable
+          <HapticPressable
             key={tab.label}
             style={styles.tabButton}
             onPress={() => router.replace(tab.route as any)}
@@ -109,7 +110,7 @@ export default function BottomTabBar() {
             >
               {tab.label}
             </Text>
-          </Pressable>
+          </HapticPressable>
         );
       })}
     </View>

@@ -1,7 +1,6 @@
 import { BlurView } from "expo-blur";
 import React, { forwardRef } from "react";
 import {
-  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -12,6 +11,7 @@ import {
 } from "react-native";
 
 import { useTheme } from "../../lib/useTheme";
+import HapticPressable from "./HapticPressable";
 
 type ThemedTextVariant =
   | "caption"
@@ -141,7 +141,7 @@ export function ThemedButton({
   const theme = useTheme();
 
   return (
-    <Pressable
+    <HapticPressable
       style={[
         styles.button,
         {
@@ -156,7 +156,7 @@ export function ThemedButton({
       disabled={disabled}
     >
       {children}
-    </Pressable>
+    </HapticPressable>
   );
 }
 
