@@ -50,10 +50,17 @@ function isPackedItem(item: Item) {
 
 export default function InventoryScreen() {
   const { user, initializing } = useAuth();
-  const params = useLocalSearchParams<{ status?: string }>();
+  const params = useLocalSearchParams<{ status?: string | string[] }>();
   const theme = useTheme();
+
   const isScreenMountedRef = useRef(true);
   const inventoryLoadVersionRef = useRef(0);
+
+  const navigationTransitionLockedRef = useRef(false);
+  const navigationUnlockTimeoutRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+
   const {
     isLocked: interactionLocked,
     lock: lockInteraction,
@@ -66,7 +73,13 @@ export default function InventoryScreen() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
   useEffect(() => {
-    const incomingStatus = String(params.status ?? "").toLowerCase().trim();
+    const rawStatus = Array.isArray(params.status)
+      ? params.status[0]
+      : params.status;
+
+    const incomingStatus = String(rawStatus ?? "")
+      .toLowerCase()
+      .trim();
 
     if (incomingStatus === "packed") {
       setStatusFilter("packed");
@@ -86,6 +99,12 @@ export default function InventoryScreen() {
 
     return () => {
       isScreenMountedRef.current = false;
+      inventoryLoadVersionRef.current += 1;
+
+      if (navigationUnlockTimeoutRef.current) {
+        clearTimeout(navigationUnlockTimeoutRef.current);
+        navigationUnlockTimeoutRef.current = null;
+      }
     };
   }, []);
 
@@ -99,8 +118,11 @@ export default function InventoryScreen() {
       }
 
       if (!user) {
-        setInventoryItems([]);
-        setStorageSpaces([]);
+        if (isScreenMountedRef.current) {
+          setInventoryItems([]);
+          setStorageSpaces([]);
+        }
+
         return;
       }
 
@@ -112,16 +134,51 @@ export default function InventoryScreen() {
     }, [initializing, user])
   );
 
-  function runWithLock(action: () => void) {
+  async function runWithLock(action: () => Promise<void> | void) {
     if (interactionLocked) return;
 
     lockInteraction();
 
     try {
-      action();
+      await action();
     } finally {
       unlockInteraction();
     }
+  }
+
+  function lockNavigationTransition() {
+    if (navigationTransitionLockedRef.current) {
+      return false;
+    }
+
+    navigationTransitionLockedRef.current = true;
+
+    if (navigationUnlockTimeoutRef.current) {
+      clearTimeout(navigationUnlockTimeoutRef.current);
+    }
+
+    navigationUnlockTimeoutRef.current = setTimeout(() => {
+      if (!isScreenMountedRef.current) return;
+
+      navigationTransitionLockedRef.current = false;
+      navigationUnlockTimeoutRef.current = null;
+    }, 1500);
+
+    return true;
+  }
+
+  function runNavigationAction(action: () => void) {
+    if (interactionLocked || navigationTransitionLockedRef.current) {
+      return;
+    }
+
+    const lockAcquired = lockNavigationTransition();
+
+    if (!lockAcquired) {
+      return;
+    }
+
+    action();
   }
 
   async function loadInventoryData(loadVersion: number) {
@@ -273,9 +330,16 @@ export default function InventoryScreen() {
   }
 
   function handleAddStorageSpace() {
-    runWithLock(() => {
-      void triggerSuccessHaptic();
-      router.push("/(tabs)/storage/create");
+    runNavigationAction(() => {
+      void runWithLock(async () => {
+        await triggerSuccessHaptic();
+
+        if (!isScreenMountedRef.current) {
+          return;
+        }
+
+        router.push("/(tabs)/storage/create");
+      });
     });
   }
 
@@ -284,7 +348,7 @@ export default function InventoryScreen() {
       return;
     }
 
-    runWithLock(() => {
+    runNavigationAction(() => {
       router.push({
         pathname: "/vehicles/[vehicleId]/compartments/[compartmentId]",
         params: {
@@ -308,10 +372,13 @@ export default function InventoryScreen() {
         key={value}
         style={[
           styles.filterPressable,
-          interactionLocked && styles.disabledInteraction,
+          (interactionLocked || navigationTransitionLockedRef.current) &&
+            styles.disabledInteraction,
         ]}
         onPress={() => setStatusFilter(value)}
-        disabled={interactionLocked}
+        disabled={
+          interactionLocked || navigationTransitionLockedRef.current
+        }
       >
         <BlurView
           intensity={theme.isLight ? 18 : 18}
@@ -378,7 +445,9 @@ export default function InventoryScreen() {
           <ThemedButton
             style={styles.emptyButton}
             onPress={handleAddStorageSpace}
-            disabled={interactionLocked}
+            disabled={
+              interactionLocked || navigationTransitionLockedRef.current
+            }
           >
             <ThemedText style={styles.emptyButtonText}>
               Add Storage Space
@@ -420,13 +489,19 @@ export default function InventoryScreen() {
           >
             <View style={styles.searchRow}>
               <Search size={18} color={theme.colors.textMuted} />
+
               <TextInput
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 placeholder="Search inventory..."
                 placeholderTextColor={theme.colors.textMuted}
                 style={[styles.searchInput, { color: theme.colors.text }]}
-                editable={!initializing && !!user}
+                editable={
+                  !initializing &&
+                  !!user &&
+                  !interactionLocked &&
+                  !navigationTransitionLockedRef.current
+                }
                 autoCapitalize="none"
                 autoCorrect={false}
                 returnKeyType="search"
@@ -441,12 +516,14 @@ export default function InventoryScreen() {
               allCount,
               <Boxes size={18} color={theme.colors.text} />
             )}
+
             {renderFilterChip(
               "packed",
               "Packed",
               packedCount,
               <CheckCircle2 size={18} color={theme.colors.text} />
             )}
+
             {renderFilterChip(
               "toPack",
               "To Pack",
@@ -469,13 +546,17 @@ export default function InventoryScreen() {
             ListEmptyComponent={renderEmptyState}
             renderItem={({ item }) => {
               const canOpenItem = !!item.vehicleId && !!item.compartmentId;
-              const itemDisabled = !canOpenItem || interactionLocked;
+
+              const itemDisabled =
+                !canOpenItem ||
+                interactionLocked ||
+                navigationTransitionLockedRef.current;
 
               return (
                 <HapticPressable
                   onPress={() => handleOpenItem(item)}
                   disabled={itemDisabled}
-                  style={interactionLocked && styles.disabledInteraction}
+                  style={itemDisabled && styles.disabledInteraction}
                 >
                   <BlurView
                     intensity={theme.isLight ? 18 : 18}
@@ -528,7 +609,11 @@ export default function InventoryScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  container: { flex: 1, paddingHorizontal: 16 },
+
+  container: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
 
   searchCard: {
     borderRadius: 14,
