@@ -13,7 +13,6 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
   GestureResponderEvent,
-  Pressable,
   ScrollView,
   StyleSheet,
   View,
@@ -22,6 +21,7 @@ import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../../components/auth/AuthProvider";
+import HapticPressable from "../../../components/ui/HapticPressable";
 import ScreenBackground from "../../../components/ui/ScreenBackground";
 import {
   ThemedCard,
@@ -325,7 +325,7 @@ export default function TripsScreen() {
 
   function renderRightActions(trip: UpcomingTrip) {
     return (
-      <Pressable
+      <HapticPressable
         style={[
           styles.deleteSwipeButton,
           interactionLocked && styles.disabledButton,
@@ -335,7 +335,7 @@ export default function TripsScreen() {
       >
         <Trash2 size={20} color={LABEL_WHITE} />
         <ThemedText style={styles.deleteSwipeText}>Delete</ThemedText>
-      </Pressable>
+      </HapticPressable>
     );
   }
 
@@ -351,7 +351,7 @@ export default function TripsScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.headerRow}>
-            <Pressable
+            <HapticPressable
               style={[
                 styles.backButton,
                 (interactionLocked || navigationTransitionLockedRef.current) &&
@@ -361,7 +361,7 @@ export default function TripsScreen() {
               disabled={interactionLocked}
             >
               <ChevronLeft size={22} color={LABEL_WHITE} />
-            </Pressable>
+            </HapticPressable>
 
             <View style={styles.headerTitleWrap}>
               <View style={styles.headerIconWrap}>
@@ -373,7 +373,7 @@ export default function TripsScreen() {
               </ThemedText>
             </View>
 
-            <Pressable
+            <HapticPressable
               style={[
                 styles.addButton,
                 (interactionLocked || navigationTransitionLockedRef.current) &&
@@ -383,7 +383,7 @@ export default function TripsScreen() {
               disabled={interactionLocked}
             >
               <Plus size={20} color={LABEL_WHITE} />
-            </Pressable>
+            </HapticPressable>
           </View>
 
           <ThemedText style={styles.headerSubtitle}>
@@ -416,7 +416,7 @@ export default function TripsScreen() {
                   renderRightActions={() => renderRightActions(trip)}
                   overshootRight={false}
                 >
-                  <Pressable
+                  <HapticPressable
                     onPress={() => handleEditTrip(trip.id)}
                     disabled={interactionLocked}
                   >
@@ -450,7 +450,7 @@ export default function TripsScreen() {
                             </ThemedText>
                           </View>
 
-                          <Pressable
+                          <HapticPressable
                             style={[
                               styles.editButton,
                               (interactionLocked ||
@@ -465,13 +465,13 @@ export default function TripsScreen() {
                             disabled={interactionLocked}
                           >
                             <Pencil size={16} color={LABEL_WHITE} />
-                          </Pressable>
+                          </HapticPressable>
 
                           <ChevronRight size={18} color={LABEL_WHITE} />
                         </View>
                       </View>
                     </FrostedCard>
-                  </Pressable>
+                  </HapticPressable>
                 </Swipeable>
               ))}
             </View>

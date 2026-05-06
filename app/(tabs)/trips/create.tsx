@@ -14,7 +14,6 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -23,6 +22,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../../components/auth/AuthProvider";
+import HapticPressable from "../../../components/ui/HapticPressable";
 import ScreenBackground from "../../../components/ui/ScreenBackground";
 import {
   ThemedButton,
@@ -227,9 +227,9 @@ export default function CreateTripScreen() {
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.headerRow}>
-              <Pressable style={styles.backButton} onPress={handleBack}>
+              <HapticPressable style={styles.backButton} onPress={handleBack}>
                 <ChevronLeft size={22} color={LABEL_WHITE} />
-              </Pressable>
+              </HapticPressable>
 
               <View style={styles.headerTitleWrap}>
                 <View style={styles.headerIconWrap}>
@@ -241,9 +241,9 @@ export default function CreateTripScreen() {
                 </ThemedText>
               </View>
 
-              <Pressable style={styles.cancelIconButton} onPress={handleBack}>
+              <HapticPressable style={styles.cancelIconButton} onPress={handleBack}>
                 <X size={19} color={LABEL_WHITE} />
-              </Pressable>
+              </HapticPressable>
             </View>
 
             <ThemedText style={styles.headerSubtitle}>
@@ -281,7 +281,7 @@ export default function CreateTripScreen() {
                   Trip Date
                 </ThemedText>
 
-                <Pressable
+                <HapticPressable
                   style={[
                     styles.datePickerButton,
                     {
@@ -299,7 +299,7 @@ export default function CreateTripScreen() {
                   </View>
 
                   <ChevronRight size={18} color={theme.colors.textMuted} />
-                </Pressable>
+                </HapticPressable>
 
                 <ThemedText color="secondary" style={styles.inputHint}>
                   Tap the date to choose from the calendar.
@@ -320,10 +320,10 @@ export default function CreateTripScreen() {
               </View>
             </ThemedButton>
 
-            <Pressable style={styles.cancelButton} onPress={handleBack}>
+            <HapticPressable style={styles.cancelButton} onPress={handleBack}>
               <X size={18} color={LABEL_WHITE} />
               <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
-            </Pressable>
+            </HapticPressable>
 
             <ThemedCard style={styles.helperCard}>
               <ThemedText variant="bodyStrong" style={styles.helperTitle}>
@@ -346,23 +346,23 @@ export default function CreateTripScreen() {
           <View style={styles.modalOverlay}>
             <FrostedCard style={styles.calendarCard}>
               <View style={styles.calendarHeader}>
-                <Pressable
+                <HapticPressable
                   style={styles.calendarNavButton}
                   onPress={handlePreviousMonth}
                 >
                   <ChevronLeft size={20} color={LABEL_WHITE} />
-                </Pressable>
+                </HapticPressable>
 
                 <ThemedText variant="bodyStrong" style={styles.calendarTitle}>
                   {formatMonthYear(calendarMonth)}
                 </ThemedText>
 
-                <Pressable
+                <HapticPressable
                   style={styles.calendarNavButton}
                   onPress={handleNextMonth}
                 >
                   <ChevronRight size={20} color={LABEL_WHITE} />
-                </Pressable>
+                </HapticPressable>
               </View>
 
               <View style={styles.weekdayRow}>
@@ -383,7 +383,7 @@ export default function CreateTripScreen() {
                       style={styles.dayCell}
                     >
                       {date ? (
-                        <Pressable
+                        <HapticPressable
                           style={[
                             styles.dayButton,
                             selected ? styles.selectedDayButton : null,
@@ -398,7 +398,7 @@ export default function CreateTripScreen() {
                           >
                             {date.getDate()}
                           </ThemedText>
-                        </Pressable>
+                        </HapticPressable>
                       ) : null}
                     </View>
                   );
