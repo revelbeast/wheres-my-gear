@@ -79,12 +79,124 @@ function notificationSettingsDoc() {
   return doc(db, "appSettings", "notifications");
 }
 
+function isSafeUserId(userId: string): boolean {
+  return typeof userId === "string" && userId.trim().length > 0;
+}
+
+function getSafeString(value: unknown, fallback = ""): string {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  return value.trim();
+}
+
+function getSafeOptionalString(value: unknown, fallback = ""): string {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  return value.trim();
+}
+
+function getSafeBoolean(value: unknown, fallback: boolean): boolean {
+  if (typeof value !== "boolean") {
+    return fallback;
+  }
+
+  return value;
+}
+
+function getSafeTheme(value: unknown): AppTheme {
+  if (value === "dark" || value === "light") {
+    return value;
+  }
+
+  return defaultProfile.theme;
+}
+
+function getSafeFontSize(value: unknown): AppFontSize {
+  if (value === "small" || value === "medium" || value === "large") {
+    return value;
+  }
+
+  return defaultProfile.fontSize;
+}
+
 function getSafeBackgroundResizeMode(value: unknown): BackgroundResizeMode {
   if (value === "cover" || value === "contain" || value === "center") {
     return value;
   }
 
   return defaultProfile.backgroundResizeMode;
+}
+
+function normalizeAddress(value: unknown): AppAddress {
+  const address =
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Partial<AppAddress>)
+      : {};
+
+  return {
+    streetAddress: getSafeString(address.streetAddress),
+    apartmentSuite: getSafeString(address.apartmentSuite),
+    city: getSafeString(address.city),
+    state: getSafeString(address.state),
+    zipCode: getSafeString(address.zipCode),
+    country: getSafeString(address.country),
+  };
+}
+
+function sanitizeProfilePayload(profile: Partial<AppProfile>): AppProfile {
+  return {
+    username: getSafeString(profile.username),
+    firstName: getSafeString(profile.firstName),
+    lastName: getSafeString(profile.lastName),
+    email: getSafeString(profile.email).toLowerCase(),
+    phoneNumber: getSafeString(profile.phoneNumber),
+    theme: getSafeTheme(profile.theme),
+    fontSize: getSafeFontSize(profile.fontSize),
+    profilePhotoUri: getSafeOptionalString(profile.profilePhotoUri),
+    backgroundPhotoUri: getSafeOptionalString(profile.backgroundPhotoUri),
+    backgroundResizeMode: getSafeBackgroundResizeMode(
+      profile.backgroundResizeMode
+    ),
+    hapticsEnabled: getSafeBoolean(
+      profile.hapticsEnabled,
+      defaultProfile.hapticsEnabled
+    ),
+    address: normalizeAddress(profile.address),
+  };
+}
+
+function mergeProfileData(data: Partial<AppProfile>): AppProfile {
+  return sanitizeProfilePayload({
+    ...defaultProfile,
+    ...data,
+    address: {
+      ...defaultAddress,
+      ...(data.address ?? {}),
+    },
+  });
+}
+
+function sanitizeNotificationSettings(
+  settings: Partial<NotificationSettings>
+): NotificationSettings {
+  return {
+    checklistReminders: getSafeBoolean(
+      settings.checklistReminders,
+      defaultNotificationSettings.checklistReminders
+    ),
+    tripReminders: getSafeBoolean(
+      settings.tripReminders,
+      defaultNotificationSettings.tripReminders
+    ),
+    packingReminders: getSafeBoolean(
+      settings.packingReminders,
+      defaultNotificationSettings.packingReminders
+    ),
+  };
 }
 
 function clearLegacyTestAddress(profile: AppProfile): AppProfile {
@@ -143,32 +255,23 @@ function removeLegacyHardcodedDefaults(profile: AppProfile): AppProfile {
 }
 
 export async function getProfileSettings(userId: string): Promise<AppProfile> {
-  const ref = profileDoc(userId);
-  const snapshot = await getDoc(ref);
-
-  if (!snapshot.exists()) {
-    await setDoc(ref, defaultProfile);
+  if (!isSafeUserId(userId)) {
     return defaultProfile;
   }
 
+  const ref = profileDoc(userId.trim());
+  const snapshot = await getDoc(ref);
+
+  if (!snapshot.exists()) {
+    await setDoc(ref, sanitizeProfilePayload(defaultProfile), { merge: true });
+    return sanitizeProfilePayload(defaultProfile);
+  }
+
   const data = snapshot.data() as Partial<AppProfile>;
-
-  const mergedProfile: AppProfile = {
-    ...defaultProfile,
-    ...data,
-    backgroundResizeMode: getSafeBackgroundResizeMode(
-      data.backgroundResizeMode
-    ),
-    hapticsEnabled: data.hapticsEnabled ?? defaultProfile.hapticsEnabled,
-    address: {
-      ...defaultAddress,
-      ...(data.address ?? {}),
-    },
-  };
-
+  const mergedProfile = mergeProfileData(data);
   const cleanedProfile = removeLegacyHardcodedDefaults(mergedProfile);
 
-  if (JSON.stringify(cleanedProfile) !== JSON.stringify(mergedProfile)) {
+  if (JSON.stringify(cleanedProfile) !== JSON.stringify(data)) {
     await setDoc(ref, cleanedProfile, { merge: true });
   }
 
@@ -179,7 +282,13 @@ export async function saveProfileSettings(
   userId: string,
   profile: AppProfile
 ) {
-  await setDoc(profileDoc(userId), profile, { merge: true });
+  if (!isSafeUserId(userId)) {
+    throw new Error("Cannot save profile settings without a valid user ID.");
+  }
+
+  const sanitizedProfile = sanitizeProfilePayload(profile);
+
+  await setDoc(profileDoc(userId.trim()), sanitizedProfile, { merge: true });
 }
 
 export async function getNotificationSettings(): Promise<NotificationSettings> {
@@ -187,18 +296,24 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
   const snapshot = await getDoc(ref);
 
   if (!snapshot.exists()) {
-    await setDoc(ref, defaultNotificationSettings);
-    return defaultNotificationSettings;
+    const sanitizedSettings = sanitizeNotificationSettings(
+      defaultNotificationSettings
+    );
+
+    await setDoc(ref, sanitizedSettings, { merge: true });
+    return sanitizedSettings;
   }
 
   const data = snapshot.data() as Partial<NotificationSettings>;
 
-  return {
+  return sanitizeNotificationSettings({
     ...defaultNotificationSettings,
     ...data,
-  };
+  });
 }
 
 export async function saveNotificationSettings(settings: NotificationSettings) {
-  await setDoc(notificationSettingsDoc(), settings, { merge: true });
+  const sanitizedSettings = sanitizeNotificationSettings(settings);
+
+  await setDoc(notificationSettingsDoc(), sanitizedSettings, { merge: true });
 }

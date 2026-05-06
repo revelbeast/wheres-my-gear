@@ -1,6 +1,7 @@
 import { useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Image,
   ImageBackground,
   ImageResizeMode,
   StyleSheet,
@@ -25,7 +26,15 @@ type Props = ViewProps & {
   backgroundResizeModeOverride?: BackgroundResizeMode;
 };
 
+type CachedBackgroundState = {
+  userId: string;
+  uri: string | null;
+  resizeMode: BackgroundResizeMode;
+};
+
 const DEFAULT_BACKGROUND = require("../../assets/images/background_v4.jpg");
+
+let cachedBackgroundState: CachedBackgroundState | null = null;
 
 function isValidBackgroundUri(value: unknown) {
   return typeof value === "string" && value.trim().length > 0;
@@ -39,6 +48,67 @@ function getSafeResizeMode(value: unknown): BackgroundResizeMode {
   return "cover";
 }
 
+function getSafeUri(value: unknown): string | null {
+  return isValidBackgroundUri(value) ? (value as string).trim() : null;
+}
+
+function getCachedBackgroundForUser(
+  userId: string | undefined
+): CachedBackgroundState | null {
+  if (!userId || cachedBackgroundState?.userId !== userId) {
+    return null;
+  }
+
+  return cachedBackgroundState;
+}
+
+function setCachedBackgroundForUser(
+  userId: string,
+  uri: string | null,
+  resizeMode: BackgroundResizeMode
+) {
+  cachedBackgroundState = {
+    userId,
+    uri: getSafeUri(uri),
+    resizeMode: getSafeResizeMode(resizeMode),
+  };
+}
+
+function getInitialBackgroundForUser(
+  userId: string | undefined
+): CachedBackgroundState | null {
+  const cachedBackground = getCachedBackgroundForUser(userId);
+
+  if (cachedBackground) {
+    return cachedBackground;
+  }
+
+  const latestBackgroundUpdate = getLatestAppBackgroundUpdate();
+
+  if (userId && latestBackgroundUpdate?.userId === userId) {
+    const initialBackground = {
+      userId,
+      uri: getSafeUri(latestBackgroundUpdate.uri),
+      resizeMode: getSafeResizeMode(latestBackgroundUpdate.resizeMode),
+    };
+
+    cachedBackgroundState = initialBackground;
+
+    return initialBackground;
+  }
+
+  return null;
+}
+
+function backgroundsMatch(
+  currentUri: string | null,
+  currentResizeMode: BackgroundResizeMode,
+  nextUri: string | null,
+  nextResizeMode: BackgroundResizeMode
+) {
+  return currentUri === nextUri && currentResizeMode === nextResizeMode;
+}
+
 export default function ScreenBackground({
   children,
   style,
@@ -48,18 +118,69 @@ export default function ScreenBackground({
 }: Props) {
   const { user, initializing } = useAuth();
 
+  const initialBackground = getInitialBackgroundForUser(user?.uid);
   const latestPublishedVersionRef = useRef(0);
+  const backgroundStateRef = useRef<{
+    uri: string | null;
+    resizeMode: BackgroundResizeMode;
+  }>({
+    uri: initialBackground?.uri ?? null,
+    resizeMode: initialBackground?.resizeMode ?? "cover",
+  });
 
-  const [backgroundUri, setBackgroundUri] = useState<string | null>(null);
+  const [backgroundUri, setBackgroundUri] = useState<string | null>(
+    initialBackground?.uri ?? null
+  );
   const [backgroundResizeMode, setBackgroundResizeMode] =
-    useState<BackgroundResizeMode>("cover");
+    useState<BackgroundResizeMode>(initialBackground?.resizeMode ?? "cover");
   const [backgroundLoadFailed, setBackgroundLoadFailed] = useState(false);
 
   const hasBackgroundUriOverride = backgroundUriOverride !== undefined;
 
+  const applyBackgroundState = useCallback(
+    (nextUri: string | null, nextResizeMode: BackgroundResizeMode) => {
+      const safeUri = getSafeUri(nextUri);
+      const safeResizeMode = getSafeResizeMode(nextResizeMode);
+
+      if (
+        backgroundsMatch(
+          backgroundStateRef.current.uri,
+          backgroundStateRef.current.resizeMode,
+          safeUri,
+          safeResizeMode
+        )
+      ) {
+        return;
+      }
+
+      backgroundStateRef.current = {
+        uri: safeUri,
+        resizeMode: safeResizeMode,
+      };
+
+      setBackgroundUri(safeUri);
+      setBackgroundResizeMode(safeResizeMode);
+    },
+    []
+  );
+
   useEffect(() => {
     setBackgroundLoadFailed(false);
   }, [backgroundUriOverride, backgroundResizeModeOverride]);
+
+  useEffect(() => {
+    const uriToPrefetch = hasBackgroundUriOverride
+      ? getSafeUri(backgroundUriOverride)
+      : getSafeUri(backgroundUri);
+
+    if (!uriToPrefetch) {
+      return;
+    }
+
+    void Image.prefetch(uriToPrefetch).catch((error) => {
+      console.log("Failed to prefetch saved background image.", error);
+    });
+  }, [backgroundUri, backgroundUriOverride, hasBackgroundUriOverride]);
 
   useEffect(() => {
     if (!user) return;
@@ -77,13 +198,12 @@ export default function ScreenBackground({
         update.version
       );
 
+      const safeUri = getSafeUri(update.uri);
+      const safeResizeMode = getSafeResizeMode(update.resizeMode);
+
+      setCachedBackgroundForUser(user.uid, safeUri, safeResizeMode);
       setBackgroundLoadFailed(false);
-
-      setBackgroundUri(
-        isValidBackgroundUri(update.uri) ? update.uri?.trim() ?? null : null
-      );
-
-      setBackgroundResizeMode(getSafeResizeMode(update.resizeMode));
+      applyBackgroundState(safeUri, safeResizeMode);
     };
 
     const latestUpdate = getLatestAppBackgroundUpdate();
@@ -93,7 +213,7 @@ export default function ScreenBackground({
     }
 
     return subscribeToAppBackgroundUpdates(applyBackgroundUpdate);
-  }, [user]);
+  }, [applyBackgroundState, user]);
 
   useFocusEffect(
     useCallback(() => {
@@ -105,15 +225,19 @@ export default function ScreenBackground({
         const loadStartedAfterPublishedVersion =
           latestPublishedVersionRef.current;
 
-        setBackgroundLoadFailed(false);
-
         if (!user) {
           if (!isActive) return;
 
-          setBackgroundUri(null);
-          setBackgroundResizeMode("cover");
+          cachedBackgroundState = null;
+          applyBackgroundState(null, "cover");
 
           return;
+        }
+
+        const cachedState = getInitialBackgroundForUser(user.uid);
+
+        if (cachedState) {
+          applyBackgroundState(cachedState.uri, cachedState.resizeMode);
         }
 
         try {
@@ -128,29 +252,29 @@ export default function ScreenBackground({
             return;
           }
 
-          const savedBackgroundUri =
-            typeof profile.backgroundPhotoUri === "string"
-              ? profile.backgroundPhotoUri.trim()
-              : "";
-
-          const savedResizeMode = getSafeResizeMode(
+          const safeUri = getSafeUri(profile.backgroundPhotoUri);
+          const safeResizeMode = getSafeResizeMode(
             profile.backgroundResizeMode
           );
 
-          setBackgroundUri(
-            isValidBackgroundUri(savedBackgroundUri)
-              ? savedBackgroundUri
-              : null
-          );
-
-          setBackgroundResizeMode(savedResizeMode);
+          setCachedBackgroundForUser(user.uid, safeUri, safeResizeMode);
+          applyBackgroundState(safeUri, safeResizeMode);
         } catch (err) {
           console.log("Failed to load saved background. Using default.", err);
 
           if (!isActive) return;
 
-          setBackgroundUri(null);
-          setBackgroundResizeMode("cover");
+          const cachedStateAfterFailure = getInitialBackgroundForUser(user.uid);
+
+          if (cachedStateAfterFailure) {
+            applyBackgroundState(
+              cachedStateAfterFailure.uri,
+              cachedStateAfterFailure.resizeMode
+            );
+            return;
+          }
+
+          applyBackgroundState(null, "cover");
         }
       }
 
@@ -159,7 +283,7 @@ export default function ScreenBackground({
       return () => {
         isActive = false;
       };
-    }, [user, initializing])
+    }, [applyBackgroundState, user, initializing])
   );
 
   const effectiveBackgroundUri = hasBackgroundUriOverride
@@ -197,7 +321,7 @@ export default function ScreenBackground({
           setBackgroundLoadFailed(true);
 
           if (!hasBackgroundUriOverride) {
-            setBackgroundUri(null);
+            applyBackgroundState(null, "cover");
           }
         }
       }}

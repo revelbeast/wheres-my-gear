@@ -20,6 +20,7 @@ import {
   getProfileSettings,
   saveProfileSettings,
 } from "../../lib/settingsService";
+import { publishAppThemeUpdate } from "../../lib/themeUpdateBus";
 
 export default function GeneralSettingsScreen() {
   const { user } = useAuth();
@@ -46,12 +47,14 @@ export default function GeneralSettingsScreen() {
       setLoading(true);
 
       const data = await getProfileSettings(user.uid);
+      const nextTheme = data.theme ?? "dark";
       const nextHapticsEnabled = data.hapticsEnabled ?? true;
 
       setProfile(data);
-      setTheme(data.theme ?? "dark");
+      setTheme(nextTheme);
       setHapticsEnabled(nextHapticsEnabled);
       setGlobalHapticsEnabled(nextHapticsEnabled);
+      publishAppThemeUpdate(user.uid, nextTheme, data.fontSize ?? "medium");
     } catch (err) {
       console.error("Failed to load general settings:", err);
       Alert.alert("Error", "Failed to load general settings.");
@@ -74,6 +77,7 @@ export default function GeneralSettingsScreen() {
 
       await saveProfileSettings(user.uid, nextProfile);
       setGlobalHapticsEnabled(hapticsEnabled);
+      publishAppThemeUpdate(user.uid, theme, nextProfile.fontSize ?? "medium");
       setProfile(nextProfile);
 
       Alert.alert("Saved", "General settings have been updated.");

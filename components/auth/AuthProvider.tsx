@@ -19,6 +19,12 @@ import React, {
 } from "react";
 
 import { auth } from "../../firebaseConfig";
+import { publishAppBackgroundUpdate } from "../../lib/backgroundUpdateBus";
+import { getProfileSettings } from "../../lib/settingsService";
+import {
+  clearAppThemeUpdateForUser,
+  publishAppThemeUpdate,
+} from "../../lib/themeUpdateBus";
 import {
   configureRevenueCat,
   logOutRevenueCatUser,
@@ -40,42 +46,89 @@ function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
 
+function getSafeBackgroundUri(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmedValue = value.trim();
+
+  return trimmedValue.length > 0 ? trimmedValue : null;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [initializing, setInitializing] = useState(true);
 
   const revenueCatConfiguredUserIdRef = useRef<string | null>(null);
+  const authHydrationRequestRef = useRef(0);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
+      const hydrationRequestId = authHydrationRequestRef.current + 1;
+      authHydrationRequestRef.current = hydrationRequestId;
+
       console.log("Firebase auth state changed:", {
         signedIn: !!nextUser,
         uid: nextUser?.uid ?? null,
         email: nextUser?.email ?? null,
       });
 
-      setUser(nextUser);
-      setInitializing(false);
+      async function hydrateAuthState() {
+        if (!nextUser?.uid) {
+          clearAppThemeUpdateForUser(user?.uid);
+          revenueCatConfiguredUserIdRef.current = null;
+          setUser(null);
+          setInitializing(false);
+          return;
+        }
 
-      if (!nextUser?.uid) {
-        revenueCatConfiguredUserIdRef.current = null;
-        return;
+        try {
+          const profile = await getProfileSettings(nextUser.uid);
+
+          if (authHydrationRequestRef.current !== hydrationRequestId) {
+            return;
+          }
+
+          publishAppThemeUpdate(
+            nextUser.uid,
+            profile.theme,
+            profile.fontSize
+          );
+
+          publishAppBackgroundUpdate(
+            nextUser.uid,
+            getSafeBackgroundUri(profile.backgroundPhotoUri),
+            profile.backgroundResizeMode
+          );
+        } catch (error) {
+          console.log("Failed to hydrate saved app settings during auth startup.", error);
+        }
+
+        if (authHydrationRequestRef.current !== hydrationRequestId) {
+          return;
+        }
+
+        setUser(nextUser);
+        setInitializing(false);
+
+        if (revenueCatConfiguredUserIdRef.current === nextUser.uid) {
+          return;
+        }
+
+        revenueCatConfiguredUserIdRef.current = nextUser.uid;
+
+        void configureRevenueCat(nextUser.uid).catch((error) => {
+          console.error("Failed to configure RevenueCat for user:", error);
+          revenueCatConfiguredUserIdRef.current = null;
+        });
       }
 
-      if (revenueCatConfiguredUserIdRef.current === nextUser.uid) {
-        return;
-      }
-
-      revenueCatConfiguredUserIdRef.current = nextUser.uid;
-
-      void configureRevenueCat(nextUser.uid).catch((error) => {
-        console.error("Failed to configure RevenueCat for user:", error);
-        revenueCatConfiguredUserIdRef.current = null;
-      });
+      void hydrateAuthState();
     });
 
     return unsubscribe;
-  }, []);
+  }, [user?.uid]);
 
   async function signInWithApple() {
     console.log("Apple Sign-In started.");
@@ -145,6 +198,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function signOutUser() {
+    authHydrationRequestRef.current += 1;
+    clearAppThemeUpdateForUser(user?.uid);
     revenueCatConfiguredUserIdRef.current = null;
     await logOutRevenueCatUser();
     await signOut(auth);
