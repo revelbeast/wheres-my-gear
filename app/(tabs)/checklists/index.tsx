@@ -9,10 +9,11 @@ import {
   SquarePen,
 } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../../components/auth/AuthProvider";
+import HapticPressable from "../../../components/ui/HapticPressable";
 import ScreenBackground from "../../../components/ui/ScreenBackground";
 import {
   ThemedButton,
@@ -112,13 +113,13 @@ function StatCard({
   }
 
   return (
-    <Pressable
+    <HapticPressable
       onPress={onPress}
       style={[styles.statCardWrap, disabled && styles.disabledInteraction]}
       disabled={disabled}
     >
       {content}
-    </Pressable>
+    </HapticPressable>
   );
 }
 
@@ -150,7 +151,7 @@ function ActionCard({
       };
 
   return (
-    <Pressable
+    <HapticPressable
       onPress={onPress}
       style={[styles.actionPressable, disabled && styles.disabledInteraction]}
       disabled={disabled}
@@ -185,7 +186,7 @@ function ActionCard({
 
         <ChevronRight size={20} color={theme.colors.textSecondary} />
       </BlurView>
-    </Pressable>
+    </HapticPressable>
   );
 }
 
@@ -500,7 +501,7 @@ export default function ChecklistsTabScreen() {
           ) : (
             sortedChecklists.map((checklist) => (
               <ThemedCard key={checklist.id} style={styles.checklistCard}>
-                <Pressable
+                <HapticPressable
                   style={[
                     styles.row,
                     interactionLocked && styles.disabledInteraction,
@@ -533,7 +534,7 @@ export default function ChecklistsTabScreen() {
                   </View>
 
                   <ChevronRight size={18} color={theme.colors.textSecondary} />
-                </Pressable>
+                </HapticPressable>
               </ThemedCard>
             ))
           )}
