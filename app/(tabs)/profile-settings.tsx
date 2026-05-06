@@ -1,3 +1,4 @@
+import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 import { Check, ImagePlus, LogOut, UserCircle2 } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -39,6 +40,11 @@ import {
 } from "../../lib/settingsService";
 
 type ImagePickerKind = "profile" | "background";
+
+const PROFILE_IMAGE_MAX_DIMENSION = 512;
+const BACKGROUND_IMAGE_MAX_WIDTH = 1600;
+const PROFILE_IMAGE_QUALITY = 0.78;
+const BACKGROUND_IMAGE_QUALITY = 0.8;
 
 const BACKGROUND_FIT_OPTIONS: {
   label: string;
@@ -131,12 +137,41 @@ async function cleanupStoredImagesForKind(
   }
 }
 
+async function optimizeImageForUpload(localUri: string, kind: ImagePickerKind) {
+  const resizeAction =
+    kind === "profile"
+      ? {
+          resize: {
+            width: PROFILE_IMAGE_MAX_DIMENSION,
+            height: PROFILE_IMAGE_MAX_DIMENSION,
+          },
+        }
+      : {
+          resize: {
+            width: BACKGROUND_IMAGE_MAX_WIDTH,
+          },
+        };
+
+  const result = await ImageManipulator.manipulateAsync(
+    localUri,
+    [resizeAction],
+    {
+      compress:
+        kind === "profile" ? PROFILE_IMAGE_QUALITY : BACKGROUND_IMAGE_QUALITY,
+      format: ImageManipulator.SaveFormat.JPEG,
+    }
+  );
+
+  return result.uri;
+}
+
 async function uploadProfileImage(
   userId: string,
   localUri: string,
   kind: ImagePickerKind
 ) {
-  const response = await fetch(localUri);
+  const optimizedUri = await optimizeImageForUpload(localUri, kind);
+  const response = await fetch(optimizedUri);
   const blob = await response.blob();
   const fileName = getStorageSafeFileName(kind);
   const imageRef = ref(storage, `users/${userId}/profile/${fileName}`);
