@@ -2,13 +2,7 @@ import { BlurView } from "expo-blur";
 import { router, useFocusEffect } from "expo-router";
 import { ChevronRight, Plus, Trash2 } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import {
-  Alert,
-  FlatList,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Alert, FlatList, StyleSheet, Text, View } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -54,6 +48,8 @@ export default function VehiclesScreen() {
     unlock: unlockInteraction,
   } = useInteractionLock(450);
 
+  const isMountedRef = useRef(true);
+  const loadRequestIdRef = useRef(0);
   const navigationTransitionLockedRef = useRef(false);
   const navigationUnlockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
@@ -62,16 +58,29 @@ export default function VehiclesScreen() {
   const [vehicles, setVehicles] = useState<StorageSpace[]>([]);
 
   useEffect(() => {
+    isMountedRef.current = true;
+
     return () => {
+      isMountedRef.current = false;
+      loadRequestIdRef.current += 1;
+
       if (navigationUnlockTimeoutRef.current) {
         clearTimeout(navigationUnlockTimeoutRef.current);
+        navigationUnlockTimeoutRef.current = null;
       }
     };
   }, []);
 
   useFocusEffect(
     useCallback(() => {
-      loadVehicles();
+      const requestId = loadRequestIdRef.current + 1;
+      loadRequestIdRef.current = requestId;
+
+      void loadVehicles(requestId);
+
+      return () => {
+        loadRequestIdRef.current += 1;
+      };
     }, [])
   );
 
@@ -99,6 +108,8 @@ export default function VehiclesScreen() {
     }
 
     navigationUnlockTimeoutRef.current = setTimeout(() => {
+      if (!isMountedRef.current) return;
+
       navigationTransitionLockedRef.current = false;
       navigationUnlockTimeoutRef.current = null;
     }, 1500);
@@ -117,9 +128,14 @@ export default function VehiclesScreen() {
     action();
   }
 
-  async function loadVehicles() {
+  async function loadVehicles(requestId = loadRequestIdRef.current) {
     try {
       const data = await getStorageSpaces();
+
+      if (!isMountedRef.current || loadRequestIdRef.current !== requestId) {
+        return;
+      }
+
       setVehicles(data.filter((v) => v.category === "vehicle"));
     } catch (err) {
       console.error("Failed to load vehicles:", err);
@@ -139,7 +155,7 @@ export default function VehiclesScreen() {
   }
 
   function handleDelete(vehicle: StorageSpace) {
-    if (interactionLocked) return;
+    if (interactionLocked || navigationTransitionLockedRef.current) return;
 
     Alert.alert("Delete Vehicle", `Delete "${vehicle.name}"?`, [
       { text: "Cancel", style: "cancel" },
@@ -150,13 +166,20 @@ export default function VehiclesScreen() {
           void runWithLock(async () => {
             try {
               await deleteStorageSpace(vehicle.id);
-              await loadVehicles();
+
+              const requestId = loadRequestIdRef.current + 1;
+              loadRequestIdRef.current = requestId;
+
+              await loadVehicles(requestId);
             } catch (err) {
               console.error("Failed to delete vehicle:", err);
-              Alert.alert(
-                "Vehicle not deleted",
-                "Something went wrong while deleting this vehicle."
-              );
+
+              if (isMountedRef.current) {
+                Alert.alert(
+                  "Vehicle not deleted",
+                  "Something went wrong while deleting this vehicle."
+                );
+              }
             }
           });
         },
@@ -185,7 +208,7 @@ export default function VehiclesScreen() {
           <HapticPressable
             style={styles.row}
             onPress={() => handleOpenVehicle(item.id)}
-            disabled={interactionLocked}
+            disabled={interactionLocked || navigationTransitionLockedRef.current}
           >
             <View style={styles.left}>
               <Text style={styles.title}>{item.name}</Text>
@@ -222,7 +245,7 @@ export default function VehiclesScreen() {
               styles.disabledButton,
           ]}
           onPress={handleAddStorage}
-          disabled={interactionLocked}
+          disabled={interactionLocked || navigationTransitionLockedRef.current}
         >
           <Plus size={22} color="#fff" />
         </HapticPressable>
