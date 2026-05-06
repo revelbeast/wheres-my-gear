@@ -13,7 +13,7 @@ import {
   UtensilsCrossed,
   Wrench,
 } from "lucide-react-native";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -40,6 +40,7 @@ import {
   getChecklistTemplates,
   updateChecklistTemplateName,
 } from "../../../lib/checklistsService";
+import { useInteractionLock } from "../../../lib/useInteractionLock";
 import type { ChecklistCategory } from "../../../types/checklists";
 
 function FrostedCard({
@@ -115,6 +116,11 @@ const CATEGORY_OPTIONS: {
 export default function CreateChecklistScreen() {
   const { user, initializing } = useAuth();
   const theme = useThemedValues();
+  const {
+    isLocked: interactionLocked,
+    lock: lockInteraction,
+    unlock: unlockInteraction,
+  } = useInteractionLock(450);
 
   const [templates, setTemplates] = useState<any[]>([]);
   const [previewTemplate, setPreviewTemplate] = useState<any | null>(null);
@@ -134,6 +140,10 @@ export default function CreateChecklistScreen() {
     useState<ChecklistCategory>("trip");
   const [customCategoryLabel, setCustomCategoryLabel] = useState("");
   const [creatingNewChecklist, setCreatingNewChecklist] = useState(false);
+
+  const isMountedRef = useRef(true);
+  const templatesRequestIdRef = useRef(0);
+  const previewItemsRequestIdRef = useRef(0);
 
   const sortedTemplates = useMemo(() => {
     return [...templates].sort((a, b) => {
@@ -165,27 +175,63 @@ export default function CreateChecklistScreen() {
   const selectedTemplateItemCount = selectedTemplateItems.length;
 
   useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+      templatesRequestIdRef.current += 1;
+      previewItemsRequestIdRef.current += 1;
+    };
+  }, []);
+
+  useEffect(() => {
+    const requestId = templatesRequestIdRef.current + 1;
+    templatesRequestIdRef.current = requestId;
+
     if (initializing) {
       return;
     }
 
     if (!user) {
-      setTemplates([]);
+      if (isMountedRef.current) {
+        setTemplates([]);
+      }
+
       return;
     }
 
-    loadTemplates();
+    void loadTemplates(requestId);
   }, [initializing, user]);
 
-  async function loadTemplates() {
+  async function runWithLock(action: () => Promise<void> | void) {
+    if (interactionLocked) return;
+
+    lockInteraction();
+
+    try {
+      await action();
+    } finally {
+      unlockInteraction();
+    }
+  }
+
+  async function loadTemplates(requestId = templatesRequestIdRef.current) {
     if (!user) return;
 
     try {
       const data = await getChecklistTemplates(user.uid);
+
+      if (!isMountedRef.current || templatesRequestIdRef.current !== requestId) {
+        return;
+      }
+
       setTemplates(data);
     } catch (error) {
       console.error("Failed to load templates:", error);
-      setTemplates([]);
+
+      if (isMountedRef.current && templatesRequestIdRef.current === requestId) {
+        setTemplates([]);
+      }
     }
   }
 
@@ -194,39 +240,71 @@ export default function CreateChecklistScreen() {
   }
 
   async function openPreview(template: any) {
+    if (interactionLocked) return;
+
     if (!user) {
       Alert.alert("Sign in required", "Please sign in to view templates.");
       return;
     }
 
-    try {
-      setPreviewTemplate(template);
-      setTemplateItems([]);
-      setSelectedTemplateItemIds([]);
-      setLoadingPreviewItems(true);
+    const requestId = previewItemsRequestIdRef.current + 1;
+    previewItemsRequestIdRef.current = requestId;
 
-      const items = await getChecklistTemplateItems(user.uid, template.id);
-      setTemplateItems(items);
+    await runWithLock(async () => {
+      try {
+        if (isMountedRef.current) {
+          setPreviewTemplate(template);
+          setTemplateItems([]);
+          setSelectedTemplateItemIds([]);
+          setLoadingPreviewItems(true);
+        }
 
-      const sortedItems = [...items].sort((a, b) => {
-        const aName = String(a.name ?? "").toLowerCase();
-        const bName = String(b.name ?? "").toLowerCase();
+        const items = await getChecklistTemplateItems(user.uid, template.id);
 
-        return aName.localeCompare(bName);
-      });
+        if (
+          !isMountedRef.current ||
+          previewItemsRequestIdRef.current !== requestId
+        ) {
+          return;
+        }
 
-      setSelectedTemplateItemIds(
-        sortedItems.map((item, index) => getTemplateItemSelectionId(item, index))
-      );
-    } catch (error) {
-      console.error("Failed to load template preview:", error);
-      Alert.alert("Error", "Failed to load template preview.");
-    } finally {
-      setLoadingPreviewItems(false);
-    }
+        setTemplateItems(items);
+
+        const sortedItems = [...items].sort((a, b) => {
+          const aName = String(a.name ?? "").toLowerCase();
+          const bName = String(b.name ?? "").toLowerCase();
+
+          return aName.localeCompare(bName);
+        });
+
+        setSelectedTemplateItemIds(
+          sortedItems.map((item, index) =>
+            getTemplateItemSelectionId(item, index)
+          )
+        );
+      } catch (error) {
+        console.error("Failed to load template preview:", error);
+
+        if (
+          isMountedRef.current &&
+          previewItemsRequestIdRef.current === requestId
+        ) {
+          Alert.alert("Error", "Failed to load template preview.");
+        }
+      } finally {
+        if (
+          isMountedRef.current &&
+          previewItemsRequestIdRef.current === requestId
+        ) {
+          setLoadingPreviewItems(false);
+        }
+      }
+    });
   }
 
   function toggleTemplateItem(item: any, index: number) {
+    if (creatingChecklist || interactionLocked) return;
+
     const itemId = getTemplateItemSelectionId(item, index);
 
     setSelectedTemplateItemIds((current) => {
@@ -239,12 +317,14 @@ export default function CreateChecklistScreen() {
   }
 
   function openTemplateActions(template: any) {
-    if (!user) return;
+    if (!user || interactionLocked) return;
 
     Alert.alert("Template Options", template.name, [
       {
         text: "Rename",
         onPress: () => {
+          if (!isMountedRef.current) return;
+
           setManageTemplate(template);
           setRenameValue(template.name ?? "");
           setRenameModalVisible(true);
@@ -254,19 +334,33 @@ export default function CreateChecklistScreen() {
         text: "Delete",
         style: "destructive",
         onPress: async () => {
-          try {
-            await deleteChecklistTemplate(user.uid, template.id);
-            await loadTemplates();
+          if (interactionLocked) return;
 
-            if (previewTemplate?.id === template.id) {
-              setPreviewTemplate(null);
-              setTemplateItems([]);
-              setSelectedTemplateItemIds([]);
+          await runWithLock(async () => {
+            try {
+              await deleteChecklistTemplate(user.uid, template.id);
+
+              const requestId = templatesRequestIdRef.current + 1;
+              templatesRequestIdRef.current = requestId;
+
+              await loadTemplates(requestId);
+
+              if (!isMountedRef.current) return;
+
+              if (previewTemplate?.id === template.id) {
+                previewItemsRequestIdRef.current += 1;
+                setPreviewTemplate(null);
+                setTemplateItems([]);
+                setSelectedTemplateItemIds([]);
+              }
+            } catch (error) {
+              console.error("Failed to delete template:", error);
+
+              if (isMountedRef.current) {
+                Alert.alert("Error", "Failed to delete template.");
+              }
             }
-          } catch (error) {
-            console.error("Failed to delete template:", error);
-            Alert.alert("Error", "Failed to delete template.");
-          }
+          });
         },
       },
       {
@@ -277,7 +371,7 @@ export default function CreateChecklistScreen() {
   }
 
   async function handleRename() {
-    if (!manageTemplate || !user) return;
+    if (!manageTemplate || !user || savingRename || interactionLocked) return;
 
     const trimmed = renameValue.trim();
     if (!trimmed) {
@@ -285,30 +379,60 @@ export default function CreateChecklistScreen() {
       return;
     }
 
-    try {
-      setSavingRename(true);
-      await updateChecklistTemplateName(user.uid, manageTemplate.id, trimmed);
-      setRenameModalVisible(false);
-      setManageTemplate(null);
-      setRenameValue("");
-      await loadTemplates();
+    const templateToRename = manageTemplate;
+    const uid = user.uid;
 
-      if (previewTemplate?.id === manageTemplate.id) {
-        setPreviewTemplate({
-          ...previewTemplate,
-          name: trimmed,
-        });
+    await runWithLock(async () => {
+      try {
+        if (isMountedRef.current) {
+          setSavingRename(true);
+        }
+
+        await updateChecklistTemplateName(uid, templateToRename.id, trimmed);
+
+        if (!isMountedRef.current) return;
+
+        setRenameModalVisible(false);
+        setManageTemplate(null);
+        setRenameValue("");
+
+        const requestId = templatesRequestIdRef.current + 1;
+        templatesRequestIdRef.current = requestId;
+
+        await loadTemplates(requestId);
+
+        if (!isMountedRef.current) return;
+
+        if (previewTemplate?.id === templateToRename.id) {
+          setPreviewTemplate({
+            ...previewTemplate,
+            name: trimmed,
+          });
+        }
+      } catch (error) {
+        console.error("Failed to rename template:", error);
+
+        if (isMountedRef.current) {
+          Alert.alert("Error", "Failed to rename template.");
+        }
+      } finally {
+        if (isMountedRef.current) {
+          setSavingRename(false);
+        }
       }
-    } catch (error) {
-      console.error("Failed to rename template:", error);
-      Alert.alert("Error", "Failed to rename template.");
-    } finally {
-      setSavingRename(false);
-    }
+    });
   }
 
   async function handleCreateChecklist() {
-    if (!previewTemplate || !user) return;
+    if (
+      !previewTemplate ||
+      !user ||
+      creatingChecklist ||
+      creatingNewChecklist ||
+      interactionLocked
+    ) {
+      return;
+    }
 
     if (selectedTemplateItemCount === 0) {
       Alert.alert(
@@ -318,29 +442,50 @@ export default function CreateChecklistScreen() {
       return;
     }
 
-    try {
-      setCreatingChecklist(true);
-      const checklistId = await createChecklistFromSelectedTemplateItems(
-        user.uid,
-        previewTemplate,
-        selectedTemplateItems
-      );
+    const uid = user.uid;
+    const templateToUse = previewTemplate;
+    const itemsToUse = selectedTemplateItems;
 
-      setPreviewTemplate(null);
-      setTemplateItems([]);
-      setSelectedTemplateItemIds([]);
-      router.replace(`/checklists/${checklistId}`);
-    } catch (error) {
-      console.error("Failed to create checklist:", error);
-      Alert.alert("Error", "Failed to create checklist.");
-    } finally {
-      setCreatingChecklist(false);
-    }
+    await runWithLock(async () => {
+      try {
+        if (isMountedRef.current) {
+          setCreatingChecklist(true);
+        }
+
+        const checklistId = await createChecklistFromSelectedTemplateItems(
+          uid,
+          templateToUse,
+          itemsToUse
+        );
+
+        if (!isMountedRef.current) return;
+
+        previewItemsRequestIdRef.current += 1;
+        setPreviewTemplate(null);
+        setTemplateItems([]);
+        setSelectedTemplateItemIds([]);
+        router.replace(`/checklists/${checklistId}`);
+      } catch (error) {
+        console.error("Failed to create checklist:", error);
+
+        if (isMountedRef.current) {
+          Alert.alert("Error", "Failed to create checklist.");
+        }
+      } finally {
+        if (isMountedRef.current) {
+          setCreatingChecklist(false);
+        }
+      }
+    });
   }
 
   async function handleCreateNewChecklist() {
     if (!user) {
       Alert.alert("Sign in required", "Please sign in to create a checklist.");
+      return;
+    }
+
+    if (creatingNewChecklist || creatingChecklist || interactionLocked) {
       return;
     }
 
@@ -357,32 +502,50 @@ export default function CreateChecklistScreen() {
       return;
     }
 
-    try {
-      setCreatingNewChecklist(true);
+    const uid = user.uid;
+    const categoryToCreate = selectedCategory;
+    const customCategoryToCreate =
+      selectedCategory === "custom" ? trimmedCustomCategory : null;
 
-      const checklistId = await createChecklist(user.uid, {
-        name: trimmedName,
-        category: selectedCategory,
-        customCategoryLabel:
-          selectedCategory === "custom" ? trimmedCustomCategory : null,
-        templateId: null,
-        vehicleId: null,
-        tripId: null,
-      } as any);
+    await runWithLock(async () => {
+      try {
+        if (isMountedRef.current) {
+          setCreatingNewChecklist(true);
+        }
 
-      setNewChecklistName("");
-      setSelectedCategory("trip");
-      setCustomCategoryLabel("");
-      router.replace(`/checklists/${checklistId}`);
-    } catch (error) {
-      console.error("Failed to create new checklist:", error);
-      Alert.alert("Error", "Failed to create new checklist.");
-    } finally {
-      setCreatingNewChecklist(false);
-    }
+        const checklistId = await createChecklist(uid, {
+          name: trimmedName,
+          category: categoryToCreate,
+          customCategoryLabel: customCategoryToCreate,
+          templateId: null,
+          vehicleId: null,
+          tripId: null,
+        } as any);
+
+        if (!isMountedRef.current) return;
+
+        setNewChecklistName("");
+        setSelectedCategory("trip");
+        setCustomCategoryLabel("");
+        router.replace(`/checklists/${checklistId}`);
+      } catch (error) {
+        console.error("Failed to create new checklist:", error);
+
+        if (isMountedRef.current) {
+          Alert.alert("Error", "Failed to create new checklist.");
+        }
+      } finally {
+        if (isMountedRef.current) {
+          setCreatingNewChecklist(false);
+        }
+      }
+    });
   }
 
   function closePreview() {
+    if (creatingChecklist || interactionLocked) return;
+
+    previewItemsRequestIdRef.current += 1;
     setPreviewTemplate(null);
     setTemplateItems([]);
     setSelectedTemplateItemIds([]);
@@ -390,7 +553,8 @@ export default function CreateChecklistScreen() {
   }
 
   function closeRenameModal() {
-    if (savingRename) return;
+    if (savingRename || interactionLocked) return;
+
     setRenameModalVisible(false);
     setManageTemplate(null);
     setRenameValue("");
@@ -406,9 +570,13 @@ export default function CreateChecklistScreen() {
     return (
       <FrostedCard key={template.id}>
         <HapticPressable
-          style={styles.row}
+          style={[
+            styles.row,
+            interactionLocked && styles.primaryButtonDisabled,
+          ]}
           onPress={() => openPreview(template)}
           onLongPress={() => openTemplateActions(template)}
+          disabled={interactionLocked}
         >
           <View
             style={[
@@ -507,6 +675,11 @@ export default function CreateChecklistScreen() {
                       },
                     ]}
                     returnKeyType="done"
+                    editable={
+                      !creatingNewChecklist &&
+                      !creatingChecklist &&
+                      !interactionLocked
+                    }
                   />
 
                   <Text
@@ -529,8 +702,17 @@ export default function CreateChecklistScreen() {
                               borderColor: theme.colors.border,
                             },
                             selected && styles.categoryButtonSelected,
+                            (creatingNewChecklist ||
+                              creatingChecklist ||
+                              interactionLocked) &&
+                              styles.primaryButtonDisabled,
                           ]}
                           onPress={() => setSelectedCategory(option.key)}
+                          disabled={
+                            creatingNewChecklist ||
+                            creatingChecklist ||
+                            interactionLocked
+                          }
                         >
                           <View style={styles.categoryIconWrap}>
                             {getIcon(
@@ -576,6 +758,11 @@ export default function CreateChecklistScreen() {
                           },
                         ]}
                         returnKeyType="done"
+                        editable={
+                          !creatingNewChecklist &&
+                          !creatingChecklist &&
+                          !interactionLocked
+                        }
                       />
                     </View>
                   ) : null}
@@ -583,10 +770,17 @@ export default function CreateChecklistScreen() {
                   <HapticPressable
                     style={[
                       styles.primaryButton,
-                      creatingNewChecklist && styles.primaryButtonDisabled,
+                      (creatingNewChecklist ||
+                        creatingChecklist ||
+                        interactionLocked) &&
+                        styles.primaryButtonDisabled,
                     ]}
                     onPress={handleCreateNewChecklist}
-                    disabled={creatingNewChecklist}
+                    disabled={
+                      creatingNewChecklist ||
+                      creatingChecklist ||
+                      interactionLocked
+                    }
                   >
                     <Text style={styles.primaryButtonText}>
                       {creatingNewChecklist
@@ -693,8 +887,13 @@ export default function CreateChecklistScreen() {
                     return (
                       <FrostedCard key={itemId}>
                         <HapticPressable
-                          style={styles.templateItemRow}
+                          style={[
+                            styles.templateItemRow,
+                            (creatingChecklist || interactionLocked) &&
+                              styles.primaryButtonDisabled,
+                          ]}
                           onPress={() => toggleTemplateItem(item, index)}
+                          disabled={creatingChecklist || interactionLocked}
                         >
                           <View
                             style={[
@@ -729,11 +928,17 @@ export default function CreateChecklistScreen() {
                 <HapticPressable
                   style={[
                     styles.primaryButton,
-                    (creatingChecklist || selectedTemplateItemCount === 0) &&
+                    (creatingChecklist ||
+                      selectedTemplateItemCount === 0 ||
+                      interactionLocked) &&
                       styles.primaryButtonDisabled,
                   ]}
                   onPress={handleCreateChecklist}
-                  disabled={creatingChecklist || selectedTemplateItemCount === 0}
+                  disabled={
+                    creatingChecklist ||
+                    selectedTemplateItemCount === 0 ||
+                    interactionLocked
+                  }
                 >
                   <Text style={styles.primaryButtonText}>
                     {creatingChecklist
@@ -745,8 +950,13 @@ export default function CreateChecklistScreen() {
                 </HapticPressable>
 
                 <HapticPressable
-                  style={styles.secondaryButton}
+                  style={[
+                    styles.secondaryButton,
+                    (creatingChecklist || interactionLocked) &&
+                      styles.primaryButtonDisabled,
+                  ]}
                   onPress={closePreview}
+                  disabled={creatingChecklist || interactionLocked}
                 >
                   <Text
                     style={[
@@ -803,15 +1013,17 @@ export default function CreateChecklistScreen() {
                   ]}
                   autoFocus
                   returnKeyType="done"
+                  editable={!savingRename && !interactionLocked}
                 />
 
                 <HapticPressable
                   style={[
                     styles.primaryButton,
-                    savingRename && styles.primaryButtonDisabled,
+                    (savingRename || interactionLocked) &&
+                      styles.primaryButtonDisabled,
                   ]}
                   onPress={handleRename}
-                  disabled={savingRename}
+                  disabled={savingRename || interactionLocked}
                 >
                   <Text style={styles.primaryButtonText}>
                     {savingRename ? "Saving..." : "Save"}
@@ -819,8 +1031,13 @@ export default function CreateChecklistScreen() {
                 </HapticPressable>
 
                 <HapticPressable
-                  style={styles.secondaryButton}
+                  style={[
+                    styles.secondaryButton,
+                    (savingRename || interactionLocked) &&
+                      styles.primaryButtonDisabled,
+                  ]}
                   onPress={closeRenameModal}
+                  disabled={savingRename || interactionLocked}
                 >
                   <Text
                     style={[
