@@ -278,6 +278,9 @@ export default function ProfileSettingsScreen() {
   const { user, signOutUser } = useAuth();
   const theme = useThemedValues();
   const scrollViewRef = useRef<ScrollView | null>(null);
+  const isMountedRef = useRef(true);
+  const profileLoadVersionRef = useRef(0);
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [profile, setProfile] = useState<AppProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -289,13 +292,29 @@ export default function ProfileSettingsScreen() {
     string | null
   >(null);
 
+  const userId = user?.uid ?? "";
   const pickingProfilePhoto = activeImagePicker === "profile";
   const pickingBackgroundPhoto = activeImagePicker === "background";
   const pickingAnyImage = activeImagePicker !== null;
 
   useEffect(() => {
-    loadProfile();
-  }, [user]);
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const loadVersion = profileLoadVersionRef.current + 1;
+    profileLoadVersionRef.current = loadVersion;
+
+    void loadProfile(loadVersion);
+  }, [userId]);
 
   const displayName = useMemo(() => {
     if (!profile) return "";
@@ -309,7 +328,15 @@ export default function ProfileSettingsScreen() {
     backgroundPreviewUri ?? profile?.backgroundPhotoUri ?? "";
 
   function scrollToFocusedInput(y: number) {
-    setTimeout(() => {
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+
+    scrollTimeoutRef.current = setTimeout(() => {
+      if (!isMountedRef.current) {
+        return;
+      }
+
       scrollViewRef.current?.scrollTo({
         y,
         animated: true,
@@ -317,46 +344,83 @@ export default function ProfileSettingsScreen() {
     }, Platform.OS === "ios" ? 120 : 80);
   }
 
-  async function loadProfile() {
-    if (!user) {
+  async function loadProfile(loadVersion: number) {
+    if (!userId) {
+      if (!isMountedRef.current) return;
+
       setProfile(null);
       setLoading(false);
       return;
     }
 
     try {
-      setLoading(true);
-      const data = await getProfileSettings(user.uid);
+      if (isMountedRef.current) {
+        setLoading(true);
+      }
+
+      const data = await getProfileSettings(userId);
+
+      if (
+        !isMountedRef.current ||
+        profileLoadVersionRef.current !== loadVersion
+      ) {
+        return;
+      }
+
       setProfile(data);
     } catch (err) {
       console.error("Failed to load profile settings:", err);
     } finally {
-      setLoading(false);
+      if (
+        isMountedRef.current &&
+        profileLoadVersionRef.current === loadVersion
+      ) {
+        setLoading(false);
+      }
     }
   }
 
   async function handleSave() {
-    if (!profile || !user) return;
+    if (!profile || !userId || saving) return;
 
     try {
-      setSaving(true);
-      await saveProfileSettings(user.uid, profile);
+      if (isMountedRef.current) {
+        setSaving(true);
+      }
+
+      await saveProfileSettings(userId, profile);
+
+      if (!isMountedRef.current) {
+        return;
+      }
+
       Alert.alert("Saved", "Your profile has been updated.");
     } catch (err) {
       console.error("Failed to save profile settings:", err);
+
+      if (!isMountedRef.current) {
+        return;
+      }
+
       Alert.alert("Error", "Failed to save profile.");
     } finally {
-      setSaving(false);
+      if (isMountedRef.current) {
+        setSaving(false);
+      }
     }
   }
 
   async function handlePickProfilePhoto() {
-    if (!profile || !user || pickingAnyImage) return;
+    if (!profile || !userId || pickingAnyImage) return;
 
     try {
-      setActiveImagePicker("profile");
+      if (isMountedRef.current) {
+        setActiveImagePicker("profile");
+      }
 
-      const previousProfilePhotoUri = profile.profilePhotoUri;
+      const activeUserId = userId;
+      const activeProfile = profile;
+      const previousProfilePhotoUri = activeProfile.profilePhotoUri;
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
@@ -364,7 +428,9 @@ export default function ProfileSettingsScreen() {
         quality: 0.8,
       });
 
-      if (result.canceled) return;
+      if (!isMountedRef.current || result.canceled) {
+        return;
+      }
 
       const asset = result.assets?.[0];
       if (!asset?.uri) {
@@ -373,42 +439,57 @@ export default function ProfileSettingsScreen() {
       }
 
       const uploadedUrl = await uploadProfileImage(
-        user.uid,
+        activeUserId,
         asset.uri,
         "profile"
       );
 
+      if (!isMountedRef.current || activeUserId !== userId) {
+        return;
+      }
+
       const nextProfile = {
-        ...profile,
+        ...activeProfile,
         profilePhotoUri: uploadedUrl,
       };
 
       setProfile(nextProfile);
-      await saveProfileSettings(user.uid, nextProfile);
+      await saveProfileSettings(activeUserId, nextProfile);
 
       if (previousProfilePhotoUri !== uploadedUrl) {
         await safelyDeleteStoredImage(previousProfilePhotoUri);
       }
 
-      await cleanupStoredImagesForKind(user.uid, "profile", uploadedUrl);
+      await cleanupStoredImagesForKind(activeUserId, "profile", uploadedUrl);
     } catch (err) {
       console.error("Failed to pick profile photo:", err);
+
+      if (!isMountedRef.current) {
+        return;
+      }
+
       Alert.alert(
         "Photo upload failed",
         "Please check your connection and try selecting the photo again."
       );
     } finally {
-      setActiveImagePicker(null);
+      if (isMountedRef.current) {
+        setActiveImagePicker(null);
+      }
     }
   }
 
   async function handlePickBackgroundPhoto() {
-    if (!profile || !user || pickingAnyImage) return;
+    if (!profile || !userId || pickingAnyImage) return;
 
     try {
-      setActiveImagePicker("background");
+      if (isMountedRef.current) {
+        setActiveImagePicker("background");
+      }
 
-      const previousBackgroundPhotoUri = profile.backgroundPhotoUri;
+      const activeUserId = userId;
+      const activeProfile = profile;
+      const previousBackgroundPhotoUri = activeProfile.backgroundPhotoUri;
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
@@ -416,7 +497,9 @@ export default function ProfileSettingsScreen() {
         quality: 0.8,
       });
 
-      if (result.canceled) return;
+      if (!isMountedRef.current || result.canceled) {
+        return;
+      }
 
       const asset = result.assets?.[0];
       if (!asset?.uri) {
@@ -427,23 +510,27 @@ export default function ProfileSettingsScreen() {
       setBackgroundPreviewUri(asset.uri);
 
       const uploadedUrl = await uploadProfileImage(
-        user.uid,
+        activeUserId,
         asset.uri,
         "background"
       );
 
+      if (!isMountedRef.current || activeUserId !== userId) {
+        return;
+      }
+
       const nextProfile = {
-        ...profile,
+        ...activeProfile,
         backgroundPhotoUri: uploadedUrl,
       };
 
       setProfile(nextProfile);
       setBackgroundPreviewUri(null);
 
-      await saveProfileSettings(user.uid, nextProfile);
+      await saveProfileSettings(activeUserId, nextProfile);
 
       publishAppBackgroundUpdate(
-        user.uid,
+        activeUserId,
         uploadedUrl,
         nextProfile.backgroundResizeMode
       );
@@ -452,9 +539,13 @@ export default function ProfileSettingsScreen() {
         await safelyDeleteStoredImage(previousBackgroundPhotoUri);
       }
 
-      await cleanupStoredImagesForKind(user.uid, "background", uploadedUrl);
+      await cleanupStoredImagesForKind(activeUserId, "background", uploadedUrl);
     } catch (err) {
       console.error("Failed to pick background photo:", err);
+
+      if (!isMountedRef.current) {
+        return;
+      }
 
       setBackgroundPreviewUri(null);
 
@@ -463,17 +554,22 @@ export default function ProfileSettingsScreen() {
         "Please check your connection and try selecting the background again."
       );
     } finally {
-      setActiveImagePicker(null);
+      if (isMountedRef.current) {
+        setActiveImagePicker(null);
+      }
     }
   }
 
   async function handleRemoveBackground() {
-    if (!profile || !user || pickingAnyImage) return;
+    if (!profile || !userId || pickingAnyImage) return;
 
     try {
+      const activeUserId = userId;
       const previousBackgroundPhotoUri = profile.backgroundPhotoUri;
 
-      setBackgroundPreviewUri(null);
+      if (isMountedRef.current) {
+        setBackgroundPreviewUri(null);
+      }
 
       const nextProfile = {
         ...profile,
@@ -481,20 +577,30 @@ export default function ProfileSettingsScreen() {
         backgroundResizeMode: "cover" as BackgroundResizeMode,
       };
 
-      setProfile(nextProfile);
+      if (isMountedRef.current) {
+        setProfile(nextProfile);
+      }
 
-      await saveProfileSettings(user.uid, nextProfile);
+      await saveProfileSettings(activeUserId, nextProfile);
+
+      if (!isMountedRef.current || activeUserId !== userId) {
+        return;
+      }
 
       publishAppBackgroundUpdate(
-        user.uid,
+        activeUserId,
         null,
         nextProfile.backgroundResizeMode
       );
 
       await safelyDeleteStoredImage(previousBackgroundPhotoUri);
-      await cleanupStoredImagesForKind(user.uid, "background");
+      await cleanupStoredImagesForKind(activeUserId, "background");
     } catch (err) {
       console.error("Failed to remove custom background:", err);
+
+      if (!isMountedRef.current) {
+        return;
+      }
 
       Alert.alert(
         "Background removal failed",
@@ -504,24 +610,38 @@ export default function ProfileSettingsScreen() {
   }
 
   async function handleSelectBackgroundFit(mode: BackgroundResizeMode) {
-    if (!profile || !user || pickingAnyImage) return;
+    if (!profile || !userId || pickingAnyImage) return;
 
     try {
+      const activeUserId = userId;
+
       const nextProfile = {
         ...profile,
         backgroundResizeMode: mode,
       };
 
-      setProfile(nextProfile);
-      await saveProfileSettings(user.uid, nextProfile);
+      if (isMountedRef.current) {
+        setProfile(nextProfile);
+      }
+
+      await saveProfileSettings(activeUserId, nextProfile);
+
+      if (!isMountedRef.current || activeUserId !== userId) {
+        return;
+      }
 
       publishAppBackgroundUpdate(
-        user.uid,
+        activeUserId,
         nextProfile.backgroundPhotoUri || null,
         nextProfile.backgroundResizeMode
       );
     } catch (err) {
       console.error("Failed to save background fit:", err);
+
+      if (!isMountedRef.current) {
+        return;
+      }
+
       Alert.alert(
         "Background setting failed",
         "Please check your connection and try again."
@@ -537,13 +657,23 @@ export default function ProfileSettingsScreen() {
         style: "destructive",
         onPress: async () => {
           try {
-            setSigningOut(true);
+            if (isMountedRef.current) {
+              setSigningOut(true);
+            }
+
             await signOutUser();
           } catch (err) {
             console.error("Failed to sign out:", err);
+
+            if (!isMountedRef.current) {
+              return;
+            }
+
             Alert.alert("Error", "Failed to sign out.");
           } finally {
-            setSigningOut(false);
+            if (isMountedRef.current) {
+              setSigningOut(false);
+            }
           }
         },
       },
@@ -596,7 +726,10 @@ export default function ProfileSettingsScreen() {
               backHref="/(tabs)/profile"
             />
 
-            <ThemedCard style={styles.heroCard} contentStyle={styles.heroCardContent}>
+            <ThemedCard
+              style={styles.heroCard}
+              contentStyle={styles.heroCardContent}
+            >
               <View style={styles.heroRow}>
                 <View style={styles.heroPhotoWrap}>
                   {profile.profilePhotoUri ? (
@@ -633,7 +766,10 @@ export default function ProfileSettingsScreen() {
               </View>
             </ThemedCard>
 
-            <ThemedCard style={styles.formCard} contentStyle={styles.formCardContent}>
+            <ThemedCard
+              style={styles.formCard}
+              contentStyle={styles.formCardContent}
+            >
               <ThemedText variant="bodyStrong" style={styles.sectionTitle}>
                 Account Basics
               </ThemedText>
@@ -799,7 +935,10 @@ export default function ProfileSettingsScreen() {
               </View>
             </ThemedCard>
 
-            <ThemedButton onPress={handleSave} disabled={saving || pickingAnyImage}>
+            <ThemedButton
+              onPress={handleSave}
+              disabled={saving || pickingAnyImage}
+            >
               <Check size={18} color="#fff" />
               <ThemedText style={styles.buttonText}>
                 {saving ? "Saving..." : "Save Profile"}
