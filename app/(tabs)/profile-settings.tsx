@@ -32,6 +32,7 @@ import {
   useThemedValues,
 } from "../../components/ui/Themed";
 import { storage } from "../../firebaseConfig";
+import { publishAppBackgroundUpdate } from "../../lib/backgroundUpdateBus";
 import {
   AppProfile,
   BackgroundResizeMode,
@@ -83,6 +84,10 @@ function formatPhoneNumber(value: string) {
 
 function getStorageSafeFileName(kind: ImagePickerKind) {
   return `${kind}-${Date.now()}.jpg`;
+}
+
+function getCacheBustedUrl(downloadUrl: string) {
+  return `${downloadUrl}${downloadUrl.includes("?") ? "&" : "?"}v=${Date.now()}`;
 }
 
 function getStoragePathFromUrl(imageUrl?: string) {
@@ -221,10 +226,12 @@ async function uploadProfileImage(
     "Firebase Storage upload"
   );
 
-  return withUploadRetry(
+  const downloadUrl = await withUploadRetry(
     () => getDownloadURL(imageRef),
     "Firebase Storage download URL retrieval"
   );
+
+  return getCacheBustedUrl(downloadUrl);
 }
 
 function LabeledInput({
@@ -278,6 +285,9 @@ export default function ProfileSettingsScreen() {
   const [activeImagePicker, setActiveImagePicker] =
     useState<ImagePickerKind | null>(null);
   const [signingOut, setSigningOut] = useState(false);
+  const [backgroundPreviewUri, setBackgroundPreviewUri] = useState<
+    string | null
+  >(null);
 
   const pickingProfilePhoto = activeImagePicker === "profile";
   const pickingBackgroundPhoto = activeImagePicker === "background";
@@ -294,6 +304,9 @@ export default function ProfileSettingsScreen() {
 
     return fullName || "Profile";
   }, [profile]);
+
+  const activeBackgroundUri =
+    backgroundPreviewUri ?? profile?.backgroundPhotoUri ?? "";
 
   function scrollToFocusedInput(y: number) {
     setTimeout(() => {
@@ -411,6 +424,8 @@ export default function ProfileSettingsScreen() {
         return;
       }
 
+      setBackgroundPreviewUri(asset.uri);
+
       const uploadedUrl = await uploadProfileImage(
         user.uid,
         asset.uri,
@@ -423,7 +438,15 @@ export default function ProfileSettingsScreen() {
       };
 
       setProfile(nextProfile);
+      setBackgroundPreviewUri(null);
+
       await saveProfileSettings(user.uid, nextProfile);
+
+      publishAppBackgroundUpdate(
+        user.uid,
+        uploadedUrl,
+        nextProfile.backgroundResizeMode
+      );
 
       if (previousBackgroundPhotoUri !== uploadedUrl) {
         await safelyDeleteStoredImage(previousBackgroundPhotoUri);
@@ -432,6 +455,9 @@ export default function ProfileSettingsScreen() {
       await cleanupStoredImagesForKind(user.uid, "background", uploadedUrl);
     } catch (err) {
       console.error("Failed to pick background photo:", err);
+
+      setBackgroundPreviewUri(null);
+
       Alert.alert(
         "Background upload failed",
         "Please check your connection and try selecting the background again."
@@ -447,6 +473,8 @@ export default function ProfileSettingsScreen() {
     try {
       const previousBackgroundPhotoUri = profile.backgroundPhotoUri;
 
+      setBackgroundPreviewUri(null);
+
       const nextProfile = {
         ...profile,
         backgroundPhotoUri: "",
@@ -454,11 +482,20 @@ export default function ProfileSettingsScreen() {
       };
 
       setProfile(nextProfile);
+
       await saveProfileSettings(user.uid, nextProfile);
+
+      publishAppBackgroundUpdate(
+        user.uid,
+        null,
+        nextProfile.backgroundResizeMode
+      );
+
       await safelyDeleteStoredImage(previousBackgroundPhotoUri);
       await cleanupStoredImagesForKind(user.uid, "background");
     } catch (err) {
       console.error("Failed to remove custom background:", err);
+
       Alert.alert(
         "Background removal failed",
         "Please check your connection and try removing the background again."
@@ -477,6 +514,12 @@ export default function ProfileSettingsScreen() {
 
       setProfile(nextProfile);
       await saveProfileSettings(user.uid, nextProfile);
+
+      publishAppBackgroundUpdate(
+        user.uid,
+        nextProfile.backgroundPhotoUri || null,
+        nextProfile.backgroundResizeMode
+      );
     } catch (err) {
       console.error("Failed to save background fit:", err);
       Alert.alert(
@@ -529,7 +572,10 @@ export default function ProfileSettingsScreen() {
   }
 
   return (
-    <ScreenBackground>
+    <ScreenBackground
+      backgroundUriOverride={activeBackgroundUri}
+      backgroundResizeModeOverride={profile.backgroundResizeMode}
+    >
       <SafeAreaView style={styles.safe}>
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -684,7 +730,7 @@ export default function ProfileSettingsScreen() {
                   </ThemedText>
                 </ThemedButton>
 
-                {profile.backgroundPhotoUri ? (
+                {profile.backgroundPhotoUri || backgroundPreviewUri ? (
                   <>
                     <View style={styles.fitSection}>
                       <ThemedText variant="small" style={styles.fitTitle}>
