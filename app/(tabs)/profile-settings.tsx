@@ -11,7 +11,13 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import {
+  deleteObject,
+  getDownloadURL,
+  listAll,
+  ref,
+  uploadBytes,
+} from "firebase/storage";
 
 import { useAuth } from "../../components/auth/AuthProvider";
 import AppHeader from "../../components/ui/AppHeader";
@@ -31,6 +37,8 @@ import {
   getProfileSettings,
   saveProfileSettings,
 } from "../../lib/settingsService";
+
+type ImagePickerKind = "profile" | "background";
 
 const BACKGROUND_FIT_OPTIONS: {
   label: string;
@@ -65,14 +73,68 @@ function formatPhoneNumber(value: string) {
   return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
 }
 
-function getStorageSafeFileName(kind: "profile" | "background") {
+function getStorageSafeFileName(kind: ImagePickerKind) {
   return `${kind}-${Date.now()}.jpg`;
+}
+
+function getStoragePathFromUrl(imageUrl?: string) {
+  if (
+    typeof imageUrl !== "string" ||
+    !imageUrl.includes("firebasestorage.googleapis.com")
+  ) {
+    return null;
+  }
+
+  try {
+    return ref(storage, imageUrl).fullPath;
+  } catch (err) {
+    console.log("Could not resolve Firebase Storage path from URL.", err);
+    return null;
+  }
+}
+
+async function safelyDeleteStoredImage(imageUrl?: string) {
+  const path = getStoragePathFromUrl(imageUrl);
+  if (!path) return;
+
+  try {
+    await deleteObject(ref(storage, path));
+  } catch (err) {
+    console.log("Old Firebase Storage image could not be deleted.", err);
+  }
+}
+
+async function cleanupStoredImagesForKind(
+  userId: string,
+  kind: ImagePickerKind,
+  keepImageUrl?: string
+) {
+  try {
+    const keepPath = getStoragePathFromUrl(keepImageUrl);
+    const folderRef = ref(storage, `users/${userId}/profile`);
+    const result = await listAll(folderRef);
+
+    await Promise.all(
+      result.items
+        .filter((itemRef) => itemRef.name.startsWith(`${kind}-`))
+        .filter((itemRef) => itemRef.fullPath !== keepPath)
+        .map(async (itemRef) => {
+          try {
+            await deleteObject(itemRef);
+          } catch (err) {
+            console.log("Stored image cleanup skipped one file.", err);
+          }
+        })
+    );
+  } catch (err) {
+    console.log("Firebase Storage image cleanup could not complete.", err);
+  }
 }
 
 async function uploadProfileImage(
   userId: string,
   localUri: string,
-  kind: "profile" | "background"
+  kind: ImagePickerKind
 ) {
   const response = await fetch(localUri);
   const blob = await response.blob();
@@ -134,8 +196,13 @@ export default function ProfileSettingsScreen() {
   const [profile, setProfile] = useState<AppProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [pickingImage, setPickingImage] = useState(false);
+  const [activeImagePicker, setActiveImagePicker] =
+    useState<ImagePickerKind | null>(null);
   const [signingOut, setSigningOut] = useState(false);
+
+  const pickingProfilePhoto = activeImagePicker === "profile";
+  const pickingBackgroundPhoto = activeImagePicker === "background";
+  const pickingAnyImage = activeImagePicker !== null;
 
   useEffect(() => {
     loadProfile();
@@ -192,10 +259,12 @@ export default function ProfileSettingsScreen() {
   }
 
   async function handlePickProfilePhoto() {
-    if (!profile || !user) return;
+    if (!profile || !user || pickingAnyImage) return;
 
     try {
-      setPickingImage(true);
+      setActiveImagePicker("profile");
+
+      const previousProfilePhotoUri = profile.profilePhotoUri;
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
@@ -224,19 +293,27 @@ export default function ProfileSettingsScreen() {
 
       setProfile(nextProfile);
       await saveProfileSettings(user.uid, nextProfile);
+
+      if (previousProfilePhotoUri !== uploadedUrl) {
+        await safelyDeleteStoredImage(previousProfilePhotoUri);
+      }
+
+      await cleanupStoredImagesForKind(user.uid, "profile", uploadedUrl);
     } catch (err) {
       console.error("Failed to pick profile photo:", err);
       Alert.alert("Photo upload failed", "Please try selecting a photo again.");
     } finally {
-      setPickingImage(false);
+      setActiveImagePicker(null);
     }
   }
 
   async function handlePickBackgroundPhoto() {
-    if (!profile || !user) return;
+    if (!profile || !user || pickingAnyImage) return;
 
     try {
-      setPickingImage(true);
+      setActiveImagePicker("background");
+
+      const previousBackgroundPhotoUri = profile.backgroundPhotoUri;
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
@@ -265,16 +342,24 @@ export default function ProfileSettingsScreen() {
 
       setProfile(nextProfile);
       await saveProfileSettings(user.uid, nextProfile);
+
+      if (previousBackgroundPhotoUri !== uploadedUrl) {
+        await safelyDeleteStoredImage(previousBackgroundPhotoUri);
+      }
+
+      await cleanupStoredImagesForKind(user.uid, "background", uploadedUrl);
     } catch (err) {
       console.error(err);
       Alert.alert("Failed", "Could not set background.");
     } finally {
-      setPickingImage(false);
+      setActiveImagePicker(null);
     }
   }
 
   async function handleRemoveBackground() {
-    if (!profile || !user) return;
+    if (!profile || !user || pickingAnyImage) return;
+
+    const previousBackgroundPhotoUri = profile.backgroundPhotoUri;
 
     const nextProfile = {
       ...profile,
@@ -284,10 +369,12 @@ export default function ProfileSettingsScreen() {
 
     setProfile(nextProfile);
     await saveProfileSettings(user.uid, nextProfile);
+    await safelyDeleteStoredImage(previousBackgroundPhotoUri);
+    await cleanupStoredImagesForKind(user.uid, "background");
   }
 
   async function handleSelectBackgroundFit(mode: BackgroundResizeMode) {
-    if (!profile || !user) return;
+    if (!profile || !user || pickingAnyImage) return;
 
     const nextProfile = {
       ...profile,
@@ -456,11 +543,11 @@ export default function ProfileSettingsScreen() {
 
                 <ThemedButton
                   onPress={handlePickProfilePhoto}
-                  disabled={pickingImage}
+                  disabled={pickingAnyImage}
                   style={styles.photoButton}
                 >
                   <ThemedText style={styles.buttonText}>
-                    {pickingImage ? "Opening..." : "Choose Photo"}
+                    {pickingProfilePhoto ? "Opening..." : "Choose Photo"}
                   </ThemedText>
                 </ThemedButton>
               </View>
@@ -485,11 +572,13 @@ export default function ProfileSettingsScreen() {
 
                 <ThemedButton
                   onPress={handlePickBackgroundPhoto}
-                  disabled={pickingImage}
+                  disabled={pickingAnyImage}
                   style={styles.photoButton}
                 >
                   <ThemedText style={styles.buttonText}>
-                    {pickingImage ? "Opening..." : "Choose Background"}
+                    {pickingBackgroundPhoto
+                      ? "Opening..."
+                      : "Choose Background"}
                   </ThemedText>
                 </ThemedButton>
 
@@ -510,6 +599,7 @@ export default function ProfileSettingsScreen() {
                             onPress={() =>
                               handleSelectBackgroundFit(option.value)
                             }
+                            disabled={pickingAnyImage}
                             style={[
                               styles.fitOption,
                               {
@@ -520,6 +610,7 @@ export default function ProfileSettingsScreen() {
                                   ? theme.colors.card
                                   : theme.colors.inputSurface,
                               },
+                              pickingAnyImage && styles.disabledInteraction,
                             ]}
                           >
                             <View style={styles.fitOptionTextWrap}>
@@ -546,7 +637,11 @@ export default function ProfileSettingsScreen() {
                       })}
                     </View>
 
-                    <HapticPressable onPress={handleRemoveBackground}>
+                    <HapticPressable
+                      onPress={handleRemoveBackground}
+                      disabled={pickingAnyImage}
+                      style={pickingAnyImage && styles.disabledInteraction}
+                    >
                       <ThemedText color="secondary" style={styles.cancelText}>
                         Remove Custom Background
                       </ThemedText>
@@ -556,7 +651,7 @@ export default function ProfileSettingsScreen() {
               </View>
             </ThemedCard>
 
-            <ThemedButton onPress={handleSave} disabled={saving}>
+            <ThemedButton onPress={handleSave} disabled={saving || pickingAnyImage}>
               <Check size={18} color="#fff" />
               <ThemedText style={styles.buttonText}>
                 {saving ? "Saving..." : "Save Profile"}
@@ -566,7 +661,7 @@ export default function ProfileSettingsScreen() {
             <ThemedButton
               destructive
               onPress={handleSignOut}
-              disabled={signingOut}
+              disabled={signingOut || pickingAnyImage}
               style={styles.signOutButton}
             >
               <LogOut size={18} color="#fff" />
@@ -732,5 +827,9 @@ const styles = StyleSheet.create({
   buttonText: {
     color: "#fff",
     fontWeight: "700",
+  },
+
+  disabledInteraction: {
+    opacity: 0.6,
   },
 });
