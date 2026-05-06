@@ -123,6 +123,7 @@ export default function CompartmentDetailScreen() {
 
   const isMountedRef = useRef(true);
   const loadVersionRef = useRef(0);
+  const actionLockRef = useRef(false);
   const scrollRef = useRef<ScrollView | null>(null);
   const itemCardYPositions = useRef<Record<string, number>>({});
   const createBoxScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -159,6 +160,7 @@ export default function CompartmentDetailScreen() {
     return () => {
       isMountedRef.current = false;
       loadVersionRef.current += 1;
+      actionLockRef.current = false;
 
       if (createBoxScrollTimeoutRef.current) {
         clearTimeout(createBoxScrollTimeoutRef.current);
@@ -191,36 +193,48 @@ export default function CompartmentDetailScreen() {
   }, [compartmentId]);
 
   async function runWithLock(action: () => Promise<void> | void) {
-    if (interactionLocked) return;
+    if (actionLockRef.current || interactionLocked || !isMountedRef.current) {
+      return;
+    }
 
+    actionLockRef.current = true;
     lockInteraction();
 
     try {
       await action();
     } finally {
-      unlockInteraction();
+      actionLockRef.current = false;
+
+      if (isMountedRef.current) {
+        unlockInteraction();
+      }
     }
   }
 
   function scrollToCreateBox(delay = 140) {
     if (createBoxScrollTimeoutRef.current) {
       clearTimeout(createBoxScrollTimeoutRef.current);
+      createBoxScrollTimeoutRef.current = null;
     }
 
     createBoxScrollTimeoutRef.current = setTimeout(() => {
+      createBoxScrollTimeoutRef.current = null;
+
       if (!isMountedRef.current) return;
 
       scrollRef.current?.scrollTo({ y: 0, animated: true });
-      createBoxScrollTimeoutRef.current = null;
     }, delay);
   }
 
   function scrollToItemCard(itemId: string, delay = 180) {
     if (itemCardScrollTimeoutRef.current) {
       clearTimeout(itemCardScrollTimeoutRef.current);
+      itemCardScrollTimeoutRef.current = null;
     }
 
     itemCardScrollTimeoutRef.current = setTimeout(() => {
+      itemCardScrollTimeoutRef.current = null;
+
       if (!isMountedRef.current) return;
 
       const y = itemCardYPositions.current[itemId] ?? 0;
@@ -229,8 +243,6 @@ export default function CompartmentDetailScreen() {
         y: Math.max(y - 18, 0),
         animated: true,
       });
-
-      itemCardScrollTimeoutRef.current = null;
     }, delay);
   }
 
@@ -273,6 +285,8 @@ export default function CompartmentDetailScreen() {
   }
 
   async function refreshItems() {
+    if (!isMountedRef.current) return;
+
     const loadVersion = loadVersionRef.current + 1;
     loadVersionRef.current = loadVersion;
 
@@ -550,13 +564,13 @@ export default function CompartmentDetailScreen() {
   function handleOpenPhotoViewer(item: Item) {
     if (interactionLocked) return;
 
+    if (!item.itemPhotoUri) {
+      handleItemPhotoAction(item);
+      return;
+    }
+
     void runWithLock(() => {
       if (!isMountedRef.current) return;
-
-      if (!item.itemPhotoUri) {
-        handleItemPhotoAction(item);
-        return;
-      }
 
       setSelectedPhotoItem(item);
       setPhotoViewerVisible(true);
