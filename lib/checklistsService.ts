@@ -31,12 +31,28 @@ function requireUserId(userId: string) {
   return trimmedUserId;
 }
 
+function requireDocumentId(value: string, label: string) {
+  const trimmedValue = value?.trim();
+
+  if (!trimmedValue) {
+    throw new Error(`${label} is required.`);
+  }
+
+  return trimmedValue;
+}
+
 function templatesCol(userId: string) {
   return collection(db, "users", requireUserId(userId), "checklistTemplates");
 }
 
 function templateDoc(userId: string, templateId: string) {
-  return doc(db, "users", requireUserId(userId), "checklistTemplates", templateId);
+  return doc(
+    db,
+    "users",
+    requireUserId(userId),
+    "checklistTemplates",
+    requireDocumentId(templateId, "Template ID")
+  );
 }
 
 function templateItemsCol(userId: string, templateId: string) {
@@ -45,7 +61,7 @@ function templateItemsCol(userId: string, templateId: string) {
     "users",
     requireUserId(userId),
     "checklistTemplates",
-    templateId,
+    requireDocumentId(templateId, "Template ID"),
     "items"
   );
 }
@@ -56,9 +72,9 @@ function templateItemDoc(userId: string, templateId: string, itemId: string) {
     "users",
     requireUserId(userId),
     "checklistTemplates",
-    templateId,
+    requireDocumentId(templateId, "Template ID"),
     "items",
-    itemId
+    requireDocumentId(itemId, "Template item ID")
   );
 }
 
@@ -67,7 +83,13 @@ function checklistsCol(userId: string) {
 }
 
 function checklistDoc(userId: string, checklistId: string) {
-  return doc(db, "users", requireUserId(userId), "checklists", checklistId);
+  return doc(
+    db,
+    "users",
+    requireUserId(userId),
+    "checklists",
+    requireDocumentId(checklistId, "Checklist ID")
+  );
 }
 
 function checklistItemsCol(userId: string, checklistId: string) {
@@ -76,7 +98,7 @@ function checklistItemsCol(userId: string, checklistId: string) {
     "users",
     requireUserId(userId),
     "checklists",
-    checklistId,
+    requireDocumentId(checklistId, "Checklist ID"),
     "items"
   );
 }
@@ -271,7 +293,12 @@ export async function createChecklistTemplateWithItems(
     });
   });
 
-  await batch.commit();
+  try {
+    await batch.commit();
+  } catch (err) {
+    await deleteDoc(templateRef);
+    throw err;
+  }
 
   return templateRef.id;
 }
@@ -484,7 +511,12 @@ export async function createChecklistFromTemplate(
     });
   });
 
-  await batch.commit();
+  try {
+    await batch.commit();
+  } catch (err) {
+    await deleteDoc(checklistRef);
+    throw err;
+  }
 
   return checklistRef.id;
 }
@@ -547,7 +579,12 @@ export async function createChecklistFromSelectedTemplateItems(
     });
   });
 
-  await batch.commit();
+  try {
+    await batch.commit();
+  } catch (err) {
+    await deleteDoc(checklistRef);
+    throw err;
+  }
 
   return checklistRef.id;
 }
@@ -665,9 +702,9 @@ export async function toggleChecklistItemPacked(
     "users",
     requireUserId(userId),
     "checklists",
-    checklistId,
+    requireDocumentId(checklistId, "Checklist ID"),
     "items",
-    item.id
+    requireDocumentId(item.id, "Checklist item ID")
   );
 
   await updateDoc(itemRef, {
@@ -692,9 +729,9 @@ export async function updateChecklistItemQuantity(
     "users",
     requireUserId(userId),
     "checklists",
-    checklistId,
+    requireDocumentId(checklistId, "Checklist ID"),
     "items",
-    itemId
+    requireDocumentId(itemId, "Checklist item ID")
   );
 
   await updateDoc(itemRef, {
@@ -721,9 +758,9 @@ export async function updateChecklistItemName(
     "users",
     requireUserId(userId),
     "checklists",
-    checklistId,
+    requireDocumentId(checklistId, "Checklist ID"),
     "items",
-    itemId
+    requireDocumentId(itemId, "Checklist item ID")
   );
 
   await updateDoc(itemRef, {
@@ -743,9 +780,9 @@ export async function updateChecklistItemPhoto(
     "users",
     requireUserId(userId),
     "checklists",
-    checklistId,
+    requireDocumentId(checklistId, "Checklist ID"),
     "items",
-    itemId
+    requireDocumentId(itemId, "Checklist item ID")
   );
 
   await updateDoc(itemRef, {
@@ -767,9 +804,9 @@ export async function updateChecklistItemCompartment(
     "users",
     requireUserId(userId),
     "checklists",
-    checklistId,
+    requireDocumentId(checklistId, "Checklist ID"),
     "items",
-    itemId
+    requireDocumentId(itemId, "Checklist item ID")
   );
 
   await updateDoc(itemRef, {
@@ -824,9 +861,9 @@ export async function deleteChecklistItem(
     "users",
     requireUserId(userId),
     "checklists",
-    checklistId,
+    requireDocumentId(checklistId, "Checklist ID"),
     "items",
-    itemId
+    requireDocumentId(itemId, "Checklist item ID")
   );
 
   await deleteDoc(itemRef);
@@ -853,15 +890,17 @@ export async function recomputeChecklistCounts(
 }
 
 export async function deleteChecklist(userId: string, checklistId: string) {
-  const itemsSnapshot = await getDocs(checklistItemsCol(userId, checklistId));
+  const safeChecklistId = requireDocumentId(checklistId, "Checklist ID");
+  const itemsSnapshot = await getDocs(checklistItemsCol(userId, safeChecklistId));
   const batch = writeBatch(db);
 
   itemsSnapshot.forEach((itemDoc) => {
     batch.delete(itemDoc.ref);
   });
 
+  batch.delete(checklistDoc(userId, safeChecklistId));
+
   await batch.commit();
-  await deleteDoc(checklistDoc(userId, checklistId));
 }
 
 export async function getAssignedChecklistItems(
@@ -999,7 +1038,12 @@ export async function saveChecklistAsTemplate(
     });
   });
 
-  await batch.commit();
+  try {
+    await batch.commit();
+  } catch (err) {
+    await deleteDoc(templateRef);
+    throw err;
+  }
 
   return templateRef.id;
 }
@@ -1008,15 +1052,17 @@ export async function deleteChecklistTemplate(
   userId: string,
   templateId: string
 ) {
-  const itemsSnapshot = await getDocs(templateItemsCol(userId, templateId));
+  const safeTemplateId = requireDocumentId(templateId, "Template ID");
+  const itemsSnapshot = await getDocs(templateItemsCol(userId, safeTemplateId));
   const batch = writeBatch(db);
 
   itemsSnapshot.forEach((itemDoc) => {
     batch.delete(itemDoc.ref);
   });
 
+  batch.delete(templateDoc(userId, safeTemplateId));
+
   await batch.commit();
-  await deleteDoc(templateDoc(userId, templateId));
 }
 
 export async function updateChecklistTemplateName(
