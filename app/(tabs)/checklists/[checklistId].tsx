@@ -138,9 +138,23 @@ function formatChecklistItemForShare(item: any) {
 
 export default function ChecklistDetailScreen() {
   const { user, initializing } = useAuth();
-  const { checklistId } = useLocalSearchParams<{ checklistId: string }>();
+  const params = useLocalSearchParams<{ checklistId?: string | string[] }>();
+
+  const checklistId = useMemo(() => {
+    const value = params.checklistId;
+
+    if (Array.isArray(value)) {
+      return value[0] ?? "";
+    }
+
+    return value ?? "";
+  }, [params.checklistId]);
+
   const theme = useThemedValues();
   const isScreenMountedRef = useRef(true);
+  const userId = user?.uid ?? "";
+  const checklistLoadVersionRef = useRef(0);
+  const checklistItemsSubscriptionVersionRef = useRef(0);
   const {
     isLocked: interactionLocked,
     lock: lockInteraction,
@@ -182,30 +196,40 @@ export default function ChecklistDetailScreen() {
   }, []);
 
   useEffect(() => {
+    const loadVersion = checklistLoadVersionRef.current + 1;
+    const subscriptionVersion =
+      checklistItemsSubscriptionVersionRef.current + 1;
+
+    checklistLoadVersionRef.current = loadVersion;
+    checklistItemsSubscriptionVersionRef.current = subscriptionVersion;
+
     if (initializing) {
       return;
     }
 
-    if (!user || !checklistId) {
+    if (!userId || !checklistId) {
       setChecklist(null);
       setItems([]);
       return;
     }
 
-    let isActive = true;
-    const activeUser = user;
-    
     async function loadActiveChecklist() {
       try {
-        const data = await getChecklist(activeUser.uid, checklistId);
+        const data = await getChecklist(userId, checklistId);
 
-        if (!isActive || !isScreenMountedRef.current) {
+        if (
+          checklistLoadVersionRef.current !== loadVersion ||
+          !isScreenMountedRef.current
+        ) {
           return;
         }
 
         setChecklist(data);
       } catch (err) {
-        if (!isActive || !isScreenMountedRef.current) {
+        if (
+          checklistLoadVersionRef.current !== loadVersion ||
+          !isScreenMountedRef.current
+        ) {
           return;
         }
 
@@ -217,10 +241,14 @@ export default function ChecklistDetailScreen() {
     loadActiveChecklist();
 
     const unsubscribe = subscribeToChecklistItems(
-      user.uid,
+      userId,
       checklistId,
       (nextItems) => {
-        if (!isActive || !isScreenMountedRef.current) {
+        if (
+          checklistItemsSubscriptionVersionRef.current !==
+          subscriptionVersion ||
+          !isScreenMountedRef.current
+        ) {
           return;
         }
 
@@ -229,10 +257,11 @@ export default function ChecklistDetailScreen() {
     );
 
     return () => {
-      isActive = false;
+      checklistLoadVersionRef.current += 1;
+      checklistItemsSubscriptionVersionRef.current += 1;
       unsubscribe();
     };
-  }, [initializing, user, checklistId]);
+  }, [initializing, userId, checklistId]);
 
   async function runWithLock(action: () => Promise<void> | void) {
     if (interactionLocked) return;
@@ -570,12 +599,12 @@ export default function ChecklistDetailScreen() {
       },
       ...(item.itemPhotoUri
         ? [
-            {
-              text: "Remove Photo",
-              style: "destructive" as const,
-              onPress: () => handleRemoveItemPhoto(item),
-            },
-          ]
+          {
+            text: "Remove Photo",
+            style: "destructive" as const,
+            onPress: () => handleRemoveItemPhoto(item),
+          },
+        ]
         : []),
       {
         text: "Cancel",
@@ -1028,7 +1057,7 @@ export default function ChecklistDetailScreen() {
                 style={[
                   styles.saveItemButton,
                   (!editingItemName.trim() || savingItemEdit) &&
-                    styles.disabledButton,
+                  styles.disabledButton,
                 ]}
                 onPress={() => handleSaveItemEdit(item.id)}
                 disabled={!editingItemName.trim() || savingItemEdit}
@@ -1543,7 +1572,7 @@ export default function ChecklistDetailScreen() {
                     style={[
                       styles.createButton,
                       (!newItemName.trim() || savingNewItem) &&
-                        styles.createButtonDisabled,
+                      styles.createButtonDisabled,
                     ]}
                     onPress={handleCreateItem}
                     disabled={!newItemName.trim() || savingNewItem}

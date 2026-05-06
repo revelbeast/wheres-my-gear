@@ -8,7 +8,7 @@ import {
   ListChecks,
   SquarePen,
 } from "lucide-react-native";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -257,6 +257,7 @@ function EmptyChecklistCard({
 
 export default function ChecklistsTabScreen() {
   const { user, initializing } = useAuth();
+  const userId = user?.uid ?? "";
   const theme = useThemedValues();
   const {
     isLocked: interactionLocked,
@@ -264,24 +265,35 @@ export default function ChecklistsTabScreen() {
     unlock: unlockInteraction,
   } = useInteractionLock(450);
 
+  const checklistSubscriptionVersionRef = useRef(0);
   const [checklists, setChecklists] = useState<Checklist[]>([]);
 
   useEffect(() => {
+    const subscriptionVersion = checklistSubscriptionVersionRef.current + 1;
+    checklistSubscriptionVersionRef.current = subscriptionVersion;
+
     if (initializing) {
       return;
     }
 
-    if (!user) {
+    if (!userId) {
       setChecklists([]);
       return;
     }
 
-    const unsubscribe = subscribeToChecklists(user.uid, (items) => {
+    const unsubscribe = subscribeToChecklists(userId, (items) => {
+      if (checklistSubscriptionVersionRef.current !== subscriptionVersion) {
+        return;
+      }
+
       setChecklists(items.filter((item) => !item.isArchived));
     });
 
-    return unsubscribe;
-  }, [initializing, user]);
+    return () => {
+      checklistSubscriptionVersionRef.current += 1;
+      unsubscribe();
+    };
+  }, [initializing, userId]);
 
   function runWithLock(action: () => void) {
     if (interactionLocked) return;
