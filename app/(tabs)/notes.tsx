@@ -1,14 +1,7 @@
 import { BlurView } from "expo-blur";
 import { useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import AppHeader from "../../components/ui/AppHeader";
@@ -19,7 +12,6 @@ import {
   getStorageSpaceById,
   updateStorageSpaceNotes,
 } from "../../lib/gearService";
-import { colors } from "../../theme/tokens";
 
 function FrostedCard({
   children,
@@ -69,23 +61,37 @@ function formatTimeAgo(timestamp: number | null): string {
   return `Saved ${diffDays}d ago`;
 }
 
+function getFirstParamValue(value?: string | string[]) {
+  if (Array.isArray(value)) {
+    return value[0] ?? "";
+  }
+
+  return value ?? "";
+}
+
 export default function NotesScreen() {
   const theme = useThemedValues();
 
-  const { storageId, storageName } = useLocalSearchParams<{
-    storageId?: string;
-    storageName?: string;
+  const params = useLocalSearchParams<{
+    storageId?: string | string[];
+    storageName?: string | string[];
   }>();
 
   const resolvedStorageId = useMemo(
-    () => (typeof storageId === "string" ? storageId.trim() : ""),
-    [storageId]
+    () => getFirstParamValue(params.storageId).trim(),
+    [params.storageId]
   );
 
   const resolvedStorageName = useMemo(
-    () => (typeof storageName === "string" ? storageName.trim() : ""),
-    [storageName]
+    () => getFirstParamValue(params.storageName).trim(),
+    [params.storageName]
   );
+
+  const isScreenMountedRef = useRef(true);
+  const notesLoadVersionRef = useRef(0);
+  const notesSaveVersionRef = useRef(0);
+  const lastSavedNotesRef = useRef("");
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(true);
@@ -93,41 +99,100 @@ export default function NotesScreen() {
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
 
-  const lastSavedNotesRef = useRef("");
-  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const title = resolvedStorageName
-    ? `${resolvedStorageName} Notes`
-    : "Notes";
+  const title = resolvedStorageName ? `${resolvedStorageName} Notes` : "Notes";
 
   const helperText = resolvedStorageId
     ? "Add storage-specific notes here. Notes auto-save while you type."
     : "Select a storage space from the dashboard to open notes.";
 
   useEffect(() => {
+    isScreenMountedRef.current = true;
+
+    return () => {
+      isScreenMountedRef.current = false;
+      notesLoadVersionRef.current += 1;
+      notesSaveVersionRef.current += 1;
+
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const loadVersion = notesLoadVersionRef.current + 1;
+    notesLoadVersionRef.current = loadVersion;
+
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+    }
+
     async function load() {
       if (!resolvedStorageId) {
+        if (
+          notesLoadVersionRef.current !== loadVersion ||
+          !isScreenMountedRef.current
+        ) {
+          return;
+        }
+
+        setNotes("");
+        lastSavedNotesRef.current = "";
+        setSaveState("idle");
+        setLastSavedAt(null);
         setLoading(false);
         return;
       }
 
       try {
+        setLoading(true);
+
         const data = await getStorageSpaceById(resolvedStorageId);
         const value = data?.notes ?? "";
+
+        if (
+          notesLoadVersionRef.current !== loadVersion ||
+          !isScreenMountedRef.current
+        ) {
+          return;
+        }
 
         setNotes(value);
         lastSavedNotesRef.current = value;
         setSaveState("saved");
         setLastSavedAt(Date.now());
       } catch (err) {
+        if (
+          notesLoadVersionRef.current !== loadVersion ||
+          !isScreenMountedRef.current
+        ) {
+          return;
+        }
+
         console.error(err);
         setSaveState("error");
       } finally {
-        setLoading(false);
+        if (
+          notesLoadVersionRef.current === loadVersion &&
+          isScreenMountedRef.current
+        ) {
+          setLoading(false);
+        }
       }
     }
 
-    load();
+    void load();
+
+    return () => {
+      notesLoadVersionRef.current += 1;
+
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = null;
+      }
+    };
   }, [resolvedStorageId]);
 
   async function saveNotes(next: string, manual = false) {
@@ -135,11 +200,21 @@ export default function NotesScreen() {
 
     if (next === lastSavedNotesRef.current) return;
 
+    const saveVersion = notesSaveVersionRef.current + 1;
+    notesSaveVersionRef.current = saveVersion;
+
     try {
       setSaving(true);
       setSaveState("saving");
 
       await updateStorageSpaceNotes(resolvedStorageId, next);
+
+      if (
+        notesSaveVersionRef.current !== saveVersion ||
+        !isScreenMountedRef.current
+      ) {
+        return;
+      }
 
       lastSavedNotesRef.current = next;
       setSaveState("saved");
@@ -147,10 +222,22 @@ export default function NotesScreen() {
 
       if (manual) Alert.alert("Saved", "Notes saved.");
     } catch {
+      if (
+        notesSaveVersionRef.current !== saveVersion ||
+        !isScreenMountedRef.current
+      ) {
+        return;
+      }
+
       setSaveState("error");
       if (manual) Alert.alert("Error", "Failed to save.");
     } finally {
-      setSaving(false);
+      if (
+        notesSaveVersionRef.current === saveVersion &&
+        isScreenMountedRef.current
+      ) {
+        setSaving(false);
+      }
     }
   }
 
@@ -166,7 +253,7 @@ export default function NotesScreen() {
     }
 
     autoSaveTimerRef.current = setTimeout(() => {
-      saveNotes(value);
+      void saveNotes(value);
     }, 900);
   }
 
@@ -217,10 +304,7 @@ export default function NotesScreen() {
             />
 
             <HapticPressable
-              style={[
-                styles.saveButton,
-                saving && styles.saveButtonDisabled,
-              ]}
+              style={[styles.saveButton, saving && styles.saveButtonDisabled]}
               onPress={() => saveNotes(notes, true)}
               disabled={saving}
             >
