@@ -1,5 +1,5 @@
 import { BlurView } from "expo-blur";
-import { useLocalSearchParams, router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import {
   Check,
   ChevronRight,
@@ -9,7 +9,7 @@ import {
   Trash2,
   X,
 } from "lucide-react-native";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Keyboard,
@@ -41,12 +41,21 @@ import { useInteractionLock } from "../../../lib/useInteractionLock";
 import { colors } from "../../../theme/tokens";
 
 export default function VehicleDetailScreen() {
-  const params = useLocalSearchParams<{ vehicleId: string | string[] }>();
-  const vehicleId = Array.isArray(params.vehicleId)
-    ? params.vehicleId[0]
-    : params.vehicleId;
+  const params = useLocalSearchParams<{ vehicleId?: string | string[] }>();
+
+  const vehicleId = useMemo(() => {
+    const value = params.vehicleId;
+
+    if (Array.isArray(value)) {
+      return value[0] ?? "";
+    }
+
+    return value ?? "";
+  }, [params.vehicleId]);
 
   const scrollRef = useRef<ScrollView | null>(null);
+  const isScreenMountedRef = useRef(true);
+  const loadVersionRef = useRef(0);
   const navigationTransitionLockedRef = useRef(false);
   const headerAddLockedRef = useRef(false);
   const navigationUnlockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -55,6 +64,7 @@ export default function VehicleDetailScreen() {
   const headerAddUnlockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const {
     isLocked: interactionLocked,
@@ -82,22 +92,75 @@ export default function VehicleDetailScreen() {
     : "Compartments";
 
   useEffect(() => {
-    if (!vehicleId) return;
-    loadStorageSpace();
-    loadCompartments();
-  }, [vehicleId]);
+    isScreenMountedRef.current = true;
 
-  useEffect(() => {
     return () => {
+      isScreenMountedRef.current = false;
+      loadVersionRef.current += 1;
+
       if (navigationUnlockTimeoutRef.current) {
         clearTimeout(navigationUnlockTimeoutRef.current);
+        navigationUnlockTimeoutRef.current = null;
       }
 
       if (headerAddUnlockTimeoutRef.current) {
         clearTimeout(headerAddUnlockTimeoutRef.current);
+        headerAddUnlockTimeoutRef.current = null;
+      }
+
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+        scrollTimeoutRef.current = null;
       }
     };
   }, []);
+
+  useEffect(() => {
+    const loadVersion = loadVersionRef.current + 1;
+    loadVersionRef.current = loadVersion;
+
+    if (!vehicleId) {
+      setStorageSpace(null);
+      setCompartments([]);
+      return;
+    }
+
+    async function loadScreenData() {
+      try {
+        const [spaceData, compartmentData] = await Promise.all([
+          getStorageSpaceById(String(vehicleId)),
+          getCompartments(String(vehicleId)),
+        ]);
+
+        if (
+          !isScreenMountedRef.current ||
+          loadVersionRef.current !== loadVersion
+        ) {
+          return;
+        }
+
+        setStorageSpace(spaceData);
+        setCompartments(compartmentData);
+      } catch (err) {
+        if (
+          !isScreenMountedRef.current ||
+          loadVersionRef.current !== loadVersion
+        ) {
+          return;
+        }
+
+        console.error("Failed to load storage space details:", err);
+        setStorageSpace(null);
+        setCompartments([]);
+      }
+    }
+
+    loadScreenData();
+
+    return () => {
+      loadVersionRef.current += 1;
+    };
+  }, [vehicleId]);
 
   async function runWithLock(action: () => Promise<void> | void) {
     if (interactionLocked) return;
@@ -111,21 +174,31 @@ export default function VehicleDetailScreen() {
     }
   }
 
-  async function loadStorageSpace() {
-    try {
-      const data = await getStorageSpaceById(String(vehicleId));
-      setStorageSpace(data);
-    } catch (err) {
-      console.error("Failed to load storage space:", err);
-      setStorageSpace(null);
-    }
-  }
+  async function refreshCompartments() {
+    if (!vehicleId) return;
 
-  async function loadCompartments() {
+    const refreshVersion = loadVersionRef.current + 1;
+    loadVersionRef.current = refreshVersion;
+
     try {
       const data = await getCompartments(String(vehicleId));
+
+      if (
+        !isScreenMountedRef.current ||
+        loadVersionRef.current !== refreshVersion
+      ) {
+        return;
+      }
+
       setCompartments(data);
     } catch (err) {
+      if (
+        !isScreenMountedRef.current ||
+        loadVersionRef.current !== refreshVersion
+      ) {
+        return;
+      }
+
       console.error("Failed to load compartments:", err);
       setCompartments([]);
     }
@@ -143,8 +216,15 @@ export default function VehicleDetailScreen() {
   }
 
   function scrollToBottom(delay = 120) {
-    setTimeout(() => {
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+
+    scrollTimeoutRef.current = setTimeout(() => {
+      if (!isScreenMountedRef.current) return;
+
       scrollRef.current?.scrollToEnd({ animated: true });
+      scrollTimeoutRef.current = null;
     }, delay);
   }
 
@@ -154,6 +234,8 @@ export default function VehicleDetailScreen() {
     }
 
     headerAddUnlockTimeoutRef.current = setTimeout(() => {
+      if (!isScreenMountedRef.current) return;
+
       headerAddLockedRef.current = false;
       headerAddUnlockTimeoutRef.current = null;
     }, 700);
@@ -174,11 +256,13 @@ export default function VehicleDetailScreen() {
 
     setShowCreateBox((prev) => {
       const next = !prev;
+
       if (!next) {
         setNewCompartmentName("");
       } else {
         scrollToBottom(180);
       }
+
       return next;
     });
 
@@ -214,6 +298,8 @@ export default function VehicleDetailScreen() {
           message,
         });
       } catch (err) {
+        if (!isScreenMountedRef.current) return;
+
         console.error("Failed to share storage space:", err);
         Alert.alert(
           "Storage not shared",
@@ -235,14 +321,21 @@ export default function VehicleDetailScreen() {
       try {
         Keyboard.dismiss();
         await createCompartment(trimmed, String(vehicleId));
+
+        if (!isScreenMountedRef.current) return;
+
         setNewCompartmentName("");
         setShowCreateBox(false);
-        await loadCompartments();
+        await refreshCompartments();
       } catch (err) {
+        if (!isScreenMountedRef.current) return;
+
         console.error("Failed to create compartment:", err);
         Alert.alert("Error", "Failed to create compartment.");
       } finally {
-        setIsCreating(false);
+        if (isScreenMountedRef.current) {
+          setIsCreating(false);
+        }
       }
     });
   }
@@ -278,14 +371,21 @@ export default function VehicleDetailScreen() {
       try {
         Keyboard.dismiss();
         await updateCompartment(compartmentId, { name: trimmed });
+
+        if (!isScreenMountedRef.current) return;
+
         setEditingCompartmentId(null);
         setEditingCompartmentName("");
-        await loadCompartments();
+        await refreshCompartments();
       } catch (err) {
+        if (!isScreenMountedRef.current) return;
+
         console.error("Failed to update compartment:", err);
         Alert.alert("Error", "Failed to update compartment name.");
       } finally {
-        setSavingEdit(false);
+        if (isScreenMountedRef.current) {
+          setSavingEdit(false);
+        }
       }
     });
   }
@@ -315,12 +415,16 @@ export default function VehicleDetailScreen() {
     await runWithLock(async () => {
       try {
         await deleteCompartment(compartment.id);
-        await loadCompartments();
+        await refreshCompartments();
       } catch (err) {
+        if (!isScreenMountedRef.current) return;
+
         console.error("Failed to delete compartment:", err);
         Alert.alert("Error", "Failed to delete compartment.");
       } finally {
-        setDeletingCompartmentId(null);
+        if (isScreenMountedRef.current) {
+          setDeletingCompartmentId(null);
+        }
       }
     });
   }
@@ -369,6 +473,8 @@ export default function VehicleDetailScreen() {
     });
 
     navigationUnlockTimeoutRef.current = setTimeout(() => {
+      if (!isScreenMountedRef.current) return;
+
       navigationTransitionLockedRef.current = false;
       navigationUnlockTimeoutRef.current = null;
     }, 1500);
