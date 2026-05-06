@@ -56,8 +56,20 @@ function getSubtypePlaceholder(category: "vehicle" | "storage") {
 }
 
 export default function EditStorageScreen() {
-  const params = useLocalSearchParams();
-  const storageId = typeof params.id === "string" ? params.id : "";
+  const params = useLocalSearchParams<{
+    id?: string | string[];
+    storageId?: string | string[];
+  }>();
+
+  const storageId = useMemo(() => {
+    const value = params.storageId ?? params.id;
+
+    if (Array.isArray(value)) {
+      return value[0] ?? "";
+    }
+
+    return value ?? "";
+  }, [params.storageId, params.id]);
 
   const {
     isLocked: interactionLocked,
