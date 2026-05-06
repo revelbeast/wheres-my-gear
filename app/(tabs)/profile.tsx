@@ -1,6 +1,5 @@
 import Constants from "expo-constants";
 import { router } from "expo-router";
-import * as StoreReview from "expo-store-review";
 import {
   ChevronRight,
   CircleHelp,
@@ -44,7 +43,10 @@ const PRIVACY_POLICY_URL =
   "https://revelbeast.github.io/wheres-my-gear-legal/";
 
 const APP_STORE_REVIEW_URL =
-  "itms-apps://itunes.apple.com/app/id6762979732?action=write-review";
+  "https://apps.apple.com/app/id6762979732?action=write-review";
+
+const APP_STORE_FALLBACK_URL =
+  "https://apps.apple.com/app/id6762979732";
 
 function ProfileRow({
   icon,
@@ -423,30 +425,20 @@ export default function ProfileScreen() {
 
     await runWithLock(async () => {
       try {
-        const isAvailable = await StoreReview.isAvailableAsync();
-
-        if (isAvailable) {
-          await StoreReview.requestReview();
-          return;
-        }
-
-        const canOpenStore = await Linking.canOpenURL(APP_STORE_REVIEW_URL);
-
-        if (canOpenStore) {
-          await Linking.openURL(APP_STORE_REVIEW_URL);
-          return;
-        }
-
-        Alert.alert(
-          "Rate the App",
-          "Ratings and reviews will be available after the App Store listing is live."
-        );
+        await Linking.openURL(APP_STORE_REVIEW_URL);
       } catch (err) {
-        console.error("Failed to open app review:", err);
-        Alert.alert(
-          "Unable to Open",
-          "The review screen could not be opened right now."
-        );
+        console.error("Failed to open App Store review page:", err);
+
+        try {
+          await Linking.openURL(APP_STORE_FALLBACK_URL);
+        } catch (fallbackErr) {
+          console.error("Failed to open App Store fallback page:", fallbackErr);
+
+          Alert.alert(
+            "Unable to Open App Store",
+            "Please search for Where's My Gear in the App Store and leave a review there."
+          );
+        }
       }
     });
   }
