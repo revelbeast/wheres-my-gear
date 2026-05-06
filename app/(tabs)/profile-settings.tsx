@@ -45,6 +45,8 @@ const PROFILE_IMAGE_MAX_DIMENSION = 512;
 const BACKGROUND_IMAGE_MAX_WIDTH = 1600;
 const PROFILE_IMAGE_QUALITY = 0.78;
 const BACKGROUND_IMAGE_QUALITY = 0.8;
+const MAX_UPLOAD_ATTEMPTS = 2;
+const UPLOAD_RETRY_DELAYS_MS = [700];
 
 const BACKGROUND_FIT_OPTIONS: {
   label: string;
@@ -97,6 +99,38 @@ function getStoragePathFromUrl(imageUrl?: string) {
     console.log("Could not resolve Firebase Storage path from URL.", err);
     return null;
   }
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function withUploadRetry<T>(
+  operation: () => Promise<T>,
+  operationName: string
+): Promise<T> {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= MAX_UPLOAD_ATTEMPTS; attempt += 1) {
+    try {
+      return await operation();
+    } catch (err) {
+      lastError = err;
+
+      if (attempt >= MAX_UPLOAD_ATTEMPTS) {
+        break;
+      }
+
+      console.log(
+        `${operationName} failed on attempt ${attempt}. Retrying...`,
+        err
+      );
+
+      await sleep(UPLOAD_RETRY_DELAYS_MS[attempt - 1] ?? 1200);
+    }
+  }
+
+  throw lastError;
 }
 
 async function safelyDeleteStoredImage(imageUrl?: string) {
@@ -171,16 +205,26 @@ async function uploadProfileImage(
   kind: ImagePickerKind
 ) {
   const optimizedUri = await optimizeImageForUpload(localUri, kind);
-  const response = await fetch(optimizedUri);
+  const response = await withUploadRetry(
+    () => fetch(optimizedUri),
+    "Image file preparation"
+  );
   const blob = await response.blob();
   const fileName = getStorageSafeFileName(kind);
   const imageRef = ref(storage, `users/${userId}/profile/${fileName}`);
 
-  await uploadBytes(imageRef, blob, {
-    contentType: "image/jpeg",
-  });
+  await withUploadRetry(
+    () =>
+      uploadBytes(imageRef, blob, {
+        contentType: "image/jpeg",
+      }),
+    "Firebase Storage upload"
+  );
 
-  return getDownloadURL(imageRef);
+  return withUploadRetry(
+    () => getDownloadURL(imageRef),
+    "Firebase Storage download URL retrieval"
+  );
 }
 
 function LabeledInput({
@@ -336,7 +380,10 @@ export default function ProfileSettingsScreen() {
       await cleanupStoredImagesForKind(user.uid, "profile", uploadedUrl);
     } catch (err) {
       console.error("Failed to pick profile photo:", err);
-      Alert.alert("Photo upload failed", "Please try selecting a photo again.");
+      Alert.alert(
+        "Photo upload failed",
+        "Please check your connection and try selecting the photo again."
+      );
     } finally {
       setActiveImagePicker(null);
     }
@@ -384,8 +431,11 @@ export default function ProfileSettingsScreen() {
 
       await cleanupStoredImagesForKind(user.uid, "background", uploadedUrl);
     } catch (err) {
-      console.error(err);
-      Alert.alert("Failed", "Could not set background.");
+      console.error("Failed to pick background photo:", err);
+      Alert.alert(
+        "Background upload failed",
+        "Please check your connection and try selecting the background again."
+      );
     } finally {
       setActiveImagePicker(null);
     }
@@ -394,30 +444,46 @@ export default function ProfileSettingsScreen() {
   async function handleRemoveBackground() {
     if (!profile || !user || pickingAnyImage) return;
 
-    const previousBackgroundPhotoUri = profile.backgroundPhotoUri;
+    try {
+      const previousBackgroundPhotoUri = profile.backgroundPhotoUri;
 
-    const nextProfile = {
-      ...profile,
-      backgroundPhotoUri: "",
-      backgroundResizeMode: "cover" as BackgroundResizeMode,
-    };
+      const nextProfile = {
+        ...profile,
+        backgroundPhotoUri: "",
+        backgroundResizeMode: "cover" as BackgroundResizeMode,
+      };
 
-    setProfile(nextProfile);
-    await saveProfileSettings(user.uid, nextProfile);
-    await safelyDeleteStoredImage(previousBackgroundPhotoUri);
-    await cleanupStoredImagesForKind(user.uid, "background");
+      setProfile(nextProfile);
+      await saveProfileSettings(user.uid, nextProfile);
+      await safelyDeleteStoredImage(previousBackgroundPhotoUri);
+      await cleanupStoredImagesForKind(user.uid, "background");
+    } catch (err) {
+      console.error("Failed to remove custom background:", err);
+      Alert.alert(
+        "Background removal failed",
+        "Please check your connection and try removing the background again."
+      );
+    }
   }
 
   async function handleSelectBackgroundFit(mode: BackgroundResizeMode) {
     if (!profile || !user || pickingAnyImage) return;
 
-    const nextProfile = {
-      ...profile,
-      backgroundResizeMode: mode,
-    };
+    try {
+      const nextProfile = {
+        ...profile,
+        backgroundResizeMode: mode,
+      };
 
-    setProfile(nextProfile);
-    await saveProfileSettings(user.uid, nextProfile);
+      setProfile(nextProfile);
+      await saveProfileSettings(user.uid, nextProfile);
+    } catch (err) {
+      console.error("Failed to save background fit:", err);
+      Alert.alert(
+        "Background setting failed",
+        "Please check your connection and try again."
+      );
+    }
   }
 
   async function handleSignOut() {
@@ -489,6 +555,7 @@ export default function ProfileSettingsScreen() {
                 <View style={styles.heroPhotoWrap}>
                   {profile.profilePhotoUri ? (
                     <Image
+                      key={profile.profilePhotoUri}
                       source={{ uri: profile.profilePhotoUri }}
                       style={styles.heroPhoto}
                     />
