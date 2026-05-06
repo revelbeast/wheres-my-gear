@@ -90,9 +90,29 @@ function formatItemForShare(item: Item) {
 
 export default function CompartmentDetailScreen() {
   const params = useLocalSearchParams<{
-    compartmentId: string | string[];
-    vehicleId: string | string[];
+    compartmentId?: string | string[];
+    vehicleId?: string | string[];
   }>();
+
+  const compartmentId = useMemo(() => {
+    const value = params.compartmentId;
+
+    if (Array.isArray(value)) {
+      return value[0] ?? "";
+    }
+
+    return value ?? "";
+  }, [params.compartmentId]);
+
+  const vehicleId = useMemo(() => {
+    const value = params.vehicleId;
+
+    if (Array.isArray(value)) {
+      return value[0] ?? "";
+    }
+
+    return value ?? "";
+  }, [params.vehicleId]);
 
   const theme = useThemedValues();
   const {
@@ -101,16 +121,16 @@ export default function CompartmentDetailScreen() {
     unlock: unlockInteraction,
   } = useInteractionLock();
 
+  const isMountedRef = useRef(true);
+  const loadVersionRef = useRef(0);
   const scrollRef = useRef<ScrollView | null>(null);
   const itemCardYPositions = useRef<Record<string, number>>({});
-
-  const compartmentId = Array.isArray(params.compartmentId)
-    ? params.compartmentId[0]
-    : params.compartmentId;
-
-  const vehicleId = Array.isArray(params.vehicleId)
-    ? params.vehicleId[0]
-    : params.vehicleId;
+  const createBoxScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+  const itemCardScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
 
   const [compartment, setCompartment] = useState<Compartment | null>(null);
   const [items, setItems] = useState<Item[]>([]);
@@ -133,6 +153,43 @@ export default function CompartmentDetailScreen() {
 
   const selectedPhotoUri = selectedPhotoItem?.itemPhotoUri ?? "";
 
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+      loadVersionRef.current += 1;
+
+      if (createBoxScrollTimeoutRef.current) {
+        clearTimeout(createBoxScrollTimeoutRef.current);
+        createBoxScrollTimeoutRef.current = null;
+      }
+
+      if (itemCardScrollTimeoutRef.current) {
+        clearTimeout(itemCardScrollTimeoutRef.current);
+        itemCardScrollTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const loadVersion = loadVersionRef.current + 1;
+    loadVersionRef.current = loadVersion;
+
+    if (!compartmentId) {
+      setCompartment(null);
+      setItems([]);
+      return;
+    }
+
+    void loadCompartment(loadVersion);
+    void loadItems(loadVersion);
+
+    return () => {
+      loadVersionRef.current += 1;
+    };
+  }, [compartmentId]);
+
   async function runWithLock(action: () => Promise<void> | void) {
     if (interactionLocked) return;
 
@@ -145,53 +202,89 @@ export default function CompartmentDetailScreen() {
     }
   }
 
-  useEffect(() => {
-    if (!compartmentId) return;
-    loadCompartment();
-    loadItems();
-  }, [compartmentId]);
-
   function scrollToCreateBox(delay = 140) {
-    setTimeout(() => {
+    if (createBoxScrollTimeoutRef.current) {
+      clearTimeout(createBoxScrollTimeoutRef.current);
+    }
+
+    createBoxScrollTimeoutRef.current = setTimeout(() => {
+      if (!isMountedRef.current) return;
+
       scrollRef.current?.scrollTo({ y: 0, animated: true });
+      createBoxScrollTimeoutRef.current = null;
     }, delay);
   }
 
   function scrollToItemCard(itemId: string, delay = 180) {
-    setTimeout(() => {
+    if (itemCardScrollTimeoutRef.current) {
+      clearTimeout(itemCardScrollTimeoutRef.current);
+    }
+
+    itemCardScrollTimeoutRef.current = setTimeout(() => {
+      if (!isMountedRef.current) return;
+
       const y = itemCardYPositions.current[itemId] ?? 0;
 
       scrollRef.current?.scrollTo({
         y: Math.max(y - 18, 0),
         animated: true,
       });
+
+      itemCardScrollTimeoutRef.current = null;
     }, delay);
   }
 
-  async function loadCompartment() {
+  async function loadCompartment(loadVersion = loadVersionRef.current) {
     try {
       const data = await getCompartmentById(String(compartmentId));
+
+      if (!isMountedRef.current || loadVersionRef.current !== loadVersion) {
+        return;
+      }
+
       setCompartment(data);
     } catch (err) {
+      if (!isMountedRef.current || loadVersionRef.current !== loadVersion) {
+        return;
+      }
+
       console.error("Failed to load compartment:", err);
       setCompartment(null);
     }
   }
 
-  async function loadItems() {
+  async function loadItems(loadVersion = loadVersionRef.current) {
     try {
       const data = await getItemsByCompartment(String(compartmentId));
+
+      if (!isMountedRef.current || loadVersionRef.current !== loadVersion) {
+        return;
+      }
+
       setItems(data);
     } catch (err) {
+      if (!isMountedRef.current || loadVersionRef.current !== loadVersion) {
+        return;
+      }
+
       console.error("Failed to load compartment items:", err);
       setItems([]);
     }
   }
 
+  async function refreshItems() {
+    const loadVersion = loadVersionRef.current + 1;
+    loadVersionRef.current = loadVersion;
+
+    await loadItems(loadVersion);
+  }
+
   function handleToggleCreateBox() {
     if (interactionLocked) return;
 
-    runWithLock(() => {
+    void runWithLock(() => {
+      if (!isMountedRef.current) return;
+
       setShowCreateBox((prev) => !prev);
       scrollToCreateBox(120);
     });
@@ -252,6 +345,8 @@ export default function CompartmentDetailScreen() {
           message,
         });
       } catch (err) {
+        if (!isMountedRef.current) return;
+
         console.error("Failed to share compartment:", err);
         Alert.alert(
           "Compartment not shared",
@@ -271,6 +366,8 @@ export default function CompartmentDetailScreen() {
 
     await runWithLock(async () => {
       try {
+        if (!isMountedRef.current) return;
+
         setSaving(true);
 
         await createItem({
@@ -284,15 +381,22 @@ export default function CompartmentDetailScreen() {
           itemPhotoUri: "",
         });
 
+        if (!isMountedRef.current) return;
+
         setItemName("");
         setQuantity("1");
         setShowCreateBox(false);
-        await loadItems();
+
+        await refreshItems();
       } catch (err) {
+        if (!isMountedRef.current) return;
+
         console.error("Failed to create item:", err);
         Alert.alert("Error", "Failed to create item.");
       } finally {
-        setSaving(false);
+        if (isMountedRef.current) {
+          setSaving(false);
+        }
       }
     });
   }
@@ -300,7 +404,9 @@ export default function CompartmentDetailScreen() {
   function startEditingItem(item: Item) {
     if (interactionLocked) return;
 
-    runWithLock(() => {
+    void runWithLock(() => {
+      if (!isMountedRef.current) return;
+
       setEditingItemId(item.id);
       setEditingItemName(item.name);
       scrollToItemCard(item.id, 220);
@@ -310,7 +416,9 @@ export default function CompartmentDetailScreen() {
   function cancelEditingItem() {
     if (interactionLocked) return;
 
-    runWithLock(() => {
+    void runWithLock(() => {
+      if (!isMountedRef.current) return;
+
       setEditingItemId(null);
       setEditingItemName("");
     });
@@ -322,16 +430,26 @@ export default function CompartmentDetailScreen() {
 
     await runWithLock(async () => {
       try {
+        if (!isMountedRef.current) return;
+
         setSavingEdit(true);
         await updateItem(item.id, { name: trimmed });
+
+        if (!isMountedRef.current) return;
+
         setEditingItemId(null);
         setEditingItemName("");
-        await loadItems();
+
+        await refreshItems();
       } catch (err) {
+        if (!isMountedRef.current) return;
+
         console.error("Failed to update item:", err);
         Alert.alert("Error", "Failed to update item.");
       } finally {
-        setSavingEdit(false);
+        if (isMountedRef.current) {
+          setSavingEdit(false);
+        }
       }
     });
   }
@@ -344,6 +462,8 @@ export default function CompartmentDetailScreen() {
       const nextQuantity = currentQuantity + delta;
 
       try {
+        if (!isMountedRef.current) return;
+
         setUpdatingQuantityId(item.id);
 
         if (nextQuantity <= 0) {
@@ -354,12 +474,16 @@ export default function CompartmentDetailScreen() {
           });
         }
 
-        await loadItems();
+        await refreshItems();
       } catch (err) {
+        if (!isMountedRef.current) return;
+
         console.error("Failed to update item quantity:", err);
         Alert.alert("Error", "Failed to update quantity.");
       } finally {
-        setUpdatingQuantityId(null);
+        if (isMountedRef.current) {
+          setUpdatingQuantityId(null);
+        }
       }
     });
   }
@@ -371,14 +495,21 @@ export default function CompartmentDetailScreen() {
       const nextStatus = isPackedItem(item) ? "missing" : "packed";
 
       try {
+        if (!isMountedRef.current) return;
+
         setUpdatingStatusId(item.id);
         await updateItem(item.id, { status: nextStatus });
-        await loadItems();
+
+        await refreshItems();
       } catch (err) {
+        if (!isMountedRef.current) return;
+
         console.error("Failed to update item status:", err);
         Alert.alert("Error", "Failed to update packed status.");
       } finally {
-        setUpdatingStatusId(null);
+        if (isMountedRef.current) {
+          setUpdatingStatusId(null);
+        }
       }
     });
   }
@@ -386,7 +517,7 @@ export default function CompartmentDetailScreen() {
   function confirmDeleteItem(item: Item) {
     if (interactionLocked) return;
 
-    runWithLock(() => {
+    void runWithLock(() => {
       Alert.alert(
         "Delete item?",
         `Delete "${item.name}"? This cannot be undone.`,
@@ -401,8 +532,10 @@ export default function CompartmentDetailScreen() {
               await runWithLock(async () => {
                 try {
                   await deleteItem(item.id);
-                  await loadItems();
+                  await refreshItems();
                 } catch (err) {
+                  if (!isMountedRef.current) return;
+
                   console.error("Failed to delete item:", err);
                   Alert.alert("Error", "Failed to delete item.");
                 }
@@ -417,7 +550,9 @@ export default function CompartmentDetailScreen() {
   function handleOpenPhotoViewer(item: Item) {
     if (interactionLocked) return;
 
-    runWithLock(() => {
+    void runWithLock(() => {
+      if (!isMountedRef.current) return;
+
       if (!item.itemPhotoUri) {
         handleItemPhotoAction(item);
         return;
@@ -436,7 +571,7 @@ export default function CompartmentDetailScreen() {
   function handleItemPhotoAction(item: Item) {
     if (interactionLocked || updatingPhotoId === item.id) return;
 
-    runWithLock(() => {
+    void runWithLock(() => {
       Alert.alert("Item Photo", item.name, [
         {
           text: "Take Photo",
@@ -471,12 +606,16 @@ export default function CompartmentDetailScreen() {
         const permission = await ImagePicker.requestCameraPermissionsAsync();
 
         if (!permission.granted) {
+          if (!isMountedRef.current) return;
+
           Alert.alert(
             "Camera access needed",
             "Please allow camera access first."
           );
           return;
         }
+
+        if (!isMountedRef.current) return;
 
         setUpdatingPhotoId(item.id);
 
@@ -490,14 +629,22 @@ export default function CompartmentDetailScreen() {
 
         const asset = result.assets?.[0];
         if (!asset?.uri) {
+          if (!isMountedRef.current) return;
+
           Alert.alert("Photo not captured", "No valid image was returned.");
           return;
         }
 
         await updateItemPhoto(item.id, asset.uri);
+
+        if (!isMountedRef.current) return;
+
         setSelectedPhotoItem({ ...item, itemPhotoUri: asset.uri });
-        await loadItems();
+
+        await refreshItems();
       } catch (err: any) {
+        if (!isMountedRef.current) return;
+
         const message = String(err?.message ?? err ?? "");
         if (
           message.toLowerCase().includes("camera not available on simulator")
@@ -511,7 +658,9 @@ export default function CompartmentDetailScreen() {
           Alert.alert("Error", "Failed to save item photo.");
         }
       } finally {
-        setUpdatingPhotoId(null);
+        if (isMountedRef.current) {
+          setUpdatingPhotoId(null);
+        }
       }
     });
   }
@@ -521,6 +670,8 @@ export default function CompartmentDetailScreen() {
 
     await runWithLock(async () => {
       try {
+        if (!isMountedRef.current) return;
+
         setUpdatingPhotoId(item.id);
 
         const result = await ImagePicker.launchImageLibraryAsync({
@@ -533,18 +684,28 @@ export default function CompartmentDetailScreen() {
 
         const asset = result.assets?.[0];
         if (!asset?.uri) {
+          if (!isMountedRef.current) return;
+
           Alert.alert("Photo not selected", "No valid image was returned.");
           return;
         }
 
         await updateItemPhoto(item.id, asset.uri);
+
+        if (!isMountedRef.current) return;
+
         setSelectedPhotoItem({ ...item, itemPhotoUri: asset.uri });
-        await loadItems();
+
+        await refreshItems();
       } catch (err) {
+        if (!isMountedRef.current) return;
+
         console.error("Failed to choose item photo:", err);
         Alert.alert("Error", "Failed to save item photo.");
       } finally {
-        setUpdatingPhotoId(null);
+        if (isMountedRef.current) {
+          setUpdatingPhotoId(null);
+        }
       }
     });
   }
@@ -554,15 +715,25 @@ export default function CompartmentDetailScreen() {
 
     await runWithLock(async () => {
       try {
+        if (!isMountedRef.current) return;
+
         setUpdatingPhotoId(item.id);
         await updateItemPhoto(item.id, "");
+
+        if (!isMountedRef.current) return;
+
         handleClosePhotoViewer();
-        await loadItems();
+
+        await refreshItems();
       } catch (err) {
+        if (!isMountedRef.current) return;
+
         console.error("Failed to remove item photo:", err);
         Alert.alert("Error", "Failed to remove item photo.");
       } finally {
-        setUpdatingPhotoId(null);
+        if (isMountedRef.current) {
+          setUpdatingPhotoId(null);
+        }
       }
     });
   }
@@ -570,7 +741,7 @@ export default function CompartmentDetailScreen() {
   function confirmRemovePhoto(item: Item) {
     if (interactionLocked || updatingPhotoId === item.id) return;
 
-    runWithLock(() => {
+    void runWithLock(() => {
       Alert.alert("Delete photo?", `Remove the photo for "${item.name}"?`, [
         { text: "Cancel", style: "cancel" },
         {
@@ -646,9 +817,7 @@ export default function CompartmentDetailScreen() {
           style={[
             packed ? styles.packedItemCard : styles.unpackedItemCard,
             {
-              borderColor: packed
-                ? theme.colors.success
-                : theme.colors.border,
+              borderColor: packed ? theme.colors.success : theme.colors.border,
               backgroundColor: theme.colors.card,
             },
           ]}
