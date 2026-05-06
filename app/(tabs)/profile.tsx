@@ -233,6 +233,8 @@ export default function ProfileScreen() {
     }
 
     navigationUnlockTimeoutRef.current = setTimeout(() => {
+      if (!isScreenMountedRef.current) return;
+
       navigationTransitionLockedRef.current = false;
       navigationUnlockTimeoutRef.current = null;
     }, 1500);
