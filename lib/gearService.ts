@@ -295,7 +295,27 @@ export async function updateCompartment(
 }
 
 export async function deleteCompartment(compartmentId: string) {
-  await deleteDoc(compartmentDoc(compartmentId));
+  const trimmedCompartmentId = compartmentId.trim();
+
+  if (!trimmedCompartmentId) {
+    throw new Error("Compartment ID is required.");
+  }
+
+  const relatedItemsQuery = query(
+    inventoryCol(),
+    where("compartmentId", "==", trimmedCompartmentId)
+  );
+
+  const relatedItemsSnapshot = await getDocs(relatedItemsQuery);
+  const batch = writeBatch(db);
+
+  relatedItemsSnapshot.docs.forEach((itemSnapshot) => {
+    batch.delete(itemSnapshot.ref);
+  });
+
+  batch.delete(compartmentDoc(trimmedCompartmentId));
+
+  await batch.commit();
 }
 
 export async function getAllCompartments(): Promise<Compartment[]> {

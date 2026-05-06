@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import {
+  Alert,
   StyleSheet,
   Text,
   View,
@@ -71,6 +72,11 @@ export default function CreateStorageScreen() {
       router.back();
     } catch (err) {
       console.error("Failed to create storage space:", err);
+
+      Alert.alert(
+        "Storage Space Creation Failed",
+        "Please check your internet connection and try again."
+      );
     } finally {
       setSaving(false);
     }
