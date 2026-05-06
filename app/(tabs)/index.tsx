@@ -372,6 +372,8 @@ export default function DashboardScreen() {
   const navigationUnlockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
+  const isMountedRef = useRef(true);
+  const dashboardLoadVersionRef = useRef(0);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResultItem[]>([]);
@@ -447,7 +449,12 @@ export default function DashboardScreen() {
   const hasStorageSpaces = storageSpaces.length > 0;
 
   useEffect(() => {
+    isMountedRef.current = true;
+
     return () => {
+      isMountedRef.current = false;
+      dashboardLoadVersionRef.current += 1;
+
       if (navigationUnlockTimeoutRef.current) {
         clearTimeout(navigationUnlockTimeoutRef.current);
       }
@@ -519,9 +526,19 @@ export default function DashboardScreen() {
         return;
       }
 
-      loadDashboardData();
-      loadProfilePhoto();
-    }, [initializing, user, isPremiumLoading, isPremium, selectedStorageId])
+      let isActive = true;
+      const activeUserId = user.uid;
+      const loadVersion = dashboardLoadVersionRef.current + 1;
+      dashboardLoadVersionRef.current = loadVersion;
+
+      loadDashboardData(activeUserId, loadVersion, () => isActive);
+      loadProfilePhoto(activeUserId, loadVersion, () => isActive);
+
+      return () => {
+        isActive = false;
+        dashboardLoadVersionRef.current += 1;
+      };
+    }, [initializing, user, isPremiumLoading, isPremium])
   );
 
   async function runWithLock(action: () => Promise<void> | void) {
@@ -770,42 +787,53 @@ export default function DashboardScreen() {
     }
   }, [initializing, user]);
 
-  async function loadProfilePhoto() {
-    if (!user) {
-      setProfilePhotoUri("");
-      setProfilePhotoFailed(false);
-      return;
-    }
-
+  async function loadProfilePhoto(
+    activeUserId: string,
+    loadVersion: number,
+    isActive: () => boolean
+  ) {
     try {
-      const profile = await getProfileSettings(user.uid);
+      const profile = await getProfileSettings(activeUserId);
+
+      if (
+        !isMountedRef.current ||
+        !isActive() ||
+        dashboardLoadVersionRef.current !== loadVersion
+      ) {
+        return;
+      }
+
       setProfilePhotoUri(profile.profilePhotoUri ?? "");
       setProfilePhotoFailed(false);
     } catch (err) {
+      if (
+        !isMountedRef.current ||
+        !isActive() ||
+        dashboardLoadVersionRef.current !== loadVersion
+      ) {
+        return;
+      }
+
       console.error("Failed to load profile photo:", err);
       setProfilePhotoUri("");
       setProfilePhotoFailed(false);
     }
   }
 
-  async function loadDashboardData() {
-    if (!user) {
-      setStorageSpaces([]);
-      setSelectedStorageId(null);
-      setAllItems([]);
-      setAllCompartments([]);
-      setAllChecklists([]);
-      setAllChecklistItems([]);
-      setAllTemplates([]);
-      setAllTemplateItems([]);
-      setSelectedCompartments([]);
-      setQuickCompartments([]);
-      setUpcomingTrips([]);
-      return;
-    }
-
+  async function loadDashboardData(
+    activeUserId: string,
+    loadVersion: number,
+    isActive: () => boolean
+  ) {
     try {
       const spaces = await getStorageSpaces();
+      if (
+        !isMountedRef.current ||
+        !isActive() ||
+        dashboardLoadVersionRef.current !== loadVersion
+      ) {
+        return;
+      }
       setStorageSpaces(spaces);
 
       const chosenId =
@@ -816,35 +844,74 @@ export default function DashboardScreen() {
       setSelectedStorageId(chosenId);
 
       const all = await getAllItems();
+      if (
+        !isMountedRef.current ||
+        !isActive() ||
+        dashboardLoadVersionRef.current !== loadVersion
+      ) {
+        return;
+      }
       setAllItems(all);
 
       const compartmentsSnapshot = await getDocs(
-        collection(db, "users", user.uid, "compartments")
+        collection(db, "users", activeUserId, "compartments")
       );
       const compartments = compartmentsSnapshot.docs.map((docSnap) => ({
         id: docSnap.id,
         ...docSnap.data(),
       })) as Compartment[];
+
+      if (
+        !isMountedRef.current ||
+        !isActive() ||
+        dashboardLoadVersionRef.current !== loadVersion
+      ) {
+        return;
+      }
+
       setAllCompartments(compartments);
 
       const checklistsSnapshot = await getDocs(
-        collection(db, "users", user.uid, "checklists")
+        collection(db, "users", activeUserId, "checklists")
       );
       const checklists = checklistsSnapshot.docs.map((docSnap) => ({
         id: docSnap.id,
         ...docSnap.data(),
       })) as Checklist[];
+
+      if (
+        !isMountedRef.current ||
+        !isActive() ||
+        dashboardLoadVersionRef.current !== loadVersion
+      ) {
+        return;
+      }
+
       setAllChecklists(checklists);
 
-      const assignedChecklistItems = await getAssignedChecklistItems(user.uid);
+      const assignedChecklistItems = await getAssignedChecklistItems(activeUserId);
+      if (
+        !isMountedRef.current ||
+        !isActive() ||
+        dashboardLoadVersionRef.current !== loadVersion
+      ) {
+        return;
+      }
       setAllChecklistItems(assignedChecklistItems);
 
-      const templates = await getChecklistTemplates(user.uid);
+      const templates = await getChecklistTemplates(activeUserId);
+      if (
+        !isMountedRef.current ||
+        !isActive() ||
+        dashboardLoadVersionRef.current !== loadVersion
+      ) {
+        return;
+      }
       setAllTemplates(templates);
 
       const templateItemsNested = await Promise.all(
         templates.map(async (template) => {
-          const items = await getChecklistTemplateItems(user.uid, template.id);
+          const items = await getChecklistTemplateItems(activeUserId, template.id);
 
           return items.map((item) => ({
             ...item,
@@ -854,11 +921,26 @@ export default function DashboardScreen() {
         })
       );
 
+      if (
+        !isMountedRef.current ||
+        !isActive() ||
+        dashboardLoadVersionRef.current !== loadVersion
+      ) {
+        return;
+      }
+
       setAllTemplateItems(templateItemsNested.flat());
 
       const tripsSnapshot = await getDocs(
-        collection(db, "users", user.uid, "trips")
+        collection(db, "users", activeUserId, "trips")
       );
+      if (
+        !isMountedRef.current ||
+        !isActive() ||
+        dashboardLoadVersionRef.current !== loadVersion
+      ) {
+        return;
+      }
       const today = getStartOfDay(new Date());
 
       const trips = tripsSnapshot.docs
@@ -907,6 +989,13 @@ export default function DashboardScreen() {
       const scopedItems = all.filter((item) => item.vehicleId === chosenId);
 
       const scopedCompartments = await getCompartments(chosenId);
+      if (
+        !isMountedRef.current ||
+        !isActive() ||
+        dashboardLoadVersionRef.current !== loadVersion
+      ) {
+        return;
+      }
       setSelectedCompartments(scopedCompartments);
 
       const quickData = scopedCompartments
@@ -922,7 +1011,16 @@ export default function DashboardScreen() {
 
       setQuickCompartments(quickData);
     } catch (err) {
+      if (
+        !isMountedRef.current ||
+        !isActive() ||
+        dashboardLoadVersionRef.current !== loadVersion
+      ) {
+        return;
+      }
+
       console.error("Failed to load dashboard data:", err);
+
       setStorageSpaces([]);
       setSelectedStorageId(null);
       setAllItems([]);
