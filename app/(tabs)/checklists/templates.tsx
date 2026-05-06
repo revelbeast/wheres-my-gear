@@ -68,6 +68,9 @@ export default function ManageTemplatesScreen() {
     unlock: unlockInteraction,
   } = useInteractionLock(450);
 
+  const isMountedRef = useRef(true);
+  const templatesLoadVersionRef = useRef(0);
+  const previewLoadVersionRef = useRef(0);
   const navigationTransitionLockedRef = useRef(false);
   const navigationUnlockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
@@ -84,24 +87,41 @@ export default function ManageTemplatesScreen() {
     useState<ChecklistTemplate | null>(null);
 
   useEffect(() => {
+    isMountedRef.current = true;
+
     return () => {
+      isMountedRef.current = false;
+      templatesLoadVersionRef.current += 1;
+      previewLoadVersionRef.current += 1;
+
       if (navigationUnlockTimeoutRef.current) {
         clearTimeout(navigationUnlockTimeoutRef.current);
+        navigationUnlockTimeoutRef.current = null;
       }
     };
   }, []);
 
   useFocusEffect(
     useCallback(() => {
+      const loadVersion = templatesLoadVersionRef.current + 1;
+      templatesLoadVersionRef.current = loadVersion;
+
       if (initializing) return;
 
       if (!user) {
-        setTemplates([]);
-        setLoading(false);
+        if (isMountedRef.current) {
+          setTemplates([]);
+          setLoading(false);
+        }
+
         return;
       }
 
-      loadTemplates();
+      void loadTemplates(loadVersion);
+
+      return () => {
+        templatesLoadVersionRef.current += 1;
+      };
     }, [initializing, user])
   );
 
@@ -126,9 +146,12 @@ export default function ManageTemplatesScreen() {
 
     if (navigationUnlockTimeoutRef.current) {
       clearTimeout(navigationUnlockTimeoutRef.current);
+      navigationUnlockTimeoutRef.current = null;
     }
 
     navigationUnlockTimeoutRef.current = setTimeout(() => {
+      if (!isMountedRef.current) return;
+
       navigationTransitionLockedRef.current = false;
       navigationUnlockTimeoutRef.current = null;
     }, 1500);
@@ -147,35 +170,76 @@ export default function ManageTemplatesScreen() {
     action();
   }
 
-  async function loadTemplates() {
+  async function loadTemplates(loadVersion = templatesLoadVersionRef.current) {
     if (!user) return;
 
     try {
-      setLoading(true);
+      if (
+        isMountedRef.current &&
+        templatesLoadVersionRef.current === loadVersion
+      ) {
+        setLoading(true);
+      }
+
       const data = await getChecklistTemplates(user.uid);
+
+      if (
+        !isMountedRef.current ||
+        templatesLoadVersionRef.current !== loadVersion
+      ) {
+        return;
+      }
+
       setTemplates(data);
     } catch (err) {
       console.error("Failed to load templates:", err);
-      setTemplates([]);
+
+      if (
+        isMountedRef.current &&
+        templatesLoadVersionRef.current === loadVersion
+      ) {
+        setTemplates([]);
+      }
     } finally {
-      setLoading(false);
+      if (
+        isMountedRef.current &&
+        templatesLoadVersionRef.current === loadVersion
+      ) {
+        setLoading(false);
+      }
     }
   }
 
   async function handlePreviewTemplate(template: ChecklistTemplate) {
     if (!user || interactionLocked) return;
 
-    await runWithLock(async () => {
-      if (!user) return;
+    const previewVersion = previewLoadVersionRef.current + 1;
+    previewLoadVersionRef.current = previewVersion;
+    const uid = user.uid;
 
+    await runWithLock(async () => {
       try {
-        const items = await getChecklistTemplateItems(user.uid, template.id);
+        const items = await getChecklistTemplateItems(uid, template.id);
+
+        if (
+          !isMountedRef.current ||
+          previewLoadVersionRef.current !== previewVersion
+        ) {
+          return;
+        }
 
         Alert.alert(
           template.name,
           items.map((i) => `• ${i.name}`).join("\n") || "No items"
         );
       } catch (err) {
+        if (
+          !isMountedRef.current ||
+          previewLoadVersionRef.current !== previewVersion
+        ) {
+          return;
+        }
+
         console.error(err);
         Alert.alert("Error", "Failed to load template preview.");
       }
@@ -211,30 +275,44 @@ export default function ManageTemplatesScreen() {
       return;
     }
 
-    await runWithLock(async () => {
-      if (!selectedTemplate || !user) return;
+    const templateToRename = selectedTemplate;
+    const uid = user.uid;
 
+    await runWithLock(async () => {
       try {
+        if (!isMountedRef.current) return;
+
         setSavingRename(true);
 
-        await updateChecklistTemplateName(user.uid, selectedTemplate.id, trimmed);
+        await updateChecklistTemplateName(uid, templateToRename.id, trimmed);
+
+        if (!isMountedRef.current) return;
 
         setRenameVisible(false);
         setSelectedTemplate(null);
         setRenameValue("");
 
-        await loadTemplates();
+        const loadVersion = templatesLoadVersionRef.current + 1;
+        templatesLoadVersionRef.current = loadVersion;
+
+        await loadTemplates(loadVersion);
       } catch (err) {
+        if (!isMountedRef.current) return;
+
         console.error(err);
         Alert.alert("Error", "Failed to rename template.");
       } finally {
-        setSavingRename(false);
+        if (isMountedRef.current) {
+          setSavingRename(false);
+        }
       }
     });
   }
 
   function handleDeleteTemplate(template: ChecklistTemplate) {
     if (!user || interactionLocked || savingRename) return;
+
+    const uid = user.uid;
 
     Alert.alert("Delete Template", `Delete "${template.name}"?`, [
       { text: "Cancel", style: "cancel" },
@@ -243,12 +321,16 @@ export default function ManageTemplatesScreen() {
         style: "destructive",
         onPress: () => {
           void runWithLock(async () => {
-            if (!user) return;
-
             try {
-              await deleteChecklistTemplate(user.uid, template.id);
-              await loadTemplates();
+              await deleteChecklistTemplate(uid, template.id);
+
+              const loadVersion = templatesLoadVersionRef.current + 1;
+              templatesLoadVersionRef.current = loadVersion;
+
+              await loadTemplates(loadVersion);
             } catch (err) {
+              if (!isMountedRef.current) return;
+
               console.error(err);
               Alert.alert("Error", "Failed to delete template.");
             }
@@ -257,6 +339,9 @@ export default function ManageTemplatesScreen() {
       },
     ]);
   }
+
+  const navigationDisabled =
+    interactionLocked || navigationTransitionLockedRef.current;
 
   return (
     <ScreenBackground>
@@ -279,9 +364,12 @@ export default function ManageTemplatesScreen() {
               <FrostedCard key={template.id}>
                 <View style={styles.templateRow}>
                   <HapticPressable
-                    style={styles.templateMainPressable}
+                    style={[
+                      styles.templateMainPressable,
+                      navigationDisabled && styles.disabledButton,
+                    ]}
                     onPress={() => handleEditTemplateItems(template)}
-                    disabled={interactionLocked}
+                    disabled={navigationDisabled}
                   >
                     <View style={styles.templateLeft}>
                       <Text
@@ -297,12 +385,12 @@ export default function ManageTemplatesScreen() {
                         <HapticPressable
                           onPress={() => handlePreviewTemplate(template)}
                           hitSlop={10}
-                          disabled={interactionLocked}
+                          disabled={navigationDisabled}
                         >
                           <Text
                             style={[
                               styles.previewText,
-                              interactionLocked && styles.disabledButton,
+                              navigationDisabled && styles.disabledButton,
                             ]}
                           >
                             Preview
@@ -324,14 +412,14 @@ export default function ManageTemplatesScreen() {
                   <View style={styles.templateActions}>
                     <HapticPressable
                       onPress={() => handleOpenRename(template)}
-                      disabled={interactionLocked || savingRename}
+                      disabled={navigationDisabled || savingRename}
                       style={[
                         styles.iconButton,
                         {
                           backgroundColor: theme.colors.iconSurface,
                           borderColor: theme.colors.border,
                         },
-                        (interactionLocked || savingRename) &&
+                        (navigationDisabled || savingRename) &&
                           styles.disabledButton,
                       ]}
                     >
@@ -340,14 +428,14 @@ export default function ManageTemplatesScreen() {
 
                     <HapticPressable
                       onPress={() => handleDeleteTemplate(template)}
-                      disabled={interactionLocked || savingRename}
+                      disabled={navigationDisabled || savingRename}
                       style={[
                         styles.iconButton,
                         {
                           backgroundColor: theme.colors.iconSurface,
                           borderColor: theme.colors.border,
                         },
-                        (interactionLocked || savingRename) &&
+                        (navigationDisabled || savingRename) &&
                           styles.disabledButton,
                       ]}
                     >
@@ -390,19 +478,19 @@ export default function ManageTemplatesScreen() {
                 ]}
                 autoFocus
                 returnKeyType="done"
-                editable={!savingRename && !interactionLocked}
+                editable={!savingRename && !navigationDisabled}
                 onSubmitEditing={handleSaveRename}
               />
 
               <HapticPressable
                 style={[
                   styles.saveButton,
-                  !renameValue.trim() || savingRename || interactionLocked
+                  !renameValue.trim() || savingRename || navigationDisabled
                     ? styles.disabledButton
                     : {},
                 ]}
                 onPress={handleSaveRename}
-                disabled={!renameValue.trim() || savingRename || interactionLocked}
+                disabled={!renameValue.trim() || savingRename || navigationDisabled}
               >
                 <Text style={styles.saveButtonText}>
                   {savingRename ? "Saving..." : "Save"}
@@ -413,9 +501,9 @@ export default function ManageTemplatesScreen() {
                 onPress={handleCloseRename}
                 style={[
                   styles.cancelButton,
-                  (savingRename || interactionLocked) && styles.disabledButton,
+                  (savingRename || navigationDisabled) && styles.disabledButton,
                 ]}
-                disabled={savingRename || interactionLocked}
+                disabled={savingRename || navigationDisabled}
               >
                 <Text
                   style={[
