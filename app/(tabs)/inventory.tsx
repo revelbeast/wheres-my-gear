@@ -9,18 +9,19 @@ import {
   FolderCog,
   Search,
 } from "lucide-react-native";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  FlatList,
-  StyleSheet,
-  TextInput,
-  View,
-} from "react-native";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { FlatList, StyleSheet, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../components/auth/AuthProvider";
-import ScreenBackground from "../../components/ui/ScreenBackground";
 import HapticPressable from "../../components/ui/HapticPressable";
+import ScreenBackground from "../../components/ui/ScreenBackground";
 import { ThemedButton, ThemedText } from "../../components/ui/Themed";
 import {
   getAllItems,
@@ -51,6 +52,8 @@ export default function InventoryScreen() {
   const { user, initializing } = useAuth();
   const params = useLocalSearchParams<{ status?: string }>();
   const theme = useTheme();
+  const isScreenMountedRef = useRef(true);
+  const inventoryLoadVersionRef = useRef(0);
   const {
     isLocked: interactionLocked,
     lock: lockInteraction,
@@ -78,15 +81,34 @@ export default function InventoryScreen() {
     setStatusFilter("all");
   }, [params.status]);
 
+  useEffect(() => {
+    isScreenMountedRef.current = true;
+
+    return () => {
+      isScreenMountedRef.current = false;
+    };
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
-      if (initializing || !user) {
+      const loadVersion = inventoryLoadVersionRef.current + 1;
+      inventoryLoadVersionRef.current = loadVersion;
+
+      if (initializing) {
+        return;
+      }
+
+      if (!user) {
         setInventoryItems([]);
         setStorageSpaces([]);
         return;
       }
 
-      loadInventoryData();
+      void loadInventoryData(loadVersion);
+
+      return () => {
+        inventoryLoadVersionRef.current += 1;
+      };
     }, [initializing, user])
   );
 
@@ -102,7 +124,7 @@ export default function InventoryScreen() {
     }
   }
 
-  async function loadInventoryData() {
+  async function loadInventoryData(loadVersion: number) {
     if (!user) return;
 
     try {
@@ -111,9 +133,23 @@ export default function InventoryScreen() {
         getStorageSpaces(),
       ]);
 
+      if (
+        inventoryLoadVersionRef.current !== loadVersion ||
+        !isScreenMountedRef.current
+      ) {
+        return;
+      }
+
       setInventoryItems(items);
       setStorageSpaces(spaces);
     } catch {
+      if (
+        inventoryLoadVersionRef.current !== loadVersion ||
+        !isScreenMountedRef.current
+      ) {
+        return;
+      }
+
       setInventoryItems([]);
       setStorageSpaces([]);
     }
@@ -284,9 +320,7 @@ export default function InventoryScreen() {
             styles.filterChip,
             {
               backgroundColor: theme.colors.card,
-              borderColor: selected
-                ? theme.colors.primary
-                : theme.colors.border,
+              borderColor: selected ? theme.colors.primary : theme.colors.border,
             },
           ]}
         >
@@ -456,7 +490,9 @@ export default function InventoryScreen() {
                   >
                     <View style={styles.itemRow}>
                       <View style={{ flex: 1 }}>
-                        <ThemedText variant="bodyStrong">{item.name}</ThemedText>
+                        <ThemedText variant="bodyStrong">
+                          {item.name}
+                        </ThemedText>
 
                         <ThemedText color="secondary">
                           {item.resolvedCompartmentName} •{" "}
