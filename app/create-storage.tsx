@@ -4,16 +4,16 @@ import {
   Text,
   View,
   TextInput,
-  Pressable,
   ScrollView,
 } from "react-native";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import ScreenBackground from "../components/ui/ScreenBackground";
 import AppHeader from "../components/ui/AppHeader";
-import { colors } from "../theme/tokens";
+import HapticPressable from "../components/ui/HapticPressable";
+import ScreenBackground from "../components/ui/ScreenBackground";
 import { createStorageSpace } from "../lib/gearService";
+import { colors } from "../theme/tokens";
 
 const VEHICLE_TYPES = [
   "Car",
@@ -110,7 +110,7 @@ export default function CreateStorageScreen() {
 
           <Text style={styles.label}>Category</Text>
           <View style={styles.segmentContainer}>
-            <Pressable
+            <HapticPressable
               style={[
                 styles.segmentButton,
                 category === "vehicle" && styles.segmentActive,
@@ -125,9 +125,9 @@ export default function CreateStorageScreen() {
               >
                 Vehicle
               </Text>
-            </Pressable>
+            </HapticPressable>
 
-            <Pressable
+            <HapticPressable
               style={[
                 styles.segmentButton,
                 category === "storage" && styles.segmentActive,
@@ -142,14 +142,14 @@ export default function CreateStorageScreen() {
               >
                 Storage
               </Text>
-            </Pressable>
+            </HapticPressable>
           </View>
 
           <Text style={styles.label}>Type</Text>
 
           <View style={styles.typeContainer}>
             {typeOptions.map((type) => (
-              <Pressable
+              <HapticPressable
                 key={type}
                 style={[
                   styles.typeChip,
@@ -165,7 +165,7 @@ export default function CreateStorageScreen() {
                 >
                   {type}
                 </Text>
-              </Pressable>
+              </HapticPressable>
             ))}
           </View>
 
@@ -182,7 +182,7 @@ export default function CreateStorageScreen() {
             </>
           )}
 
-          <Pressable
+          <HapticPressable
             style={[
               styles.button,
               (!name.trim() || !finalSubtype || saving) &&
@@ -194,7 +194,7 @@ export default function CreateStorageScreen() {
             <Text style={styles.buttonText}>
               {saving ? "Creating..." : "Create Storage Space"}
             </Text>
-          </Pressable>
+          </HapticPressable>
         </ScrollView>
       </SafeAreaView>
     </ScreenBackground>

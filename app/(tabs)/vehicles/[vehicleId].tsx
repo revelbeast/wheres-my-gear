@@ -15,7 +15,6 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   Share,
   StyleSheet,
@@ -27,6 +26,7 @@ import { Swipeable } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import AppHeader from "../../../components/ui/AppHeader";
+import HapticPressable from "../../../components/ui/HapticPressable";
 import ScreenBackground from "../../../components/ui/ScreenBackground";
 import {
   Compartment,
@@ -327,7 +327,7 @@ export default function VehicleDetailScreen() {
 
   function renderRightActions(compartment: Compartment) {
     return (
-      <Pressable
+      <HapticPressable
         style={[
           styles.swipeDeleteAction,
           isBusy() && styles.disabledInteraction,
@@ -337,7 +337,7 @@ export default function VehicleDetailScreen() {
       >
         <Trash2 size={18} color="#fff" />
         <Text style={styles.swipeDeleteText}>Delete</Text>
-      </Pressable>
+      </HapticPressable>
     );
   }
 
@@ -375,7 +375,7 @@ export default function VehicleDetailScreen() {
   }
 
   const headerRight = (
-    <Pressable
+    <HapticPressable
       style={[styles.headerAddButton, isBusy() && styles.disabledInteraction]}
       onPress={toggleCreateBox}
       disabled={isBusy()}
@@ -389,7 +389,7 @@ export default function VehicleDetailScreen() {
           <Plus size={24} color="#fff" />
         )}
       </BlurView>
-    </Pressable>
+    </HapticPressable>
   );
 
   return (
@@ -423,7 +423,7 @@ export default function VehicleDetailScreen() {
                 </Text>
               </View>
 
-              <Pressable
+              <HapticPressable
                 style={[
                   styles.topActionButton,
                   isBusy() && styles.disabledInteraction,
@@ -445,10 +445,10 @@ export default function VehicleDetailScreen() {
                     </>
                   )}
                 </BlurView>
-              </Pressable>
+              </HapticPressable>
             </BlurView>
 
-            <Pressable
+            <HapticPressable
               style={[
                 styles.shareStorageButton,
                 isBusy() && styles.disabledInteraction,
@@ -460,7 +460,7 @@ export default function VehicleDetailScreen() {
               <Text style={styles.shareStorageButtonText}>
                 Share Storage Space
               </Text>
-            </Pressable>
+            </HapticPressable>
 
             {showCreateBox && (
               <BlurView intensity={18} tint="dark" style={styles.createCard}>
@@ -480,7 +480,7 @@ export default function VehicleDetailScreen() {
                     autoFocus
                   />
 
-                  <Pressable
+                  <HapticPressable
                     style={[
                       styles.createButton,
                       (!newCompartmentName.trim() ||
@@ -496,7 +496,7 @@ export default function VehicleDetailScreen() {
                     }
                   >
                     <Plus size={18} color="#fff" />
-                  </Pressable>
+                  </HapticPressable>
                 </View>
               </BlurView>
             )}
@@ -552,7 +552,7 @@ export default function VehicleDetailScreen() {
                           />
 
                           <View style={styles.editActions}>
-                            <Pressable
+                            <HapticPressable
                               style={[
                                 styles.saveEditButton,
                                 (!editingCompartmentName.trim() ||
@@ -571,9 +571,9 @@ export default function VehicleDetailScreen() {
                               <Text style={styles.saveEditText}>
                                 {savingEdit ? "Saving..." : "Save"}
                               </Text>
-                            </Pressable>
+                            </HapticPressable>
 
-                            <Pressable
+                            <HapticPressable
                               style={[
                                 styles.cancelEditButton,
                                 (savingEdit || interactionLocked) &&
@@ -584,12 +584,12 @@ export default function VehicleDetailScreen() {
                             >
                               <X size={16} color={colors.text} />
                               <Text style={styles.cancelEditText}>Cancel</Text>
-                            </Pressable>
+                            </HapticPressable>
                           </View>
                         </View>
                       ) : (
                         <>
-                          <Pressable
+                          <HapticPressable
                             style={[
                               styles.cardLeft,
                               interactionDisabled && styles.disabledInteraction,
@@ -602,10 +602,10 @@ export default function VehicleDetailScreen() {
                             <Text style={styles.cardTitle}>
                               {compartment.name}
                             </Text>
-                          </Pressable>
+                          </HapticPressable>
 
                           <View style={styles.cardRight}>
-                            <Pressable
+                            <HapticPressable
                               style={[
                                 styles.iconButton,
                                 interactionDisabled &&
@@ -618,9 +618,9 @@ export default function VehicleDetailScreen() {
                                 size={16}
                                 color={colors.textSecondary}
                               />
-                            </Pressable>
+                            </HapticPressable>
 
-                            <Pressable
+                            <HapticPressable
                               style={[
                                 styles.iconButton,
                                 interactionDisabled &&
@@ -635,7 +635,7 @@ export default function VehicleDetailScreen() {
                                 size={18}
                                 color={colors.textSecondary}
                               />
-                            </Pressable>
+                            </HapticPressable>
                           </View>
                         </>
                       )}

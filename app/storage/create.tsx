@@ -7,7 +7,6 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -16,6 +15,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import HapticPressable from "../../components/ui/HapticPressable";
 import ScreenBackground from "../../components/ui/ScreenBackground";
 import { useThemedValues } from "../../components/ui/Themed";
 import { createStorageSpace } from "../../lib/gearService";
@@ -265,7 +265,7 @@ export default function CreateStorageScreen() {
             automaticallyAdjustKeyboardInsets
           >
             <View style={styles.headerRow}>
-              <Pressable
+              <HapticPressable
                 onPress={handleBackPress}
                 style={[
                   styles.backButton,
@@ -282,7 +282,7 @@ export default function CreateStorageScreen() {
                 disabled={saving || interactionLocked}
               >
                 <ChevronLeft size={24} color={LABEL_WHITE} />
-              </Pressable>
+              </HapticPressable>
 
               <View style={styles.headerTextWrap}>
                 <Text style={styles.headerTitle}>Add Storage Space</Text>
@@ -334,7 +334,7 @@ export default function CreateStorageScreen() {
                 Category
               </Text>
               <View style={styles.row}>
-                <Pressable
+                <HapticPressable
                   style={[
                     styles.toggle,
                     {
@@ -356,9 +356,9 @@ export default function CreateStorageScreen() {
                   >
                     Vehicle
                   </Text>
-                </Pressable>
+                </HapticPressable>
 
-                <Pressable
+                <HapticPressable
                   style={[
                     styles.toggle,
                     {
@@ -380,7 +380,7 @@ export default function CreateStorageScreen() {
                   >
                     Storage
                   </Text>
-                </Pressable>
+                </HapticPressable>
               </View>
 
               <Text style={[styles.label, { color: theme.colors.textSecondary }]}>
@@ -388,7 +388,7 @@ export default function CreateStorageScreen() {
               </Text>
 
               <View style={styles.dropdownWrap}>
-                <Pressable
+                <HapticPressable
                   style={[
                     styles.dropdownPressable,
                     (saving || interactionLocked) && styles.disabledInteraction,
@@ -427,7 +427,7 @@ export default function CreateStorageScreen() {
                     </Text>
                     <ChevronDown size={18} color={theme.colors.textSecondary} />
                   </BlurView>
-                </Pressable>
+                </HapticPressable>
 
                 {showSubtypeDropdown && (
                   <BlurView
@@ -449,7 +449,7 @@ export default function CreateStorageScreen() {
                       keyboardShouldPersistTaps="handled"
                     >
                       {subtypeOptions.map((option, index) => (
-                        <Pressable
+                        <HapticPressable
                           key={option}
                           style={[
                             styles.dropdownRow,
@@ -470,7 +470,7 @@ export default function CreateStorageScreen() {
                           >
                             {option}
                           </Text>
-                        </Pressable>
+                        </HapticPressable>
                       ))}
                     </ScrollView>
                   </BlurView>
@@ -508,7 +508,7 @@ export default function CreateStorageScreen() {
                 </>
               )}
 
-              <Pressable
+              <HapticPressable
                 style={[
                   styles.saveButton,
                   (saving || interactionLocked) && styles.saveButtonDisabled,
@@ -519,7 +519,7 @@ export default function CreateStorageScreen() {
                 <Text style={styles.saveText}>
                   {saving ? "Saving..." : "Save"}
                 </Text>
-              </Pressable>
+              </HapticPressable>
             </BlurView>
           </ScrollView>
         </KeyboardAvoidingView>

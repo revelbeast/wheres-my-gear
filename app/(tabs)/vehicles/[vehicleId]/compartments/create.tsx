@@ -5,7 +5,6 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,6 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import AppHeader from "../../../../../components/ui/AppHeader";
+import HapticPressable from "../../../../../components/ui/HapticPressable";
 import ScreenBackground from "../../../../../components/ui/ScreenBackground";
 import { useThemedValues } from "../../../../../components/ui/Themed";
 import { createCompartment } from "../../../../../lib/gearService";
@@ -133,7 +133,7 @@ export default function CreateCompartmentScreen() {
                 onSubmitEditing={handleSave}
               />
 
-              <Pressable
+              <HapticPressable
                 style={[styles.saveButton, !canSave && styles.saveButtonDisabled]}
                 onPress={handleSave}
                 disabled={!canSave}
@@ -141,7 +141,7 @@ export default function CreateCompartmentScreen() {
                 <Text style={styles.saveButtonText}>
                   {saving ? "Saving..." : "Create Compartment"}
                 </Text>
-              </Pressable>
+              </HapticPressable>
             </FrostedCard>
           </ScrollView>
         </KeyboardAvoidingView>

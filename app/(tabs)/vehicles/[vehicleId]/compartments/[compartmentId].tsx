@@ -20,7 +20,6 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  Pressable,
   ScrollView,
   Share,
   StyleSheet,
@@ -31,6 +30,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import AppHeader from "../../../../../components/ui/AppHeader";
+import HapticPressable from "../../../../../components/ui/HapticPressable";
 import ScreenBackground from "../../../../../components/ui/ScreenBackground";
 import { useThemedValues } from "../../../../../components/ui/Themed";
 import {
@@ -609,7 +609,7 @@ export default function CompartmentDetailScreen() {
         },
       ]}
     >
-      <Pressable
+      <HapticPressable
         style={styles.headerActionButton}
         onPress={handleToggleCreateBox}
         disabled={interactionLocked}
@@ -619,7 +619,7 @@ export default function CompartmentDetailScreen() {
         ) : (
           <Plus size={18} color={theme.colors.text} />
         )}
-      </Pressable>
+      </HapticPressable>
     </BlurView>
   );
 
@@ -677,7 +677,7 @@ export default function CompartmentDetailScreen() {
               />
 
               <View style={styles.editActions}>
-                <Pressable
+                <HapticPressable
                   style={[
                     styles.saveEditButton,
                     (!editingItemName.trim() ||
@@ -692,9 +692,9 @@ export default function CompartmentDetailScreen() {
                 >
                   <Check size={16} color="#fff" />
                   <Text style={styles.saveEditText}>Save</Text>
-                </Pressable>
+                </HapticPressable>
 
-                <Pressable
+                <HapticPressable
                   style={[
                     styles.cancelEditButton,
                     {
@@ -712,12 +712,12 @@ export default function CompartmentDetailScreen() {
                   >
                     Cancel
                   </Text>
-                </Pressable>
+                </HapticPressable>
               </View>
             </View>
           ) : (
             <View style={styles.itemContentRow}>
-              <Pressable
+              <HapticPressable
                 style={styles.itemPhotoWrap}
                 onPress={() => handleOpenPhotoViewer(item)}
                 disabled={isBusy}
@@ -748,7 +748,7 @@ export default function CompartmentDetailScreen() {
                     </Text>
                   </View>
                 )}
-              </Pressable>
+              </HapticPressable>
 
               <View style={styles.itemMainContent}>
                 <View style={styles.itemTopRow}>
@@ -769,7 +769,7 @@ export default function CompartmentDetailScreen() {
                   </View>
 
                   <View style={styles.itemActions}>
-                    <Pressable
+                    <HapticPressable
                       style={[
                         styles.iconButton,
                         {
@@ -782,9 +782,9 @@ export default function CompartmentDetailScreen() {
                       disabled={isBusy}
                     >
                       <ImageIcon size={16} color={theme.colors.textSecondary} />
-                    </Pressable>
+                    </HapticPressable>
 
-                    <Pressable
+                    <HapticPressable
                       style={[
                         styles.iconButton,
                         {
@@ -797,9 +797,9 @@ export default function CompartmentDetailScreen() {
                       disabled={interactionLocked}
                     >
                       <Pencil size={16} color={theme.colors.textSecondary} />
-                    </Pressable>
+                    </HapticPressable>
 
-                    <Pressable
+                    <HapticPressable
                       style={[
                         styles.iconButton,
                         {
@@ -812,7 +812,7 @@ export default function CompartmentDetailScreen() {
                       disabled={interactionLocked}
                     >
                       <Trash2 size={16} color={theme.colors.danger} />
-                    </Pressable>
+                    </HapticPressable>
                   </View>
                 </View>
 
@@ -866,7 +866,7 @@ export default function CompartmentDetailScreen() {
 
                 <View style={styles.controlsRow}>
                   <View style={styles.quantityControls}>
-                    <Pressable
+                    <HapticPressable
                       style={[
                         styles.quantityButton,
                         {
@@ -879,7 +879,7 @@ export default function CompartmentDetailScreen() {
                       disabled={isBusy}
                     >
                       <Minus size={16} color={theme.colors.text} />
-                    </Pressable>
+                    </HapticPressable>
 
                     <View style={styles.quantityValueWrap}>
                       <Text
@@ -892,7 +892,7 @@ export default function CompartmentDetailScreen() {
                       </Text>
                     </View>
 
-                    <Pressable
+                    <HapticPressable
                       style={[
                         styles.quantityButton,
                         {
@@ -905,10 +905,10 @@ export default function CompartmentDetailScreen() {
                       disabled={isBusy}
                     >
                       <Plus size={16} color={theme.colors.text} />
-                    </Pressable>
+                    </HapticPressable>
                   </View>
 
-                  <Pressable
+                  <HapticPressable
                     style={[
                       styles.packToggleButton,
                       packed ? styles.packToggleOn : styles.packToggleOff,
@@ -934,7 +934,7 @@ export default function CompartmentDetailScreen() {
                     >
                       {packed ? "Packed" : "Mark Packed"}
                     </Text>
-                  </Pressable>
+                  </HapticPressable>
                 </View>
               </View>
             </View>
@@ -966,7 +966,7 @@ export default function CompartmentDetailScreen() {
               rightContent={headerRight}
             />
 
-            <Pressable
+            <HapticPressable
               style={[
                 styles.shareCompartmentButton,
                 {
@@ -987,7 +987,7 @@ export default function CompartmentDetailScreen() {
               >
                 Share Compartment
               </Text>
-            </Pressable>
+            </HapticPressable>
 
             {showCreateBox && (
               <FrostedCard style={styles.createCard}>
@@ -1044,7 +1044,7 @@ export default function CompartmentDetailScreen() {
                     onSubmitEditing={handleCreateItem}
                   />
 
-                  <Pressable
+                  <HapticPressable
                     style={[
                       styles.createButton,
                       (!itemName.trim() || saving || interactionLocked) &&
@@ -1054,7 +1054,7 @@ export default function CompartmentDetailScreen() {
                     disabled={!itemName.trim() || saving || interactionLocked}
                   >
                     <Plus size={18} color="#fff" />
-                  </Pressable>
+                  </HapticPressable>
                 </View>
               </FrostedCard>
             )}
@@ -1086,12 +1086,12 @@ export default function CompartmentDetailScreen() {
           onRequestClose={handleClosePhotoViewer}
         >
           <View style={styles.photoViewerOverlay}>
-            <Pressable
+            <HapticPressable
               style={styles.photoViewerCloseButton}
               onPress={handleClosePhotoViewer}
             >
               <X size={24} color="#fff" />
-            </Pressable>
+            </HapticPressable>
 
             {selectedPhotoUri ? (
               <ScrollView
@@ -1118,7 +1118,7 @@ export default function CompartmentDetailScreen() {
                 tint="dark"
                 style={styles.photoViewerActions}
               >
-                <Pressable
+                <HapticPressable
                   style={[
                     styles.photoViewerActionButton,
                     updatingPhotoId === selectedPhotoItem.id &&
@@ -1132,9 +1132,9 @@ export default function CompartmentDetailScreen() {
                 >
                   <Camera size={18} color="#fff" />
                   <Text style={styles.photoViewerActionText}>Retake</Text>
-                </Pressable>
+                </HapticPressable>
 
-                <Pressable
+                <HapticPressable
                   style={[
                     styles.photoViewerActionButton,
                     updatingPhotoId === selectedPhotoItem.id &&
@@ -1148,9 +1148,9 @@ export default function CompartmentDetailScreen() {
                 >
                   <ImageIcon size={18} color="#fff" />
                   <Text style={styles.photoViewerActionText}>Choose New</Text>
-                </Pressable>
+                </HapticPressable>
 
-                <Pressable
+                <HapticPressable
                   style={[
                     styles.photoViewerActionButton,
                     styles.photoViewerDeleteButton,
@@ -1165,7 +1165,7 @@ export default function CompartmentDetailScreen() {
                 >
                   <Trash2 size={18} color="#fff" />
                   <Text style={styles.photoViewerActionText}>Delete</Text>
-                </Pressable>
+                </HapticPressable>
               </BlurView>
             ) : null}
           </View>

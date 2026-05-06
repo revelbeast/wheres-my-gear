@@ -5,7 +5,6 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
   FlatList,
-  Pressable,
   StyleSheet,
   Text,
   View,
@@ -13,6 +12,7 @@ import {
 import { Swipeable } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import HapticPressable from "../../../components/ui/HapticPressable";
 import ScreenBackground from "../../../components/ui/ScreenBackground";
 import {
   deleteStorageSpace,
@@ -168,7 +168,7 @@ export default function VehiclesScreen() {
     return (
       <Swipeable
         renderRightActions={() => (
-          <Pressable
+          <HapticPressable
             style={[
               styles.deleteAction,
               interactionLocked && styles.disabledButton,
@@ -178,11 +178,11 @@ export default function VehiclesScreen() {
           >
             <Trash2 size={18} color="#fff" />
             <Text style={styles.deleteText}>Delete</Text>
-          </Pressable>
+          </HapticPressable>
         )}
       >
         <FrostedCard>
-          <Pressable
+          <HapticPressable
             style={styles.row}
             onPress={() => handleOpenVehicle(item.id)}
             disabled={interactionLocked}
@@ -194,7 +194,7 @@ export default function VehiclesScreen() {
             <View style={styles.right}>
               <ChevronRight size={20} color="#000" />
             </View>
-          </Pressable>
+          </HapticPressable>
         </FrostedCard>
       </Swipeable>
     );
@@ -215,7 +215,7 @@ export default function VehiclesScreen() {
           }
         />
 
-        <Pressable
+        <HapticPressable
           style={[
             styles.addButton,
             (interactionLocked || navigationTransitionLockedRef.current) &&
@@ -225,7 +225,7 @@ export default function VehiclesScreen() {
           disabled={interactionLocked}
         >
           <Plus size={22} color="#fff" />
-        </Pressable>
+        </HapticPressable>
       </SafeAreaView>
     </ScreenBackground>
   );

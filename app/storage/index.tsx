@@ -11,7 +11,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   Alert,
   FlatList,
-  Pressable,
   StyleSheet,
   Text,
   View,
@@ -19,6 +18,7 @@ import {
 import { Swipeable } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import HapticPressable from "../../components/ui/HapticPressable";
 import ScreenBackground from "../../components/ui/ScreenBackground";
 import {
   deleteStorageSpace,
@@ -197,7 +197,7 @@ export default function StorageManagementScreen() {
     const disabled = isDeleting || isBusy();
 
     return (
-      <Pressable
+      <HapticPressable
         style={[styles.deleteAction, disabled && styles.disabledInteraction]}
         onPress={() => handleConfirmDeleteStorage(space)}
         disabled={disabled}
@@ -206,7 +206,7 @@ export default function StorageManagementScreen() {
         <Text style={styles.deleteActionText}>
           {isDeleting ? "Deleting" : "Delete"}
         </Text>
-      </Pressable>
+      </HapticPressable>
     );
   }
 
@@ -221,7 +221,7 @@ export default function StorageManagementScreen() {
         enabled={!interactionDisabled}
       >
         <BlurView intensity={18} tint="dark" style={styles.storageCard}>
-          <Pressable
+          <HapticPressable
             style={[
               styles.storageCardMainPressable,
               interactionDisabled && styles.disabledInteraction,
@@ -238,7 +238,7 @@ export default function StorageManagementScreen() {
             </View>
 
             <View style={styles.storageCardRight}>
-              <Pressable
+              <HapticPressable
                 style={[
                   styles.iconButton,
                   interactionDisabled && styles.disabledInteraction,
@@ -248,13 +248,13 @@ export default function StorageManagementScreen() {
                 disabled={interactionDisabled}
               >
                 <Pencil size={16} color={colors.textSecondary} />
-              </Pressable>
+              </HapticPressable>
 
               <View style={styles.chevronWrap}>
                 <ChevronRight size={18} color={colors.textSecondary} />
               </View>
             </View>
-          </Pressable>
+          </HapticPressable>
         </BlurView>
       </Swipeable>
     );
@@ -265,19 +265,19 @@ export default function StorageManagementScreen() {
       <SafeAreaView style={styles.safe}>
         <View style={styles.container}>
           <View style={styles.headerRow}>
-            <Pressable
+            <HapticPressable
               onPress={handleBack}
               style={[styles.backButton, isBusy() && styles.disabledInteraction]}
               disabled={isBusy()}
             >
               <ChevronLeft size={24} color={colors.text} />
-            </Pressable>
+            </HapticPressable>
 
             <View style={styles.headerTextWrap}>
               <Text style={styles.headerTitle}>Manage Storage Spaces</Text>
             </View>
 
-            <Pressable
+            <HapticPressable
               onPress={handleCreateStorage}
               style={[styles.addButton, isBusy() && styles.disabledInteraction]}
               disabled={isBusy()}
@@ -285,7 +285,7 @@ export default function StorageManagementScreen() {
               <BlurView intensity={20} tint="dark" style={styles.addButtonInner}>
                 <Plus size={18} color={colors.text} />
               </BlurView>
-            </Pressable>
+            </HapticPressable>
           </View>
 
           <Text style={styles.headerSubtitle}>

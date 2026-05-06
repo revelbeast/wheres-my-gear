@@ -4,19 +4,19 @@ import {
   Text,
   View,
   TextInput,
-  Pressable,
   ScrollView,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import ScreenBackground from "../../components/ui/ScreenBackground";
 import AppHeader from "../../components/ui/AppHeader";
-import { colors } from "../../theme/tokens";
+import HapticPressable from "../../components/ui/HapticPressable";
+import ScreenBackground from "../../components/ui/ScreenBackground";
 import {
   getStorageSpaceById,
   updateStorageSpace,
 } from "../../lib/gearService";
+import { colors } from "../../theme/tokens";
 
 const VEHICLE_TYPES = [
   "Car",
@@ -160,7 +160,7 @@ export default function EditStorageScreen() {
 
               <Text style={styles.label}>Category</Text>
               <View style={styles.segmentContainer}>
-                <Pressable
+                <HapticPressable
                   style={[
                     styles.segmentButton,
                     category === "vehicle" && styles.segmentActive,
@@ -175,9 +175,9 @@ export default function EditStorageScreen() {
                   >
                     Vehicle
                   </Text>
-                </Pressable>
+                </HapticPressable>
 
-                <Pressable
+                <HapticPressable
                   style={[
                     styles.segmentButton,
                     category === "storage" && styles.segmentActive,
@@ -192,13 +192,13 @@ export default function EditStorageScreen() {
                   >
                     Storage
                   </Text>
-                </Pressable>
+                </HapticPressable>
               </View>
 
               <Text style={styles.label}>Type</Text>
               <View style={styles.typeContainer}>
                 {typeOptions.map((type) => (
-                  <Pressable
+                  <HapticPressable
                     key={type}
                     style={[
                       styles.typeChip,
@@ -214,7 +214,7 @@ export default function EditStorageScreen() {
                     >
                       {type}
                     </Text>
-                  </Pressable>
+                  </HapticPressable>
                 ))}
               </View>
 
@@ -231,7 +231,7 @@ export default function EditStorageScreen() {
                 </>
               )}
 
-              <Pressable
+              <HapticPressable
                 style={[
                   styles.button,
                   (!name.trim() || !finalSubtype || saving) &&
@@ -243,7 +243,7 @@ export default function EditStorageScreen() {
                 <Text style={styles.buttonText}>
                   {saving ? "Saving..." : "Save Changes"}
                 </Text>
-              </Pressable>
+              </HapticPressable>
             </>
           )}
         </ScrollView>

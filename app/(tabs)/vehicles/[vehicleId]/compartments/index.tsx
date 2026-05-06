@@ -24,7 +24,6 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -33,6 +32,7 @@ import {
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import HapticPressable from "../../../../../components/ui/HapticPressable";
 import ScreenBackground from "../../../../../components/ui/ScreenBackground";
 import {
   ThemedText,
@@ -361,7 +361,7 @@ export default function CompartmentsScreen() {
       deletingId === compartment.id || interactionLocked || savingEdit;
 
     return (
-      <Pressable
+      <HapticPressable
         style={[styles.deleteAction, disabled && styles.deleteActionDisabled]}
         onPress={() => confirmDeleteCompartment(compartment)}
         disabled={disabled}
@@ -370,7 +370,7 @@ export default function CompartmentsScreen() {
         <ThemedText style={styles.deleteActionText}>
           {deletingId === compartment.id ? "Deleting..." : "Delete"}
         </ThemedText>
-      </Pressable>
+      </HapticPressable>
     );
   }
 
@@ -384,7 +384,7 @@ export default function CompartmentsScreen() {
         >
           <View style={styles.container}>
             <View style={styles.headerWrap}>
-              <Pressable
+              <HapticPressable
                 style={[
                   styles.headerIconButton,
                   {
@@ -398,7 +398,7 @@ export default function CompartmentsScreen() {
                 disabled={interactionLocked}
               >
                 <ArrowLeft size={20} color={LABEL_WHITE} />
-              </Pressable>
+              </HapticPressable>
 
               <View style={styles.headerTitleWrap}>
                 <ThemedText
@@ -411,7 +411,7 @@ export default function CompartmentsScreen() {
               </View>
 
               {hasVehicleId ? (
-                <Pressable
+                <HapticPressable
                   style={[
                     styles.headerIconButton,
                     {
@@ -426,7 +426,7 @@ export default function CompartmentsScreen() {
                   disabled={interactionLocked}
                 >
                   <Plus size={20} color={LABEL_WHITE} />
-                </Pressable>
+                </HapticPressable>
               ) : (
                 <View style={styles.headerSpacer} />
               )}
@@ -515,7 +515,7 @@ export default function CompartmentsScreen() {
                             />
 
                             <View style={styles.editActions}>
-                              <Pressable
+                              <HapticPressable
                                 style={[
                                   styles.saveEditButton,
                                   (!editingCompartmentName.trim() ||
@@ -536,9 +536,9 @@ export default function CompartmentsScreen() {
                                 <ThemedText style={styles.saveEditText}>
                                   {savingEdit ? "Saving..." : "Save"}
                                 </ThemedText>
-                              </Pressable>
+                              </HapticPressable>
 
-                              <Pressable
+                              <HapticPressable
                                 style={[
                                   styles.cancelEditButton,
                                   {
@@ -560,12 +560,12 @@ export default function CompartmentsScreen() {
                                 >
                                   Cancel
                                 </ThemedText>
-                              </Pressable>
+                              </HapticPressable>
                             </View>
                           </View>
                         ) : (
                           <View style={styles.row}>
-                            <Pressable
+                            <HapticPressable
                               style={styles.left}
                               onPress={() =>
                                 handleOpenCompartment(compartment.id)
@@ -580,10 +580,10 @@ export default function CompartmentsScreen() {
                                 {compartment.itemCount}{" "}
                                 {compartment.itemCount === 1 ? "item" : "items"}
                               </ThemedText>
-                            </Pressable>
+                            </HapticPressable>
 
                             <View style={styles.rowActions}>
-                              <Pressable
+                              <HapticPressable
                                 style={[
                                   styles.iconButton,
                                   {
@@ -601,9 +601,9 @@ export default function CompartmentsScreen() {
                                   size={16}
                                   color={theme.colors.textSecondary}
                                 />
-                              </Pressable>
+                              </HapticPressable>
 
-                              <Pressable
+                              <HapticPressable
                                 style={[
                                   styles.iconButton,
                                   {
@@ -622,7 +622,7 @@ export default function CompartmentsScreen() {
                                   size={18}
                                   color={theme.colors.textSecondary}
                                 />
-                              </Pressable>
+                              </HapticPressable>
                             </View>
                           </View>
                         )}

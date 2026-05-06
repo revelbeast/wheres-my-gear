@@ -6,7 +6,6 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,6 +14,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import HapticPressable from "../../components/ui/HapticPressable";
 import ScreenBackground from "../../components/ui/ScreenBackground";
 import {
   deleteStorageSpace,
@@ -318,7 +318,7 @@ export default function EditStorageScreen() {
             contentContainerStyle={styles.scrollContent}
           >
             <View style={styles.headerRow}>
-              <Pressable
+              <HapticPressable
                 onPress={handleBack}
                 style={[
                   styles.backButton,
@@ -328,13 +328,13 @@ export default function EditStorageScreen() {
                 disabled={saving || deleting || interactionLocked}
               >
                 <ChevronLeft size={24} color={colors.text} />
-              </Pressable>
+              </HapticPressable>
 
               <View style={styles.headerTextWrap}>
                 <Text style={styles.headerTitle}>Edit Storage Space</Text>
               </View>
 
-              <Pressable
+              <HapticPressable
                 onPress={handleDelete}
                 disabled={saving || deleting || loading || interactionLocked}
                 style={[
@@ -344,7 +344,7 @@ export default function EditStorageScreen() {
                 ]}
               >
                 <Trash2 size={20} color={colors.danger} />
-              </Pressable>
+              </HapticPressable>
             </View>
 
             <Text style={styles.headerSubtitle}>
@@ -357,7 +357,7 @@ export default function EditStorageScreen() {
               ) : notFound ? (
                 <>
                   <Text style={styles.loadingText}>Storage space not found.</Text>
-                  <Pressable
+                  <HapticPressable
                     style={[
                       styles.secondaryButton,
                       interactionLocked && styles.disabledInteraction,
@@ -366,7 +366,7 @@ export default function EditStorageScreen() {
                     disabled={interactionLocked}
                   >
                     <Text style={styles.secondaryButtonText}>Go Back</Text>
-                  </Pressable>
+                  </HapticPressable>
                 </>
               ) : (
                 <>
@@ -385,7 +385,7 @@ export default function EditStorageScreen() {
 
                   <Text style={styles.label}>Category</Text>
                   <View style={styles.row}>
-                    <Pressable
+                    <HapticPressable
                       style={[
                         styles.toggle,
                         category === "vehicle" && styles.toggleActive,
@@ -402,9 +402,9 @@ export default function EditStorageScreen() {
                       >
                         Vehicle
                       </Text>
-                    </Pressable>
+                    </HapticPressable>
 
-                    <Pressable
+                    <HapticPressable
                       style={[
                         styles.toggle,
                         category === "storage" && styles.toggleActive,
@@ -421,13 +421,13 @@ export default function EditStorageScreen() {
                       >
                         Storage
                       </Text>
-                    </Pressable>
+                    </HapticPressable>
                   </View>
 
                   <Text style={styles.label}>Subtype</Text>
 
                   <View style={styles.dropdownWrap}>
-                    <Pressable
+                    <HapticPressable
                       style={[
                         styles.dropdownPressable,
                         isBusy() && styles.disabledInteraction,
@@ -452,7 +452,7 @@ export default function EditStorageScreen() {
                         </Text>
                         <ChevronDown size={18} color={colors.textSecondary} />
                       </BlurView>
-                    </Pressable>
+                    </HapticPressable>
 
                     {showSubtypeDropdown && (
                       <BlurView
@@ -466,7 +466,7 @@ export default function EditStorageScreen() {
                           keyboardShouldPersistTaps="always"
                         >
                           {subtypeOptions.map((option, index) => (
-                            <Pressable
+                            <HapticPressable
                               key={option}
                               style={[
                                 styles.dropdownRow,
@@ -478,7 +478,7 @@ export default function EditStorageScreen() {
                               disabled={isBusy()}
                             >
                               <Text style={styles.dropdownRowTitle}>{option}</Text>
-                            </Pressable>
+                            </HapticPressable>
                           ))}
                         </ScrollView>
                       </BlurView>
@@ -502,7 +502,7 @@ export default function EditStorageScreen() {
                     </>
                   )}
 
-                  <Pressable
+                  <HapticPressable
                     style={[
                       styles.saveButton,
                       (saving || deleting || interactionLocked) &&
@@ -514,7 +514,7 @@ export default function EditStorageScreen() {
                     <Text style={styles.saveText}>
                       {saving ? "Saving..." : "Save Changes"}
                     </Text>
-                  </Pressable>
+                  </HapticPressable>
                 </>
               )}
             </BlurView>
