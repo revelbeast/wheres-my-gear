@@ -591,22 +591,36 @@ export default function DashboardScreen() {
   }
 
   useEffect(() => {
+    let isActive = true;
+
     const runSearch = async () => {
       const trimmed = normalizeSearchValue(searchQuery);
 
       if (initializing || !user || isPremiumLoading || !isPremium) {
+        if (!isActive || !isMountedRef.current) {
+          return;
+        }
+
         setSearchResults([]);
         setIsSearching(false);
         return;
       }
 
       if (!trimmed) {
+        if (!isActive || !isMountedRef.current) {
+          return;
+        }
+
         setSearchResults([]);
         setIsSearching(false);
         return;
       }
 
       try {
+        if (!isActive || !isMountedRef.current) {
+          return;
+        }
+
         setIsSearching(true);
 
         const itemResults: SearchResultItem[] = allItems
@@ -727,6 +741,10 @@ export default function DashboardScreen() {
             statusLabel: (checklist.missingCount ?? 0) > 0 ? "To Pack" : "Packed",
           }));
 
+        if (!isActive || !isMountedRef.current) {
+          return;
+        }
+
         setSearchResults([
           ...itemResults,
           ...checklistItemResults,
@@ -736,15 +754,25 @@ export default function DashboardScreen() {
           ...checklistResults,
         ]);
       } catch (error) {
+        if (!isActive || !isMountedRef.current) {
+          return;
+        }
+
         console.error("Search failed:", error);
         setSearchResults([]);
       } finally {
-        setIsSearching(false);
+        if (isActive && isMountedRef.current) {
+          setIsSearching(false);
+        }
       }
     };
 
     const timeout = setTimeout(runSearch, 250);
-    return () => clearTimeout(timeout);
+
+    return () => {
+      isActive = false;
+      clearTimeout(timeout);
+    };
   }, [
     searchQuery,
     initializing,
