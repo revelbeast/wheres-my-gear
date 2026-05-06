@@ -41,6 +41,26 @@ function requireDocumentId(value: string, label: string) {
   return trimmedValue;
 }
 
+function createSafeUnsubscribe(
+  unsubscribe: (() => void) | null,
+  deactivate: () => void
+) {
+  let hasUnsubscribed = false;
+
+  return () => {
+    if (hasUnsubscribed) {
+      return;
+    }
+
+    hasUnsubscribed = true;
+    deactivate();
+
+    if (unsubscribe) {
+      unsubscribe();
+    }
+  };
+}
+
 function templatesCol(userId: string) {
   return collection(db, "users", requireUserId(userId), "checklistTemplates");
 }
@@ -629,13 +649,20 @@ export function subscribeToChecklists(
   userId: string,
   callback: (items: Checklist[]) => void
 ) {
+  let isActive = true;
+  let unsubscribe: (() => void) | null = null;
+
   try {
     const safeUserId = requireUserId(userId);
     const q = query(checklistsCol(safeUserId), orderBy("createdAt", "desc"));
 
-    return onSnapshot(
+    unsubscribe = onSnapshot(
       q,
       (snapshot) => {
+        if (!isActive) {
+          return;
+        }
+
         const data = snapshot.docs.map((d) =>
           normalizeChecklist(d.id, d.data())
         );
@@ -643,14 +670,28 @@ export function subscribeToChecklists(
         callback(data);
       },
       (error) => {
+        if (!isActive) {
+          return;
+        }
+
         console.error("Failed to subscribe to checklists:", error);
         callback([]);
       }
     );
+
+    return createSafeUnsubscribe(unsubscribe, () => {
+      isActive = false;
+    });
   } catch (error) {
     console.error("Failed to start checklist subscription:", error);
-    callback([]);
-    return () => {};
+
+    if (isActive) {
+      callback([]);
+    }
+
+    return createSafeUnsubscribe(unsubscribe, () => {
+      isActive = false;
+    });
   }
 }
 
@@ -659,21 +700,25 @@ export function subscribeToChecklistItems(
   checklistId: string,
   callback: (items: ChecklistItem[]) => void
 ) {
+  let isActive = true;
+  let unsubscribe: (() => void) | null = null;
+
   try {
     const safeUserId = requireUserId(userId);
-
-    if (!checklistId?.trim()) {
-      throw new Error("Checklist ID is required.");
-    }
+    const safeChecklistId = requireDocumentId(checklistId, "Checklist ID");
 
     const q = query(
-      checklistItemsCol(safeUserId, checklistId),
+      checklistItemsCol(safeUserId, safeChecklistId),
       orderBy("sortOrder")
     );
 
-    return onSnapshot(
+    unsubscribe = onSnapshot(
       q,
       (snapshot) => {
+        if (!isActive) {
+          return;
+        }
+
         const data = snapshot.docs.map((d) =>
           normalizeChecklistItem(d.id, d.data())
         );
@@ -681,14 +726,28 @@ export function subscribeToChecklistItems(
         callback(data);
       },
       (error) => {
+        if (!isActive) {
+          return;
+        }
+
         console.error("Failed to subscribe to checklist items:", error);
         callback([]);
       }
     );
+
+    return createSafeUnsubscribe(unsubscribe, () => {
+      isActive = false;
+    });
   } catch (error) {
     console.error("Failed to start checklist item subscription:", error);
-    callback([]);
-    return () => {};
+
+    if (isActive) {
+      callback([]);
+    }
+
+    return createSafeUnsubscribe(unsubscribe, () => {
+      isActive = false;
+    });
   }
 }
 
@@ -950,7 +1009,10 @@ export async function getAssignedChecklistItems(
         continue;
       }
 
-      if (typeof options?.packed === "boolean" && !!item.packed !== options.packed) {
+      if (
+        typeof options?.packed === "boolean" &&
+        !!item.packed !== options.packed
+      ) {
         continue;
       }
 

@@ -933,7 +933,7 @@ export default function ChecklistDetailScreen() {
           isPacked ? styles.packedItemCard : styles.unpackedItemCard,
           {
             borderColor: isPacked
-              ? "rgba(34,197,94,0.24)"
+              ? "rgba(34,197,94,0.95)"
               : theme.colors.border,
             backgroundColor: theme.colors.card,
           },
@@ -1986,8 +1986,9 @@ const styles = StyleSheet.create({
 
   unpackedItemCard: {},
 
-  packedItemCard: {},
-
+  packedItemCard: {
+      borderWidth: 1.5,
+    },
   summaryCard: {
     paddingVertical: 18,
   },
