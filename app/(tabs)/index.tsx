@@ -374,6 +374,7 @@ export default function DashboardScreen() {
   );
   const isMountedRef = useRef(true);
   const dashboardLoadVersionRef = useRef(0);
+  const storageSelectionVersionRef = useRef(0);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResultItem[]>([]);
@@ -454,9 +455,11 @@ export default function DashboardScreen() {
     return () => {
       isMountedRef.current = false;
       dashboardLoadVersionRef.current += 1;
+      storageSelectionVersionRef.current += 1;
 
       if (navigationUnlockTimeoutRef.current) {
         clearTimeout(navigationUnlockTimeoutRef.current);
+        navigationUnlockTimeoutRef.current = null;
       }
     };
   }, []);
@@ -566,9 +569,12 @@ export default function DashboardScreen() {
 
     if (navigationUnlockTimeoutRef.current) {
       clearTimeout(navigationUnlockTimeoutRef.current);
+      navigationUnlockTimeoutRef.current = null;
     }
 
     navigationUnlockTimeoutRef.current = setTimeout(() => {
+      if (!isMountedRef.current) return;
+
       navigationTransitionLockedRef.current = false;
       navigationUnlockTimeoutRef.current = null;
     }, 1500);
@@ -794,6 +800,8 @@ export default function DashboardScreen() {
     }
 
     if (!user) {
+      if (!isMountedRef.current) return;
+
       setSearchResults([]);
       setIsSearching(false);
       setIsPremium(false);
@@ -1068,12 +1076,25 @@ export default function DashboardScreen() {
       return;
     }
 
+    const selectionVersion = storageSelectionVersionRef.current + 1;
+    storageSelectionVersionRef.current = selectionVersion;
+
     await runWithLock(async () => {
       try {
+        if (!isMountedRef.current) return;
+
         setSelectedStorageId(space.id);
         setShowStorageDropdown(false);
 
         const compartments = await getCompartments(space.id);
+
+        if (
+          !isMountedRef.current ||
+          storageSelectionVersionRef.current !== selectionVersion
+        ) {
+          return;
+        }
+
         setSelectedCompartments(compartments);
 
         const scopedItems = allItems.filter((item) => item.vehicleId === space.id);
@@ -1091,6 +1112,8 @@ export default function DashboardScreen() {
 
         setQuickCompartments(quickData);
       } catch (err) {
+        if (!isMountedRef.current) return;
+
         console.error("Failed to switch storage space:", err);
       }
     });
@@ -1358,7 +1381,11 @@ export default function DashboardScreen() {
                 <Image
                   source={{ uri: profilePhotoUri }}
                   style={styles.profileAvatar}
-                  onError={() => setProfilePhotoFailed(true)}
+                  onError={() => {
+                    if (isMountedRef.current) {
+                      setProfilePhotoFailed(true);
+                    }
+                  }}
                 />
               ) : (
                 <UserCircle2 size={44} color={LABEL_WHITE} />
@@ -1385,7 +1412,12 @@ export default function DashboardScreen() {
                 autoCapitalize="none"
                 autoCorrect={false}
                 returnKeyType="search"
-                editable={!initializing && !!user && isPremium}
+                editable={
+                  !initializing &&
+                  !!user &&
+                  isPremium &&
+                  !navigationDisabled
+                }
               />
 
               {searchQuery.length > 0 && (
