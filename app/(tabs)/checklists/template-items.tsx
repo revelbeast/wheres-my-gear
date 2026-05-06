@@ -10,7 +10,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react-native";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Image,
@@ -39,6 +39,7 @@ import {
   updateChecklistTemplateItemPhoto,
   updateChecklistTemplateItemQuantity,
 } from "../../../lib/checklistsService";
+import { useInteractionLock } from "../../../lib/useInteractionLock";
 import { colors } from "../../../theme/tokens";
 import type {
   ChecklistCategory,
@@ -104,6 +105,15 @@ export default function TemplateItemsScreen() {
   const { user, initializing } = useAuth();
   const theme = useThemedValues();
 
+  const isScreenMountedRef = useRef(true);
+  const templateLoadVersionRef = useRef(0);
+
+  const {
+    isLocked: interactionLocked,
+    lock: lockInteraction,
+    unlock: unlockInteraction,
+  } = useInteractionLock(450);
+
   const [template, setTemplate] = useState<ChecklistTemplate | null>(null);
   const [items, setItems] = useState<ChecklistTemplateItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -120,6 +130,7 @@ export default function TemplateItemsScreen() {
   );
   const [updatingPhotoId, setUpdatingPhotoId] = useState<string | null>(null);
   const [updatingPackedId, setUpdatingPackedId] = useState<string | null>(null);
+  const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
 
   const safeTemplateId = typeof templateId === "string" ? templateId : "";
 
@@ -140,9 +151,23 @@ export default function TemplateItemsScreen() {
     });
   }, [items]);
 
+  useEffect(() => {
+    isScreenMountedRef.current = true;
+
+    return () => {
+      isScreenMountedRef.current = false;
+      templateLoadVersionRef.current += 1;
+    };
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
-      if (initializing) return;
+      const loadVersion = templateLoadVersionRef.current + 1;
+      templateLoadVersionRef.current = loadVersion;
+
+      if (initializing) {
+        return;
+      }
 
       if (!user || !safeTemplateId) {
         setTemplate(null);
@@ -151,12 +176,30 @@ export default function TemplateItemsScreen() {
         return;
       }
 
-      loadTemplateData();
+      void loadTemplateData(loadVersion);
+
+      return () => {
+        templateLoadVersionRef.current += 1;
+      };
     }, [initializing, user, safeTemplateId])
   );
 
-  async function loadTemplateData() {
+  async function runWithLock(action: () => Promise<void> | void) {
+    if (interactionLocked) return;
+
+    lockInteraction();
+
+    try {
+      await action();
+    } finally {
+      unlockInteraction();
+    }
+  }
+
+  async function loadTemplateData(loadVersion?: number) {
     if (!user || !safeTemplateId) return;
+
+    const activeLoadVersion = loadVersion ?? templateLoadVersionRef.current;
 
     try {
       setLoading(true);
@@ -166,15 +209,34 @@ export default function TemplateItemsScreen() {
         getChecklistTemplateItems(user.uid, safeTemplateId),
       ]);
 
+      if (
+        templateLoadVersionRef.current !== activeLoadVersion ||
+        !isScreenMountedRef.current
+      ) {
+        return;
+      }
+
       setTemplate(templateData);
       setItems(itemData);
     } catch (err) {
+      if (
+        templateLoadVersionRef.current !== activeLoadVersion ||
+        !isScreenMountedRef.current
+      ) {
+        return;
+      }
+
       console.error("Failed to load template items:", err);
       setTemplate(null);
       setItems([]);
       Alert.alert("Error", "Failed to load template items.");
     } finally {
-      setLoading(false);
+      if (
+        templateLoadVersionRef.current === activeLoadVersion &&
+        isScreenMountedRef.current
+      ) {
+        setLoading(false);
+      }
     }
   }
 
@@ -182,6 +244,8 @@ export default function TemplateItemsScreen() {
     itemId: string,
     updates: Partial<ChecklistTemplateItem>
   ) {
+    if (!isScreenMountedRef.current) return;
+
     setItems((currentItems) =>
       currentItems.map((currentItem) =>
         currentItem.id === itemId ? { ...currentItem, ...updates } : currentItem
@@ -189,7 +253,22 @@ export default function TemplateItemsScreen() {
     );
   }
 
+  function isItemBusy(itemId?: string) {
+    return (
+      addingItem ||
+      savingItemName ||
+      interactionLocked ||
+      (!!itemId &&
+        (updatingQuantityId === itemId ||
+          updatingPhotoId === itemId ||
+          updatingPackedId === itemId ||
+          deletingItemId === itemId))
+    );
+  }
+
   function handleItemPhotoAction(item: ChecklistTemplateItem) {
+    if (isItemBusy(item.id)) return;
+
     Alert.alert("Item Photo", item.name, [
       {
         text: "Take Photo",
@@ -207,96 +286,111 @@ export default function TemplateItemsScreen() {
   }
 
   async function handleTakeItemPhoto(item: ChecklistTemplateItem) {
-    if (!user || !safeTemplateId) return;
+    if (!user || !safeTemplateId || isItemBusy(item.id)) return;
 
-    try {
-      const permission = await ImagePicker.requestCameraPermissionsAsync();
+    await runWithLock(async () => {
+      try {
+        const permission = await ImagePicker.requestCameraPermissionsAsync();
 
-      if (!permission.granted) {
-        Alert.alert("Camera access needed", "Please allow camera access first.");
-        return;
-      }
+        if (!permission.granted) {
+          Alert.alert(
+            "Camera access needed",
+            "Please allow camera access first."
+          );
+          return;
+        }
 
-      setUpdatingPhotoId(item.id);
+        setUpdatingPhotoId(item.id);
 
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ["images"],
-        allowsEditing: true,
-        quality: 0.8,
-      });
+        const result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ["images"],
+          allowsEditing: true,
+          quality: 0.8,
+        });
 
-      if (result.canceled) return;
+        if (result.canceled) return;
 
-      const asset = result.assets?.[0];
+        const asset = result.assets?.[0];
 
-      if (!asset?.uri) {
-        Alert.alert("Photo not captured", "No valid image was returned.");
-        return;
-      }
+        if (!asset?.uri) {
+          Alert.alert("Photo not captured", "No valid image was returned.");
+          return;
+        }
 
-      updateLocalItem(item.id, { itemPhotoUri: asset.uri });
+        updateLocalItem(item.id, { itemPhotoUri: asset.uri });
 
-      await updateChecklistTemplateItemPhoto(
-        user.uid,
-        safeTemplateId,
-        item.id,
-        asset.uri
-      );
-    } catch (err: any) {
-      const message = String(err?.message ?? err ?? "");
-
-      if (message.toLowerCase().includes("camera not available on simulator")) {
-        Alert.alert(
-          "Simulator Limitation",
-          "Take Photo is not available on the iPhone Simulator. Use Choose Photo here, or test Take Photo on a real iPhone."
+        await updateChecklistTemplateItemPhoto(
+          user.uid,
+          safeTemplateId,
+          item.id,
+          asset.uri
         );
-      } else {
-        console.error("Failed to take template item photo:", err);
-        Alert.alert("Error", "Failed to save item photo.");
+      } catch (err: any) {
+        const message = String(err?.message ?? err ?? "");
+
+        if (
+          message.toLowerCase().includes("camera not available on simulator")
+        ) {
+          Alert.alert(
+            "Simulator Limitation",
+            "Take Photo is not available on the iPhone Simulator. Use Choose Photo here, or test Take Photo on a real iPhone."
+          );
+        } else {
+          console.error("Failed to take template item photo:", err);
+          Alert.alert("Error", "Failed to save item photo.");
+        }
+      } finally {
+        if (isScreenMountedRef.current) {
+          setUpdatingPhotoId(null);
+        }
       }
-    } finally {
-      setUpdatingPhotoId(null);
-    }
+    });
   }
 
   async function handlePickItemPhoto(item: ChecklistTemplateItem) {
-    if (!user || !safeTemplateId) return;
+    if (!user || !safeTemplateId || isItemBusy(item.id)) return;
 
-    try {
-      setUpdatingPhotoId(item.id);
+    await runWithLock(async () => {
+      try {
+        setUpdatingPhotoId(item.id);
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images"],
-        allowsEditing: true,
-        quality: 0.8,
-      });
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ["images"],
+          allowsEditing: true,
+          quality: 0.8,
+        });
 
-      if (result.canceled) return;
+        if (result.canceled) return;
 
-      const asset = result.assets?.[0];
+        const asset = result.assets?.[0];
 
-      if (!asset?.uri) {
-        Alert.alert("Photo not selected", "No valid image was returned.");
-        return;
+        if (!asset?.uri) {
+          Alert.alert("Photo not selected", "No valid image was returned.");
+          return;
+        }
+
+        updateLocalItem(item.id, { itemPhotoUri: asset.uri });
+
+        await updateChecklistTemplateItemPhoto(
+          user.uid,
+          safeTemplateId,
+          item.id,
+          asset.uri
+        );
+      } catch (err) {
+        console.error("Failed to choose template item photo:", err);
+        Alert.alert("Error", "Failed to save item photo.");
+      } finally {
+        if (isScreenMountedRef.current) {
+          setUpdatingPhotoId(null);
+        }
       }
-
-      updateLocalItem(item.id, { itemPhotoUri: asset.uri });
-
-      await updateChecklistTemplateItemPhoto(
-        user.uid,
-        safeTemplateId,
-        item.id,
-        asset.uri
-      );
-    } catch (err) {
-      console.error("Failed to choose template item photo:", err);
-      Alert.alert("Error", "Failed to save item photo.");
-    } finally {
-      setUpdatingPhotoId(null);
-    }
+    });
   }
 
   async function handleAddItem() {
+    if (addingItem || interactionLocked) return;
+
     if (!user || !safeTemplateId) {
       Alert.alert("Sign in required", "Please sign in to edit this template.");
       return;
@@ -309,35 +403,43 @@ export default function TemplateItemsScreen() {
       return;
     }
 
-    try {
-      setAddingItem(true);
+    await runWithLock(async () => {
+      try {
+        setAddingItem(true);
 
-      await addChecklistTemplateItem(user.uid, safeTemplateId, trimmedName);
+        await addChecklistTemplateItem(user.uid, safeTemplateId, trimmedName);
 
-      setNewItemName("");
-      await loadTemplateData();
-    } catch (err) {
-      console.error("Failed to add template item:", err);
-      Alert.alert("Error", "Failed to add item.");
-    } finally {
-      setAddingItem(false);
-    }
+        if (!isScreenMountedRef.current) return;
+
+        setNewItemName("");
+        await loadTemplateData(templateLoadVersionRef.current);
+      } catch (err) {
+        console.error("Failed to add template item:", err);
+        Alert.alert("Error", "Failed to add item.");
+      } finally {
+        if (isScreenMountedRef.current) {
+          setAddingItem(false);
+        }
+      }
+    });
   }
 
   function handleStartEditItem(item: ChecklistTemplateItem) {
+    if (isItemBusy(item.id)) return;
+
     setEditingItemId(item.id);
     setEditingItemName(item.name ?? "");
   }
 
   function handleCancelEditItem() {
-    if (savingItemName) return;
+    if (savingItemName || interactionLocked) return;
 
     setEditingItemId(null);
     setEditingItemName("");
   }
 
   async function handleSaveItemName(item: ChecklistTemplateItem) {
-    if (!user || !safeTemplateId) return;
+    if (!user || !safeTemplateId || savingItemName || interactionLocked) return;
 
     const trimmedName = editingItemName.trim();
 
@@ -346,32 +448,36 @@ export default function TemplateItemsScreen() {
       return;
     }
 
-    try {
-      setSavingItemName(true);
+    await runWithLock(async () => {
+      try {
+        setSavingItemName(true);
 
-      await updateChecklistTemplateItemName(
-        user.uid,
-        safeTemplateId,
-        item.id,
-        trimmedName
-      );
+        await updateChecklistTemplateItemName(
+          user.uid,
+          safeTemplateId,
+          item.id,
+          trimmedName
+        );
 
-      updateLocalItem(item.id, { name: trimmedName });
-      setEditingItemId(null);
-      setEditingItemName("");
-    } catch (err) {
-      console.error("Failed to rename template item:", err);
-      Alert.alert("Error", "Failed to rename item.");
-    } finally {
-      setSavingItemName(false);
-    }
+        updateLocalItem(item.id, { name: trimmedName });
+        setEditingItemId(null);
+        setEditingItemName("");
+      } catch (err) {
+        console.error("Failed to rename template item:", err);
+        Alert.alert("Error", "Failed to rename item.");
+      } finally {
+        if (isScreenMountedRef.current) {
+          setSavingItemName(false);
+        }
+      }
+    });
   }
 
   async function handleUpdateQuantity(
     item: ChecklistTemplateItem,
     nextQuantity: number
   ) {
-    if (!user || !safeTemplateId) return;
+    if (!user || !safeTemplateId || isItemBusy(item.id)) return;
 
     const safeQuantity = Math.max(1, nextQuantity);
     const previousQuantity = Math.max(1, Number(item.quantity ?? 1));
@@ -380,52 +486,60 @@ export default function TemplateItemsScreen() {
       return;
     }
 
-    try {
-      setUpdatingQuantityId(item.id);
-      updateLocalItem(item.id, { quantity: safeQuantity });
+    await runWithLock(async () => {
+      try {
+        setUpdatingQuantityId(item.id);
+        updateLocalItem(item.id, { quantity: safeQuantity });
 
-      await updateChecklistTemplateItemQuantity(
-        user.uid,
-        safeTemplateId,
-        item.id,
-        safeQuantity
-      );
-    } catch (err) {
-      console.error("Failed to update template item quantity:", err);
-      updateLocalItem(item.id, { quantity: previousQuantity });
-      Alert.alert("Error", "Failed to update item quantity.");
-    } finally {
-      setUpdatingQuantityId(null);
-    }
+        await updateChecklistTemplateItemQuantity(
+          user.uid,
+          safeTemplateId,
+          item.id,
+          safeQuantity
+        );
+      } catch (err) {
+        console.error("Failed to update template item quantity:", err);
+        updateLocalItem(item.id, { quantity: previousQuantity });
+        Alert.alert("Error", "Failed to update item quantity.");
+      } finally {
+        if (isScreenMountedRef.current) {
+          setUpdatingQuantityId(null);
+        }
+      }
+    });
   }
 
   async function handleTogglePacked(item: ChecklistTemplateItem) {
-    if (!user || !safeTemplateId) return;
+    if (!user || !safeTemplateId || isItemBusy(item.id)) return;
 
     const previousPacked = Boolean(item.packed);
     const nextPacked = !previousPacked;
 
-    try {
-      setUpdatingPackedId(item.id);
-      updateLocalItem(item.id, { packed: nextPacked });
+    await runWithLock(async () => {
+      try {
+        setUpdatingPackedId(item.id);
+        updateLocalItem(item.id, { packed: nextPacked });
 
-      await updateChecklistTemplateItemPacked(
-        user.uid,
-        safeTemplateId,
-        item.id,
-        nextPacked
-      );
-    } catch (err) {
-      console.error("Failed to update template item packed status:", err);
-      updateLocalItem(item.id, { packed: previousPacked });
-      Alert.alert("Error", "Failed to update packed status.");
-    } finally {
-      setUpdatingPackedId(null);
-    }
+        await updateChecklistTemplateItemPacked(
+          user.uid,
+          safeTemplateId,
+          item.id,
+          nextPacked
+        );
+      } catch (err) {
+        console.error("Failed to update template item packed status:", err);
+        updateLocalItem(item.id, { packed: previousPacked });
+        Alert.alert("Error", "Failed to update packed status.");
+      } finally {
+        if (isScreenMountedRef.current) {
+          setUpdatingPackedId(null);
+        }
+      }
+    });
   }
 
   function handleDeleteItem(item: ChecklistTemplateItem) {
-    if (!user || !safeTemplateId) return;
+    if (!user || !safeTemplateId || isItemBusy(item.id)) return;
 
     Alert.alert("Delete item?", `Delete "${item.name}"? This cannot be undone.`, [
       { text: "Cancel", style: "cancel" },
@@ -433,15 +547,28 @@ export default function TemplateItemsScreen() {
         text: "Delete",
         style: "destructive",
         onPress: async () => {
-          try {
-            await deleteChecklistTemplateItem(user.uid, safeTemplateId, item.id);
-            setItems((currentItems) =>
-              currentItems.filter((currentItem) => currentItem.id !== item.id)
-            );
-          } catch (err) {
-            console.error("Failed to delete template item:", err);
-            Alert.alert("Error", "Failed to delete item.");
-          }
+          if (isItemBusy(item.id)) return;
+
+          await runWithLock(async () => {
+            try {
+              setDeletingItemId(item.id);
+
+              await deleteChecklistTemplateItem(user.uid, safeTemplateId, item.id);
+
+              if (!isScreenMountedRef.current) return;
+
+              setItems((currentItems) =>
+                currentItems.filter((currentItem) => currentItem.id !== item.id)
+              );
+            } catch (err) {
+              console.error("Failed to delete template item:", err);
+              Alert.alert("Error", "Failed to delete item.");
+            } finally {
+              if (isScreenMountedRef.current) {
+                setDeletingItemId(null);
+              }
+            }
+          });
         },
       },
     ]);
@@ -453,10 +580,7 @@ export default function TemplateItemsScreen() {
     const packed = Boolean(item.packed);
     const packedQty = packed ? neededQty : 0;
     const stillToPackQty = packed ? 0 : neededQty;
-    const isBusy =
-      updatingQuantityId === item.id ||
-      updatingPhotoId === item.id ||
-      updatingPackedId === item.id;
+    const isBusy = isItemBusy(item.id);
 
     return (
       <FrostedCard
@@ -490,6 +614,7 @@ export default function TemplateItemsScreen() {
               returnKeyType="done"
               enablesReturnKeyAutomatically
               blurOnSubmit
+              editable={!savingItemName && !interactionLocked}
               onSubmitEditing={() => handleSaveItemName(item)}
             />
 
@@ -515,8 +640,10 @@ export default function TemplateItemsScreen() {
                     borderColor: theme.colors.border,
                     backgroundColor: theme.colors.iconSurface,
                   },
+                  interactionLocked && styles.createButtonDisabled,
                 ]}
                 onPress={handleCancelEditItem}
+                disabled={interactionLocked}
               >
                 <Text
                   style={[styles.cancelEditText, { color: theme.colors.text }]}
@@ -529,9 +656,9 @@ export default function TemplateItemsScreen() {
         ) : (
           <View style={styles.itemContentRow}>
             <HapticPressable
-              style={styles.itemPhotoWrap}
+              style={[styles.itemPhotoWrap, isBusy && styles.disabledInteraction]}
               onPress={() => handleItemPhotoAction(item)}
-              disabled={updatingPhotoId === item.id}
+              disabled={isBusy}
             >
               {item.itemPhotoUri ? (
                 <Image
@@ -588,8 +715,10 @@ export default function TemplateItemsScreen() {
                         backgroundColor: theme.colors.iconSurface,
                         borderColor: theme.colors.border,
                       },
+                      isBusy && styles.disabledInteraction,
                     ]}
                     onPress={() => handleItemPhotoAction(item)}
+                    disabled={isBusy}
                   >
                     <ImageIcon size={16} color={theme.colors.textSecondary} />
                   </HapticPressable>
@@ -601,8 +730,10 @@ export default function TemplateItemsScreen() {
                         backgroundColor: theme.colors.iconSurface,
                         borderColor: theme.colors.border,
                       },
+                      isBusy && styles.disabledInteraction,
                     ]}
                     onPress={() => handleStartEditItem(item)}
+                    disabled={isBusy}
                   >
                     <Pencil size={16} color={theme.colors.textSecondary} />
                   </HapticPressable>
@@ -614,8 +745,10 @@ export default function TemplateItemsScreen() {
                         backgroundColor: theme.colors.iconSurface,
                         borderColor: theme.colors.border,
                       },
+                      isBusy && styles.disabledInteraction,
                     ]}
                     onPress={() => handleDeleteItem(item)}
+                    disabled={isBusy}
                   >
                     <Trash2 size={16} color={theme.colors.danger} />
                   </HapticPressable>
@@ -681,6 +814,7 @@ export default function TemplateItemsScreen() {
                         backgroundColor: theme.colors.iconSurface,
                         borderColor: theme.colors.border,
                       },
+                      isBusy && styles.createButtonDisabled,
                     ]}
                     onPress={() => handleUpdateQuantity(item, neededQty - 1)}
                     disabled={isBusy}
@@ -706,6 +840,7 @@ export default function TemplateItemsScreen() {
                         backgroundColor: theme.colors.iconSurface,
                         borderColor: theme.colors.border,
                       },
+                      isBusy && styles.createButtonDisabled,
                     ]}
                     onPress={() => handleUpdateQuantity(item, neededQty + 1)}
                     disabled={isBusy}
@@ -841,6 +976,7 @@ export default function TemplateItemsScreen() {
                           backgroundColor: theme.colors.inputSurface,
                         },
                       ]}
+                      editable={!addingItem && !interactionLocked}
                       returnKeyType="done"
                       onSubmitEditing={handleAddItem}
                     />
@@ -848,11 +984,13 @@ export default function TemplateItemsScreen() {
                     <HapticPressable
                       style={[
                         styles.createButton,
-                        (!newItemName.trim() || addingItem) &&
+                        (!newItemName.trim() || addingItem || interactionLocked) &&
                           styles.createButtonDisabled,
                       ]}
                       onPress={handleAddItem}
-                      disabled={!newItemName.trim() || addingItem}
+                      disabled={
+                        !newItemName.trim() || addingItem || interactionLocked
+                      }
                     >
                       <Plus size={18} color="#fff" />
                     </HapticPressable>
@@ -972,6 +1110,10 @@ const styles = StyleSheet.create({
 
   createButtonDisabled: {
     opacity: 0.5,
+  },
+
+  disabledInteraction: {
+    opacity: 0.6,
   },
 
   listTitle: {
