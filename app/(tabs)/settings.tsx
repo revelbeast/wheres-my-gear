@@ -80,15 +80,21 @@ export default function SettingsScreen() {
 
   const { isLocked: interactionLocked } = useInteractionLock(450);
 
+  const isMountedRef = useRef(true);
   const navigationTransitionLockedRef = useRef(false);
   const navigationUnlockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
 
   useEffect(() => {
+    isMountedRef.current = true;
+
     return () => {
+      isMountedRef.current = false;
+
       if (navigationUnlockTimeoutRef.current) {
         clearTimeout(navigationUnlockTimeoutRef.current);
+        navigationUnlockTimeoutRef.current = null;
       }
     };
   }, []);
@@ -105,6 +111,8 @@ export default function SettingsScreen() {
     }
 
     navigationUnlockTimeoutRef.current = setTimeout(() => {
+      if (!isMountedRef.current) return;
+
       navigationTransitionLockedRef.current = false;
       navigationUnlockTimeoutRef.current = null;
     }, 1500);
