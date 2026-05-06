@@ -3,6 +3,7 @@ import Constants from "expo-constants";
 import { initializeApp, getApp, getApps } from "firebase/app";
 import * as FirebaseAuth from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
 const extra = Constants.expoConfig?.extra ?? {};
 
@@ -23,6 +24,10 @@ if (!firebaseConfig.projectId) {
   console.error("Firebase project ID is missing. Check EAS env variables.");
 }
 
+if (!firebaseConfig.storageBucket) {
+  console.error("Firebase Storage bucket is missing. Check EAS env variables.");
+}
+
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
 const authModule = FirebaseAuth as any;
@@ -39,3 +44,4 @@ try {
 
 export const auth = firebaseAuth;
 export const db = getFirestore(app);
+export const storage = getStorage(app);

@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 
 import { useAuth } from "../../components/auth/AuthProvider";
 import AppHeader from "../../components/ui/AppHeader";
@@ -23,6 +24,7 @@ import {
   ThemedText,
   useThemedValues,
 } from "../../components/ui/Themed";
+import { storage } from "../../firebaseConfig";
 import {
   AppProfile,
   getProfileSettings,
@@ -38,6 +40,27 @@ function formatPhoneNumber(value: string) {
   }
 
   return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
+}
+
+function getStorageSafeFileName(kind: "profile" | "background") {
+  return `${kind}-${Date.now()}.jpg`;
+}
+
+async function uploadProfileImage(
+  userId: string,
+  localUri: string,
+  kind: "profile" | "background"
+) {
+  const response = await fetch(localUri);
+  const blob = await response.blob();
+  const fileName = getStorageSafeFileName(kind);
+  const imageRef = ref(storage, `users/${userId}/profile/${fileName}`);
+
+  await uploadBytes(imageRef, blob, {
+    contentType: "image/jpeg",
+  });
+
+  return getDownloadURL(imageRef);
 }
 
 function LabeledInput({
@@ -165,9 +188,15 @@ export default function ProfileSettingsScreen() {
         return;
       }
 
+      const uploadedUrl = await uploadProfileImage(
+        user.uid,
+        asset.uri,
+        "profile"
+      );
+
       const nextProfile = {
         ...profile,
-        profilePhotoUri: asset.uri,
+        profilePhotoUri: uploadedUrl,
       };
 
       setProfile(nextProfile);
@@ -200,9 +229,15 @@ export default function ProfileSettingsScreen() {
         return;
       }
 
+      const uploadedUrl = await uploadProfileImage(
+        user.uid,
+        asset.uri,
+        "background"
+      );
+
       const nextProfile = {
         ...profile,
-        backgroundPhotoUri: asset.uri,
+        backgroundPhotoUri: uploadedUrl,
       };
 
       setProfile(nextProfile);

@@ -16,11 +16,7 @@ function isValidBackgroundUri(value: unknown) {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-export default function ScreenBackground({
-  children,
-  style,
-  ...rest
-}: Props) {
+export default function ScreenBackground({ children, style, ...rest }: Props) {
   const { user, initializing } = useAuth();
   const [backgroundUri, setBackgroundUri] = useState<string | null>(null);
   const [backgroundLoadFailed, setBackgroundLoadFailed] = useState(false);
@@ -42,12 +38,15 @@ export default function ScreenBackground({
 
         try {
           const profile = await getProfileSettings(user.uid);
-          const savedBackgroundUri = (profile as any)?.backgroundPhotoUri;
+          const savedBackgroundUri =
+            typeof profile.backgroundPhotoUri === "string"
+              ? profile.backgroundPhotoUri.trim()
+              : "";
 
           if (!isActive) return;
 
           if (isValidBackgroundUri(savedBackgroundUri)) {
-            setBackgroundUri(savedBackgroundUri.trim());
+            setBackgroundUri(savedBackgroundUri);
           } else {
             setBackgroundUri(null);
           }
@@ -89,13 +88,6 @@ export default function ScreenBackground({
         }
       }}
     >
-      <ImageBackground
-        source={DEFAULT_BACKGROUND}
-        style={styles.defaultFallback}
-        imageStyle={styles.image}
-        resizeMode="cover"
-      />
-
       <View style={styles.baseOverlay} />
       <View style={styles.topGlow} />
       <View style={styles.bottomShade} />
@@ -111,10 +103,6 @@ const styles = StyleSheet.create({
   background: {
     flex: 1,
     backgroundColor: "#05070C",
-  },
-
-  defaultFallback: {
-    ...StyleSheet.absoluteFillObject,
   },
 
   image: {
