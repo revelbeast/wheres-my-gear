@@ -69,17 +69,37 @@ export default function CreateStorageScreen() {
   const [showSubtypeDropdown, setShowSubtypeDropdown] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  const isMountedRef = useRef(true);
   const scrollRef = useRef<ScrollView | null>(null);
   const nameInputRef = useRef<TextInput | null>(null);
   const customSubtypeInputRef = useRef<TextInput | null>(null);
   const dropdownOpenTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const customSubtypeFocusTimeoutRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
 
   useEffect(() => {
+    isMountedRef.current = true;
+
     return () => {
+      isMountedRef.current = false;
+
       if (dropdownOpenTimeoutRef.current) {
         clearTimeout(dropdownOpenTimeoutRef.current);
+        dropdownOpenTimeoutRef.current = null;
+      }
+
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+        scrollTimeoutRef.current = null;
+      }
+
+      if (customSubtypeFocusTimeoutRef.current) {
+        clearTimeout(customSubtypeFocusTimeoutRef.current);
+        customSubtypeFocusTimeoutRef.current = null;
       }
     };
   }, []);
@@ -108,9 +128,28 @@ export default function CreateStorageScreen() {
     }
   }
 
+  function clearPendingScroll() {
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+      scrollTimeoutRef.current = null;
+    }
+  }
+
+  function clearPendingCustomSubtypeFocus() {
+    if (customSubtypeFocusTimeoutRef.current) {
+      clearTimeout(customSubtypeFocusTimeoutRef.current);
+      customSubtypeFocusTimeoutRef.current = null;
+    }
+  }
+
   function scrollToFormBottom(delay = 120) {
-    setTimeout(() => {
+    clearPendingScroll();
+
+    scrollTimeoutRef.current = setTimeout(() => {
+      if (!isMountedRef.current) return;
+
       scrollRef.current?.scrollToEnd({ animated: true });
+      scrollTimeoutRef.current = null;
     }, delay);
   }
 
@@ -128,7 +167,11 @@ export default function CreateStorageScreen() {
 
   function closeSubtypeDropdown() {
     clearPendingDropdownOpen();
-    setShowSubtypeDropdown(false);
+    clearPendingCustomSubtypeFocus();
+
+    if (isMountedRef.current) {
+      setShowSubtypeDropdown(false);
+    }
   }
 
   function handleBackPress() {
@@ -152,6 +195,8 @@ export default function CreateStorageScreen() {
     clearPendingDropdownOpen();
 
     dropdownOpenTimeoutRef.current = setTimeout(() => {
+      if (!isMountedRef.current) return;
+
       setShowSubtypeDropdown(true);
       scrollToFormBottom(80);
       dropdownOpenTimeoutRef.current = null;
@@ -163,6 +208,8 @@ export default function CreateStorageScreen() {
 
     blurInputs();
     clearPendingDropdownOpen();
+    clearPendingCustomSubtypeFocus();
+
     setSubtype(value);
     setShowSubtypeDropdown(false);
 
@@ -171,9 +218,12 @@ export default function CreateStorageScreen() {
     }
 
     if (value === "Other") {
-      setTimeout(() => {
+      customSubtypeFocusTimeoutRef.current = setTimeout(() => {
+        if (!isMountedRef.current) return;
+
         customSubtypeInputRef.current?.focus();
         scrollToFormBottom(80);
+        customSubtypeFocusTimeoutRef.current = null;
       }, 150);
     }
   }
@@ -183,6 +233,7 @@ export default function CreateStorageScreen() {
 
     Keyboard.dismiss();
     blurInputs();
+    clearPendingCustomSubtypeFocus();
     setCategory(nextCategory);
     setSubtype("");
     setCustomSubtype("");
@@ -234,16 +285,23 @@ export default function CreateStorageScreen() {
           throw new Error("Storage space was not saved. Please try again.");
         }
 
-        router.replace("/storage");
+        if (isMountedRef.current) {
+          router.replace("/storage");
+        }
       } catch (err: any) {
         console.error("Failed to create storage space:", err);
 
-        Alert.alert(
-          "Save failed",
-          err?.message || "Unable to save this storage space. Please try again."
-        );
+        if (isMountedRef.current) {
+          Alert.alert(
+            "Save failed",
+            err?.message ||
+              "Unable to save this storage space. Please try again."
+          );
+        }
       } finally {
-        setSaving(false);
+        if (isMountedRef.current) {
+          setSaving(false);
+        }
       }
     });
   }
