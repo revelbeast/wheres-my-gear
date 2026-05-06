@@ -120,6 +120,10 @@ export default function ProfileScreen() {
     unlock: unlockInteraction,
   } = useInteractionLock(450);
 
+  const isScreenMountedRef = useRef(true);
+  const premiumCheckVersionRef = useRef(0);
+  const restorePurchasesVersionRef = useRef(0);
+  const deleteAllDataVersionRef = useRef(0);
   const navigationTransitionLockedRef = useRef(false);
   const navigationUnlockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
@@ -135,9 +139,17 @@ export default function ProfileScreen() {
     "1.0.0";
 
   useEffect(() => {
+    isScreenMountedRef.current = true;
+
     return () => {
+      isScreenMountedRef.current = false;
+      premiumCheckVersionRef.current += 1;
+      restorePurchasesVersionRef.current += 1;
+      deleteAllDataVersionRef.current += 1;
+
       if (navigationUnlockTimeoutRef.current) {
         clearTimeout(navigationUnlockTimeoutRef.current);
+        navigationUnlockTimeoutRef.current = null;
       }
     };
   }, []);
@@ -149,24 +161,52 @@ export default function ProfileScreen() {
   }, [user, initializing]);
 
   useEffect(() => {
+    const checkVersion = premiumCheckVersionRef.current + 1;
+    premiumCheckVersionRef.current = checkVersion;
+
     async function checkPremiumStatus() {
       if (!user) {
-        setIsPremium(false);
+        if (
+          premiumCheckVersionRef.current === checkVersion &&
+          isScreenMountedRef.current
+        ) {
+          setIsPremium(false);
+        }
+
         return;
       }
 
       try {
         const premium = await isPremiumUser();
+
+        if (
+          premiumCheckVersionRef.current !== checkVersion ||
+          !isScreenMountedRef.current
+        ) {
+          return;
+        }
+
         setIsPremium(premium);
       } catch (err) {
+        if (
+          premiumCheckVersionRef.current !== checkVersion ||
+          !isScreenMountedRef.current
+        ) {
+          return;
+        }
+
         console.error("Failed to check premium status:", err);
         setIsPremium(false);
       }
     }
 
     if (!initializing) {
-      checkPremiumStatus();
+      void checkPremiumStatus();
     }
+
+    return () => {
+      premiumCheckVersionRef.current += 1;
+    };
   }, [initializing, user]);
 
   async function runWithLock(action: () => Promise<void> | void) {
@@ -262,11 +302,21 @@ export default function ProfileScreen() {
     }
 
     await runWithLock(async () => {
+      const restoreVersion = restorePurchasesVersionRef.current + 1;
+      restorePurchasesVersionRef.current = restoreVersion;
+
       try {
         setIsRestoringPurchases(true);
 
         const customerInfo = await restorePurchases();
         const hasPremium = hasActivePremiumEntitlement(customerInfo);
+
+        if (
+          restorePurchasesVersionRef.current !== restoreVersion ||
+          !isScreenMountedRef.current
+        ) {
+          return;
+        }
 
         setIsPremium(hasPremium);
 
@@ -283,13 +333,25 @@ export default function ProfileScreen() {
           "No active Premium purchase was found for this Apple ID."
         );
       } catch (err) {
+        if (
+          restorePurchasesVersionRef.current !== restoreVersion ||
+          !isScreenMountedRef.current
+        ) {
+          return;
+        }
+
         console.error("Failed to restore purchases:", err);
         Alert.alert(
           "Restore Failed",
           "Unable to restore purchases right now. Please try again."
         );
       } finally {
-        setIsRestoringPurchases(false);
+        if (
+          restorePurchasesVersionRef.current === restoreVersion &&
+          isScreenMountedRef.current
+        ) {
+          setIsRestoringPurchases(false);
+        }
       }
     });
   }
@@ -314,6 +376,9 @@ export default function ProfileScreen() {
             void runWithLock(async () => {
               if (!user) return;
 
+              const deleteVersion = deleteAllDataVersionRef.current + 1;
+              deleteAllDataVersionRef.current = deleteVersion;
+
               try {
                 setIsDeletingAllData(true);
 
@@ -333,6 +398,13 @@ export default function ProfileScreen() {
                   getDocs(collection(db, "users", userId, "checklistTemplates")),
                 ]);
 
+                if (
+                  deleteAllDataVersionRef.current !== deleteVersion ||
+                  !isScreenMountedRef.current
+                ) {
+                  return;
+                }
+
                 const checklistItemDocs: Array<{ ref: any }> = [];
 
                 for (const checklistDoc of checklistsSnapshot.docs) {
@@ -346,6 +418,13 @@ export default function ProfileScreen() {
                       "items"
                     )
                   );
+
+                  if (
+                    deleteAllDataVersionRef.current !== deleteVersion ||
+                    !isScreenMountedRef.current
+                  ) {
+                    return;
+                  }
 
                   checklistItemDocs.push(...itemsSnapshot.docs);
                 }
@@ -364,6 +443,13 @@ export default function ProfileScreen() {
                     )
                   );
 
+                  if (
+                    deleteAllDataVersionRef.current !== deleteVersion ||
+                    !isScreenMountedRef.current
+                  ) {
+                    return;
+                  }
+
                   templateItemDocs.push(...itemsSnapshot.docs);
                 }
 
@@ -377,15 +463,34 @@ export default function ProfileScreen() {
                   ...checklistTemplatesSnapshot.docs,
                 ]);
 
+                if (
+                  deleteAllDataVersionRef.current !== deleteVersion ||
+                  !isScreenMountedRef.current
+                ) {
+                  return;
+                }
+
                 Alert.alert("Data Deleted", "All app data has been deleted.");
               } catch (err) {
+                if (
+                  deleteAllDataVersionRef.current !== deleteVersion ||
+                  !isScreenMountedRef.current
+                ) {
+                  return;
+                }
+
                 console.error("Failed to delete all data:", err);
                 Alert.alert(
                   "Delete Failed",
                   "Unable to delete all data. Please try again."
                 );
               } finally {
-                setIsDeletingAllData(false);
+                if (
+                  deleteAllDataVersionRef.current === deleteVersion &&
+                  isScreenMountedRef.current
+                ) {
+                  setIsDeletingAllData(false);
+                }
               }
             });
           },
@@ -455,8 +560,17 @@ export default function ProfileScreen() {
           void runWithLock(async () => {
             try {
               await signOutUser();
+
+              if (!isScreenMountedRef.current) {
+                return;
+              }
+
               router.replace("/");
             } catch (err) {
+              if (!isScreenMountedRef.current) {
+                return;
+              }
+
               console.error(err);
               Alert.alert("Error", "Failed to sign out.");
             }
