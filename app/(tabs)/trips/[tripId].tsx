@@ -1,4 +1,5 @@
 import { BlurView } from "expo-blur";
+import { router, useLocalSearchParams } from "expo-router";
 import {
   deleteDoc,
   doc,
@@ -7,7 +8,6 @@ import {
   Timestamp,
   updateDoc,
 } from "firebase/firestore";
-import { router, useLocalSearchParams } from "expo-router";
 import {
   CalendarDays,
   ChevronLeft,
@@ -15,7 +15,7 @@ import {
   Share2,
   Trash2,
 } from "lucide-react-native";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -39,6 +39,7 @@ import {
   useThemedValues,
 } from "../../../components/ui/Themed";
 import { db } from "../../../firebaseConfig";
+import { useInteractionLock } from "../../../lib/useInteractionLock";
 
 const LABEL_WHITE = "#FFFFFF";
 
@@ -67,6 +68,14 @@ function FrostedCard({
       {children}
     </BlurView>
   );
+}
+
+function normalizeRouteParam(value: string | string[] | undefined) {
+  if (Array.isArray(value)) {
+    return value[0] ?? "";
+  }
+
+  return value ?? "";
 }
 
 function parseTripDate(value: unknown): Date | null {
@@ -164,9 +173,15 @@ function getDaysUntilTrip(date: Date) {
 }
 
 export default function EditTripScreen() {
-  const { tripId } = useLocalSearchParams<{ tripId?: string }>();
+  const params = useLocalSearchParams<{ tripId?: string | string[] }>();
+  const tripId = useMemo(() => normalizeRouteParam(params.tripId), [params.tripId]);
   const { user, initializing } = useAuth();
   const theme = useThemedValues();
+  const {
+    isLocked: interactionLocked,
+    lock: lockInteraction,
+    unlock: unlockInteraction,
+  } = useInteractionLock(450);
 
   const [tripName, setTripName] = useState("");
   const [tripDate, setTripDate] = useState(getNoonDate(new Date()));
@@ -176,133 +191,217 @@ export default function EditTripScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const isMountedRef = useRef(true);
+  const loadRequestIdRef = useRef(0);
+
   const calendarDays = useMemo(
     () => buildCalendarDays(calendarMonth),
     [calendarMonth]
   );
 
   useEffect(() => {
-    if (!initializing && !user) {
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+      loadRequestIdRef.current += 1;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!initializing && !user && isMountedRef.current) {
       router.replace("/sign-in");
     }
   }, [initializing, user]);
 
   useEffect(() => {
+    const requestId = loadRequestIdRef.current + 1;
+    loadRequestIdRef.current = requestId;
+
     if (initializing || !user || !tripId) {
-      if (!initializing && !tripId) {
+      if (!initializing && !tripId && isMountedRef.current) {
         setIsLoading(false);
       }
 
       return;
     }
 
-    loadTrip();
-  }, [initializing, user, tripId]);
+    async function loadTrip() {
+      if (!user || !tripId) {
+        if (isMountedRef.current && loadRequestIdRef.current === requestId) {
+          setIsLoading(false);
+        }
 
-  async function loadTrip() {
-    if (!user || !tripId) {
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-
-      const tripSnap = await getDoc(doc(db, "users", user.uid, "trips", tripId));
-
-      if (!tripSnap.exists()) {
-        Alert.alert("Trip not found", "This trip could not be found.");
-        router.back();
         return;
       }
 
-      const data = tripSnap.data();
+      try {
+        if (isMountedRef.current && loadRequestIdRef.current === requestId) {
+          setIsLoading(true);
+        }
 
-      const loadedName =
-        typeof data.name === "string" && data.name.trim().length > 0
-          ? data.name.trim()
-          : typeof data.title === "string" && data.title.trim().length > 0
-            ? data.title.trim()
-            : "Upcoming Trip";
+        const tripSnap = await getDoc(
+          doc(db, "users", user.uid, "trips", tripId)
+        );
 
-      const loadedDate =
-        parseTripDate(data.startDate) ??
-        parseTripDate(data.tripDate) ??
-        parseTripDate(data.date) ??
-        parseTripDate(data.departureDate) ??
-        getNoonDate(new Date());
+        if (!isMountedRef.current || loadRequestIdRef.current !== requestId) {
+          return;
+        }
 
-      setTripName(loadedName);
-      setTripDate(getNoonDate(loadedDate));
-      setCalendarMonth(new Date(loadedDate.getFullYear(), loadedDate.getMonth(), 1));
-    } catch (error) {
-      console.error("Failed to load trip:", error);
-      Alert.alert("Trip not loaded", "Something went wrong while loading this trip.");
+        if (!tripSnap.exists()) {
+          Alert.alert("Trip not found", "This trip could not be found.");
+
+          if (isMountedRef.current) {
+            router.back();
+          }
+
+          return;
+        }
+
+        const data = tripSnap.data();
+
+        const loadedName =
+          typeof data.name === "string" && data.name.trim().length > 0
+            ? data.name.trim()
+            : typeof data.title === "string" && data.title.trim().length > 0
+              ? data.title.trim()
+              : "Upcoming Trip";
+
+        const loadedDate =
+          parseTripDate(data.startDate) ??
+          parseTripDate(data.tripDate) ??
+          parseTripDate(data.date) ??
+          parseTripDate(data.departureDate) ??
+          getNoonDate(new Date());
+
+        if (!isMountedRef.current || loadRequestIdRef.current !== requestId) {
+          return;
+        }
+
+        setTripName(loadedName);
+        setTripDate(getNoonDate(loadedDate));
+        setCalendarMonth(
+          new Date(loadedDate.getFullYear(), loadedDate.getMonth(), 1)
+        );
+      } catch (error) {
+        console.error("Failed to load trip:", error);
+
+        if (isMountedRef.current && loadRequestIdRef.current === requestId) {
+          Alert.alert(
+            "Trip not loaded",
+            "Something went wrong while loading this trip."
+          );
+        }
+      } finally {
+        if (isMountedRef.current && loadRequestIdRef.current === requestId) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    loadTrip();
+  }, [initializing, user, tripId]);
+
+  async function runWithLock(action: () => Promise<void> | void) {
+    if (interactionLocked) return;
+
+    lockInteraction();
+
+    try {
+      await action();
     } finally {
-      setIsLoading(false);
+      unlockInteraction();
     }
   }
 
   function handleBack() {
-    router.back();
+    if (isSaving || isDeleting || interactionLocked) return;
+
+    runWithLock(() => {
+      router.back();
+    });
   }
 
   function handlePreviousMonth() {
+    if (isSaving || isDeleting || interactionLocked) return;
+
     setCalendarMonth(
       (current) => new Date(current.getFullYear(), current.getMonth() - 1, 1)
     );
   }
 
   function handleNextMonth() {
+    if (isSaving || isDeleting || interactionLocked) return;
+
     setCalendarMonth(
       (current) => new Date(current.getFullYear(), current.getMonth() + 1, 1)
     );
   }
 
   function handleOpenCalendar() {
+    if (isSaving || isDeleting || interactionLocked) return;
+
     setCalendarMonth(new Date(tripDate.getFullYear(), tripDate.getMonth(), 1));
     setIsCalendarVisible(true);
   }
 
+  function handleCloseCalendar() {
+    if (isSaving || isDeleting || interactionLocked) return;
+
+    setIsCalendarVisible(false);
+  }
+
   function handleSelectDate(date: Date) {
+    if (isSaving || isDeleting || interactionLocked) return;
+
     setTripDate(getNoonDate(date));
     setIsCalendarVisible(false);
   }
 
   async function handleShareTrip() {
-    const trimmedName = tripName.trim() || "Upcoming Trip";
-    const daysUntilTrip = getDaysUntilTrip(tripDate);
+    if (isSaving || isDeleting || interactionLocked) return;
 
-    const countdownText =
-      daysUntilTrip > 1
-        ? `${daysUntilTrip} days away`
-        : daysUntilTrip === 1
-          ? "Tomorrow"
-          : daysUntilTrip === 0
-            ? "Today"
-            : `${Math.abs(daysUntilTrip)} days ago`;
+    await runWithLock(async () => {
+      const trimmedName = tripName.trim() || "Upcoming Trip";
+      const daysUntilTrip = getDaysUntilTrip(tripDate);
 
-    const message = [
-      `Where's My Gear Trip`,
-      ``,
-      `Trip: ${trimmedName}`,
-      `Date: ${formatTripDate(tripDate)}`,
-      `Countdown: ${countdownText}`,
-    ].join("\n");
+      const countdownText =
+        daysUntilTrip > 1
+          ? `${daysUntilTrip} days away`
+          : daysUntilTrip === 1
+            ? "Tomorrow"
+            : daysUntilTrip === 0
+              ? "Today"
+              : `${Math.abs(daysUntilTrip)} days ago`;
 
-    try {
-      await Share.share({
-        title: trimmedName,
-        message,
-      });
-    } catch (error) {
-      console.error("Failed to share trip:", error);
-      Alert.alert("Trip not shared", "Something went wrong while sharing this trip.");
-    }
+      const message = [
+        `Where's My Gear Trip`,
+        ``,
+        `Trip: ${trimmedName}`,
+        `Date: ${formatTripDate(tripDate)}`,
+        `Countdown: ${countdownText}`,
+      ].join("\n");
+
+      try {
+        await Share.share({
+          title: trimmedName,
+          message,
+        });
+      } catch (error) {
+        console.error("Failed to share trip:", error);
+
+        if (isMountedRef.current) {
+          Alert.alert(
+            "Trip not shared",
+            "Something went wrong while sharing this trip."
+          );
+        }
+      }
+    });
   }
 
   async function handleSaveTrip() {
-    if (!user || !tripId || isSaving || isDeleting) {
+    if (!user || !tripId || isSaving || isDeleting || interactionLocked) {
       return;
     }
 
@@ -313,32 +412,53 @@ export default function EditTripScreen() {
       return;
     }
 
-    try {
-      setIsSaving(true);
+    const uid = user.uid;
+    const currentTripId = tripId;
 
-      await updateDoc(doc(db, "users", user.uid, "trips", tripId), {
-        name: trimmedName,
-        startDate: Timestamp.fromDate(tripDate),
-        updatedAt: serverTimestamp(),
-      });
+    await runWithLock(async () => {
+      try {
+        if (isMountedRef.current) {
+          setIsSaving(true);
+        }
 
-      router.back();
-    } catch (error) {
-      console.error("Failed to update trip:", error);
-      Alert.alert("Trip not saved", "Something went wrong while updating this trip.");
-    } finally {
-      setIsSaving(false);
-    }
+        await updateDoc(doc(db, "users", uid, "trips", currentTripId), {
+          name: trimmedName,
+          startDate: Timestamp.fromDate(tripDate),
+          updatedAt: serverTimestamp(),
+        });
+
+        if (isMountedRef.current) {
+          router.back();
+        }
+      } catch (error) {
+        console.error("Failed to update trip:", error);
+
+        if (isMountedRef.current) {
+          Alert.alert(
+            "Trip not saved",
+            "Something went wrong while updating this trip."
+          );
+        }
+      } finally {
+        if (isMountedRef.current) {
+          setIsSaving(false);
+        }
+      }
+    });
   }
 
   function handleDeleteTrip() {
-    if (!user || !tripId || isDeleting) {
+    if (!user || !tripId || isSaving || isDeleting || interactionLocked) {
       return;
     }
 
+    const uid = user.uid;
+    const currentTripId = tripId;
+    const currentTripName = tripName.trim() || "this trip";
+
     Alert.alert(
       "Delete Trip",
-      `Delete "${tripName.trim() || "this trip"}"? This cannot be undone.`,
+      `Delete "${currentTripName}"? This cannot be undone.`,
       [
         {
           text: "Cancel",
@@ -348,19 +468,34 @@ export default function EditTripScreen() {
           text: "Delete",
           style: "destructive",
           onPress: async () => {
-            try {
-              setIsDeleting(true);
-              await deleteDoc(doc(db, "users", user.uid, "trips", tripId));
-              router.back();
-            } catch (error) {
-              console.error("Failed to delete trip:", error);
-              Alert.alert(
-                "Trip not deleted",
-                "Something went wrong while deleting this trip."
-              );
-            } finally {
-              setIsDeleting(false);
-            }
+            if (isSaving || isDeleting || interactionLocked) return;
+
+            await runWithLock(async () => {
+              try {
+                if (isMountedRef.current) {
+                  setIsDeleting(true);
+                }
+
+                await deleteDoc(doc(db, "users", uid, "trips", currentTripId));
+
+                if (isMountedRef.current) {
+                  router.back();
+                }
+              } catch (error) {
+                console.error("Failed to delete trip:", error);
+
+                if (isMountedRef.current) {
+                  Alert.alert(
+                    "Trip not deleted",
+                    "Something went wrong while deleting this trip."
+                  );
+                }
+              } finally {
+                if (isMountedRef.current) {
+                  setIsDeleting(false);
+                }
+              }
+            });
           },
         },
       ]
@@ -384,7 +519,15 @@ export default function EditTripScreen() {
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.headerRow}>
-              <HapticPressable style={styles.backButton} onPress={handleBack}>
+              <HapticPressable
+                style={[
+                  styles.backButton,
+                  (isSaving || isDeleting || interactionLocked) &&
+                    styles.disabledButton,
+                ]}
+                onPress={handleBack}
+                disabled={isSaving || isDeleting || interactionLocked}
+              >
                 <ChevronLeft size={22} color={LABEL_WHITE} />
               </HapticPressable>
 
@@ -438,6 +581,7 @@ export default function EditTripScreen() {
                       autoCapitalize="words"
                       autoCorrect
                       returnKeyType="done"
+                      editable={!isSaving && !isDeleting && !interactionLocked}
                     />
                   </View>
 
@@ -453,8 +597,11 @@ export default function EditTripScreen() {
                           borderColor: theme.colors.border,
                           backgroundColor: theme.colors.card,
                         },
+                        (isSaving || isDeleting || interactionLocked) &&
+                          styles.disabledButton,
                       ]}
                       onPress={handleOpenCalendar}
+                      disabled={isSaving || isDeleting || interactionLocked}
                     >
                       <View style={styles.datePickerLeft}>
                         <CalendarDays size={18} color={theme.colors.text} />
@@ -479,9 +626,11 @@ export default function EditTripScreen() {
                       borderColor: theme.colors.border,
                       backgroundColor: theme.colors.card,
                     },
+                    (isSaving || isDeleting || interactionLocked) &&
+                      styles.disabledButton,
                   ]}
                   onPress={handleShareTrip}
-                  disabled={isSaving || isDeleting}
+                  disabled={isSaving || isDeleting || interactionLocked}
                 >
                   <Share2 size={18} color={theme.colors.text} />
                   <ThemedText
@@ -495,10 +644,12 @@ export default function EditTripScreen() {
                 <ThemedButton
                   style={[
                     styles.saveButton,
-                    isSaving || isDeleting ? styles.disabledButton : {},
+                    isSaving || isDeleting || interactionLocked
+                      ? styles.disabledButton
+                      : {},
                   ]}
                   onPress={handleSaveTrip}
-                  disabled={isSaving || isDeleting}
+                  disabled={isSaving || isDeleting || interactionLocked}
                 >
                   <ThemedText style={styles.saveButtonText}>
                     {isSaving ? "Saving Changes..." : "Save Changes"}
@@ -508,10 +659,12 @@ export default function EditTripScreen() {
                 <HapticPressable
                   style={[
                     styles.deleteButton,
-                    isSaving || isDeleting ? styles.disabledButton : {},
+                    isSaving || isDeleting || interactionLocked
+                      ? styles.disabledButton
+                      : {},
                   ]}
                   onPress={handleDeleteTrip}
-                  disabled={isSaving || isDeleting}
+                  disabled={isSaving || isDeleting || interactionLocked}
                 >
                   <Trash2 size={18} color={LABEL_WHITE} />
                   <ThemedText style={styles.deleteButtonText}>
@@ -537,14 +690,19 @@ export default function EditTripScreen() {
           visible={isCalendarVisible}
           transparent
           animationType="fade"
-          onRequestClose={() => setIsCalendarVisible(false)}
+          onRequestClose={handleCloseCalendar}
         >
           <View style={styles.modalOverlay}>
             <FrostedCard style={styles.calendarCard}>
               <View style={styles.calendarHeader}>
                 <HapticPressable
-                  style={styles.calendarNavButton}
+                  style={[
+                    styles.calendarNavButton,
+                    (isSaving || isDeleting || interactionLocked) &&
+                      styles.disabledButton,
+                  ]}
                   onPress={handlePreviousMonth}
+                  disabled={isSaving || isDeleting || interactionLocked}
                 >
                   <ChevronLeft size={20} color={LABEL_WHITE} />
                 </HapticPressable>
@@ -554,8 +712,13 @@ export default function EditTripScreen() {
                 </ThemedText>
 
                 <HapticPressable
-                  style={styles.calendarNavButton}
+                  style={[
+                    styles.calendarNavButton,
+                    (isSaving || isDeleting || interactionLocked) &&
+                      styles.disabledButton,
+                  ]}
                   onPress={handleNextMonth}
+                  disabled={isSaving || isDeleting || interactionLocked}
                 >
                   <ChevronRight size={20} color={LABEL_WHITE} />
                 </HapticPressable>
@@ -583,8 +746,11 @@ export default function EditTripScreen() {
                           style={[
                             styles.dayButton,
                             selected ? styles.selectedDayButton : null,
+                            (isSaving || isDeleting || interactionLocked) &&
+                              styles.disabledButton,
                           ]}
                           onPress={() => handleSelectDate(date)}
+                          disabled={isSaving || isDeleting || interactionLocked}
                         >
                           <ThemedText
                             style={[
@@ -602,8 +768,14 @@ export default function EditTripScreen() {
               </View>
 
               <ThemedButton
-                style={styles.cancelCalendarButton}
-                onPress={() => setIsCalendarVisible(false)}
+                style={[
+                  styles.cancelCalendarButton,
+                  isSaving || isDeleting || interactionLocked
+                    ? styles.disabledButton
+                    : {},
+                ]}
+                onPress={handleCloseCalendar}
+                disabled={isSaving || isDeleting || interactionLocked}
               >
                 <ThemedText style={styles.saveButtonText}>Cancel</ThemedText>
               </ThemedButton>
