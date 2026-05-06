@@ -166,6 +166,8 @@ function themeStateMatches(
 export function useTheme(): AppThemeState {
   const { user, initializing } = useAuth();
   const initialTheme = getInitialThemeForUser(user?.uid);
+  const isMountedRef = useRef(true);
+  const activeUserIdRef = useRef<string | null>(user?.uid ?? null);
 
   const themeStateRef = useRef<{
     mode: AppTheme;
@@ -180,8 +182,24 @@ export function useTheme(): AppThemeState {
     initialTheme.fontSize
   );
 
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    activeUserIdRef.current = user?.uid ?? null;
+  }, [user]);
+
   const applyThemeState = useCallback(
     (nextMode: AppTheme, nextFontSize: AppFontSize) => {
+      if (!isMountedRef.current) {
+        return;
+      }
+
       const safeMode = getSafeTheme(nextMode);
       const safeFontSize = getSafeFontSize(nextFontSize);
 
@@ -210,30 +228,48 @@ export function useTheme(): AppThemeState {
   const refreshTheme = useCallback(async () => {
     if (initializing) return;
 
-    if (!user) {
+    const activeUser = user;
+    const activeUserId = activeUser?.uid ?? null;
+
+    if (!activeUser) {
       applyThemeState("dark", "medium");
       return;
     }
 
     const latestThemeUpdate = getLatestAppThemeUpdate();
 
-    if (latestThemeUpdate?.userId === user.uid) {
+    if (latestThemeUpdate?.userId === activeUser.uid) {
       applyThemeState(latestThemeUpdate.theme, latestThemeUpdate.fontSize);
     }
 
     try {
-      const profile = await getProfileSettings(user.uid);
+      const profile = await getProfileSettings(activeUser.uid);
+
+      if (
+        !isMountedRef.current ||
+        activeUserIdRef.current !== activeUserId
+      ) {
+        return;
+      }
+
       const safeMode = getSafeTheme(profile.theme);
       const safeFontSize = getSafeFontSize(profile.fontSize);
 
-      publishAppThemeUpdate(user.uid, safeMode, safeFontSize);
+      publishAppThemeUpdate(activeUser.uid, safeMode, safeFontSize);
       applyThemeState(safeMode, safeFontSize);
     } catch (err) {
+      if (
+        !isMountedRef.current ||
+        activeUserIdRef.current !== activeUserId
+      ) {
+        return;
+      }
+
       console.error("Failed to load theme settings:", err);
 
       const latestThemeUpdateAfterFailure = getLatestAppThemeUpdate();
 
-      if (latestThemeUpdateAfterFailure?.userId === user.uid) {
+      if (latestThemeUpdateAfterFailure?.userId === activeUser.uid) {
         applyThemeState(
           latestThemeUpdateAfterFailure.theme,
           latestThemeUpdateAfterFailure.fontSize
@@ -248,14 +284,21 @@ export function useTheme(): AppThemeState {
   useEffect(() => {
     if (!user) return;
 
+    const activeUserId = user.uid;
     const latestThemeUpdate = getLatestAppThemeUpdate();
 
-    if (latestThemeUpdate?.userId === user.uid) {
+    if (latestThemeUpdate?.userId === activeUserId) {
       applyThemeState(latestThemeUpdate.theme, latestThemeUpdate.fontSize);
     }
 
     return subscribeToAppThemeUpdates((update) => {
-      if (update.userId !== user.uid) return;
+      if (
+        !isMountedRef.current ||
+        activeUserIdRef.current !== activeUserId ||
+        update.userId !== activeUserId
+      ) {
+        return;
+      }
 
       applyThemeState(update.theme, update.fontSize);
     });

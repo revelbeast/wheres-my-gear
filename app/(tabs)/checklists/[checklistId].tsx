@@ -14,7 +14,7 @@ import {
   Trash2,
   X,
 } from "lucide-react-native";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Image,
@@ -140,6 +140,7 @@ export default function ChecklistDetailScreen() {
   const { user, initializing } = useAuth();
   const { checklistId } = useLocalSearchParams<{ checklistId: string }>();
   const theme = useThemedValues();
+  const isScreenMountedRef = useRef(true);
   const {
     isLocked: interactionLocked,
     lock: lockInteraction,
@@ -173,6 +174,14 @@ export default function ChecklistDetailScreen() {
   const [filter, setFilter] = useState<"all" | "unpacked" | "packed">("all");
 
   useEffect(() => {
+    isScreenMountedRef.current = true;
+
+    return () => {
+      isScreenMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (initializing) {
       return;
     }
@@ -183,15 +192,46 @@ export default function ChecklistDetailScreen() {
       return;
     }
 
-    loadChecklist();
+    let isActive = true;
+    const activeUser = user;
+    
+    async function loadActiveChecklist() {
+      try {
+        const data = await getChecklist(activeUser.uid, checklistId);
+
+        if (!isActive || !isScreenMountedRef.current) {
+          return;
+        }
+
+        setChecklist(data);
+      } catch (err) {
+        if (!isActive || !isScreenMountedRef.current) {
+          return;
+        }
+
+        console.error("Failed to load checklist:", err);
+        setChecklist(null);
+      }
+    }
+
+    loadActiveChecklist();
 
     const unsubscribe = subscribeToChecklistItems(
       user.uid,
       checklistId,
-      setItems
+      (nextItems) => {
+        if (!isActive || !isScreenMountedRef.current) {
+          return;
+        }
+
+        setItems(nextItems);
+      }
     );
 
-    return unsubscribe;
+    return () => {
+      isActive = false;
+      unsubscribe();
+    };
   }, [initializing, user, checklistId]);
 
   async function runWithLock(action: () => Promise<void> | void) {
@@ -206,13 +246,22 @@ export default function ChecklistDetailScreen() {
     }
   }
 
-  async function loadChecklist() {
+  async function refreshChecklist() {
     if (!user || !checklistId) return;
 
     try {
       const data = await getChecklist(user.uid, checklistId);
+
+      if (!isScreenMountedRef.current) {
+        return;
+      }
+
       setChecklist(data);
     } catch (err) {
+      if (!isScreenMountedRef.current) {
+        return;
+      }
+
       console.error("Failed to load checklist:", err);
       setChecklist(null);
     }
@@ -276,7 +325,7 @@ export default function ChecklistDetailScreen() {
         await updateChecklistName(user.uid, checklistId, trimmed);
         void triggerSuccessHaptic();
         setRenameModal(false);
-        await loadChecklist();
+        await refreshChecklist();
       } catch (err) {
         console.error(err);
         Alert.alert("Error", "Failed to rename checklist.");
@@ -653,6 +702,11 @@ export default function ChecklistDetailScreen() {
         setAssignModalVisible(true);
 
         const spaces = await getStorageSpaces();
+
+        if (!isScreenMountedRef.current) {
+          return;
+        }
+
         setStorageSpaces(spaces);
 
         const initialVehicleId = item.vehicleId ?? "";
@@ -688,6 +742,11 @@ export default function ChecklistDetailScreen() {
     try {
       setLoadingCompartments(true);
       const results = await getCompartmentsByVehicle(vehicleId);
+
+      if (!isScreenMountedRef.current) {
+        return;
+      }
+
       setCompartments(results);
 
       const currentSelectedStillValid = results.some(
@@ -698,12 +757,18 @@ export default function ChecklistDetailScreen() {
         setSelectedCompartmentId("");
       }
     } catch (err) {
+      if (!isScreenMountedRef.current) {
+        return;
+      }
+
       console.error(err);
       Alert.alert("Error", "Failed to load compartments.");
       setCompartments([]);
       setSelectedCompartmentId("");
     } finally {
-      setLoadingCompartments(false);
+      if (isScreenMountedRef.current) {
+        setLoadingCompartments(false);
+      }
     }
   }
 
@@ -1987,8 +2052,9 @@ const styles = StyleSheet.create({
   unpackedItemCard: {},
 
   packedItemCard: {
-      borderWidth: 1.5,
-    },
+    borderWidth: 1.5,
+  },
+
   summaryCard: {
     paddingVertical: 18,
   },
