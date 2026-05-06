@@ -3,6 +3,7 @@ import { db } from "../firebaseConfig";
 
 export type AppTheme = "dark" | "light";
 export type AppFontSize = "small" | "medium" | "large";
+export type BackgroundResizeMode = "cover" | "contain" | "center";
 
 export type AppAddress = {
   streetAddress: string;
@@ -23,6 +24,7 @@ export type AppProfile = {
   fontSize: AppFontSize;
   profilePhotoUri: string;
   backgroundPhotoUri?: string;
+  backgroundResizeMode: BackgroundResizeMode;
   hapticsEnabled: boolean;
   address: AppAddress;
 };
@@ -52,6 +54,7 @@ const defaultProfile: AppProfile = {
   fontSize: "medium",
   profilePhotoUri: "",
   backgroundPhotoUri: "",
+  backgroundResizeMode: "cover",
   hapticsEnabled: true,
   address: defaultAddress,
 };
@@ -74,6 +77,14 @@ function profileDoc(userId: string) {
 
 function notificationSettingsDoc() {
   return doc(db, "appSettings", "notifications");
+}
+
+function getSafeBackgroundResizeMode(value: unknown): BackgroundResizeMode {
+  if (value === "cover" || value === "contain" || value === "center") {
+    return value;
+  }
+
+  return defaultProfile.backgroundResizeMode;
 }
 
 function clearLegacyTestAddress(profile: AppProfile): AppProfile {
@@ -145,6 +156,9 @@ export async function getProfileSettings(userId: string): Promise<AppProfile> {
   const mergedProfile: AppProfile = {
     ...defaultProfile,
     ...data,
+    backgroundResizeMode: getSafeBackgroundResizeMode(
+      data.backgroundResizeMode
+    ),
     hapticsEnabled: data.hapticsEnabled ?? defaultProfile.hapticsEnabled,
     address: {
       ...defaultAddress,

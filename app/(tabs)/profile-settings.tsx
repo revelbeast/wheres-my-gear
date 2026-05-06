@@ -27,9 +27,32 @@ import {
 import { storage } from "../../firebaseConfig";
 import {
   AppProfile,
+  BackgroundResizeMode,
   getProfileSettings,
   saveProfileSettings,
 } from "../../lib/settingsService";
+
+const BACKGROUND_FIT_OPTIONS: {
+  label: string;
+  value: BackgroundResizeMode;
+  description: string;
+}[] = [
+  {
+    label: "Fill Screen",
+    value: "cover",
+    description: "Fills the screen and may crop the photo.",
+  },
+  {
+    label: "Fit Full Photo",
+    value: "contain",
+    description: "Shows the full photo with less cropping.",
+  },
+  {
+    label: "Center Photo",
+    value: "center",
+    description: "Centers the photo without stretching it.",
+  },
+];
 
 function formatPhoneNumber(value: string) {
   const digits = value.replace(/\D/g, "").slice(0, 10);
@@ -256,6 +279,19 @@ export default function ProfileSettingsScreen() {
     const nextProfile = {
       ...profile,
       backgroundPhotoUri: "",
+      backgroundResizeMode: "cover" as BackgroundResizeMode,
+    };
+
+    setProfile(nextProfile);
+    await saveProfileSettings(user.uid, nextProfile);
+  }
+
+  async function handleSelectBackgroundFit(mode: BackgroundResizeMode) {
+    if (!profile || !user) return;
+
+    const nextProfile = {
+      ...profile,
+      backgroundResizeMode: mode,
     };
 
     setProfile(nextProfile);
@@ -458,11 +494,64 @@ export default function ProfileSettingsScreen() {
                 </ThemedButton>
 
                 {profile.backgroundPhotoUri ? (
-                  <HapticPressable onPress={handleRemoveBackground}>
-                    <ThemedText color="secondary" style={styles.cancelText}>
-                      Remove Custom Background
-                    </ThemedText>
-                  </HapticPressable>
+                  <>
+                    <View style={styles.fitSection}>
+                      <ThemedText variant="small" style={styles.fitTitle}>
+                        Background Fit
+                      </ThemedText>
+
+                      {BACKGROUND_FIT_OPTIONS.map((option) => {
+                        const isSelected =
+                          profile.backgroundResizeMode === option.value;
+
+                        return (
+                          <HapticPressable
+                            key={option.value}
+                            onPress={() =>
+                              handleSelectBackgroundFit(option.value)
+                            }
+                            style={[
+                              styles.fitOption,
+                              {
+                                borderColor: isSelected
+                                  ? theme.colors.primary
+                                  : theme.colors.border,
+                                backgroundColor: isSelected
+                                  ? theme.colors.card
+                                  : theme.colors.inputSurface,
+                              },
+                            ]}
+                          >
+                            <View style={styles.fitOptionTextWrap}>
+                              <ThemedText
+                                variant="bodyStrong"
+                                style={styles.fitOptionLabel}
+                              >
+                                {option.label}
+                              </ThemedText>
+
+                              <ThemedText
+                                color="secondary"
+                                style={styles.fitOptionDescription}
+                              >
+                                {option.description}
+                              </ThemedText>
+                            </View>
+
+                            {isSelected ? (
+                              <Check size={18} color={theme.colors.primary} />
+                            ) : null}
+                          </HapticPressable>
+                        );
+                      })}
+                    </View>
+
+                    <HapticPressable onPress={handleRemoveBackground}>
+                      <ThemedText color="secondary" style={styles.cancelText}>
+                        Remove Custom Background
+                      </ThemedText>
+                    </HapticPressable>
+                  </>
                 ) : null}
               </View>
             </ThemedCard>
@@ -597,9 +686,42 @@ const styles = StyleSheet.create({
     minHeight: 46,
   },
 
+  fitSection: {
+    marginTop: 14,
+    gap: 8,
+  },
+
+  fitTitle: {
+    fontWeight: "700",
+    marginBottom: 2,
+  },
+
+  fitOption: {
+    minHeight: 58,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+
+  fitOptionTextWrap: {
+    flex: 1,
+  },
+
+  fitOptionLabel: {
+    fontWeight: "700",
+  },
+
+  fitOptionDescription: {
+    marginTop: 2,
+  },
+
   cancelText: {
     textAlign: "center",
-    marginTop: 10,
+    marginTop: 14,
   },
 
   signOutButton: {

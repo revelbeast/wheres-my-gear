@@ -1,10 +1,19 @@
 import { useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
-import { ImageBackground, StyleSheet, View, ViewProps } from "react-native";
+import {
+  ImageBackground,
+  ImageResizeMode,
+  StyleSheet,
+  View,
+  ViewProps,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../auth/AuthProvider";
-import { getProfileSettings } from "../../lib/settingsService";
+import {
+  BackgroundResizeMode,
+  getProfileSettings,
+} from "../../lib/settingsService";
 
 type Props = ViewProps & {
   children: React.ReactNode;
@@ -16,9 +25,19 @@ function isValidBackgroundUri(value: unknown) {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+function getSafeResizeMode(value: unknown): BackgroundResizeMode {
+  if (value === "cover" || value === "contain" || value === "center") {
+    return value;
+  }
+
+  return "cover";
+}
+
 export default function ScreenBackground({ children, style, ...rest }: Props) {
   const { user, initializing } = useAuth();
   const [backgroundUri, setBackgroundUri] = useState<string | null>(null);
+  const [backgroundResizeMode, setBackgroundResizeMode] =
+    useState<BackgroundResizeMode>("cover");
   const [backgroundLoadFailed, setBackgroundLoadFailed] = useState(false);
 
   useFocusEffect(
@@ -33,6 +52,7 @@ export default function ScreenBackground({ children, style, ...rest }: Props) {
         if (!user) {
           if (!isActive) return;
           setBackgroundUri(null);
+          setBackgroundResizeMode("cover");
           return;
         }
 
@@ -43,7 +63,13 @@ export default function ScreenBackground({ children, style, ...rest }: Props) {
               ? profile.backgroundPhotoUri.trim()
               : "";
 
+          const savedResizeMode = getSafeResizeMode(
+            profile.backgroundResizeMode
+          );
+
           if (!isActive) return;
+
+          setBackgroundResizeMode(savedResizeMode);
 
           if (isValidBackgroundUri(savedBackgroundUri)) {
             setBackgroundUri(savedBackgroundUri);
@@ -56,6 +82,7 @@ export default function ScreenBackground({ children, style, ...rest }: Props) {
           if (!isActive) return;
 
           setBackgroundUri(null);
+          setBackgroundResizeMode("cover");
         }
       }
 
@@ -74,12 +101,16 @@ export default function ScreenBackground({ children, style, ...rest }: Props) {
     ? { uri: backgroundUri as string }
     : DEFAULT_BACKGROUND;
 
+  const resizeMode: ImageResizeMode = shouldUseSavedBackground
+    ? backgroundResizeMode
+    : "cover";
+
   return (
     <ImageBackground
       source={imageSource}
       style={styles.background}
       imageStyle={styles.image}
-      resizeMode="cover"
+      resizeMode={resizeMode}
       onError={() => {
         if (shouldUseSavedBackground) {
           console.log("Saved background image failed to load. Using default.");
