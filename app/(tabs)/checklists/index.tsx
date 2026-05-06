@@ -265,8 +265,28 @@ export default function ChecklistsTabScreen() {
     unlock: unlockInteraction,
   } = useInteractionLock(450);
 
+  const isMountedRef = useRef(true);
   const checklistSubscriptionVersionRef = useRef(0);
+  const navigationTransitionLockedRef = useRef(false);
+  const navigationUnlockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+
   const [checklists, setChecklists] = useState<Checklist[]>([]);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+      checklistSubscriptionVersionRef.current += 1;
+
+      if (navigationUnlockTimeoutRef.current) {
+        clearTimeout(navigationUnlockTimeoutRef.current);
+        navigationUnlockTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const subscriptionVersion = checklistSubscriptionVersionRef.current + 1;
@@ -277,12 +297,18 @@ export default function ChecklistsTabScreen() {
     }
 
     if (!userId) {
-      setChecklists([]);
+      if (isMountedRef.current) {
+        setChecklists([]);
+      }
+
       return;
     }
 
     const unsubscribe = subscribeToChecklists(userId, (items) => {
-      if (checklistSubscriptionVersionRef.current !== subscriptionVersion) {
+      if (
+        !isMountedRef.current ||
+        checklistSubscriptionVersionRef.current !== subscriptionVersion
+      ) {
         return;
       }
 
@@ -295,16 +321,48 @@ export default function ChecklistsTabScreen() {
     };
   }, [initializing, userId]);
 
-  function runWithLock(action: () => void) {
+  async function runWithLock(action: () => Promise<void> | void) {
     if (interactionLocked) return;
 
     lockInteraction();
 
     try {
-      action();
+      await action();
     } finally {
       unlockInteraction();
     }
+  }
+
+  function lockNavigationTransition() {
+    if (navigationTransitionLockedRef.current) {
+      return false;
+    }
+
+    navigationTransitionLockedRef.current = true;
+
+    if (navigationUnlockTimeoutRef.current) {
+      clearTimeout(navigationUnlockTimeoutRef.current);
+    }
+
+    navigationUnlockTimeoutRef.current = setTimeout(() => {
+      if (!isMountedRef.current) return;
+
+      navigationTransitionLockedRef.current = false;
+      navigationUnlockTimeoutRef.current = null;
+    }, 1500);
+
+    return true;
+  }
+
+  function runNavigationAction(action: () => void) {
+    if (interactionLocked || navigationTransitionLockedRef.current) {
+      return;
+    }
+
+    const lockAcquired = lockNavigationTransition();
+    if (!lockAcquired) return;
+
+    void runWithLock(action);
   }
 
   const sortedChecklists = useMemo(() => {
@@ -333,7 +391,7 @@ export default function ChecklistsTabScreen() {
   }, [checklists]);
 
   function handleOpenChecklist(checklistId: string) {
-    runWithLock(() => {
+    runNavigationAction(() => {
       router.push({
         pathname: "/checklists/[checklistId]",
         params: { checklistId },
@@ -342,25 +400,25 @@ export default function ChecklistsTabScreen() {
   }
 
   function handleCreateBlankChecklist() {
-    runWithLock(() => {
+    runNavigationAction(() => {
       router.push("/checklists/new");
     });
   }
 
   function handleCreateTemplate() {
-    runWithLock(() => {
+    runNavigationAction(() => {
       router.push("/checklists/create-template");
     });
   }
 
   function handleManageTemplates() {
-    runWithLock(() => {
+    runNavigationAction(() => {
       router.push("/checklists/templates");
     });
   }
 
   function handleOpenPackedItems() {
-    runWithLock(() => {
+    runNavigationAction(() => {
       router.push({
         pathname: "/checklists/items",
         params: { status: "packed" },
@@ -369,13 +427,16 @@ export default function ChecklistsTabScreen() {
   }
 
   function handleOpenToPackItems() {
-    runWithLock(() => {
+    runNavigationAction(() => {
       router.push({
         pathname: "/checklists/items",
         params: { status: "to_pack" },
       });
     });
   }
+
+  const navigationDisabled =
+    interactionLocked || navigationTransitionLockedRef.current;
 
   return (
     <ScreenBackground>
@@ -423,7 +484,7 @@ export default function ChecklistsTabScreen() {
               value={packedCount}
               label="Packed"
               onPress={handleOpenPackedItems}
-              disabled={interactionLocked}
+              disabled={navigationDisabled}
             />
 
             <StatCard
@@ -431,7 +492,7 @@ export default function ChecklistsTabScreen() {
               value={toPackCount}
               label="To Pack"
               onPress={handleOpenToPackItems}
-              disabled={interactionLocked}
+              disabled={navigationDisabled}
             />
           </View>
 
@@ -459,7 +520,7 @@ export default function ChecklistsTabScreen() {
               subtitle="Start from scratch and add your own items"
               onPress={handleCreateBlankChecklist}
               highlight
-              disabled={interactionLocked}
+              disabled={navigationDisabled}
             />
 
             <ActionCard
@@ -467,7 +528,7 @@ export default function ChecklistsTabScreen() {
               title="Create Template"
               subtitle="Build reusable checklist templates"
               onPress={handleCreateTemplate}
-              disabled={interactionLocked}
+              disabled={navigationDisabled}
             />
 
             <ActionCard
@@ -475,7 +536,7 @@ export default function ChecklistsTabScreen() {
               title="Manage Templates"
               subtitle="Rename and delete your saved checklist templates"
               onPress={handleManageTemplates}
-              disabled={interactionLocked}
+              disabled={navigationDisabled}
             />
           </View>
 
@@ -508,7 +569,7 @@ export default function ChecklistsTabScreen() {
               text="Create your first checklist to track what is packed and what still needs to be packed."
               showAction
               onPress={handleCreateBlankChecklist}
-              disabled={interactionLocked}
+              disabled={navigationDisabled}
             />
           ) : (
             sortedChecklists.map((checklist) => (
@@ -516,10 +577,10 @@ export default function ChecklistsTabScreen() {
                 <HapticPressable
                   style={[
                     styles.row,
-                    interactionLocked && styles.disabledInteraction,
+                    navigationDisabled && styles.disabledInteraction,
                   ]}
                   onPress={() => handleOpenChecklist(checklist.id)}
-                  disabled={interactionLocked}
+                  disabled={navigationDisabled}
                 >
                   <View style={styles.left}>
                     <ThemedText variant="title" style={styles.title}>
