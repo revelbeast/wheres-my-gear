@@ -35,6 +35,9 @@ export default function StorageManagementScreen() {
     unlock: unlockInteraction,
   } = useInteractionLock(450);
 
+  const isMountedRef = useRef(true);
+  const loadRequestVersionRef = useRef(0);
+  const actionLockRef = useRef(false);
   const navigationTransitionLockedRef = useRef(false);
   const navigationUnlockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
@@ -44,9 +47,17 @@ export default function StorageManagementScreen() {
   const [deletingStorageId, setDeletingStorageId] = useState<string | null>(null);
 
   useEffect(() => {
+    isMountedRef.current = true;
+
     return () => {
+      isMountedRef.current = false;
+      loadRequestVersionRef.current += 1;
+      actionLockRef.current = false;
+      navigationTransitionLockedRef.current = false;
+
       if (navigationUnlockTimeoutRef.current) {
         clearTimeout(navigationUnlockTimeoutRef.current);
+        navigationUnlockTimeoutRef.current = null;
       }
     };
   }, []);
@@ -60,34 +71,74 @@ export default function StorageManagementScreen() {
     });
   }, [storageSpaces]);
 
+  const loadStorageSpaces = useCallback(async () => {
+    const requestVersion = loadRequestVersionRef.current + 1;
+    loadRequestVersionRef.current = requestVersion;
+
+    try {
+      const spaces = await getStorageSpaces();
+
+      if (
+        !isMountedRef.current ||
+        loadRequestVersionRef.current !== requestVersion
+      ) {
+        return;
+      }
+
+      setStorageSpaces(spaces);
+    } catch (error) {
+      console.error("Failed to load storage spaces:", error);
+
+      if (
+        !isMountedRef.current ||
+        loadRequestVersionRef.current !== requestVersion
+      ) {
+        return;
+      }
+
+      setStorageSpaces([]);
+    }
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
+      isMountedRef.current = true;
       loadStorageSpaces();
-    }, [])
+
+      return () => {
+        loadRequestVersionRef.current += 1;
+      };
+    }, [loadStorageSpaces])
   );
 
   async function runWithLock(action: () => Promise<void> | void) {
-    if (interactionLocked) return;
+    if (interactionLocked || actionLockRef.current) return;
 
+    actionLockRef.current = true;
     lockInteraction();
 
     try {
       await action();
     } finally {
-      unlockInteraction();
+      actionLockRef.current = false;
+
+      if (isMountedRef.current) {
+        unlockInteraction();
+      }
     }
   }
 
   function isBusy() {
     return (
       interactionLocked ||
+      actionLockRef.current ||
       !!deletingStorageId ||
       navigationTransitionLockedRef.current
     );
   }
 
   function lockNavigationTransition() {
-    if (navigationTransitionLockedRef.current) {
+    if (navigationTransitionLockedRef.current || !isMountedRef.current) {
       return false;
     }
 
@@ -103,16 +154,6 @@ export default function StorageManagementScreen() {
     }, 1500);
 
     return true;
-  }
-
-  async function loadStorageSpaces() {
-    try {
-      const spaces = await getStorageSpaces();
-      setStorageSpaces(spaces);
-    } catch (error) {
-      console.error("Failed to load storage spaces:", error);
-      setStorageSpaces([]);
-    }
   }
 
   function handleBack() {
@@ -172,22 +213,38 @@ export default function StorageManagementScreen() {
   }
 
   async function handleDeleteStorage(space: StorageSpace) {
-    if (!space.id || deletingStorageId || interactionLocked) return;
+    if (!space.id || isBusy()) return;
 
-    setDeletingStorageId(space.id);
+    const storageId = String(space.id);
+
+    if (isMountedRef.current) {
+      setDeletingStorageId(storageId);
+    }
 
     await runWithLock(async () => {
       try {
-        await deleteStorageSpace(space.id);
+        await deleteStorageSpace(storageId);
+
+        if (!isMountedRef.current) {
+          return;
+        }
+
         await loadStorageSpaces();
       } catch (error) {
         console.error("Failed to delete storage space:", error);
+
+        if (!isMountedRef.current) {
+          return;
+        }
+
         Alert.alert(
           "Delete Failed",
           "Unable to delete this storage space. Please try again."
         );
       } finally {
-        setDeletingStorageId(null);
+        if (isMountedRef.current) {
+          setDeletingStorageId(null);
+        }
       }
     });
   }
