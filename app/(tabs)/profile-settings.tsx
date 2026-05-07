@@ -280,6 +280,7 @@ export default function ProfileSettingsScreen() {
   const scrollViewRef = useRef<ScrollView | null>(null);
   const isMountedRef = useRef(true);
   const profileLoadVersionRef = useRef(0);
+  const actionLockRef = useRef(false);
   const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [profile, setProfile] = useState<AppProfile | null>(null);
@@ -296,15 +297,20 @@ export default function ProfileSettingsScreen() {
   const pickingProfilePhoto = activeImagePicker === "profile";
   const pickingBackgroundPhoto = activeImagePicker === "background";
   const pickingAnyImage = activeImagePicker !== null;
+  const interactionBusy =
+    saving || pickingAnyImage || signingOut || actionLockRef.current;
 
   useEffect(() => {
     isMountedRef.current = true;
 
     return () => {
       isMountedRef.current = false;
+      profileLoadVersionRef.current += 1;
+      actionLockRef.current = false;
 
       if (scrollTimeoutRef.current) {
         clearTimeout(scrollTimeoutRef.current);
+        scrollTimeoutRef.current = null;
       }
     };
   }, []);
@@ -327,12 +333,29 @@ export default function ProfileSettingsScreen() {
   const activeBackgroundUri =
     backgroundPreviewUri ?? profile?.backgroundPhotoUri ?? "";
 
+  async function runWithActionLock(action: () => Promise<void> | void) {
+    if (actionLockRef.current || !isMountedRef.current) {
+      return;
+    }
+
+    actionLockRef.current = true;
+
+    try {
+      await action();
+    } finally {
+      actionLockRef.current = false;
+    }
+  }
+
   function scrollToFocusedInput(y: number) {
     if (scrollTimeoutRef.current) {
       clearTimeout(scrollTimeoutRef.current);
+      scrollTimeoutRef.current = null;
     }
 
     scrollTimeoutRef.current = setTimeout(() => {
+      scrollTimeoutRef.current = null;
+
       if (!isMountedRef.current) {
         return;
       }
@@ -381,306 +404,336 @@ export default function ProfileSettingsScreen() {
   }
 
   async function handleSave() {
-    if (!profile || !userId || saving) return;
+    if (!profile || !userId || interactionBusy) return;
 
-    try {
-      if (isMountedRef.current) {
+    await runWithActionLock(async () => {
+      try {
+        if (!isMountedRef.current) return;
+
         setSaving(true);
+
+        await saveProfileSettings(userId, profile);
+
+        if (!isMountedRef.current) {
+          return;
+        }
+
+        Alert.alert("Saved", "Your profile has been updated.");
+      } catch (err) {
+        console.error("Failed to save profile settings:", err);
+
+        if (!isMountedRef.current) {
+          return;
+        }
+
+        Alert.alert("Error", "Failed to save profile.");
+      } finally {
+        if (isMountedRef.current) {
+          setSaving(false);
+        }
       }
-
-      await saveProfileSettings(userId, profile);
-
-      if (!isMountedRef.current) {
-        return;
-      }
-
-      Alert.alert("Saved", "Your profile has been updated.");
-    } catch (err) {
-      console.error("Failed to save profile settings:", err);
-
-      if (!isMountedRef.current) {
-        return;
-      }
-
-      Alert.alert("Error", "Failed to save profile.");
-    } finally {
-      if (isMountedRef.current) {
-        setSaving(false);
-      }
-    }
+    });
   }
 
   async function handlePickProfilePhoto() {
-    if (!profile || !userId || pickingAnyImage) return;
+    if (!profile || !userId || interactionBusy) return;
 
-    try {
-      if (isMountedRef.current) {
-        setActiveImagePicker("profile");
-      }
-
+    await runWithActionLock(async () => {
       const activeUserId = userId;
       const activeProfile = profile;
       const previousProfilePhotoUri = activeProfile.profilePhotoUri;
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images"],
-        allowsEditing: true,
-        quality: 0.8,
-      });
+      try {
+        if (!isMountedRef.current) return;
 
-      if (!isMountedRef.current || result.canceled) {
-        return;
+        setActiveImagePicker("profile");
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ["images"],
+          allowsEditing: true,
+          quality: 0.8,
+        });
+
+        if (!isMountedRef.current || result.canceled) {
+          return;
+        }
+
+        const asset = result.assets?.[0];
+        if (!asset?.uri) {
+          Alert.alert("Photo not selected", "No valid image was returned.");
+          return;
+        }
+
+        const uploadedUrl = await uploadProfileImage(
+          activeUserId,
+          asset.uri,
+          "profile"
+        );
+
+        if (!isMountedRef.current || activeUserId !== userId) {
+          return;
+        }
+
+        const nextProfile = {
+          ...activeProfile,
+          profilePhotoUri: uploadedUrl,
+        };
+
+        setProfile(nextProfile);
+        await saveProfileSettings(activeUserId, nextProfile);
+
+        if (!isMountedRef.current || activeUserId !== userId) {
+          return;
+        }
+
+        if (previousProfilePhotoUri !== uploadedUrl) {
+          await safelyDeleteStoredImage(previousProfilePhotoUri);
+        }
+
+        await cleanupStoredImagesForKind(activeUserId, "profile", uploadedUrl);
+      } catch (err) {
+        console.error("Failed to pick profile photo:", err);
+
+        if (!isMountedRef.current) {
+          return;
+        }
+
+        Alert.alert(
+          "Photo upload failed",
+          "Please check your connection and try selecting the photo again."
+        );
+      } finally {
+        if (isMountedRef.current) {
+          setActiveImagePicker(null);
+        }
       }
-
-      const asset = result.assets?.[0];
-      if (!asset?.uri) {
-        Alert.alert("Photo not selected", "No valid image was returned.");
-        return;
-      }
-
-      const uploadedUrl = await uploadProfileImage(
-        activeUserId,
-        asset.uri,
-        "profile"
-      );
-
-      if (!isMountedRef.current || activeUserId !== userId) {
-        return;
-      }
-
-      const nextProfile = {
-        ...activeProfile,
-        profilePhotoUri: uploadedUrl,
-      };
-
-      setProfile(nextProfile);
-      await saveProfileSettings(activeUserId, nextProfile);
-
-      if (previousProfilePhotoUri !== uploadedUrl) {
-        await safelyDeleteStoredImage(previousProfilePhotoUri);
-      }
-
-      await cleanupStoredImagesForKind(activeUserId, "profile", uploadedUrl);
-    } catch (err) {
-      console.error("Failed to pick profile photo:", err);
-
-      if (!isMountedRef.current) {
-        return;
-      }
-
-      Alert.alert(
-        "Photo upload failed",
-        "Please check your connection and try selecting the photo again."
-      );
-    } finally {
-      if (isMountedRef.current) {
-        setActiveImagePicker(null);
-      }
-    }
+    });
   }
 
   async function handlePickBackgroundPhoto() {
-    if (!profile || !userId || pickingAnyImage) return;
+    if (!profile || !userId || interactionBusy) return;
 
-    try {
-      if (isMountedRef.current) {
-        setActiveImagePicker("background");
-      }
-
+    await runWithActionLock(async () => {
       const activeUserId = userId;
       const activeProfile = profile;
       const previousBackgroundPhotoUri = activeProfile.backgroundPhotoUri;
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images"],
-        allowsEditing: true,
-        quality: 0.8,
-      });
+      try {
+        if (!isMountedRef.current) return;
 
-      if (!isMountedRef.current || result.canceled) {
-        return;
+        setActiveImagePicker("background");
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ["images"],
+          allowsEditing: true,
+          quality: 0.8,
+        });
+
+        if (!isMountedRef.current || result.canceled) {
+          return;
+        }
+
+        const asset = result.assets?.[0];
+        if (!asset?.uri) {
+          Alert.alert("Photo not selected", "No valid image was returned.");
+          return;
+        }
+
+        setBackgroundPreviewUri(asset.uri);
+
+        const uploadedUrl = await uploadProfileImage(
+          activeUserId,
+          asset.uri,
+          "background"
+        );
+
+        if (!isMountedRef.current || activeUserId !== userId) {
+          return;
+        }
+
+        const nextProfile = {
+          ...activeProfile,
+          backgroundPhotoUri: uploadedUrl,
+        };
+
+        setProfile(nextProfile);
+        setBackgroundPreviewUri(null);
+
+        await saveProfileSettings(activeUserId, nextProfile);
+
+        if (!isMountedRef.current || activeUserId !== userId) {
+          return;
+        }
+
+        publishAppBackgroundUpdate(
+          activeUserId,
+          uploadedUrl,
+          nextProfile.backgroundResizeMode
+        );
+
+        if (previousBackgroundPhotoUri !== uploadedUrl) {
+          await safelyDeleteStoredImage(previousBackgroundPhotoUri);
+        }
+
+        await cleanupStoredImagesForKind(
+          activeUserId,
+          "background",
+          uploadedUrl
+        );
+      } catch (err) {
+        console.error("Failed to pick background photo:", err);
+
+        if (!isMountedRef.current) {
+          return;
+        }
+
+        setBackgroundPreviewUri(null);
+
+        Alert.alert(
+          "Background upload failed",
+          "Please check your connection and try selecting the background again."
+        );
+      } finally {
+        if (isMountedRef.current) {
+          setActiveImagePicker(null);
+        }
       }
-
-      const asset = result.assets?.[0];
-      if (!asset?.uri) {
-        Alert.alert("Photo not selected", "No valid image was returned.");
-        return;
-      }
-
-      setBackgroundPreviewUri(asset.uri);
-
-      const uploadedUrl = await uploadProfileImage(
-        activeUserId,
-        asset.uri,
-        "background"
-      );
-
-      if (!isMountedRef.current || activeUserId !== userId) {
-        return;
-      }
-
-      const nextProfile = {
-        ...activeProfile,
-        backgroundPhotoUri: uploadedUrl,
-      };
-
-      setProfile(nextProfile);
-      setBackgroundPreviewUri(null);
-
-      await saveProfileSettings(activeUserId, nextProfile);
-
-      publishAppBackgroundUpdate(
-        activeUserId,
-        uploadedUrl,
-        nextProfile.backgroundResizeMode
-      );
-
-      if (previousBackgroundPhotoUri !== uploadedUrl) {
-        await safelyDeleteStoredImage(previousBackgroundPhotoUri);
-      }
-
-      await cleanupStoredImagesForKind(activeUserId, "background", uploadedUrl);
-    } catch (err) {
-      console.error("Failed to pick background photo:", err);
-
-      if (!isMountedRef.current) {
-        return;
-      }
-
-      setBackgroundPreviewUri(null);
-
-      Alert.alert(
-        "Background upload failed",
-        "Please check your connection and try selecting the background again."
-      );
-    } finally {
-      if (isMountedRef.current) {
-        setActiveImagePicker(null);
-      }
-    }
+    });
   }
 
   async function handleRemoveBackground() {
-    if (!profile || !userId || pickingAnyImage) return;
+    if (!profile || !userId || interactionBusy) return;
 
-    try {
+    await runWithActionLock(async () => {
       const activeUserId = userId;
-      const previousBackgroundPhotoUri = profile.backgroundPhotoUri;
+      const activeProfile = profile;
+      const previousBackgroundPhotoUri = activeProfile.backgroundPhotoUri;
 
-      if (isMountedRef.current) {
+      try {
+        if (!isMountedRef.current) return;
+
         setBackgroundPreviewUri(null);
-      }
 
-      const nextProfile = {
-        ...profile,
-        backgroundPhotoUri: "",
-        backgroundResizeMode: "cover" as BackgroundResizeMode,
-      };
+        const nextProfile = {
+          ...activeProfile,
+          backgroundPhotoUri: "",
+          backgroundResizeMode: "cover" as BackgroundResizeMode,
+        };
 
-      if (isMountedRef.current) {
         setProfile(nextProfile);
+
+        await saveProfileSettings(activeUserId, nextProfile);
+
+        if (!isMountedRef.current || activeUserId !== userId) {
+          return;
+        }
+
+        publishAppBackgroundUpdate(
+          activeUserId,
+          null,
+          nextProfile.backgroundResizeMode
+        );
+
+        await safelyDeleteStoredImage(previousBackgroundPhotoUri);
+        await cleanupStoredImagesForKind(activeUserId, "background");
+      } catch (err) {
+        console.error("Failed to remove custom background:", err);
+
+        if (!isMountedRef.current) {
+          return;
+        }
+
+        Alert.alert(
+          "Background removal failed",
+          "Please check your connection and try removing the background again."
+        );
       }
-
-      await saveProfileSettings(activeUserId, nextProfile);
-
-      if (!isMountedRef.current || activeUserId !== userId) {
-        return;
-      }
-
-      publishAppBackgroundUpdate(
-        activeUserId,
-        null,
-        nextProfile.backgroundResizeMode
-      );
-
-      await safelyDeleteStoredImage(previousBackgroundPhotoUri);
-      await cleanupStoredImagesForKind(activeUserId, "background");
-    } catch (err) {
-      console.error("Failed to remove custom background:", err);
-
-      if (!isMountedRef.current) {
-        return;
-      }
-
-      Alert.alert(
-        "Background removal failed",
-        "Please check your connection and try removing the background again."
-      );
-    }
+    });
   }
 
   async function handleSelectBackgroundFit(mode: BackgroundResizeMode) {
-    if (!profile || !userId || pickingAnyImage) return;
+    if (!profile || !userId || interactionBusy) return;
 
-    try {
+    await runWithActionLock(async () => {
       const activeUserId = userId;
+      const activeProfile = profile;
 
-      const nextProfile = {
-        ...profile,
-        backgroundResizeMode: mode,
-      };
+      try {
+        const nextProfile = {
+          ...activeProfile,
+          backgroundResizeMode: mode,
+        };
 
-      if (isMountedRef.current) {
+        if (!isMountedRef.current) return;
+
         setProfile(nextProfile);
+
+        await saveProfileSettings(activeUserId, nextProfile);
+
+        if (!isMountedRef.current || activeUserId !== userId) {
+          return;
+        }
+
+        publishAppBackgroundUpdate(
+          activeUserId,
+          nextProfile.backgroundPhotoUri || null,
+          nextProfile.backgroundResizeMode
+        );
+      } catch (err) {
+        console.error("Failed to save background fit:", err);
+
+        if (!isMountedRef.current) {
+          return;
+        }
+
+        Alert.alert(
+          "Background setting failed",
+          "Please check your connection and try again."
+        );
       }
-
-      await saveProfileSettings(activeUserId, nextProfile);
-
-      if (!isMountedRef.current || activeUserId !== userId) {
-        return;
-      }
-
-      publishAppBackgroundUpdate(
-        activeUserId,
-        nextProfile.backgroundPhotoUri || null,
-        nextProfile.backgroundResizeMode
-      );
-    } catch (err) {
-      console.error("Failed to save background fit:", err);
-
-      if (!isMountedRef.current) {
-        return;
-      }
-
-      Alert.alert(
-        "Background setting failed",
-        "Please check your connection and try again."
-      );
-    }
+    });
   }
 
   async function handleSignOut() {
+    if (interactionBusy) return;
+
     Alert.alert("Sign Out", "Are you sure you want to sign out?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Sign Out",
         style: "destructive",
         onPress: async () => {
-          try {
-            if (isMountedRef.current) {
+          if (interactionBusy) return;
+
+          await runWithActionLock(async () => {
+            try {
+              if (!isMountedRef.current) return;
+
               setSigningOut(true);
-            }
 
-            await signOutUser();
-          } catch (err) {
-            console.error("Failed to sign out:", err);
+              await signOutUser();
+            } catch (err) {
+              console.error("Failed to sign out:", err);
 
-            if (!isMountedRef.current) {
-              return;
-            }
+              if (!isMountedRef.current) {
+                return;
+              }
 
-            Alert.alert("Error", "Failed to sign out.");
-          } finally {
-            if (isMountedRef.current) {
-              setSigningOut(false);
+              Alert.alert("Error", "Failed to sign out.");
+            } finally {
+              if (isMountedRef.current) {
+                setSigningOut(false);
+              }
             }
-          }
+          });
         },
       },
     ]);
   }
 
   function updateField<K extends keyof AppProfile>(key: K, value: AppProfile[K]) {
+    if (interactionBusy) return;
+
     setProfile((prev) => (prev ? { ...prev, [key]: value } : prev));
   }
 
@@ -778,6 +831,7 @@ export default function ProfileSettingsScreen() {
                 label="First Name"
                 value={profile.firstName}
                 onChangeText={(t) => updateField("firstName", t)}
+                editable={!interactionBusy}
                 onFocus={() => scrollToFocusedInput(90)}
               />
 
@@ -785,6 +839,7 @@ export default function ProfileSettingsScreen() {
                 label="Last Name"
                 value={profile.lastName}
                 onChangeText={(t) => updateField("lastName", t)}
+                editable={!interactionBusy}
                 onFocus={() => scrollToFocusedInput(140)}
               />
 
@@ -794,6 +849,7 @@ export default function ProfileSettingsScreen() {
                 onChangeText={(t) => updateField("email", t)}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                editable={!interactionBusy}
                 onFocus={() => scrollToFocusedInput(190)}
               />
 
@@ -804,6 +860,7 @@ export default function ProfileSettingsScreen() {
                   updateField("phoneNumber", formatPhoneNumber(t))
                 }
                 keyboardType="phone-pad"
+                editable={!interactionBusy}
                 onFocus={() => scrollToFocusedInput(240)}
               />
 
@@ -827,7 +884,7 @@ export default function ProfileSettingsScreen() {
 
                 <ThemedButton
                   onPress={handlePickProfilePhoto}
-                  disabled={pickingAnyImage}
+                  disabled={interactionBusy}
                   style={styles.photoButton}
                 >
                   <ThemedText style={styles.buttonText}>
@@ -856,7 +913,7 @@ export default function ProfileSettingsScreen() {
 
                 <ThemedButton
                   onPress={handlePickBackgroundPhoto}
-                  disabled={pickingAnyImage}
+                  disabled={interactionBusy}
                   style={styles.photoButton}
                 >
                   <ThemedText style={styles.buttonText}>
@@ -883,7 +940,7 @@ export default function ProfileSettingsScreen() {
                             onPress={() =>
                               handleSelectBackgroundFit(option.value)
                             }
-                            disabled={pickingAnyImage}
+                            disabled={interactionBusy}
                             style={[
                               styles.fitOption,
                               {
@@ -894,7 +951,7 @@ export default function ProfileSettingsScreen() {
                                   ? theme.colors.card
                                   : theme.colors.inputSurface,
                               },
-                              pickingAnyImage && styles.disabledInteraction,
+                              interactionBusy && styles.disabledInteraction,
                             ]}
                           >
                             <View style={styles.fitOptionTextWrap}>
@@ -923,8 +980,8 @@ export default function ProfileSettingsScreen() {
 
                     <HapticPressable
                       onPress={handleRemoveBackground}
-                      disabled={pickingAnyImage}
-                      style={pickingAnyImage && styles.disabledInteraction}
+                      disabled={interactionBusy}
+                      style={interactionBusy && styles.disabledInteraction}
                     >
                       <ThemedText color="secondary" style={styles.cancelText}>
                         Remove Custom Background
@@ -935,10 +992,7 @@ export default function ProfileSettingsScreen() {
               </View>
             </ThemedCard>
 
-            <ThemedButton
-              onPress={handleSave}
-              disabled={saving || pickingAnyImage}
-            >
+            <ThemedButton onPress={handleSave} disabled={interactionBusy}>
               <Check size={18} color="#fff" />
               <ThemedText style={styles.buttonText}>
                 {saving ? "Saving..." : "Save Profile"}
@@ -948,7 +1002,7 @@ export default function ProfileSettingsScreen() {
             <ThemedButton
               destructive
               onPress={handleSignOut}
-              disabled={signingOut || pickingAnyImage}
+              disabled={interactionBusy}
               style={styles.signOutButton}
             >
               <LogOut size={18} color="#fff" />
