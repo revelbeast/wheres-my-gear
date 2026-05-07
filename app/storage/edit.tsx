@@ -1,7 +1,7 @@
 import { BlurView } from "expo-blur";
 import { router, useLocalSearchParams } from "expo-router";
 import { ChevronDown, ChevronLeft, Trash2 } from "lucide-react-native";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -77,6 +77,14 @@ export default function EditStorageScreen() {
     unlock: unlockInteraction,
   } = useInteractionLock(450);
 
+  const isMountedRef = useRef(true);
+  const loadRequestVersionRef = useRef(0);
+  const actionLockRef = useRef(false);
+  const navigationTransitionLockedRef = useRef(false);
+  const navigationUnlockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+
   const [name, setName] = useState("");
   const [category, setCategory] = useState<"vehicle" | "storage">("vehicle");
   const [subtype, setSubtype] = useState("");
@@ -107,43 +115,63 @@ export default function EditStorageScreen() {
     return subtype;
   }, [category, subtype, customSubtype]);
 
-  useEffect(() => {
-    loadStorage();
-  }, [storageId]);
-
-  useEffect(() => {
-    return () => {
-      if (dropdownOpenTimeoutRef.current) {
-        clearTimeout(dropdownOpenTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  async function runWithLock(action: () => Promise<void> | void) {
-    if (interactionLocked) return;
-
-    lockInteraction();
-
-    try {
-      await action();
-    } finally {
-      unlockInteraction();
+  function clearNavigationUnlockTimeout() {
+    if (navigationUnlockTimeoutRef.current) {
+      clearTimeout(navigationUnlockTimeoutRef.current);
+      navigationUnlockTimeoutRef.current = null;
     }
   }
 
-  function isBusy() {
-    return saving || deleting || loading || interactionLocked;
+  function clearPendingDropdownOpen() {
+    if (dropdownOpenTimeoutRef.current) {
+      clearTimeout(dropdownOpenTimeoutRef.current);
+      dropdownOpenTimeoutRef.current = null;
+    }
   }
 
-  async function loadStorage() {
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+      loadRequestVersionRef.current += 1;
+      actionLockRef.current = false;
+      navigationTransitionLockedRef.current = false;
+      clearNavigationUnlockTimeout();
+      clearPendingDropdownOpen();
+    };
+  }, []);
+
+  const loadStorage = useCallback(async () => {
+    const requestVersion = loadRequestVersionRef.current + 1;
+    loadRequestVersionRef.current = requestVersion;
+
     if (!storageId) {
+      if (
+        !isMountedRef.current ||
+        loadRequestVersionRef.current !== requestVersion
+      ) {
+        return;
+      }
+
       setNotFound(true);
       setLoading(false);
       return;
     }
 
     try {
+      if (isMountedRef.current) {
+        setLoading(true);
+      }
+
       const storage = await getStorageSpaceById(storageId);
+
+      if (
+        !isMountedRef.current ||
+        loadRequestVersionRef.current !== requestVersion
+      ) {
+        return;
+      }
 
       if (!storage) {
         setNotFound(true);
@@ -169,17 +197,80 @@ export default function EditStorageScreen() {
       setNotFound(false);
     } catch (err) {
       console.error("Failed to load storage space:", err);
+
+      if (
+        !isMountedRef.current ||
+        loadRequestVersionRef.current !== requestVersion
+      ) {
+        return;
+      }
+
       setNotFound(true);
     } finally {
-      setLoading(false);
+      if (
+        isMountedRef.current &&
+        loadRequestVersionRef.current === requestVersion
+      ) {
+        setLoading(false);
+      }
+    }
+  }, [storageId]);
+
+  useEffect(() => {
+    loadStorage();
+  }, [loadStorage]);
+
+  async function runWithLock(action: () => Promise<void> | void) {
+    if (interactionLocked || actionLockRef.current) return;
+
+    actionLockRef.current = true;
+    lockInteraction();
+
+    try {
+      await action();
+    } finally {
+      actionLockRef.current = false;
+
+      if (isMountedRef.current) {
+        unlockInteraction();
+      }
     }
   }
 
-  function clearPendingDropdownOpen() {
-    if (dropdownOpenTimeoutRef.current) {
-      clearTimeout(dropdownOpenTimeoutRef.current);
-      dropdownOpenTimeoutRef.current = null;
+  function isBusy() {
+    return (
+      saving ||
+      deleting ||
+      loading ||
+      interactionLocked ||
+      actionLockRef.current ||
+      navigationTransitionLockedRef.current
+    );
+  }
+
+  function lockNavigationTransition() {
+    if (navigationTransitionLockedRef.current || !isMountedRef.current) {
+      return false;
     }
+
+    navigationTransitionLockedRef.current = true;
+    clearNavigationUnlockTimeout();
+
+    navigationUnlockTimeoutRef.current = setTimeout(() => {
+      navigationTransitionLockedRef.current = false;
+      navigationUnlockTimeoutRef.current = null;
+    }, 1500);
+
+    return true;
+  }
+
+  function runNavigationAction(action: () => void) {
+    if (isBusy()) return;
+
+    const lockAcquired = lockNavigationTransition();
+    if (!lockAcquired) return;
+
+    action();
   }
 
   function blurInputs() {
@@ -189,13 +280,17 @@ export default function EditStorageScreen() {
 
   function closeSubtypeDropdown() {
     clearPendingDropdownOpen();
-    setShowSubtypeDropdown(false);
+
+    if (isMountedRef.current) {
+      setShowSubtypeDropdown(false);
+    }
   }
 
   function handleBack() {
-    if (saving || deleting || interactionLocked) return;
+    blurInputs();
+    closeSubtypeDropdown();
 
-    runWithLock(() => {
+    runNavigationAction(() => {
       router.back();
     });
   }
@@ -212,6 +307,10 @@ export default function EditStorageScreen() {
     clearPendingDropdownOpen();
 
     dropdownOpenTimeoutRef.current = setTimeout(() => {
+      if (!isMountedRef.current) {
+        return;
+      }
+
       setShowSubtypeDropdown(true);
       dropdownOpenTimeoutRef.current = null;
     }, Platform.OS === "ios" ? 120 : 0);
@@ -241,43 +340,61 @@ export default function EditStorageScreen() {
   }
 
   async function handleSave() {
-    if (saving || deleting || interactionLocked) return;
+    if (!storageId || isBusy()) return;
 
     blurInputs();
     closeSubtypeDropdown();
 
-    if (!storageId || !name.trim()) return;
+    const trimmedName = name.trim();
+
+    if (!trimmedName) return;
 
     const finalSubtype =
       subtype === "Other" ? customSubtype.trim() : subtype.trim();
 
     if (!finalSubtype) return;
 
-    setSaving(true);
-
     await runWithLock(async () => {
       try {
+        if (isMountedRef.current) {
+          setSaving(true);
+        }
+
         await updateStorageSpace(storageId, {
-          name: name.trim(),
+          name: trimmedName,
           category,
           subtype: finalSubtype,
         });
 
+        if (!isMountedRef.current) {
+          return;
+        }
+
+        const lockAcquired = lockNavigationTransition();
+        if (!lockAcquired) return;
+
         router.back();
       } catch (err) {
         console.error("Failed to update storage space:", err);
+
+        if (!isMountedRef.current) {
+          return;
+        }
+
         Alert.alert(
           "Save failed",
           "Unable to update this storage space. Please try again."
         );
       } finally {
-        setSaving(false);
+        if (isMountedRef.current) {
+          setSaving(false);
+        }
       }
     });
   }
 
   function handleDelete() {
-    if (!storageId || saving || deleting || interactionLocked) return;
+    if (!storageId || isBusy()) return;
 
     Alert.alert(
       "Delete Storage Space",
@@ -294,22 +411,39 @@ export default function EditStorageScreen() {
   }
 
   async function confirmDelete() {
-    if (!storageId || saving || deleting || interactionLocked) return;
-
-    setDeleting(true);
+    if (!storageId || isBusy()) return;
 
     await runWithLock(async () => {
       try {
+        if (isMountedRef.current) {
+          setDeleting(true);
+        }
+
         await deleteStorageSpace(storageId);
+
+        if (!isMountedRef.current) {
+          return;
+        }
+
+        const lockAcquired = lockNavigationTransition();
+        if (!lockAcquired) return;
+
         router.replace("/storage");
       } catch (err) {
         console.error("Failed to delete storage space:", err);
+
+        if (!isMountedRef.current) {
+          return;
+        }
+
         Alert.alert(
           "Delete failed",
           "Unable to delete this storage space. Please try again."
         );
       } finally {
-        setDeleting(false);
+        if (isMountedRef.current) {
+          setDeleting(false);
+        }
       }
     });
   }
@@ -334,10 +468,9 @@ export default function EditStorageScreen() {
                 onPress={handleBack}
                 style={[
                   styles.backButton,
-                  (saving || deleting || interactionLocked) &&
-                    styles.disabledInteraction,
+                  isBusy() && styles.disabledInteraction,
                 ]}
-                disabled={saving || deleting || interactionLocked}
+                disabled={isBusy()}
               >
                 <ChevronLeft size={24} color={colors.text} />
               </HapticPressable>
@@ -348,11 +481,10 @@ export default function EditStorageScreen() {
 
               <HapticPressable
                 onPress={handleDelete}
-                disabled={saving || deleting || loading || interactionLocked}
+                disabled={isBusy()}
                 style={[
                   styles.deleteButton,
-                  (saving || deleting || loading || interactionLocked) &&
-                    styles.disabledInteraction,
+                  isBusy() && styles.disabledInteraction,
                 ]}
               >
                 <Trash2 size={20} color={colors.danger} />
@@ -372,10 +504,10 @@ export default function EditStorageScreen() {
                   <HapticPressable
                     style={[
                       styles.secondaryButton,
-                      interactionLocked && styles.disabledInteraction,
+                      isBusy() && styles.disabledInteraction,
                     ]}
                     onPress={handleBack}
-                    disabled={interactionLocked}
+                    disabled={isBusy()}
                   >
                     <Text style={styles.secondaryButtonText}>Go Back</Text>
                   </HapticPressable>
@@ -392,7 +524,7 @@ export default function EditStorageScreen() {
                     placeholderTextColor={colors.textMuted}
                     style={styles.input}
                     returnKeyType="done"
-                    editable={!saving && !deleting && !interactionLocked}
+                    editable={!isBusy()}
                   />
 
                   <Text style={styles.label}>Category</Text>
@@ -509,7 +641,7 @@ export default function EditStorageScreen() {
                         placeholderTextColor={colors.textMuted}
                         style={styles.input}
                         returnKeyType="done"
-                        editable={!saving && !deleting && !interactionLocked}
+                        editable={!isBusy()}
                       />
                     </>
                   )}
@@ -517,11 +649,10 @@ export default function EditStorageScreen() {
                   <HapticPressable
                     style={[
                       styles.saveButton,
-                      (saving || deleting || interactionLocked) &&
-                        styles.saveButtonDisabled,
+                      isBusy() && styles.saveButtonDisabled,
                     ]}
                     onPress={handleSave}
-                    disabled={saving || deleting || interactionLocked}
+                    disabled={isBusy()}
                   >
                     <Text style={styles.saveText}>
                       {saving ? "Saving..." : "Save Changes"}
