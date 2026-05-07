@@ -1,5 +1,5 @@
 import { BlurView } from "expo-blur";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import {
   addDoc,
   collection,
@@ -124,6 +124,13 @@ function buildCalendarDays(monthDate: Date) {
 }
 
 export default function CreateTripScreen() {
+  const params = useLocalSearchParams<{
+    returnTo?: string;
+    createSession?: string;
+  }>();
+
+  const returnRoute =
+    params.returnTo === "dashboard" ? "/" : "/trips";
   const { user, initializing } = useAuth();
   const theme = useThemedValues();
   const {
@@ -151,6 +158,18 @@ export default function CreateTripScreen() {
     isSaving || interactionLocked || actionLockRef.current || navigationLockedRef.current;
 
   useEffect(() => {
+    const now = new Date();
+
+    setTripName("");
+    setTripDate(getNoonDate(now));
+    setCalendarMonth(getStartOfDay(now));
+    setIsCalendarVisible(false);
+    setIsSaving(false);
+    actionLockRef.current = false;
+    navigationLockedRef.current = false;
+  }, [params.createSession]);
+
+  useEffect(() => {
     isMountedRef.current = true;
 
     return () => {
@@ -170,7 +189,7 @@ export default function CreateTripScreen() {
     if (!isMountedRef.current || navigationLockedRef.current) return;
 
     navigationLockedRef.current = true;
-    router.back();
+    router.replace(returnRoute);
   }
 
   async function runWithLock(action: () => Promise<void> | void) {
@@ -195,26 +214,22 @@ export default function CreateTripScreen() {
   function handleBack() {
     if (isActionBusy) return;
 
-    void runWithLock(() => {
-      if (tripName.trim().length === 0) {
-        safeGoBack();
-        return;
-      }
+    if (tripName.trim().length === 0) {
+      safeGoBack();
+      return;
+    }
 
-      Alert.alert("Discard Trip?", "Go back without saving this trip?", [
-        {
-          text: "Keep Editing",
-          style: "cancel",
-        },
-        {
-          text: "Discard",
-          style: "destructive",
-          onPress: () => {
-            safeGoBack();
-          },
-        },
-      ]);
-    });
+    Alert.alert("Discard Trip?", "Go back without saving this trip?", [
+      {
+        text: "Keep Editing",
+        style: "cancel",
+      },
+      {
+        text: "Discard",
+        style: "destructive",
+        onPress: safeGoBack,
+      },
+    ]);
   }
 
   function handlePreviousMonth() {

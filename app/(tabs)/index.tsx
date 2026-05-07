@@ -16,12 +16,18 @@ import {
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Image,
+  InputAccessoryView,
+  Keyboard,
+  Platform,
   ScrollView,
   StyleSheet,
   TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+const DASHBOARD_SEARCH_KEYBOARD_ACCESSORY_ID =
+  "dashboard-search-keyboard-accessory";
 
 import SafeBannerAd from "../../components/ads/SafeBannerAd";
 import { useAuth } from "../../components/auth/AuthProvider";
@@ -178,8 +184,16 @@ function NoteCard({
         style={[
           styles.statCard,
           {
-            borderColor: "rgba(255,220,120,0.45)",
-            backgroundColor: "rgba(250,204,21,0.28)",
+            borderColor: "rgba(250,204,21,0.95)",
+            backgroundColor: "rgba(250,204,21,0.24)",
+            shadowColor: "rgba(250,204,21,0.95)",
+            shadowOpacity: 0.48,
+            shadowRadius: 16,
+            shadowOffset: {
+              width: 0,
+              height: 0,
+            },
+            elevation: 8,
           },
         ]}
       >
@@ -234,13 +248,29 @@ function StatCard({
   const cardOverride =
     tone === "success"
       ? {
-          borderColor: "rgba(34,197,94,0.45)",
+          borderColor: "rgba(34,197,94,0.95)",
           backgroundColor: "rgba(34,197,94,0.24)",
+          shadowColor: "rgba(34,197,94,0.95)",
+          shadowOpacity: 0.48,
+          shadowRadius: 16,
+          shadowOffset: {
+            width: 0,
+            height: 0,
+          },
+          elevation: 8,
         }
       : tone === "danger"
         ? {
-            borderColor: "rgba(239,68,68,0.45)",
+            borderColor: "rgba(239,68,68,0.95)",
             backgroundColor: "rgba(239,68,68,0.24)",
+            shadowColor: "rgba(239,68,68,0.95)",
+            shadowOpacity: 0.48,
+            shadowRadius: 16,
+            shadowOffset: {
+              width: 0,
+              height: 0,
+            },
+            elevation: 8,
           }
         : null;
 
@@ -372,6 +402,7 @@ export default function DashboardScreen() {
   const navigationUnlockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
+  const [, forceNavigationStateRefresh] = useState(0);
   const isMountedRef = useRef(true);
   const dashboardLoadVersionRef = useRef(0);
   const storageSelectionVersionRef = useRef(0);
@@ -566,6 +597,7 @@ export default function DashboardScreen() {
     }
 
     navigationTransitionLockedRef.current = true;
+    forceNavigationStateRefresh((value) => value + 1);
 
     if (navigationUnlockTimeoutRef.current) {
       clearTimeout(navigationUnlockTimeoutRef.current);
@@ -577,6 +609,7 @@ export default function DashboardScreen() {
 
       navigationTransitionLockedRef.current = false;
       navigationUnlockTimeoutRef.current = null;
+      forceNavigationStateRefresh((value) => value + 1);
     }, 1500);
 
     return true;
@@ -1265,7 +1298,12 @@ export default function DashboardScreen() {
 
   function handleAddStorageSpace() {
     pushWithNavigationLock(() => {
-      router.push("/(tabs)/storage/create");
+      router.push({
+        pathname: "/(tabs)/storage/create",
+        params: {
+          returnTo: "dashboard",
+        },
+      });
     });
   }
 
@@ -1283,7 +1321,13 @@ export default function DashboardScreen() {
 
   function handleAddTrip() {
     pushWithNavigationLock(() => {
-      router.push("/trips/create");
+      router.push({
+        pathname: "/(tabs)/trips/create",
+        params: {
+          returnTo: "dashboard",
+          createSession: String(Date.now()),
+        },
+      });
     });
   }
 
@@ -1297,6 +1341,12 @@ export default function DashboardScreen() {
     if (interactionLocked || navigationTransitionLockedRef.current) return;
 
     setShowStorageDropdown((prev) => !prev);
+  }
+
+  function handleDismissStorageDropdown() {
+    if (interactionLocked || navigationTransitionLockedRef.current) return;
+
+    setShowStorageDropdown(false);
   }
 
   function handleClearSearch() {
@@ -1412,6 +1462,11 @@ export default function DashboardScreen() {
                 autoCapitalize="none"
                 autoCorrect={false}
                 returnKeyType="search"
+                inputAccessoryViewID={
+                  Platform.OS === "ios"
+                    ? DASHBOARD_SEARCH_KEYBOARD_ACCESSORY_ID
+                    : undefined
+                }
                 editable={
                   !initializing &&
                   !!user &&
@@ -1434,6 +1489,24 @@ export default function DashboardScreen() {
               )}
             </View>
           </FrostedCard>
+
+          {Platform.OS === "ios" && (
+            <InputAccessoryView
+              nativeID={DASHBOARD_SEARCH_KEYBOARD_ACCESSORY_ID}
+            >
+              <View style={styles.keyboardAccessory}>
+                <HapticPressable
+                  onPress={Keyboard.dismiss}
+                  style={styles.keyboardDismissButton}
+                >
+                  <ChevronDown
+                    size={22}
+                    color="#FFFFFF"
+                  />
+                </HapticPressable>
+              </View>
+            </InputAccessoryView>
+          )}
 
           {initializing ? (
             <ThemedCard style={styles.emptyCard}>
@@ -1603,6 +1676,13 @@ export default function DashboardScreen() {
                         />
                       </BlurView>
                     </HapticPressable>
+
+                    {showStorageDropdown && (
+                      <HapticPressable
+                        onPress={handleDismissStorageDropdown}
+                        style={styles.dropdownDismissLayer}
+                      />
+                    )}
 
                     {showStorageDropdown && (
                       <BlurView
@@ -2044,6 +2124,25 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
+  keyboardAccessory: {
+    minHeight: 44,
+    backgroundColor: "rgba(20,20,24,0.96)",
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.12)",
+    alignItems: "flex-end",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+  },
+
+  keyboardDismissButton: {
+    width: 40,
+    height: 34,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.12)",
+  },
+
   searchResultsWrap: {
     marginBottom: 16,
   },
@@ -2116,6 +2215,15 @@ const styles = StyleSheet.create({
 
   selectorButtonText: {},
 
+  dropdownDismissLayer: {
+    position: "absolute",
+    top: -240,
+    left: -40,
+    right: -400,
+    bottom: -900,
+    zIndex: 80,
+  },
+
   dropdownCard: {
     position: "absolute",
     top: 78,
@@ -2163,17 +2271,18 @@ const styles = StyleSheet.create({
 
   statPressable: {
     flex: 1,
+    minWidth: 0,
     borderRadius: 14,
     overflow: "hidden",
   },
 
   statCard: {
-    minHeight: 112,
+    height: 72,
     borderRadius: 14,
     overflow: "hidden",
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
+    borderWidth: 1.5,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
   },
 
   statCardDefault: {
@@ -2195,9 +2304,11 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    paddingVertical: 2,
   },
 
   statTextWrap: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -2207,13 +2318,13 @@ const styles = StyleSheet.create({
   },
 
   statIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 11,
+    width: 24,
+    height: 24,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    marginBottom: 8,
+    marginBottom: 4,
   },
 
   noteIconWrap: {
@@ -2237,18 +2348,24 @@ const styles = StyleSheet.create({
   },
 
   noteTitle: {
-    lineHeight: 14,
+    lineHeight: 13,
     textAlign: "center",
+    fontSize: 11,
+    fontWeight: "700",
   },
 
   statValue: {
-    marginBottom: 4,
-    lineHeight: 24,
+    marginBottom: 1,
+    lineHeight: 18,
+    fontSize: 16,
+    fontWeight: "800",
   },
 
   statLabel: {
-    lineHeight: 14,
+    lineHeight: 13,
     textAlign: "center",
+    fontSize: 11,
+    fontWeight: "700",
   },
 
   upcomingTripsSection: {
