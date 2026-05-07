@@ -4,6 +4,7 @@ import { ChevronDown, ChevronLeft } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
+  InputAccessoryView,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -22,30 +23,47 @@ import { createStorageSpace } from "../../../lib/gearService";
 import { useInteractionLock } from "../../../lib/useInteractionLock";
 
 const LABEL_WHITE = "#FFFFFF";
+const KEYBOARD_ACCESSORY_ID = "storage-create-keyboard-accessory";
 
 const VEHICLE_SUBTYPES = [
+  "ATV / UTV",
+  "Boat",
   "Car",
+  "Class A",
+  "Class B",
+  "Class C",
+  "Fifth Wheel",
   "Motorcycle",
   "Other",
-  "RV Class B",
-  "RV Class C",
   "SUV",
+  "Toy Hauler",
   "Trailer",
   "Truck",
   "Van",
 ] as const;
 
 const STORAGE_SUBTYPES = [
-  "Attic",
-  "Basement",
+  "Backpack",
+  "Bag",
+  "Bin",
   "Cabinet",
-  "Closet",
+  "Cargo Box",
+  "Cooler",
   "Drawer",
   "Garage",
-  "Home",
+  "Luggage",
+  "Overhead",
   "Other",
+  "Roof Box",
   "Shed",
+  "Shelf",
   "Storage Unit",
+  "Toolbox",
+  "Tote",
+  "Trailer Storage",
+  "Trunk",
+  "Under Seat",
+  "Warehouse",
 ] as const;
 
 function getSubtypePlaceholder(category: "vehicle" | "storage") {
@@ -117,14 +135,8 @@ export default function CreateStorageScreen() {
       return getSubtypePlaceholder(category);
     }
 
-    if (subtype === "Other") {
-      return customSubtype.trim()
-        ? customSubtype.trim()
-        : "Other";
-    }
-
     return subtype;
-  }, [category, subtype, customSubtype]);
+  }, [category, subtype]);
 
   async function runWithLock(action: () => Promise<void> | void) {
     if (interactionLocked) return;
@@ -191,7 +203,7 @@ export default function CreateStorageScreen() {
     if (saving || interactionLocked) return;
 
     runWithLock(() => {
-      router.back();
+      router.replace("/storage");
     });
   }
 
@@ -402,7 +414,19 @@ export default function CreateStorageScreen() {
                 </Text>
               </View>
 
-              <View style={styles.headerSpacer} />
+              <HapticPressable
+                onPress={handleBackPress}
+                style={[
+                  styles.cancelButton,
+                  (saving || interactionLocked) &&
+                    styles.disabledInteraction,
+                ]}
+                disabled={saving || interactionLocked}
+              >
+                <Text style={styles.cancelText}>
+                  Cancel
+                </Text>
+              </HapticPressable>
             </View>
 
             <Text style={styles.headerSubtitle}>
@@ -453,6 +477,11 @@ export default function CreateStorageScreen() {
                   },
                 ]}
                 returnKeyType="done"
+                inputAccessoryViewID={
+                  Platform.OS === "ios"
+                    ? KEYBOARD_ACCESSORY_ID
+                    : undefined
+                }
                 editable={
                   !saving && !interactionLocked
                 }
@@ -662,6 +691,11 @@ export default function CreateStorageScreen() {
                       },
                     ]}
                     returnKeyType="done"
+                    inputAccessoryViewID={
+                      Platform.OS === "ios"
+                        ? KEYBOARD_ACCESSORY_ID
+                        : undefined
+                    }
                   />
                 </>
               )}
@@ -676,6 +710,24 @@ export default function CreateStorageScreen() {
               </HapticPressable>
             </BlurView>
           </ScrollView>
+
+          {Platform.OS === "ios" && (
+            <InputAccessoryView
+              nativeID={KEYBOARD_ACCESSORY_ID}
+            >
+              <View style={styles.keyboardAccessory}>
+                <HapticPressable
+                  onPress={Keyboard.dismiss}
+                  style={styles.keyboardDismissButton}
+                >
+                  <ChevronDown
+                    size={22}
+                    color="#FFFFFF"
+                  />
+                </HapticPressable>
+              </View>
+            </InputAccessoryView>
+          )}
         </KeyboardAvoidingView>
       </SafeAreaView>
     </ScreenBackground>
@@ -730,8 +782,22 @@ const styles = StyleSheet.create({
     lineHeight: 26,
   },
 
-  headerSpacer: {
-    width: 36,
+  cancelButton: {
+    minWidth: 64,
+    height: 36,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 10,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
+  },
+
+  cancelText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "700",
   },
 
   headerSubtitle: {
@@ -874,6 +940,25 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontWeight: "700",
     fontSize: 15,
+  },
+
+  keyboardAccessory: {
+    minHeight: 44,
+    backgroundColor: "rgba(20,20,24,0.96)",
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.12)",
+    alignItems: "flex-end",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+  },
+
+  keyboardDismissButton: {
+    width: 40,
+    height: 34,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.12)",
   },
 
   disabledInteraction: {
