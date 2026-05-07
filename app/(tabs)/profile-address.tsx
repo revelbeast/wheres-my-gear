@@ -1,5 +1,5 @@
 import { Check } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -50,6 +50,7 @@ function LabeledInput({
   placeholder,
   keyboardType = "default",
   autoCapitalize = "words",
+  editable = true,
 }: {
   label: string;
   value: string;
@@ -57,6 +58,7 @@ function LabeledInput({
   placeholder?: string;
   keyboardType?: "default" | "number-pad";
   autoCapitalize?: "none" | "sentences" | "words" | "characters";
+  editable?: boolean;
 }) {
   return (
     <View style={styles.fieldWrap}>
@@ -71,6 +73,7 @@ function LabeledInput({
         keyboardType={keyboardType}
         autoCapitalize={autoCapitalize}
         returnKeyType="done"
+        editable={editable}
       />
     </View>
   );
@@ -79,17 +82,37 @@ function LabeledInput({
 export default function ProfileAddressScreen() {
   const { user } = useAuth();
 
+  const isMountedRef = useRef(true);
+  const loadRequestVersionRef = useRef(0);
+  const actionLockRef = useRef(false);
+
   const [profile, setProfile] = useState<AppProfile | null>(null);
   const [address, setAddress] = useState<AppAddress>(emptyAddress);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    loadAddress();
-  }, [user]);
+    isMountedRef.current = true;
 
-  async function loadAddress() {
+    return () => {
+      isMountedRef.current = false;
+      loadRequestVersionRef.current += 1;
+      actionLockRef.current = false;
+    };
+  }, []);
+
+  const loadAddress = useCallback(async () => {
+    const requestVersion = loadRequestVersionRef.current + 1;
+    loadRequestVersionRef.current = requestVersion;
+
     if (!user) {
+      if (
+        !isMountedRef.current ||
+        loadRequestVersionRef.current !== requestVersion
+      ) {
+        return;
+      }
+
       setProfile(null);
       setAddress(emptyAddress);
       setLoading(false);
@@ -97,8 +120,18 @@ export default function ProfileAddressScreen() {
     }
 
     try {
-      setLoading(true);
+      if (isMountedRef.current) {
+        setLoading(true);
+      }
+
       const data = await getProfileSettings(user.uid);
+
+      if (
+        !isMountedRef.current ||
+        loadRequestVersionRef.current !== requestVersion
+      ) {
+        return;
+      }
 
       setProfile(data);
       setAddress({
@@ -107,16 +140,39 @@ export default function ProfileAddressScreen() {
       });
     } catch (err) {
       console.error("Failed to load address:", err);
+
+      if (
+        !isMountedRef.current ||
+        loadRequestVersionRef.current !== requestVersion
+      ) {
+        return;
+      }
+
       Alert.alert("Error", "Failed to load address.");
     } finally {
-      setLoading(false);
+      if (
+        isMountedRef.current &&
+        loadRequestVersionRef.current === requestVersion
+      ) {
+        setLoading(false);
+      }
     }
+  }, [user]);
+
+  useEffect(() => {
+    loadAddress();
+  }, [loadAddress]);
+
+  function isBusy() {
+    return loading || saving || actionLockRef.current;
   }
 
   function updateAddressField<K extends keyof AppAddress>(
     key: K,
     value: AppAddress[K]
   ) {
+    if (isBusy()) return;
+
     setAddress((prev) => ({
       ...prev,
       [key]: value,
@@ -124,7 +180,9 @@ export default function ProfileAddressScreen() {
   }
 
   async function handleSaveAddress() {
-    if (!user || !profile || saving) return;
+    if (!user || !profile || isBusy()) return;
+
+    actionLockRef.current = true;
 
     const cleanedAddress: AppAddress = {
       streetAddress: address.streetAddress.trim(),
@@ -136,7 +194,9 @@ export default function ProfileAddressScreen() {
     };
 
     try {
-      setSaving(true);
+      if (isMountedRef.current) {
+        setSaving(true);
+      }
 
       const nextProfile: AppProfile = {
         ...profile,
@@ -144,17 +204,33 @@ export default function ProfileAddressScreen() {
       };
 
       await saveProfileSettings(user.uid, nextProfile);
+
+      if (!isMountedRef.current) {
+        return;
+      }
+
       setProfile(nextProfile);
       setAddress(cleanedAddress);
 
       Alert.alert("Saved", "Your address has been updated.");
     } catch (err) {
       console.error("Failed to save address:", err);
+
+      if (!isMountedRef.current) {
+        return;
+      }
+
       Alert.alert("Error", "Failed to save address.");
     } finally {
-      setSaving(false);
+      actionLockRef.current = false;
+
+      if (isMountedRef.current) {
+        setSaving(false);
+      }
     }
   }
+
+  const formEditable = !isBusy();
 
   return (
     <ScreenBackground>
@@ -208,6 +284,7 @@ export default function ProfileAddressScreen() {
                       updateAddressField("streetAddress", text)
                     }
                     placeholder="Enter street address"
+                    editable={formEditable}
                   />
 
                   <LabeledInput
@@ -217,6 +294,7 @@ export default function ProfileAddressScreen() {
                       updateAddressField("apartmentSuite", text)
                     }
                     placeholder="Apt, suite, unit, etc."
+                    editable={formEditable}
                   />
 
                   <LabeledInput
@@ -224,6 +302,7 @@ export default function ProfileAddressScreen() {
                     value={address.city}
                     onChangeText={(text) => updateAddressField("city", text)}
                     placeholder="Enter city"
+                    editable={formEditable}
                   />
 
                   <View style={styles.inlineFieldsRow}>
@@ -236,6 +315,7 @@ export default function ProfileAddressScreen() {
                         }
                         placeholder="State"
                         autoCapitalize="characters"
+                        editable={formEditable}
                       />
                     </View>
 
@@ -249,6 +329,7 @@ export default function ProfileAddressScreen() {
                         placeholder="ZIP Code"
                         keyboardType="number-pad"
                         autoCapitalize="none"
+                        editable={formEditable}
                       />
                     </View>
                   </View>
@@ -258,10 +339,11 @@ export default function ProfileAddressScreen() {
                     value={address.country}
                     onChangeText={(text) => updateAddressField("country", text)}
                     placeholder="Country"
+                    editable={formEditable}
                   />
                 </ThemedCard>
 
-                <ThemedButton onPress={handleSaveAddress} disabled={saving}>
+                <ThemedButton onPress={handleSaveAddress} disabled={isBusy()}>
                   <Check size={18} color="#fff" />
                   <ThemedText style={styles.saveButtonText}>
                     {saving ? "Saving..." : "Save Address"}
