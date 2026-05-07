@@ -1,6 +1,11 @@
 import { BlurView } from "expo-blur";
 import { router } from "expo-router";
-import { addDoc, collection, serverTimestamp, Timestamp } from "firebase/firestore";
+import {
+  addDoc,
+  collection,
+  serverTimestamp,
+  Timestamp,
+} from "firebase/firestore";
 import {
   CalendarDays,
   ChevronLeft,
@@ -134,17 +139,24 @@ export default function CreateTripScreen() {
   const [isSaving, setIsSaving] = useState(false);
 
   const isMountedRef = useRef(true);
+  const actionLockRef = useRef(false);
+  const navigationLockedRef = useRef(false);
 
   const calendarDays = useMemo(
     () => buildCalendarDays(calendarMonth),
     [calendarMonth]
   );
 
+  const isActionBusy =
+    isSaving || interactionLocked || actionLockRef.current || navigationLockedRef.current;
+
   useEffect(() => {
     isMountedRef.current = true;
 
     return () => {
       isMountedRef.current = false;
+      actionLockRef.current = false;
+      navigationLockedRef.current = false;
     };
   }, []);
 
@@ -154,24 +166,38 @@ export default function CreateTripScreen() {
     }
   }, [initializing, user]);
 
-  async function runWithLock(action: () => Promise<void> | void) {
-    if (interactionLocked) return;
+  function safeGoBack() {
+    if (!isMountedRef.current || navigationLockedRef.current) return;
 
+    navigationLockedRef.current = true;
+    router.back();
+  }
+
+  async function runWithLock(action: () => Promise<void> | void) {
+    if (actionLockRef.current || interactionLocked || !isMountedRef.current) {
+      return;
+    }
+
+    actionLockRef.current = true;
     lockInteraction();
 
     try {
       await action();
     } finally {
-      unlockInteraction();
+      actionLockRef.current = false;
+
+      if (isMountedRef.current) {
+        unlockInteraction();
+      }
     }
   }
 
   function handleBack() {
-    if (isSaving || interactionLocked) return;
+    if (isActionBusy) return;
 
-    runWithLock(() => {
+    void runWithLock(() => {
       if (tripName.trim().length === 0) {
-        router.back();
+        safeGoBack();
         return;
       }
 
@@ -184,9 +210,7 @@ export default function CreateTripScreen() {
           text: "Discard",
           style: "destructive",
           onPress: () => {
-            if (isMountedRef.current) {
-              router.back();
-            }
+            safeGoBack();
           },
         },
       ]);
@@ -194,7 +218,7 @@ export default function CreateTripScreen() {
   }
 
   function handlePreviousMonth() {
-    if (isSaving || interactionLocked) return;
+    if (isActionBusy) return;
 
     setCalendarMonth(
       (current) => new Date(current.getFullYear(), current.getMonth() - 1, 1)
@@ -202,7 +226,7 @@ export default function CreateTripScreen() {
   }
 
   function handleNextMonth() {
-    if (isSaving || interactionLocked) return;
+    if (isActionBusy) return;
 
     setCalendarMonth(
       (current) => new Date(current.getFullYear(), current.getMonth() + 1, 1)
@@ -210,27 +234,27 @@ export default function CreateTripScreen() {
   }
 
   function handleOpenCalendar() {
-    if (isSaving || interactionLocked) return;
+    if (isActionBusy) return;
 
     setCalendarMonth(new Date(tripDate.getFullYear(), tripDate.getMonth(), 1));
     setIsCalendarVisible(true);
   }
 
   function handleCloseCalendar() {
-    if (isSaving || interactionLocked) return;
+    if (isActionBusy) return;
 
     setIsCalendarVisible(false);
   }
 
   function handleSelectDate(date: Date) {
-    if (isSaving || interactionLocked) return;
+    if (isActionBusy) return;
 
     setTripDate(getNoonDate(date));
     setIsCalendarVisible(false);
   }
 
   async function handleSaveTrip() {
-    if (!user || isSaving || interactionLocked) {
+    if (!user || isActionBusy) {
       return;
     }
 
@@ -245,9 +269,9 @@ export default function CreateTripScreen() {
 
     await runWithLock(async () => {
       try {
-        if (isMountedRef.current) {
-          setIsSaving(true);
-        }
+        if (!isMountedRef.current) return;
+
+        setIsSaving(true);
 
         await addDoc(collection(db, "users", uid, "trips"), {
           name: trimmedName,
@@ -257,7 +281,7 @@ export default function CreateTripScreen() {
         });
 
         if (isMountedRef.current) {
-          router.back();
+          safeGoBack();
         }
       } catch (error) {
         console.error("Failed to create trip:", error);
@@ -294,12 +318,9 @@ export default function CreateTripScreen() {
           >
             <View style={styles.headerRow}>
               <HapticPressable
-                style={[
-                  styles.backButton,
-                  (isSaving || interactionLocked) && styles.disabledButton,
-                ]}
+                style={[styles.backButton, isActionBusy && styles.disabledButton]}
                 onPress={handleBack}
-                disabled={isSaving || interactionLocked}
+                disabled={isActionBusy}
               >
                 <ChevronLeft size={22} color={LABEL_WHITE} />
               </HapticPressable>
@@ -317,10 +338,10 @@ export default function CreateTripScreen() {
               <HapticPressable
                 style={[
                   styles.cancelIconButton,
-                  (isSaving || interactionLocked) && styles.disabledButton,
+                  isActionBusy && styles.disabledButton,
                 ]}
                 onPress={handleBack}
-                disabled={isSaving || interactionLocked}
+                disabled={isActionBusy}
               >
                 <X size={19} color={LABEL_WHITE} />
               </HapticPressable>
@@ -353,7 +374,7 @@ export default function CreateTripScreen() {
                   autoCapitalize="words"
                   autoCorrect
                   returnKeyType="done"
-                  editable={!isSaving && !interactionLocked}
+                  editable={!isActionBusy}
                 />
               </View>
 
@@ -369,10 +390,10 @@ export default function CreateTripScreen() {
                       borderColor: theme.colors.border,
                       backgroundColor: theme.colors.card,
                     },
-                    (isSaving || interactionLocked) && styles.disabledButton,
+                    isActionBusy && styles.disabledButton,
                   ]}
                   onPress={handleOpenCalendar}
-                  disabled={isSaving || interactionLocked}
+                  disabled={isActionBusy}
                 >
                   <View style={styles.datePickerLeft}>
                     <CalendarDays size={18} color={theme.colors.text} />
@@ -391,12 +412,9 @@ export default function CreateTripScreen() {
             </FrostedCard>
 
             <ThemedButton
-              style={[
-                styles.saveButton,
-                isSaving || interactionLocked ? styles.disabledButton : {},
-              ]}
+              style={[styles.saveButton, isActionBusy ? styles.disabledButton : {}]}
               onPress={handleSaveTrip}
-              disabled={isSaving || interactionLocked}
+              disabled={isActionBusy}
             >
               <View style={styles.saveButtonInner}>
                 <Save size={18} color={LABEL_WHITE} />
@@ -407,12 +425,9 @@ export default function CreateTripScreen() {
             </ThemedButton>
 
             <HapticPressable
-              style={[
-                styles.cancelButton,
-                (isSaving || interactionLocked) && styles.disabledButton,
-              ]}
+              style={[styles.cancelButton, isActionBusy && styles.disabledButton]}
               onPress={handleBack}
-              disabled={isSaving || interactionLocked}
+              disabled={isActionBusy}
             >
               <X size={18} color={LABEL_WHITE} />
               <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
@@ -442,10 +457,10 @@ export default function CreateTripScreen() {
                 <HapticPressable
                   style={[
                     styles.calendarNavButton,
-                    (isSaving || interactionLocked) && styles.disabledButton,
+                    isActionBusy && styles.disabledButton,
                   ]}
                   onPress={handlePreviousMonth}
-                  disabled={isSaving || interactionLocked}
+                  disabled={isActionBusy}
                 >
                   <ChevronLeft size={20} color={LABEL_WHITE} />
                 </HapticPressable>
@@ -457,10 +472,10 @@ export default function CreateTripScreen() {
                 <HapticPressable
                   style={[
                     styles.calendarNavButton,
-                    (isSaving || interactionLocked) && styles.disabledButton,
+                    isActionBusy && styles.disabledButton,
                   ]}
                   onPress={handleNextMonth}
-                  disabled={isSaving || interactionLocked}
+                  disabled={isActionBusy}
                 >
                   <ChevronRight size={20} color={LABEL_WHITE} />
                 </HapticPressable>
@@ -468,7 +483,11 @@ export default function CreateTripScreen() {
 
               <View style={styles.weekdayRow}>
                 {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-                  <ThemedText key={day} color="secondary" style={styles.weekdayText}>
+                  <ThemedText
+                    key={day}
+                    color="secondary"
+                    style={styles.weekdayText}
+                  >
                     {day}
                   </ThemedText>
                 ))}
@@ -488,11 +507,10 @@ export default function CreateTripScreen() {
                           style={[
                             styles.dayButton,
                             selected ? styles.selectedDayButton : null,
-                            (isSaving || interactionLocked) &&
-                              styles.disabledButton,
+                            isActionBusy && styles.disabledButton,
                           ]}
                           onPress={() => handleSelectDate(date)}
-                          disabled={isSaving || interactionLocked}
+                          disabled={isActionBusy}
                         >
                           <ThemedText
                             style={[
@@ -512,10 +530,10 @@ export default function CreateTripScreen() {
               <ThemedButton
                 style={[
                   styles.cancelCalendarButton,
-                  isSaving || interactionLocked ? styles.disabledButton : {},
+                  isActionBusy ? styles.disabledButton : {},
                 ]}
                 onPress={handleCloseCalendar}
-                disabled={isSaving || interactionLocked}
+                disabled={isActionBusy}
               >
                 <ThemedText style={styles.saveButtonText}>Cancel</ThemedText>
               </ThemedButton>
