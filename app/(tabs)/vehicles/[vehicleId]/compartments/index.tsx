@@ -103,10 +103,14 @@ export default function CompartmentsScreen() {
   } = useInteractionLock(450);
 
   const scrollRef = useRef<ScrollView | null>(null);
+  const isMountedRef = useRef(true);
+  const loadRequestVersionRef = useRef(0);
+  const actionLockRef = useRef(false);
   const navigationTransitionLockedRef = useRef(false);
   const navigationUnlockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [rows, setRows] = useState<CompartmentRow[]>([]);
   const [storageSpace, setStorageSpace] = useState<StorageSpace | null>(null);
@@ -131,15 +135,38 @@ export default function CompartmentsScreen() {
       : "Compartments";
 
   useEffect(() => {
+    isMountedRef.current = true;
+
     return () => {
+      isMountedRef.current = false;
+      loadRequestVersionRef.current += 1;
+      actionLockRef.current = false;
+      navigationTransitionLockedRef.current = false;
+
       if (navigationUnlockTimeoutRef.current) {
         clearTimeout(navigationUnlockTimeoutRef.current);
+        navigationUnlockTimeoutRef.current = null;
+      }
+
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+        scrollTimeoutRef.current = null;
       }
     };
   }, []);
 
   const loadCompartments = useCallback(async () => {
+    const requestVersion = loadRequestVersionRef.current + 1;
+    loadRequestVersionRef.current = requestVersion;
+
     if (!hasVehicleId || !vehicleId) {
+      if (
+        !isMountedRef.current ||
+        loadRequestVersionRef.current !== requestVersion
+      ) {
+        return;
+      }
+
       setRows([]);
       setStorageSpace(null);
       setLoading(false);
@@ -147,14 +174,21 @@ export default function CompartmentsScreen() {
     }
 
     try {
-      setLoading(true);
+      if (isMountedRef.current) {
+        setLoading(true);
+      }
 
       const [space, compartments] = await Promise.all([
         getStorageSpaceById(vehicleId),
         getCompartmentsByVehicle(vehicleId),
       ]);
 
-      setStorageSpace(space);
+      if (
+        !isMountedRef.current ||
+        loadRequestVersionRef.current !== requestVersion
+      ) {
+        return;
+      }
 
       const enriched = await Promise.all(
         compartments.map(async (compartment) => {
@@ -171,6 +205,14 @@ export default function CompartmentsScreen() {
         })
       );
 
+      if (
+        !isMountedRef.current ||
+        loadRequestVersionRef.current !== requestVersion
+      ) {
+        return;
+      }
+
+      setStorageSpace(space);
       setRows(
         enriched.sort(
           (a, b) => b.itemCount - a.itemCount || a.name.localeCompare(b.name)
@@ -178,33 +220,66 @@ export default function CompartmentsScreen() {
       );
     } catch (error) {
       console.error("Failed to load compartments:", error);
+
+      if (
+        !isMountedRef.current ||
+        loadRequestVersionRef.current !== requestVersion
+      ) {
+        return;
+      }
+
       setRows([]);
       setStorageSpace(null);
     } finally {
-      setLoading(false);
+      if (
+        isMountedRef.current &&
+        loadRequestVersionRef.current === requestVersion
+      ) {
+        setLoading(false);
+      }
     }
   }, [hasVehicleId, vehicleId]);
 
   useFocusEffect(
     useCallback(() => {
+      isMountedRef.current = true;
       loadCompartments();
+
+      return () => {
+        loadRequestVersionRef.current += 1;
+      };
     }, [loadCompartments])
   );
 
   async function runWithLock(action: () => Promise<void> | void) {
-    if (interactionLocked) return;
+    if (interactionLocked || actionLockRef.current) return;
 
+    actionLockRef.current = true;
     lockInteraction();
 
     try {
       await action();
     } finally {
-      unlockInteraction();
+      actionLockRef.current = false;
+
+      if (isMountedRef.current) {
+        unlockInteraction();
+      }
     }
   }
 
+  function isBusy() {
+    return (
+      interactionLocked ||
+      actionLockRef.current ||
+      savingEdit ||
+      deletingId !== null ||
+      navigationTransitionLockedRef.current
+    );
+  }
+
   function lockNavigationTransition() {
-    if (navigationTransitionLockedRef.current) {
+    if (navigationTransitionLockedRef.current || !isMountedRef.current) {
       return false;
     }
 
@@ -223,7 +298,7 @@ export default function CompartmentsScreen() {
   }
 
   function runNavigationAction(action: () => void) {
-    if (interactionLocked || navigationTransitionLockedRef.current) {
+    if (isBusy()) {
       return;
     }
 
@@ -234,8 +309,17 @@ export default function CompartmentsScreen() {
   }
 
   function scrollToBottom(delay = 140) {
-    setTimeout(() => {
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+
+    scrollTimeoutRef.current = setTimeout(() => {
+      if (!isMountedRef.current) {
+        return;
+      }
+
       scrollRef.current?.scrollToEnd({ animated: true });
+      scrollTimeoutRef.current = null;
     }, delay);
   }
 
@@ -279,7 +363,7 @@ export default function CompartmentsScreen() {
   }
 
   function startEditingCompartment(compartment: CompartmentRow) {
-    if (interactionLocked || savingEdit || deletingId) return;
+    if (isBusy()) return;
 
     setEditingCompartmentId(compartment.id);
     setEditingCompartmentName(compartment.name);
@@ -287,7 +371,7 @@ export default function CompartmentsScreen() {
   }
 
   function cancelEditingCompartment() {
-    if (savingEdit || interactionLocked) return;
+    if (savingEdit || interactionLocked || actionLockRef.current) return;
 
     Keyboard.dismiss();
     setEditingCompartmentId(null);
@@ -295,7 +379,7 @@ export default function CompartmentsScreen() {
   }
 
   async function saveEditingCompartment(compartmentId: string) {
-    if (savingEdit || interactionLocked) return;
+    if (isBusy()) return;
 
     const trimmedName = editingCompartmentName.trim();
 
@@ -306,25 +390,39 @@ export default function CompartmentsScreen() {
 
     await runWithLock(async () => {
       try {
-        setSavingEdit(true);
+        if (isMountedRef.current) {
+          setSavingEdit(true);
+        }
+
         Keyboard.dismiss();
 
         await updateCompartment(compartmentId, { name: trimmedName });
+
+        if (!isMountedRef.current) {
+          return;
+        }
 
         setEditingCompartmentId(null);
         setEditingCompartmentName("");
         await loadCompartments();
       } catch (error) {
         console.error("Failed to update compartment:", error);
+
+        if (!isMountedRef.current) {
+          return;
+        }
+
         Alert.alert("Unable to update compartment", "Please try again.");
       } finally {
-        setSavingEdit(false);
+        if (isMountedRef.current) {
+          setSavingEdit(false);
+        }
       }
     });
   }
 
   function confirmDeleteCompartment(compartment: CompartmentRow) {
-    if (interactionLocked || deletingId) return;
+    if (isBusy()) return;
 
     Alert.alert(
       "Delete compartment",
@@ -340,14 +438,29 @@ export default function CompartmentsScreen() {
           onPress: () => {
             void runWithLock(async () => {
               try {
-                setDeletingId(compartment.id);
+                if (isMountedRef.current) {
+                  setDeletingId(compartment.id);
+                }
+
                 await deleteCompartment(compartment.id);
+
+                if (!isMountedRef.current) {
+                  return;
+                }
+
                 await loadCompartments();
               } catch (error) {
                 console.error("Failed to delete compartment:", error);
+
+                if (!isMountedRef.current) {
+                  return;
+                }
+
                 Alert.alert("Unable to delete compartment", "Please try again.");
               } finally {
-                setDeletingId(null);
+                if (isMountedRef.current) {
+                  setDeletingId(null);
+                }
               }
             });
           },
@@ -391,11 +504,10 @@ export default function CompartmentsScreen() {
                     backgroundColor: theme.colors.iconSurface,
                     borderColor: theme.colors.border,
                   },
-                  (interactionLocked || navigationTransitionLockedRef.current) &&
-                    styles.actionDisabled,
+                  isBusy() && styles.actionDisabled,
                 ]}
                 onPress={handleBack}
-                disabled={interactionLocked}
+                disabled={isBusy()}
               >
                 <ArrowLeft size={20} color={LABEL_WHITE} />
               </HapticPressable>
@@ -418,12 +530,10 @@ export default function CompartmentsScreen() {
                       backgroundColor: theme.colors.iconSurface,
                       borderColor: theme.colors.border,
                     },
-                    (interactionLocked ||
-                      navigationTransitionLockedRef.current) &&
-                      styles.actionDisabled,
+                    isBusy() && styles.actionDisabled,
                   ]}
                   onPress={handleCreateCompartment}
-                  disabled={interactionLocked}
+                  disabled={isBusy()}
                 >
                   <Plus size={20} color={LABEL_WHITE} />
                 </HapticPressable>
@@ -465,11 +575,7 @@ export default function CompartmentsScreen() {
               ) : (
                 rows.map((compartment) => {
                   const isEditing = editingCompartmentId === compartment.id;
-                  const rowDisabled =
-                    interactionLocked ||
-                    navigationTransitionLockedRef.current ||
-                    savingEdit ||
-                    deletingId !== null;
+                  const rowDisabled = isBusy();
 
                   return (
                     <Swipeable
