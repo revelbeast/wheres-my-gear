@@ -944,15 +944,17 @@ const styles = StyleSheet.create({
   },
 
   searchCard: {
-    borderRadius: 14,
+    borderRadius: 22,
     borderWidth: 1,
     marginBottom: 12,
+    overflow: "hidden",
   },
 
   searchRow: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
   },
 
   searchInput: {
@@ -961,9 +963,9 @@ const styles = StyleSheet.create({
   },
 
   clearSearchButton: {
-    width: 30,
-    height: 30,
-    borderRadius: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
     marginLeft: 8,
