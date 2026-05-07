@@ -155,6 +155,7 @@ export default function ChecklistDetailScreen() {
   const userId = user?.uid ?? "";
   const checklistLoadVersionRef = useRef(0);
   const checklistItemsSubscriptionVersionRef = useRef(0);
+  const actionLockRef = useRef(false);
   const {
     isLocked: interactionLocked,
     lock: lockInteraction,
@@ -192,6 +193,9 @@ export default function ChecklistDetailScreen() {
 
     return () => {
       isScreenMountedRef.current = false;
+      checklistLoadVersionRef.current += 1;
+      checklistItemsSubscriptionVersionRef.current += 1;
+      actionLockRef.current = false;
     };
   }, []);
 
@@ -264,14 +268,21 @@ export default function ChecklistDetailScreen() {
   }, [initializing, userId, checklistId]);
 
   async function runWithLock(action: () => Promise<void> | void) {
-    if (interactionLocked) return;
+    if (interactionLocked || actionLockRef.current || !isScreenMountedRef.current) {
+      return;
+    }
 
+    actionLockRef.current = true;
     lockInteraction();
 
     try {
       await action();
     } finally {
-      unlockInteraction();
+      actionLockRef.current = false;
+
+      if (isScreenMountedRef.current) {
+        unlockInteraction();
+      }
     }
   }
 
@@ -302,6 +313,7 @@ export default function ChecklistDetailScreen() {
       savingItemEdit ||
       savingAssignment ||
       interactionLocked ||
+      actionLockRef.current ||
       (!!itemId && updatingItemId === itemId)
     );
   }
@@ -359,7 +371,9 @@ export default function ChecklistDetailScreen() {
         console.error(err);
         Alert.alert("Error", "Failed to rename checklist.");
       } finally {
-        setSavingRename(false);
+        if (isScreenMountedRef.current) {
+          setSavingRename(false);
+        }
       }
     });
   }
@@ -456,7 +470,9 @@ export default function ChecklistDetailScreen() {
         console.error(err);
         Alert.alert("Error", "Failed to add checklist item.");
       } finally {
-        setSavingNewItem(false);
+        if (isScreenMountedRef.current) {
+          setSavingNewItem(false);
+        }
       }
     });
   }
@@ -491,7 +507,9 @@ export default function ChecklistDetailScreen() {
         console.error(err);
         Alert.alert("Error", "Failed to update checklist item.");
       } finally {
-        setSavingItemEdit(false);
+        if (isScreenMountedRef.current) {
+          setSavingItemEdit(false);
+        }
       }
     });
   }
@@ -552,7 +570,9 @@ export default function ChecklistDetailScreen() {
         console.error(err);
         Alert.alert("Error", "Failed to update quantity.");
       } finally {
-        setUpdatingItemId(null);
+        if (isScreenMountedRef.current) {
+          setUpdatingItemId(null);
+        }
       }
     });
   }
@@ -580,7 +600,9 @@ export default function ChecklistDetailScreen() {
         console.error(err);
         Alert.alert("Error", "Failed to update packed status.");
       } finally {
-        setUpdatingItemId(null);
+        if (isScreenMountedRef.current) {
+          setUpdatingItemId(null);
+        }
       }
     });
   }
@@ -659,7 +681,9 @@ export default function ChecklistDetailScreen() {
         console.error(err);
         Alert.alert("Error", "Failed to save item photo.");
       } finally {
-        setUpdatingItemId(null);
+        if (isScreenMountedRef.current) {
+          setUpdatingItemId(null);
+        }
       }
     });
   }
@@ -697,7 +721,9 @@ export default function ChecklistDetailScreen() {
         console.error(err);
         Alert.alert("Error", "Failed to save item photo.");
       } finally {
-        setUpdatingItemId(null);
+        if (isScreenMountedRef.current) {
+          setUpdatingItemId(null);
+        }
       }
     });
   }
@@ -714,7 +740,9 @@ export default function ChecklistDetailScreen() {
         console.error(err);
         Alert.alert("Error", "Failed to remove item photo.");
       } finally {
-        setUpdatingItemId(null);
+        if (isScreenMountedRef.current) {
+          setUpdatingItemId(null);
+        }
       }
     });
   }
@@ -900,7 +928,9 @@ export default function ChecklistDetailScreen() {
         console.error(err);
         Alert.alert("Error", "Failed to assign storage.");
       } finally {
-        setSavingAssignment(false);
+        if (isScreenMountedRef.current) {
+          setSavingAssignment(false);
+        }
       }
     });
   }
@@ -935,7 +965,9 @@ export default function ChecklistDetailScreen() {
               console.error(err);
               Alert.alert("Error", "Failed to delete checklist item.");
             } finally {
-              setUpdatingItemId(null);
+              if (isScreenMountedRef.current) {
+                setUpdatingItemId(null);
+              }
             }
           });
         },
