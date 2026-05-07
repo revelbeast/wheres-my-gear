@@ -56,6 +56,7 @@ function getSubtypePlaceholder(category: "vehicle" | "storage") {
 
 export default function CreateStorageScreen() {
   const theme = useThemedValues();
+
   const {
     isLocked: interactionLocked,
     lock: lockInteraction,
@@ -69,30 +70,59 @@ export default function CreateStorageScreen() {
   const [showSubtypeDropdown, setShowSubtypeDropdown] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  const isMountedRef = useRef(true);
+
   const scrollRef = useRef<ScrollView | null>(null);
   const nameInputRef = useRef<TextInput | null>(null);
   const customSubtypeInputRef = useRef<TextInput | null>(null);
+
   const dropdownOpenTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
 
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const customSubtypeFocusTimeoutRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+
   useEffect(() => {
+    isMountedRef.current = true;
+
     return () => {
+      isMountedRef.current = false;
+
       if (dropdownOpenTimeoutRef.current) {
         clearTimeout(dropdownOpenTimeoutRef.current);
+      }
+
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+
+      if (customSubtypeFocusTimeoutRef.current) {
+        clearTimeout(customSubtypeFocusTimeoutRef.current);
       }
     };
   }, []);
 
   const subtypeOptions = useMemo(() => {
-    return category === "vehicle" ? VEHICLE_SUBTYPES : STORAGE_SUBTYPES;
+    return category === "vehicle"
+      ? VEHICLE_SUBTYPES
+      : STORAGE_SUBTYPES;
   }, [category]);
 
   const selectedSubtypeLabel = useMemo(() => {
-    if (!subtype) return getSubtypePlaceholder(category);
-    if (subtype === "Other") {
-      return customSubtype.trim() ? customSubtype.trim() : "Other";
+    if (!subtype) {
+      return getSubtypePlaceholder(category);
     }
+
+    if (subtype === "Other") {
+      return customSubtype.trim()
+        ? customSubtype.trim()
+        : "Other";
+    }
+
     return subtype;
   }, [category, subtype, customSubtype]);
 
@@ -108,9 +138,31 @@ export default function CreateStorageScreen() {
     }
   }
 
+  function clearPendingScroll() {
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+      scrollTimeoutRef.current = null;
+    }
+  }
+
+  function clearPendingCustomSubtypeFocus() {
+    if (customSubtypeFocusTimeoutRef.current) {
+      clearTimeout(customSubtypeFocusTimeoutRef.current);
+      customSubtypeFocusTimeoutRef.current = null;
+    }
+  }
+
   function scrollToFormBottom(delay = 120) {
-    setTimeout(() => {
-      scrollRef.current?.scrollToEnd({ animated: true });
+    clearPendingScroll();
+
+    scrollTimeoutRef.current = setTimeout(() => {
+      if (!isMountedRef.current) return;
+
+      scrollRef.current?.scrollToEnd({
+        animated: true,
+      });
+
+      scrollTimeoutRef.current = null;
     }, delay);
   }
 
@@ -128,7 +180,11 @@ export default function CreateStorageScreen() {
 
   function closeSubtypeDropdown() {
     clearPendingDropdownOpen();
-    setShowSubtypeDropdown(false);
+    clearPendingCustomSubtypeFocus();
+
+    if (isMountedRef.current) {
+      setShowSubtypeDropdown(false);
+    }
   }
 
   function handleBackPress() {
@@ -152,8 +208,12 @@ export default function CreateStorageScreen() {
     clearPendingDropdownOpen();
 
     dropdownOpenTimeoutRef.current = setTimeout(() => {
+      if (!isMountedRef.current) return;
+
       setShowSubtypeDropdown(true);
+
       scrollToFormBottom(80);
+
       dropdownOpenTimeoutRef.current = null;
     }, Platform.OS === "ios" ? 180 : 80);
   }
@@ -162,7 +222,10 @@ export default function CreateStorageScreen() {
     if (saving || interactionLocked) return;
 
     blurInputs();
+
     clearPendingDropdownOpen();
+    clearPendingCustomSubtypeFocus();
+
     setSubtype(value);
     setShowSubtypeDropdown(false);
 
@@ -171,9 +234,14 @@ export default function CreateStorageScreen() {
     }
 
     if (value === "Other") {
-      setTimeout(() => {
+      customSubtypeFocusTimeoutRef.current = setTimeout(() => {
+        if (!isMountedRef.current) return;
+
         customSubtypeInputRef.current?.focus();
+
         scrollToFormBottom(80);
+
+        customSubtypeFocusTimeoutRef.current = null;
       }, 150);
     }
   }
@@ -182,10 +250,15 @@ export default function CreateStorageScreen() {
     if (saving || interactionLocked) return;
 
     Keyboard.dismiss();
+
     blurInputs();
+
+    clearPendingCustomSubtypeFocus();
+
     setCategory(nextCategory);
     setSubtype("");
     setCustomSubtype("");
+
     closeSubtypeDropdown();
   }
 
@@ -193,30 +266,51 @@ export default function CreateStorageScreen() {
     if (saving || interactionLocked) return;
 
     blurInputs();
+
     Keyboard.dismiss();
+
     closeSubtypeDropdown();
 
     const trimmedName = name.trim();
+
     const finalSubtype =
-      subtype === "Other" ? customSubtype.trim() : subtype.trim();
+      subtype === "Other"
+        ? customSubtype.trim()
+        : subtype.trim();
 
     if (!trimmedName) {
-      Alert.alert("Required name", "Please enter a storage space name.");
+      Alert.alert(
+        "Required name",
+        "Please enter a storage space name."
+      );
+
       return;
     }
 
     if (!subtype) {
-      Alert.alert("Required subtype", "Please select a subtype.");
+      Alert.alert(
+        "Required subtype",
+        "Please select a subtype."
+      );
+
       return;
     }
 
     if (subtype === "Other" && !finalSubtype) {
-      Alert.alert("Required custom subtype", "Please enter a custom subtype.");
+      Alert.alert(
+        "Required custom subtype",
+        "Please enter a custom subtype."
+      );
+
       return;
     }
 
     if (!finalSubtype) {
-      Alert.alert("Required subtype", "Please select or enter a subtype.");
+      Alert.alert(
+        "Required subtype",
+        "Please select or enter a subtype."
+      );
+
       return;
     }
 
@@ -231,19 +325,31 @@ export default function CreateStorageScreen() {
         });
 
         if (!createdId) {
-          throw new Error("Storage space was not saved. Please try again.");
+          throw new Error(
+            "Storage space was not saved. Please try again."
+          );
         }
 
-        router.replace("/storage");
+        if (isMountedRef.current) {
+          router.replace("/storage");
+        }
       } catch (err: any) {
-        console.error("Failed to create storage space:", err);
-
-        Alert.alert(
-          "Save failed",
-          err?.message || "Unable to save this storage space. Please try again."
+        console.error(
+          "Failed to create storage space:",
+          err
         );
+
+        if (isMountedRef.current) {
+          Alert.alert(
+            "Save failed",
+            err?.message ||
+              "Unable to save this storage space. Please try again."
+          );
+        }
       } finally {
-        setSaving(false);
+        if (isMountedRef.current) {
+          setSaving(false);
+        }
       }
     });
   }
@@ -253,7 +359,9 @@ export default function CreateStorageScreen() {
       <SafeAreaView style={styles.safe}>
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
+          keyboardVerticalOffset={
+            Platform.OS === "ios" ? 8 : 0
+          }
           style={styles.container}
         >
           <ScrollView
@@ -277,81 +385,112 @@ export default function CreateStorageScreen() {
                       ? "rgba(255,255,255,0.22)"
                       : "rgba(255,255,255,0.10)",
                   },
-                  (saving || interactionLocked) && styles.disabledInteraction,
+                  (saving || interactionLocked) &&
+                    styles.disabledInteraction,
                 ]}
                 disabled={saving || interactionLocked}
               >
-                <ChevronLeft size={24} color={LABEL_WHITE} />
+                <ChevronLeft
+                  size={24}
+                  color={LABEL_WHITE}
+                />
               </HapticPressable>
 
               <View style={styles.headerTextWrap}>
-                <Text style={styles.headerTitle}>Add Storage Space</Text>
+                <Text style={styles.headerTitle}>
+                  Add Storage Space
+                </Text>
               </View>
 
               <View style={styles.headerSpacer} />
             </View>
 
             <Text style={styles.headerSubtitle}>
-              Create a vehicle or storage location for organizing your gear.
+              Create a vehicle or storage location for
+              organizing your gear.
             </Text>
 
             <BlurView
-              intensity={theme.isLight ? 22 : 25}
-              tint={theme.isLight ? "light" : "dark"}
+              intensity={20}
+              tint="systemUltraThinMaterialDark"
               style={[
                 styles.card,
                 {
-                  borderColor: theme.colors.border,
-                  backgroundColor: theme.isLight
-                    ? "rgba(255,255,255,0.68)"
-                    : "rgba(255,255,255,0.02)",
+                  borderColor: "rgba(255,255,255,0.14)",
+                  backgroundColor:
+                    "rgba(255,255,255,0.05)",
                 },
               ]}
             >
-              <Text style={[styles.label, { color: theme.colors.textSecondary }]}>
+              <Text
+                style={[
+                  styles.label,
+                  {
+                    color: theme.colors.textSecondary,
+                  },
+                ]}
+              >
                 Name
               </Text>
+
               <TextInput
                 ref={nameInputRef}
                 value={name}
                 onChangeText={setName}
                 onFocus={closeSubtypeDropdown}
                 placeholder="e.g. My Sprinter Van"
-                placeholderTextColor={theme.colors.textMuted}
+                placeholderTextColor={
+                  theme.colors.textMuted
+                }
                 style={[
                   styles.input,
                   {
                     color: theme.colors.text,
-                    backgroundColor: theme.colors.inputSurface,
-                    borderColor: theme.colors.border,
+                    backgroundColor:
+                      "rgba(255,255,255,0.05)",
+                    borderColor:
+                      "rgba(255,255,255,0.12)",
                   },
                 ]}
                 returnKeyType="done"
-                editable={!saving && !interactionLocked}
+                editable={
+                  !saving && !interactionLocked
+                }
               />
 
-              <Text style={[styles.label, { color: theme.colors.textSecondary }]}>
+              <Text
+                style={[
+                  styles.label,
+                  {
+                    color: theme.colors.textSecondary,
+                  },
+                ]}
+              >
                 Category
               </Text>
+
               <View style={styles.row}>
                 <HapticPressable
                   style={[
                     styles.toggle,
                     {
-                      backgroundColor: theme.colors.iconSurface,
-                      borderColor: theme.colors.border,
+                      backgroundColor:
+                        "rgba(255,255,255,0.05)",
+                      borderColor:
+                        "rgba(255,255,255,0.12)",
                     },
-                    category === "vehicle" && styles.toggleActive,
-                    (saving || interactionLocked) && styles.disabledInteraction,
+                    category === "vehicle" &&
+                      styles.toggleActive,
                   ]}
-                  onPress={() => handleSelectCategory("vehicle")}
-                  disabled={saving || interactionLocked}
+                  onPress={() =>
+                    handleSelectCategory("vehicle")
+                  }
                 >
                   <Text
                     style={[
                       styles.toggleText,
-                      { color: theme.colors.text },
-                      category === "vehicle" && styles.toggleTextActive,
+                      category === "vehicle" &&
+                        styles.toggleTextActive,
                     ]}
                   >
                     Vehicle
@@ -362,20 +501,23 @@ export default function CreateStorageScreen() {
                   style={[
                     styles.toggle,
                     {
-                      backgroundColor: theme.colors.iconSurface,
-                      borderColor: theme.colors.border,
+                      backgroundColor:
+                        "rgba(255,255,255,0.05)",
+                      borderColor:
+                        "rgba(255,255,255,0.12)",
                     },
-                    category === "storage" && styles.toggleActive,
-                    (saving || interactionLocked) && styles.disabledInteraction,
+                    category === "storage" &&
+                      styles.toggleActive,
                   ]}
-                  onPress={() => handleSelectCategory("storage")}
-                  disabled={saving || interactionLocked}
+                  onPress={() =>
+                    handleSelectCategory("storage")
+                  }
                 >
                   <Text
                     style={[
                       styles.toggleText,
-                      { color: theme.colors.text },
-                      category === "storage" && styles.toggleTextActive,
+                      category === "storage" &&
+                        styles.toggleTextActive,
                     ]}
                   >
                     Storage
@@ -383,95 +525,100 @@ export default function CreateStorageScreen() {
                 </HapticPressable>
               </View>
 
-              <Text style={[styles.label, { color: theme.colors.textSecondary }]}>
+              <Text
+                style={[
+                  styles.label,
+                  {
+                    color: theme.colors.textSecondary,
+                  },
+                ]}
+              >
                 Subtype
               </Text>
 
               <View style={styles.dropdownWrap}>
                 <HapticPressable
-                  style={[
-                    styles.dropdownPressable,
-                    (saving || interactionLocked) && styles.disabledInteraction,
-                  ]}
+                  style={styles.dropdownPressable}
                   onPressIn={() => {
                     Keyboard.dismiss();
                     blurInputs();
                   }}
-                  onPress={handleToggleSubtypeDropdown}
-                  disabled={saving || interactionLocked}
+                  onPress={
+                    handleToggleSubtypeDropdown
+                  }
                 >
                   <BlurView
-                    intensity={theme.isLight ? 18 : 20}
-                    tint={theme.isLight ? "light" : "dark"}
-                    style={[
-                      styles.dropdownButton,
-                      {
-                        borderColor: theme.colors.border,
-                        backgroundColor: theme.colors.inputSurface,
-                      },
-                    ]}
+                    intensity={28}
+                    tint="systemUltraThinMaterialDark"
+                    style={styles.dropdownButton}
                   >
                     <Text
                       style={[
                         styles.dropdownButtonText,
                         {
                           color:
-                            !subtype && !customSubtype
+                            !subtype &&
+                            !customSubtype
                               ? theme.colors.textMuted
-                              : theme.colors.text,
+                              : "#FFFFFF",
                         },
                       ]}
                       numberOfLines={1}
                     >
                       {selectedSubtypeLabel}
                     </Text>
-                    <ChevronDown size={18} color={theme.colors.textSecondary} />
+
+                    <ChevronDown
+                      size={18}
+                      color="#FFFFFF"
+                    />
                   </BlurView>
                 </HapticPressable>
 
                 {showSubtypeDropdown && (
                   <BlurView
-                    intensity={theme.isLight ? 22 : 20}
-                    tint={theme.isLight ? "light" : "dark"}
-                    style={[
-                      styles.dropdownCard,
-                      {
-                        borderColor: theme.colors.border,
-                        backgroundColor: theme.isLight
-                          ? "rgba(255,255,255,0.94)"
-                          : "rgba(10,16,28,0.96)",
-                      },
-                    ]}
+                    intensity={40}
+                    tint="systemUltraThinMaterialDark"
+                    style={styles.dropdownCard}
                   >
                     <ScrollView
-                      showsVerticalScrollIndicator={false}
+                      showsVerticalScrollIndicator={
+                        false
+                      }
                       nestedScrollEnabled
                       keyboardShouldPersistTaps="handled"
                     >
-                      {subtypeOptions.map((option, index) => (
-                        <HapticPressable
-                          key={option}
-                          style={[
-                            styles.dropdownRow,
-                            { borderBottomColor: theme.colors.border },
-                            index === subtypeOptions.length - 1 &&
-                              styles.dropdownRowLast,
-                            (saving || interactionLocked) &&
-                              styles.disabledInteraction,
-                          ]}
-                          onPress={() => handleSelectSubtype(option)}
-                          disabled={saving || interactionLocked}
-                        >
-                          <Text
+                      {subtypeOptions.map(
+                        (option, index) => (
+                          <HapticPressable
+                            key={option}
                             style={[
-                              styles.dropdownRowTitle,
-                              { color: theme.colors.text },
+                              styles.dropdownRow,
+                              {
+                                borderBottomColor:
+                                  "rgba(255,255,255,0.10)",
+                              },
+                              index ===
+                                subtypeOptions.length -
+                                  1 &&
+                                styles.dropdownRowLast,
                             ]}
+                            onPress={() =>
+                              handleSelectSubtype(
+                                option
+                              )
+                            }
                           >
-                            {option}
-                          </Text>
-                        </HapticPressable>
-                      ))}
+                            <Text
+                              style={
+                                styles.dropdownRowTitle
+                              }
+                            >
+                              {option}
+                            </Text>
+                          </HapticPressable>
+                        )
+                      )}
                     </ScrollView>
                   </BlurView>
                 )}
@@ -480,41 +627,48 @@ export default function CreateStorageScreen() {
               {subtype === "Other" && (
                 <>
                   <Text
-                    style={[styles.label, { color: theme.colors.textSecondary }]}
+                    style={[
+                      styles.label,
+                      {
+                        color:
+                          theme.colors.textSecondary,
+                      },
+                    ]}
                   >
                     Custom subtype
                   </Text>
+
                   <TextInput
                     ref={customSubtypeInputRef}
                     value={customSubtype}
                     onChangeText={setCustomSubtype}
                     onFocus={() => {
                       closeSubtypeDropdown();
+
                       scrollToFormBottom(180);
                     }}
                     placeholder="Enter your subtype, for example Pods"
-                    placeholderTextColor={theme.colors.textMuted}
+                    placeholderTextColor={
+                      theme.colors.textMuted
+                    }
                     style={[
                       styles.input,
                       {
                         color: theme.colors.text,
-                        backgroundColor: theme.colors.inputSurface,
-                        borderColor: theme.colors.border,
+                        backgroundColor:
+                          "rgba(255,255,255,0.05)",
+                        borderColor:
+                          "rgba(255,255,255,0.12)",
                       },
                     ]}
                     returnKeyType="done"
-                    editable={!saving && !interactionLocked}
                   />
                 </>
               )}
 
               <HapticPressable
-                style={[
-                  styles.saveButton,
-                  (saving || interactionLocked) && styles.saveButtonDisabled,
-                ]}
+                style={styles.saveButton}
                 onPress={handleSave}
-                disabled={saving || interactionLocked}
               >
                 <Text style={styles.saveText}>
                   {saving ? "Saving..." : "Save"}
@@ -569,7 +723,7 @@ const styles = StyleSheet.create({
   },
 
   headerTitle: {
-    color: LABEL_WHITE,
+    color: "#FFFFFF",
     fontSize: 20,
     fontWeight: "700",
     textAlign: "center",
@@ -581,7 +735,7 @@ const styles = StyleSheet.create({
   },
 
   headerSubtitle: {
-    color: LABEL_WHITE,
+    color: "#FFFFFF",
     opacity: 0.82,
     fontSize: 13,
     lineHeight: 18,
@@ -589,7 +743,7 @@ const styles = StyleSheet.create({
   },
 
   card: {
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 16,
     borderWidth: 1,
     overflow: "hidden",
@@ -605,7 +759,7 @@ const styles = StyleSheet.create({
   },
 
   input: {
-    borderRadius: 12,
+    borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 12,
     borderWidth: 1,
@@ -620,23 +774,24 @@ const styles = StyleSheet.create({
   toggle: {
     flex: 1,
     paddingVertical: 12,
-    borderRadius: 12,
+    borderRadius: 14,
     alignItems: "center",
     borderWidth: 1,
   },
 
   toggleActive: {
-    backgroundColor: "rgba(55,130,245,0.95)",
-    borderColor: "rgba(55,130,245,0.95)",
+    backgroundColor: "rgba(55,130,245,0.92)",
+    borderColor: "rgba(55,130,245,0.92)",
   },
 
   toggleText: {
+    color: "#FFFFFF",
     fontWeight: "600",
     fontSize: 14,
   },
 
   toggleTextActive: {
-    color: "#fff",
+    color: "#FFFFFF",
     fontWeight: "700",
   },
 
@@ -646,17 +801,20 @@ const styles = StyleSheet.create({
   },
 
   dropdownPressable: {
-    borderRadius: 12,
+    borderRadius: 14,
   },
 
   dropdownButton: {
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "rgba(255,255,255,0.04)",
     paddingHorizontal: 12,
     paddingVertical: 12,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+    overflow: "hidden",
   },
 
   dropdownButtonText: {
@@ -668,14 +826,28 @@ const styles = StyleSheet.create({
   dropdownCard: {
     marginTop: 8,
     maxHeight: 220,
-    borderRadius: 12,
+    borderRadius: 18,
     overflow: "hidden",
     borderWidth: 1,
+
+    borderColor: "rgba(255,255,255,0.14)",
+
+    backgroundColor: "rgba(255,255,255,0.04)",
+
+    shadowColor: "#000",
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+
+    elevation: 8,
   },
 
   dropdownRow: {
-    paddingHorizontal: 12,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 18,
     borderBottomWidth: 1,
   },
 
@@ -684,27 +856,24 @@ const styles = StyleSheet.create({
   },
 
   dropdownRowTitle: {
-    fontSize: 14,
+    color: "#FFFFFF",
+    fontSize: 16,
     fontWeight: "600",
-    lineHeight: 18,
+    lineHeight: 20,
   },
 
   saveButton: {
     marginTop: 20,
     backgroundColor: "rgba(55,130,245,0.95)",
-    paddingVertical: 13,
-    borderRadius: 12,
+    paddingVertical: 14,
+    borderRadius: 16,
     alignItems: "center",
   },
 
-  saveButtonDisabled: {
-    opacity: 0.6,
-  },
-
   saveText: {
-    color: "#fff",
+    color: "#FFFFFF",
     fontWeight: "700",
-    fontSize: 14,
+    fontSize: 15,
   },
 
   disabledInteraction: {
