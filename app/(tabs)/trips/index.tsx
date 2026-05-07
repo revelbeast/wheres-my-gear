@@ -1,6 +1,6 @@
 import { BlurView } from "expo-blur";
-import { collection, deleteDoc, doc, getDocs } from "firebase/firestore";
 import { router, useFocusEffect } from "expo-router";
+import { collection, deleteDoc, doc, getDocs } from "firebase/firestore";
 import {
   CalendarDays,
   ChevronLeft,
@@ -132,6 +132,9 @@ export default function TripsScreen() {
     unlock: unlockInteraction,
   } = useInteractionLock(450);
 
+  const isMountedRef = useRef(true);
+  const loadVersionRef = useRef(0);
+  const actionLockRef = useRef(false);
   const navigationTransitionLockedRef = useRef(false);
   const navigationUnlockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
@@ -139,17 +142,32 @@ export default function TripsScreen() {
 
   const [upcomingTrips, setUpcomingTrips] = useState<UpcomingTrip[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [deletingTripId, setDeletingTripId] = useState<string | null>(null);
+
+  const isActionBusy =
+    interactionLocked ||
+    actionLockRef.current ||
+    navigationTransitionLockedRef.current ||
+    !!deletingTripId;
 
   useEffect(() => {
+    isMountedRef.current = true;
+
     return () => {
+      isMountedRef.current = false;
+      loadVersionRef.current += 1;
+      actionLockRef.current = false;
+      navigationTransitionLockedRef.current = false;
+
       if (navigationUnlockTimeoutRef.current) {
         clearTimeout(navigationUnlockTimeoutRef.current);
+        navigationUnlockTimeoutRef.current = null;
       }
     };
   }, []);
 
   useEffect(() => {
-    if (!initializing && !user) {
+    if (!initializing && !user && isMountedRef.current) {
       router.replace("/sign-in");
     }
   }, [initializing, user]);
@@ -158,33 +176,48 @@ export default function TripsScreen() {
     useCallback(() => {
       if (initializing || !user) return;
 
-      loadTrips();
+      const loadVersion = loadVersionRef.current + 1;
+      loadVersionRef.current = loadVersion;
+
+      void loadTrips(loadVersion);
+
+      return () => {
+        loadVersionRef.current += 1;
+      };
     }, [initializing, user])
   );
 
   useEffect(() => {
     if (initializing) return;
 
-    if (!user) {
+    if (!user && isMountedRef.current) {
+      loadVersionRef.current += 1;
       setUpcomingTrips([]);
       setIsLoading(false);
     }
   }, [initializing, user]);
 
   async function runWithLock(action: () => Promise<void> | void) {
-    if (interactionLocked) return;
+    if (actionLockRef.current || interactionLocked || !isMountedRef.current) {
+      return;
+    }
 
+    actionLockRef.current = true;
     lockInteraction();
 
     try {
       await action();
     } finally {
-      unlockInteraction();
+      actionLockRef.current = false;
+
+      if (isMountedRef.current) {
+        unlockInteraction();
+      }
     }
   }
 
   function lockNavigationTransition() {
-    if (navigationTransitionLockedRef.current) {
+    if (!isMountedRef.current || navigationTransitionLockedRef.current) {
       return false;
     }
 
@@ -192,18 +225,22 @@ export default function TripsScreen() {
 
     if (navigationUnlockTimeoutRef.current) {
       clearTimeout(navigationUnlockTimeoutRef.current);
+      navigationUnlockTimeoutRef.current = null;
     }
 
     navigationUnlockTimeoutRef.current = setTimeout(() => {
-      navigationTransitionLockedRef.current = false;
       navigationUnlockTimeoutRef.current = null;
+
+      if (!isMountedRef.current) return;
+
+      navigationTransitionLockedRef.current = false;
     }, 1500);
 
     return true;
   }
 
   function runNavigationAction(action: () => void) {
-    if (interactionLocked || navigationTransitionLockedRef.current) {
+    if (isActionBusy || !isMountedRef.current) {
       return;
     }
 
@@ -213,20 +250,31 @@ export default function TripsScreen() {
     action();
   }
 
-  async function loadTrips() {
+  async function loadTrips(loadVersion = loadVersionRef.current) {
     if (!user) {
+      if (!isMountedRef.current || loadVersionRef.current !== loadVersion) {
+        return;
+      }
+
       setUpcomingTrips([]);
       setIsLoading(false);
       return;
     }
 
     try {
-      setIsLoading(true);
+      if (isMountedRef.current && loadVersionRef.current === loadVersion) {
+        setIsLoading(true);
+      }
 
+      const activeUserId = user.uid;
       const tripsSnapshot = await getDocs(
-        collection(db, "users", user.uid, "trips")
+        collection(db, "users", activeUserId, "trips")
       );
       const today = getStartOfDay(new Date());
+
+      if (!isMountedRef.current || loadVersionRef.current !== loadVersion) {
+        return;
+      }
 
       const trips = tripsSnapshot.docs
         .map((docSnap) => {
@@ -261,10 +309,16 @@ export default function TripsScreen() {
 
       setUpcomingTrips(trips);
     } catch (err) {
+      if (!isMountedRef.current || loadVersionRef.current !== loadVersion) {
+        return;
+      }
+
       console.error("Failed to load trips:", err);
       setUpcomingTrips([]);
     } finally {
-      setIsLoading(false);
+      if (isMountedRef.current && loadVersionRef.current === loadVersion) {
+        setIsLoading(false);
+      }
     }
   }
 
@@ -287,7 +341,9 @@ export default function TripsScreen() {
   }
 
   function handleDeleteTrip(tripId: string, tripName: string) {
-    if (!user || interactionLocked) return;
+    if (!user || isActionBusy || !isMountedRef.current) return;
+
+    const activeUserId = user.uid;
 
     Alert.alert(
       "Delete Trip",
@@ -302,19 +358,30 @@ export default function TripsScreen() {
           style: "destructive",
           onPress: () => {
             void runWithLock(async () => {
-              if (!user) return;
-
               try {
-                await deleteDoc(doc(db, "users", user.uid, "trips", tripId));
+                if (!isMountedRef.current) return;
+
+                setDeletingTripId(tripId);
+
+                await deleteDoc(doc(db, "users", activeUserId, "trips", tripId));
+
+                if (!isMountedRef.current) return;
+
                 setUpcomingTrips((currentTrips) =>
                   currentTrips.filter((trip) => trip.id !== tripId)
                 );
               } catch (error) {
+                if (!isMountedRef.current) return;
+
                 console.error("Failed to delete trip:", error);
                 Alert.alert(
                   "Trip not deleted",
                   "Something went wrong while deleting this trip."
                 );
+              } finally {
+                if (isMountedRef.current) {
+                  setDeletingTripId(null);
+                }
               }
             });
           },
@@ -324,14 +391,13 @@ export default function TripsScreen() {
   }
 
   function renderRightActions(trip: UpcomingTrip) {
+    const disabled = isActionBusy || deletingTripId === trip.id;
+
     return (
       <HapticPressable
-        style={[
-          styles.deleteSwipeButton,
-          interactionLocked && styles.disabledButton,
-        ]}
+        style={[styles.deleteSwipeButton, disabled && styles.disabledButton]}
         onPress={() => handleDeleteTrip(trip.id, trip.name)}
-        disabled={interactionLocked}
+        disabled={disabled}
       >
         <Trash2 size={20} color={LABEL_WHITE} />
         <ThemedText style={styles.deleteSwipeText}>Delete</ThemedText>
@@ -352,13 +418,9 @@ export default function TripsScreen() {
         >
           <View style={styles.headerRow}>
             <HapticPressable
-              style={[
-                styles.backButton,
-                (interactionLocked || navigationTransitionLockedRef.current) &&
-                  styles.disabledButton,
-              ]}
+              style={[styles.backButton, isActionBusy && styles.disabledButton]}
               onPress={handleBack}
-              disabled={interactionLocked}
+              disabled={isActionBusy}
             >
               <ChevronLeft size={22} color={LABEL_WHITE} />
             </HapticPressable>
@@ -374,13 +436,9 @@ export default function TripsScreen() {
             </View>
 
             <HapticPressable
-              style={[
-                styles.addButton,
-                (interactionLocked || navigationTransitionLockedRef.current) &&
-                  styles.disabledButton,
-              ]}
+              style={[styles.addButton, isActionBusy && styles.disabledButton]}
               onPress={handleCreateTrip}
-              disabled={interactionLocked}
+              disabled={isActionBusy}
             >
               <Plus size={20} color={LABEL_WHITE} />
             </HapticPressable>
@@ -410,70 +468,73 @@ export default function TripsScreen() {
             </ThemedCard>
           ) : (
             <View style={styles.tripList}>
-              {upcomingTrips.map((trip) => (
-                <Swipeable
-                  key={trip.id}
-                  renderRightActions={() => renderRightActions(trip)}
-                  overshootRight={false}
-                >
-                  <HapticPressable
-                    onPress={() => handleEditTrip(trip.id)}
-                    disabled={interactionLocked}
+              {upcomingTrips.map((trip) => {
+                const tripDisabled = isActionBusy || deletingTripId === trip.id;
+
+                return (
+                  <Swipeable
+                    key={trip.id}
+                    renderRightActions={() => renderRightActions(trip)}
+                    overshootRight={false}
+                    enabled={!tripDisabled}
                   >
-                    <FrostedCard style={styles.tripCard}>
-                      <View style={styles.tripRow}>
-                        <View style={styles.tripLeft}>
-                          <ThemedText
-                            variant="bodyStrong"
-                            style={styles.tripTitle}
-                            numberOfLines={1}
-                          >
-                            {trip.name}
-                          </ThemedText>
+                    <HapticPressable
+                      onPress={() => handleEditTrip(trip.id)}
+                      disabled={tripDisabled}
+                    >
+                      <FrostedCard style={styles.tripCard}>
+                        <View style={styles.tripRow}>
+                          <View style={styles.tripLeft}>
+                            <ThemedText
+                              variant="bodyStrong"
+                              style={styles.tripTitle}
+                              numberOfLines={1}
+                            >
+                              {trip.name}
+                            </ThemedText>
 
-                          <ThemedText color="secondary" style={styles.tripDate}>
-                            {formatTripDate(trip.date)}
-                          </ThemedText>
-                        </View>
-
-                        <View style={styles.tripRight}>
-                          <View
-                            style={[
-                              styles.countdownPill,
-                              {
-                                borderColor: theme.colors.border,
-                              },
-                            ]}
-                          >
-                            <ThemedText style={styles.countdownText}>
-                              {getTripCountdownText(trip.date)}
+                            <ThemedText color="secondary" style={styles.tripDate}>
+                              {formatTripDate(trip.date)}
                             </ThemedText>
                           </View>
 
-                          <HapticPressable
-                            style={[
-                              styles.editButton,
-                              (interactionLocked ||
-                                navigationTransitionLockedRef.current) &&
-                                styles.disabledButton,
-                            ]}
-                            onPress={(event: GestureResponderEvent) => {
-                              event.stopPropagation();
-                              handleEditTrip(trip.id);
-                            }}
-                            hitSlop={8}
-                            disabled={interactionLocked}
-                          >
-                            <Pencil size={16} color={LABEL_WHITE} />
-                          </HapticPressable>
+                          <View style={styles.tripRight}>
+                            <View
+                              style={[
+                                styles.countdownPill,
+                                {
+                                  borderColor: theme.colors.border,
+                                },
+                              ]}
+                            >
+                              <ThemedText style={styles.countdownText}>
+                                {getTripCountdownText(trip.date)}
+                              </ThemedText>
+                            </View>
 
-                          <ChevronRight size={18} color={LABEL_WHITE} />
+                            <HapticPressable
+                              style={[
+                                styles.editButton,
+                                tripDisabled && styles.disabledButton,
+                              ]}
+                              onPress={(event: GestureResponderEvent) => {
+                                event.stopPropagation();
+                                handleEditTrip(trip.id);
+                              }}
+                              hitSlop={8}
+                              disabled={tripDisabled}
+                            >
+                              <Pencil size={16} color={LABEL_WHITE} />
+                            </HapticPressable>
+
+                            <ChevronRight size={18} color={LABEL_WHITE} />
+                          </View>
                         </View>
-                      </View>
-                    </FrostedCard>
-                  </HapticPressable>
-                </Swipeable>
-              ))}
+                      </FrostedCard>
+                    </HapticPressable>
+                  </Swipeable>
+                );
+              })}
             </View>
           )}
         </ScrollView>
