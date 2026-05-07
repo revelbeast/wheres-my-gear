@@ -1,7 +1,7 @@
 import { BlurView } from "expo-blur";
 import { router, useLocalSearchParams } from "expo-router";
 import { CheckCircle2, ChevronRight, ListChecks } from "lucide-react-native";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ScrollView,
   StyleSheet,
@@ -81,6 +81,9 @@ export default function ChecklistItemsSummaryScreen() {
     unlock: unlockInteraction,
   } = useInteractionLock(450);
 
+  const isMountedRef = useRef(true);
+  const loadRequestVersionRef = useRef(0);
+  const actionLockRef = useRef(false);
   const navigationTransitionLockedRef = useRef(false);
   const navigationUnlockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
@@ -95,29 +98,84 @@ export default function ChecklistItemsSummaryScreen() {
       : "to_pack";
 
   useEffect(() => {
+    isMountedRef.current = true;
+
     return () => {
+      isMountedRef.current = false;
+      loadRequestVersionRef.current += 1;
+      actionLockRef.current = false;
+      navigationTransitionLockedRef.current = false;
+
       if (navigationUnlockTimeoutRef.current) {
         clearTimeout(navigationUnlockTimeoutRef.current);
+        navigationUnlockTimeoutRef.current = null;
       }
     };
   }, []);
 
-  useEffect(() => {
+  const loadItems = useCallback(async () => {
+    const requestVersion = loadRequestVersionRef.current + 1;
+    loadRequestVersionRef.current = requestVersion;
+
     if (initializing) {
       return;
     }
 
     if (!user) {
+      if (
+        !isMountedRef.current ||
+        loadRequestVersionRef.current !== requestVersion
+      ) {
+        return;
+      }
+
       setItems([]);
       setLoading(false);
       return;
     }
 
-    loadItems();
+    try {
+      if (isMountedRef.current) {
+        setLoading(true);
+      }
+
+      const results = await getAssignedChecklistItems(user.uid);
+
+      if (
+        !isMountedRef.current ||
+        loadRequestVersionRef.current !== requestVersion
+      ) {
+        return;
+      }
+
+      setItems(results);
+    } catch (err) {
+      console.error("Failed to load checklist item summary:", err);
+
+      if (
+        !isMountedRef.current ||
+        loadRequestVersionRef.current !== requestVersion
+      ) {
+        return;
+      }
+
+      setItems([]);
+    } finally {
+      if (
+        isMountedRef.current &&
+        loadRequestVersionRef.current === requestVersion
+      ) {
+        setLoading(false);
+      }
+    }
   }, [initializing, user]);
 
+  useEffect(() => {
+    loadItems();
+  }, [loadItems]);
+
   function lockNavigationTransition() {
-    if (navigationTransitionLockedRef.current) {
+    if (navigationTransitionLockedRef.current || !isMountedRef.current) {
       return false;
     }
 
@@ -135,35 +193,40 @@ export default function ChecklistItemsSummaryScreen() {
     return true;
   }
 
+  async function runWithLock(action: () => Promise<void> | void) {
+    if (interactionLocked || actionLockRef.current) return;
+
+    actionLockRef.current = true;
+    lockInteraction();
+
+    try {
+      await action();
+    } finally {
+      actionLockRef.current = false;
+
+      if (isMountedRef.current) {
+        unlockInteraction();
+      }
+    }
+  }
+
+  function isBusy() {
+    return (
+      interactionLocked ||
+      actionLockRef.current ||
+      navigationTransitionLockedRef.current
+    );
+  }
+
   function runNavigationAction(action: () => void) {
-    if (interactionLocked || navigationTransitionLockedRef.current) {
+    if (isBusy()) {
       return;
     }
 
     const lockAcquired = lockNavigationTransition();
     if (!lockAcquired) return;
 
-    action();
-  }
-
-  async function loadItems() {
-    if (!user) return;
-
-    if (interactionLocked) return;
-
-    lockInteraction();
-
-    try {
-      setLoading(true);
-      const results = await getAssignedChecklistItems(user.uid);
-      setItems(results);
-    } catch (err) {
-      console.error("Failed to load checklist item summary:", err);
-      setItems([]);
-    } finally {
-      setLoading(false);
-      unlockInteraction();
-    }
+    void runWithLock(action);
   }
 
   const filteredItems = useMemo(() => {
@@ -263,14 +326,9 @@ export default function ChecklistItemsSummaryScreen() {
             filteredItems.map((item) => (
               <FrostedCard key={`${item.checklistId}-${item.id}`}>
                 <HapticPressable
-                  style={[
-                    styles.row,
-                    (interactionLocked ||
-                      navigationTransitionLockedRef.current) &&
-                      styles.disabledButton,
-                  ]}
+                  style={[styles.row, isBusy() && styles.disabledButton]}
                   onPress={() => handleOpenChecklist(item.checklistId)}
-                  disabled={interactionLocked}
+                  disabled={isBusy()}
                 >
                   <View style={styles.left}>
                     <View style={styles.titleRow}>
