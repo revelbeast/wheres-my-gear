@@ -1,5 +1,5 @@
 import { Check, Moon, Sun } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, ScrollView, StyleSheet, Switch, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -26,6 +26,10 @@ export default function GeneralSettingsScreen() {
   const { user } = useAuth();
   const activeTheme = useThemedValues();
 
+  const isMountedRef = useRef(true);
+  const loadRequestVersionRef = useRef(0);
+  const actionLockRef = useRef(false);
+
   const [profile, setProfile] = useState<AppProfile | null>(null);
   const [theme, setTheme] = useState<AppTheme>("dark");
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
@@ -33,20 +37,46 @@ export default function GeneralSettingsScreen() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    loadSettings();
-  }, [user]);
+    isMountedRef.current = true;
 
-  async function loadSettings() {
+    return () => {
+      isMountedRef.current = false;
+      loadRequestVersionRef.current += 1;
+      actionLockRef.current = false;
+    };
+  }, []);
+
+  const loadSettings = useCallback(async () => {
+    const requestVersion = loadRequestVersionRef.current + 1;
+    loadRequestVersionRef.current = requestVersion;
+
     if (!user) {
+      if (
+        !isMountedRef.current ||
+        loadRequestVersionRef.current !== requestVersion
+      ) {
+        return;
+      }
+
       setProfile(null);
       setLoading(false);
       return;
     }
 
     try {
-      setLoading(true);
+      if (isMountedRef.current) {
+        setLoading(true);
+      }
 
       const data = await getProfileSettings(user.uid);
+
+      if (
+        !isMountedRef.current ||
+        loadRequestVersionRef.current !== requestVersion
+      ) {
+        return;
+      }
+
       const nextTheme = data.theme ?? "dark";
       const nextHapticsEnabled = data.hapticsEnabled ?? true;
 
@@ -57,17 +87,38 @@ export default function GeneralSettingsScreen() {
       publishAppThemeUpdate(user.uid, nextTheme, data.fontSize ?? "medium");
     } catch (err) {
       console.error("Failed to load general settings:", err);
+
+      if (
+        !isMountedRef.current ||
+        loadRequestVersionRef.current !== requestVersion
+      ) {
+        return;
+      }
+
       Alert.alert("Error", "Failed to load general settings.");
     } finally {
-      setLoading(false);
+      if (
+        isMountedRef.current &&
+        loadRequestVersionRef.current === requestVersion
+      ) {
+        setLoading(false);
+      }
     }
-  }
+  }, [user]);
+
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
 
   async function handleSaveSettings() {
-    if (!user || !profile) return;
+    if (!user || !profile || saving || loading || actionLockRef.current) return;
+
+    actionLockRef.current = true;
 
     try {
-      setSaving(true);
+      if (isMountedRef.current) {
+        setSaving(true);
+      }
 
       const nextProfile: AppProfile = {
         ...profile,
@@ -76,6 +127,11 @@ export default function GeneralSettingsScreen() {
       };
 
       await saveProfileSettings(user.uid, nextProfile);
+
+      if (!isMountedRef.current) {
+        return;
+      }
+
       setGlobalHapticsEnabled(hapticsEnabled);
       publishAppThemeUpdate(user.uid, theme, nextProfile.fontSize ?? "medium");
       setProfile(nextProfile);
@@ -83,16 +139,38 @@ export default function GeneralSettingsScreen() {
       Alert.alert("Saved", "General settings have been updated.");
     } catch (err) {
       console.error("Failed to save general settings:", err);
+
+      if (!isMountedRef.current) {
+        return;
+      }
+
       Alert.alert("Error", "Failed to save general settings.");
     } finally {
-      setSaving(false);
+      actionLockRef.current = false;
+
+      if (isMountedRef.current) {
+        setSaving(false);
+      }
     }
+  }
+
+  function handleSelectTheme(option: AppTheme) {
+    if (saving || loading || actionLockRef.current) return;
+
+    setTheme(option);
+  }
+
+  function handleHapticsChange(value: boolean) {
+    if (saving || loading || actionLockRef.current) return;
+
+    setHapticsEnabled(value);
   }
 
   function renderThemeOption(option: AppTheme) {
     const isSelected = theme === option;
     const Icon = option === "dark" ? Moon : Sun;
     const label = option === "dark" ? "Dark" : "Light";
+    const disabled = saving || loading || actionLockRef.current;
 
     return (
       <HapticPressable
@@ -106,8 +184,10 @@ export default function GeneralSettingsScreen() {
               ? activeTheme.colors.primary
               : activeTheme.colors.border,
           },
+          disabled && styles.disabledInteraction,
         ]}
-        onPress={() => setTheme(option)}
+        onPress={() => handleSelectTheme(option)}
+        disabled={disabled}
       >
         <Icon size={20} color={activeTheme.colors.text} />
         <ThemedText variant="bodyStrong">{label}</ThemedText>
@@ -181,7 +261,8 @@ export default function GeneralSettingsScreen() {
 
                   <Switch
                     value={hapticsEnabled}
-                    onValueChange={setHapticsEnabled}
+                    onValueChange={handleHapticsChange}
+                    disabled={saving || loading || actionLockRef.current}
                     trackColor={{
                       false: activeTheme.colors.inputSurface,
                       true: "rgba(55,130,245,0.45)",
@@ -196,7 +277,10 @@ export default function GeneralSettingsScreen() {
                 </View>
               </ThemedCard>
 
-              <ThemedButton onPress={handleSaveSettings} disabled={saving}>
+              <ThemedButton
+                onPress={handleSaveSettings}
+                disabled={saving || loading || actionLockRef.current}
+              >
                 <Check size={18} color="#fff" />
                 <ThemedText style={styles.saveButtonText}>
                   {saving ? "Saving..." : "Save Settings"}
@@ -283,5 +367,9 @@ const styles = StyleSheet.create({
 
   helperText: {
     lineHeight: 20,
+  },
+
+  disabledInteraction: {
+    opacity: 0.55,
   },
 });
