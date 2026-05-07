@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { StyleSheet, Switch, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -17,6 +17,7 @@ type SettingRowProps = {
   title: string;
   subtitle: string;
   value: boolean;
+  disabled: boolean;
   onValueChange: (value: boolean) => void;
 };
 
@@ -24,10 +25,11 @@ function ToggleRow({
   title,
   subtitle,
   value,
+  disabled,
   onValueChange,
 }: SettingRowProps) {
   return (
-    <View style={styles.rowCard}>
+    <View style={[styles.rowCard, disabled && styles.disabledInteraction]}>
       <View style={styles.rowTextWrap}>
         <Text style={styles.rowTitle}>{title}</Text>
         <Text style={styles.rowSubtitle}>{subtitle}</Text>
@@ -36,6 +38,7 @@ function ToggleRow({
       <Switch
         value={value}
         onValueChange={onValueChange}
+        disabled={disabled}
         trackColor={{
           false: "rgba(255,255,255,0.15)",
           true: "rgba(55, 130, 245, 0.85)",
@@ -47,6 +50,10 @@ function ToggleRow({
 }
 
 export default function NotificationsScreen() {
+  const isMountedRef = useRef(true);
+  const loadRequestVersionRef = useRef(0);
+  const actionLockRef = useRef(false);
+
   const [settings, setSettings] = useState<NotificationSettings>({
     checklistReminders: true,
     tripReminders: true,
@@ -56,21 +63,51 @@ export default function NotificationsScreen() {
   const [savingKey, setSavingKey] = useState<SettingKey | null>(null);
 
   useEffect(() => {
-    loadSettings();
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+      loadRequestVersionRef.current += 1;
+      actionLockRef.current = false;
+    };
   }, []);
 
-  async function loadSettings() {
+  const loadSettings = useCallback(async () => {
+    const requestVersion = loadRequestVersionRef.current + 1;
+    loadRequestVersionRef.current = requestVersion;
+
     try {
       const data = await getNotificationSettings();
+
+      if (
+        !isMountedRef.current ||
+        loadRequestVersionRef.current !== requestVersion
+      ) {
+        return;
+      }
+
       setSettings(data);
     } catch (err) {
       console.error("Failed to load notification settings:", err);
     } finally {
-      setLoading(false);
+      if (
+        isMountedRef.current &&
+        loadRequestVersionRef.current === requestVersion
+      ) {
+        setLoading(false);
+      }
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
 
   async function handleToggle(key: SettingKey, value: boolean) {
+    if (loading || savingKey || actionLockRef.current) return;
+
+    actionLockRef.current = true;
+
     const previousSettings = settings;
 
     const next = {
@@ -78,18 +115,31 @@ export default function NotificationsScreen() {
       [key]: value,
     };
 
-    setSettings(next);
-    setSavingKey(key);
+    if (isMountedRef.current) {
+      setSettings(next);
+      setSavingKey(key);
+    }
 
     try {
       await saveNotificationSettings(next);
     } catch (err) {
       console.error("Failed to save notification settings:", err);
+
+      if (!isMountedRef.current) {
+        return;
+      }
+
       setSettings(previousSettings);
     } finally {
-      setSavingKey(null);
+      actionLockRef.current = false;
+
+      if (isMountedRef.current) {
+        setSavingKey(null);
+      }
     }
   }
+
+  const settingsDisabled = loading || !!savingKey || actionLockRef.current;
 
   return (
     <ScreenBackground>
@@ -105,6 +155,7 @@ export default function NotificationsScreen() {
                 title="Checklist reminders"
                 subtitle="Get reminder settings for your checklists."
                 value={settings.checklistReminders}
+                disabled={settingsDisabled}
                 onValueChange={(value) =>
                   handleToggle("checklistReminders", value)
                 }
@@ -114,6 +165,7 @@ export default function NotificationsScreen() {
                 title="Trip reminders"
                 subtitle="Enable reminders before upcoming trips."
                 value={settings.tripReminders}
+                disabled={settingsDisabled}
                 onValueChange={(value) => handleToggle("tripReminders", value)}
               />
 
@@ -121,6 +173,7 @@ export default function NotificationsScreen() {
                 title="Packing reminders"
                 subtitle="Get packing reminder nudges before departure."
                 value={settings.packingReminders}
+                disabled={settingsDisabled}
                 onValueChange={(value) =>
                   handleToggle("packingReminders", value)
                 }
@@ -207,5 +260,9 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 14,
     lineHeight: 20,
+  },
+
+  disabledInteraction: {
+    opacity: 0.65,
   },
 });
