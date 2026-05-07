@@ -292,6 +292,7 @@ export default function ProfileSettingsScreen() {
   const [backgroundPreviewUri, setBackgroundPreviewUri] = useState<
     string | null
   >(null);
+  const [, setActionLockRevision] = useState(0);
 
   const userId = user?.uid ?? "";
   const pickingProfilePhoto = activeImagePicker === "profile";
@@ -339,11 +340,16 @@ export default function ProfileSettingsScreen() {
     }
 
     actionLockRef.current = true;
+    setActionLockRevision((value) => value + 1);
 
     try {
       await action();
     } finally {
       actionLockRef.current = false;
+
+      if (isMountedRef.current) {
+        setActionLockRevision((value) => value + 1);
+      }
     }
   }
 
@@ -634,8 +640,14 @@ export default function ProfileSettingsScreen() {
           nextProfile.backgroundResizeMode
         );
 
-        await safelyDeleteStoredImage(previousBackgroundPhotoUri);
-        await cleanupStoredImagesForKind(activeUserId, "background");
+        void (async () => {
+          try {
+            await safelyDeleteStoredImage(previousBackgroundPhotoUri);
+            await cleanupStoredImagesForKind(activeUserId, "background");
+          } catch (cleanupError) {
+            console.warn("Background cleanup did not complete:", cleanupError);
+          }
+        })();
       } catch (err) {
         console.error("Failed to remove custom background:", err);
 
