@@ -56,6 +56,7 @@ export default function VehicleDetailScreen() {
   const scrollRef = useRef<ScrollView | null>(null);
   const isScreenMountedRef = useRef(true);
   const loadVersionRef = useRef(0);
+  const actionLockRef = useRef(false);
   const navigationTransitionLockedRef = useRef(false);
   const headerAddLockedRef = useRef(false);
   const navigationUnlockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -97,6 +98,9 @@ export default function VehicleDetailScreen() {
     return () => {
       isScreenMountedRef.current = false;
       loadVersionRef.current += 1;
+      actionLockRef.current = false;
+      navigationTransitionLockedRef.current = false;
+      headerAddLockedRef.current = false;
 
       if (navigationUnlockTimeoutRef.current) {
         clearTimeout(navigationUnlockTimeoutRef.current);
@@ -155,7 +159,7 @@ export default function VehicleDetailScreen() {
       }
     }
 
-    loadScreenData();
+    void loadScreenData();
 
     return () => {
       loadVersionRef.current += 1;
@@ -163,19 +167,30 @@ export default function VehicleDetailScreen() {
   }, [vehicleId]);
 
   async function runWithLock(action: () => Promise<void> | void) {
-    if (interactionLocked) return;
+    if (
+      actionLockRef.current ||
+      interactionLocked ||
+      !isScreenMountedRef.current
+    ) {
+      return;
+    }
 
+    actionLockRef.current = true;
     lockInteraction();
 
     try {
       await action();
     } finally {
-      unlockInteraction();
+      actionLockRef.current = false;
+
+      if (isScreenMountedRef.current) {
+        unlockInteraction();
+      }
     }
   }
 
   async function refreshCompartments() {
-    if (!vehicleId) return;
+    if (!vehicleId || !isScreenMountedRef.current) return;
 
     const refreshVersion = loadVersionRef.current + 1;
     loadVersionRef.current = refreshVersion;
@@ -210,6 +225,7 @@ export default function VehicleDetailScreen() {
       savingEdit ||
       !!deletingCompartmentId ||
       interactionLocked ||
+      actionLockRef.current ||
       navigationTransitionLockedRef.current ||
       headerAddLockedRef.current
     );
@@ -218,26 +234,30 @@ export default function VehicleDetailScreen() {
   function scrollToBottom(delay = 120) {
     if (scrollTimeoutRef.current) {
       clearTimeout(scrollTimeoutRef.current);
+      scrollTimeoutRef.current = null;
     }
 
     scrollTimeoutRef.current = setTimeout(() => {
+      scrollTimeoutRef.current = null;
+
       if (!isScreenMountedRef.current) return;
 
       scrollRef.current?.scrollToEnd({ animated: true });
-      scrollTimeoutRef.current = null;
     }, delay);
   }
 
   function unlockHeaderAddAfterDelay() {
     if (headerAddUnlockTimeoutRef.current) {
       clearTimeout(headerAddUnlockTimeoutRef.current);
+      headerAddUnlockTimeoutRef.current = null;
     }
 
     headerAddUnlockTimeoutRef.current = setTimeout(() => {
+      headerAddUnlockTimeoutRef.current = null;
+
       if (!isScreenMountedRef.current) return;
 
       headerAddLockedRef.current = false;
-      headerAddUnlockTimeoutRef.current = null;
     }, 700);
   }
 
@@ -310,16 +330,20 @@ export default function VehicleDetailScreen() {
   }
 
   async function handleCreateCompartment() {
-    if (!vehicleId || isCreating || interactionLocked) return;
+    if (!vehicleId || isCreating || interactionLocked || actionLockRef.current) {
+      return;
+    }
 
     const trimmed = newCompartmentName.trim();
     if (!trimmed) return;
 
-    setIsCreating(true);
-
     await runWithLock(async () => {
       try {
+        if (!isScreenMountedRef.current) return;
+
+        setIsCreating(true);
         Keyboard.dismiss();
+
         await createCompartment(trimmed, String(vehicleId));
 
         if (!isScreenMountedRef.current) return;
@@ -352,7 +376,7 @@ export default function VehicleDetailScreen() {
   }
 
   function cancelEditing() {
-    if (savingEdit) return;
+    if (savingEdit || interactionLocked || actionLockRef.current) return;
 
     Keyboard.dismiss();
     setEditingCompartmentId(null);
@@ -360,16 +384,18 @@ export default function VehicleDetailScreen() {
   }
 
   async function saveEditing(compartmentId: string) {
-    if (savingEdit || interactionLocked) return;
+    if (savingEdit || interactionLocked || actionLockRef.current) return;
 
     const trimmed = editingCompartmentName.trim();
     if (!trimmed) return;
 
-    setSavingEdit(true);
-
     await runWithLock(async () => {
       try {
+        if (!isScreenMountedRef.current) return;
+
+        setSavingEdit(true);
         Keyboard.dismiss();
+
         await updateCompartment(compartmentId, { name: trimmed });
 
         if (!isScreenMountedRef.current) return;
@@ -408,12 +434,21 @@ export default function VehicleDetailScreen() {
   }
 
   async function handleDelete(compartment: Compartment) {
-    if (deletingCompartmentId || interactionLocked) return;
-
-    setDeletingCompartmentId(compartment.id);
+    if (
+      deletingCompartmentId ||
+      interactionLocked ||
+      actionLockRef.current ||
+      !isScreenMountedRef.current
+    ) {
+      return;
+    }
 
     await runWithLock(async () => {
       try {
+        if (!isScreenMountedRef.current) return;
+
+        setDeletingCompartmentId(compartment.id);
+
         await deleteCompartment(compartment.id);
         await refreshCompartments();
       } catch (err) {
@@ -446,9 +481,15 @@ export default function VehicleDetailScreen() {
   }
 
   function handleOpenCompartment(compartmentId: string) {
-    if (!vehicleId || !compartmentId) return;
+    if (!vehicleId || !compartmentId || !isScreenMountedRef.current) return;
 
-    if (isCreating || savingEdit || !!deletingCompartmentId || interactionLocked) {
+    if (
+      isCreating ||
+      savingEdit ||
+      !!deletingCompartmentId ||
+      interactionLocked ||
+      actionLockRef.current
+    ) {
       return;
     }
 
@@ -460,6 +501,7 @@ export default function VehicleDetailScreen() {
 
     if (navigationUnlockTimeoutRef.current) {
       clearTimeout(navigationUnlockTimeoutRef.current);
+      navigationUnlockTimeoutRef.current = null;
     }
 
     Keyboard.dismiss();
@@ -473,10 +515,11 @@ export default function VehicleDetailScreen() {
     });
 
     navigationUnlockTimeoutRef.current = setTimeout(() => {
+      navigationUnlockTimeoutRef.current = null;
+
       if (!isScreenMountedRef.current) return;
 
       navigationTransitionLockedRef.current = false;
-      navigationUnlockTimeoutRef.current = null;
     }, 1500);
   }
 
@@ -486,7 +529,9 @@ export default function VehicleDetailScreen() {
       onPress={toggleCreateBox}
       disabled={isBusy()}
       accessibilityRole="button"
-      accessibilityLabel={showCreateBox ? "Close add compartment" : "Add compartment"}
+      accessibilityLabel={
+        showCreateBox ? "Close add compartment" : "Add compartment"
+      }
     >
       <BlurView intensity={18} tint="dark" style={styles.headerAddButtonInner}>
         {showCreateBox ? (
