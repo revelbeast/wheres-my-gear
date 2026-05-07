@@ -20,6 +20,9 @@ import React, {
 } from "react";
 import {
   FlatList,
+  InputAccessoryView,
+  Keyboard,
+  Platform,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -31,6 +34,9 @@ import { useAuth } from "../../components/auth/AuthProvider";
 import HapticPressable from "../../components/ui/HapticPressable";
 import ScreenBackground from "../../components/ui/ScreenBackground";
 import { ThemedButton, ThemedText } from "../../components/ui/Themed";
+const INVENTORY_SEARCH_KEYBOARD_ACCESSORY_ID =
+  "inventory-search-keyboard-accessory";
+
 import {
   getAllItems,
   getStorageSpaces,
@@ -631,6 +637,11 @@ export default function InventoryScreen() {
                 autoCapitalize="none"
                 autoCorrect={false}
                 returnKeyType="search"
+                inputAccessoryViewID={
+                  Platform.OS === "ios"
+                    ? INVENTORY_SEARCH_KEYBOARD_ACCESSORY_ID
+                    : undefined
+                }
               />
 
               {searchQuery.length > 0 && (
@@ -649,6 +660,21 @@ export default function InventoryScreen() {
               )}
             </View>
           </BlurView>
+
+          {Platform.OS === "ios" && (
+            <InputAccessoryView
+              nativeID={INVENTORY_SEARCH_KEYBOARD_ACCESSORY_ID}
+            >
+              <View style={styles.keyboardAccessory}>
+                <HapticPressable
+                  onPress={Keyboard.dismiss}
+                  style={styles.keyboardDismissButton}
+                >
+                  <ChevronDown size={22} color="#FFFFFF" />
+                </HapticPressable>
+              </View>
+            </InputAccessoryView>
+          )}
 
           <View style={styles.summaryRow}>
             {renderFilterChip(
@@ -944,6 +970,25 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.08)",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.10)",
+  },
+
+  keyboardAccessory: {
+    minHeight: 44,
+    backgroundColor: "rgba(20,20,24,0.96)",
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.12)",
+    alignItems: "flex-end",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+  },
+
+  keyboardDismissButton: {
+    width: 40,
+    height: 34,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.12)",
   },
 
   summaryRow: {

@@ -394,43 +394,50 @@ export default function EditTripScreen() {
   async function handleShareTrip() {
     if (isActionBusy()) return;
 
-    await runWithLock(async () => {
-      const trimmedName = tripName.trim() || "Upcoming Trip";
-      const daysUntilTrip = getDaysUntilTrip(tripDate);
+    actionLockRef.current = true;
+    lockInteraction();
 
-      const countdownText =
-        daysUntilTrip > 1
-          ? `${daysUntilTrip} days away`
-          : daysUntilTrip === 1
-            ? "Tomorrow"
-            : daysUntilTrip === 0
-              ? "Today"
-              : `${Math.abs(daysUntilTrip)} days ago`;
+    const trimmedName = tripName.trim() || "Upcoming Trip";
+    const daysUntilTrip = getDaysUntilTrip(tripDate);
 
-      const message = [
-        `Where's My Gear Trip`,
-        ``,
-        `Trip: ${trimmedName}`,
-        `Date: ${formatTripDate(tripDate)}`,
-        `Countdown: ${countdownText}`,
-      ].join("\n");
+    const countdownText =
+      daysUntilTrip > 1
+        ? `${daysUntilTrip} days away`
+        : daysUntilTrip === 1
+          ? "Tomorrow"
+          : daysUntilTrip === 0
+            ? "Today"
+            : `${Math.abs(daysUntilTrip)} days ago`;
 
-      try {
-        await Share.share({
-          title: trimmedName,
-          message,
-        });
-      } catch (error) {
-        console.error("Failed to share trip:", error);
+    const message = [
+      `Where's My Gear Trip`,
+      ``,
+      `Trip: ${trimmedName}`,
+      `Date: ${formatTripDate(tripDate)}`,
+      `Countdown: ${countdownText}`,
+    ].join("\n");
 
-        if (isMountedRef.current) {
-          Alert.alert(
-            "Trip not shared",
-            "Something went wrong while sharing this trip."
-          );
-        }
+    actionLockRef.current = false;
+
+    if (isMountedRef.current) {
+      unlockInteraction();
+    }
+
+    try {
+      await Share.share({
+        title: trimmedName,
+        message,
+      });
+    } catch (error) {
+      console.error("Failed to share trip:", error);
+
+      if (isMountedRef.current) {
+        Alert.alert(
+          "Trip not shared",
+          "Something went wrong while sharing this trip."
+        );
       }
-    });
+    }
   }
 
   async function handleSaveTrip() {
@@ -650,22 +657,20 @@ export default function EditTripScreen() {
                 <HapticPressable
                   style={[
                     styles.shareButton,
-                    {
-                      borderColor: theme.colors.border,
-                      backgroundColor: theme.colors.card,
-                    },
                     isActionBusy() && styles.disabledButton,
                   ]}
                   onPress={handleShareTrip}
                   disabled={isActionBusy()}
                 >
-                  <Share2 size={18} color={theme.colors.text} />
-                  <ThemedText
-                    variant="bodyStrong"
-                    style={[styles.shareButtonText, { color: theme.colors.text }]}
-                  >
-                    Share Trip
-                  </ThemedText>
+                  <FrostedCard style={styles.shareButtonCard}>
+                    <Share2 size={18} color={theme.colors.text} />
+                    <ThemedText
+                      variant="bodyStrong"
+                      style={[styles.shareButtonText, { color: theme.colors.text }]}
+                    >
+                      Share Trip
+                    </ThemedText>
+                  </FrostedCard>
                 </HapticPressable>
 
                 <ThemedButton
@@ -940,10 +945,15 @@ const styles = StyleSheet.create({
   },
 
   shareButton: {
-    minHeight: 48,
-    borderRadius: 12,
-    borderWidth: 1,
+    borderRadius: 14,
     marginBottom: 12,
+    overflow: "hidden",
+  },
+
+  shareButtonCard: {
+    minHeight: 56,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
