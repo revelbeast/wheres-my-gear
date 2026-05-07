@@ -324,7 +324,7 @@ export default function TripsScreen() {
 
   function handleBack() {
     runNavigationAction(() => {
-      router.back();
+      router.replace("/");
     });
   }
 
