@@ -2,11 +2,13 @@ import { useFocusEffect } from "@react-navigation/native";
 import { BlurView } from "expo-blur";
 import { router, useLocalSearchParams } from "expo-router";
 import {
-  AlertCircle,
   Boxes,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
+  X,
   FolderCog,
+  ListChecks,
   Search,
 } from "lucide-react-native";
 import React, {
@@ -16,7 +18,13 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { FlatList, StyleSheet, TextInput, View } from "react-native";
+import {
+  FlatList,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../components/auth/AuthProvider";
@@ -69,6 +77,10 @@ export default function InventoryScreen() {
 
   const [inventoryItems, setInventoryItems] = useState<Item[]>([]);
   const [storageSpaces, setStorageSpaces] = useState<StorageSpace[]>([]);
+  const [selectedStorageId, setSelectedStorageId] = useState<string | null>(
+    null
+  );
+  const [showStorageDropdown, setShowStorageDropdown] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
@@ -121,6 +133,8 @@ export default function InventoryScreen() {
         if (isScreenMountedRef.current) {
           setInventoryItems([]);
           setStorageSpaces([]);
+          setSelectedStorageId(null);
+          setShowStorageDropdown(false);
         }
 
         return;
@@ -199,6 +213,17 @@ export default function InventoryScreen() {
 
       setInventoryItems(items);
       setStorageSpaces(spaces);
+
+      setSelectedStorageId((currentStorageId) => {
+        if (
+          currentStorageId &&
+          spaces.some((space) => space.id === currentStorageId)
+        ) {
+          return currentStorageId;
+        }
+
+        return spaces[0]?.id ?? null;
+      });
     } catch {
       if (
         inventoryLoadVersionRef.current !== loadVersion ||
@@ -209,15 +234,38 @@ export default function InventoryScreen() {
 
       setInventoryItems([]);
       setStorageSpaces([]);
+      setSelectedStorageId(null);
+      setShowStorageDropdown(false);
     }
   }
+
+  const sortedStorageSpaces = useMemo(() => {
+    return [...storageSpaces].sort((a, b) => {
+      const aName = String(a.name ?? "").trim().toLowerCase();
+      const bName = String(b.name ?? "").trim().toLowerCase();
+
+      return aName.localeCompare(bName);
+    });
+  }, [storageSpaces]);
+
+  const selectedStorage = useMemo(() => {
+    return storageSpaces.find((space) => space.id === selectedStorageId) ?? null;
+  }, [storageSpaces, selectedStorageId]);
 
   const vehicleNameById = useMemo(() => {
     return new Map(storageSpaces.map((s) => [s.id, s.name]));
   }, [storageSpaces]);
 
+  const scopedInventoryItems = useMemo(() => {
+    if (!selectedStorageId) {
+      return inventoryItems;
+    }
+
+    return inventoryItems.filter((item) => item.vehicleId === selectedStorageId);
+  }, [inventoryItems, selectedStorageId]);
+
   const allDisplayItems = useMemo(() => {
-    return inventoryItems
+    return scopedInventoryItems
       .filter((item) => {
         if (statusFilter === "packed") return isPackedItem(item);
         if (statusFilter === "toPack") return !isPackedItem(item);
@@ -237,7 +285,7 @@ export default function InventoryScreen() {
 
         return aName.localeCompare(bName);
       });
-  }, [inventoryItems, statusFilter, vehicleNameById]);
+  }, [scopedInventoryItems, statusFilter, vehicleNameById]);
 
   const filteredItems = useMemo(() => {
     const q = normalizeSearchValue(searchQuery);
@@ -254,16 +302,16 @@ export default function InventoryScreen() {
     });
   }, [allDisplayItems, searchQuery]);
 
-  const allCount = inventoryItems.reduce(
+  const allCount = scopedInventoryItems.reduce(
     (total, item) => total + getItemQuantity(item),
     0
   );
 
-  const packedCount = inventoryItems
+  const packedCount = scopedInventoryItems
     .filter(isPackedItem)
     .reduce((total, item) => total + getItemQuantity(item), 0);
 
-  const toPackCount = inventoryItems
+  const toPackCount = scopedInventoryItems
     .filter((item) => !isPackedItem(item))
     .reduce((total, item) => total + getItemQuantity(item), 0);
 
@@ -273,16 +321,20 @@ export default function InventoryScreen() {
     return "Inventory";
   }
 
-  function getHeaderSubtitle() {
+  function getHeaderSubtitlePrefix() {
     if (statusFilter === "packed") {
-      return "Items currently marked as packed.";
+      return "Items currently marked as packed in";
     }
 
     if (statusFilter === "toPack") {
-      return "Items still waiting to be packed.";
+      return "Items still waiting to be packed in";
     }
 
-    return "All items across your storage spaces.";
+    return "Running inventory for";
+  }
+
+  function getHeaderSubtitleScope() {
+    return selectedStorage?.name ?? "your storage spaces";
   }
 
   function getListHeaderTitle() {
@@ -297,6 +349,10 @@ export default function InventoryScreen() {
     if (searchQuery.trim().length > 0) return "No matching items found";
 
     if (inventoryItems.length === 0) return "No inventory yet";
+
+    if (scopedInventoryItems.length === 0 && selectedStorage) {
+      return "No items in this storage space";
+    }
 
     if (statusFilter === "packed") return "No packed items yet";
 
@@ -316,6 +372,10 @@ export default function InventoryScreen() {
 
     if (inventoryItems.length === 0) {
       return "Add a storage space, create compartments, then add items to build your inventory.";
+    }
+
+    if (scopedInventoryItems.length === 0 && selectedStorage) {
+      return "This storage space does not have inventory items yet. Add compartments and items to build its running inventory.";
     }
 
     if (statusFilter === "packed") {
@@ -343,6 +403,29 @@ export default function InventoryScreen() {
     });
   }
 
+  function handleManageStorageSpaces() {
+    runNavigationAction(() => {
+      router.push("/storage");
+    });
+  }
+
+  function handleToggleStorageDropdown() {
+    if (interactionLocked || navigationTransitionLockedRef.current) {
+      return;
+    }
+
+    setShowStorageDropdown((currentValue) => !currentValue);
+  }
+
+  function handleSelectStorageSpace(spaceId: string) {
+    if (interactionLocked || navigationTransitionLockedRef.current) {
+      return;
+    }
+
+    setSelectedStorageId(spaceId);
+    setShowStorageDropdown(false);
+  }
+
   function handleOpenItem(item: Item) {
     if (!item.vehicleId || !item.compartmentId) {
       return;
@@ -367,6 +450,25 @@ export default function InventoryScreen() {
   ) {
     const selected = statusFilter === value;
 
+    const tone =
+      value === "packed"
+        ? {
+            borderColor: "rgba(34,197,94,0.95)",
+            backgroundColor: "rgba(34,197,94,0.24)",
+            textColor: "rgb(34,197,94)",
+          }
+        : value === "toPack"
+          ? {
+              borderColor: "rgba(255,76,76,0.98)",
+              backgroundColor: "rgba(120,20,32,0.34)",
+              textColor: "rgb(255,110,110)",
+            }
+          : {
+              borderColor: "rgba(59,130,246,0.95)",
+              backgroundColor: "rgba(37,99,235,0.28)",
+              textColor: "rgb(59,130,246)",
+            };
+
     return (
       <HapticPressable
         key={value}
@@ -376,24 +478,44 @@ export default function InventoryScreen() {
             styles.disabledInteraction,
         ]}
         onPress={() => setStatusFilter(value)}
-        disabled={
-          interactionLocked || navigationTransitionLockedRef.current
-        }
+        disabled={interactionLocked || navigationTransitionLockedRef.current}
       >
         <BlurView
-          intensity={theme.isLight ? 18 : 18}
+          intensity={theme.isLight ? 18 : 22}
           tint={theme.isLight ? "light" : "dark"}
           style={[
             styles.filterChip,
             {
-              backgroundColor: theme.colors.card,
-              borderColor: selected ? theme.colors.primary : theme.colors.border,
+              backgroundColor: selected
+                ? tone.backgroundColor
+                : "rgba(15,23,42,0.34)",
+              borderColor: selected
+                ? tone.borderColor
+                : "rgba(255,255,255,0.16)",
+              shadowColor: selected ? tone.borderColor : "#000",
+              shadowOpacity: selected ? 0.52 : 0.12,
+              shadowRadius: selected ? 16 : 8,
+              shadowOffset: {
+                width: 0,
+                height: 0,
+              },
+              elevation: selected ? 8 : 0,
             },
           ]}
         >
           {icon}
-          <ThemedText variant="title">{count}</ThemedText>
-          <ThemedText color="secondary">{label}</ThemedText>
+          <ThemedText
+            variant="title"
+            style={selected && styles.filterChipSelectedValue}
+          >
+            {count}
+          </ThemedText>
+          <ThemedText
+            color="secondary"
+            style={selected && { color: tone.textColor, fontWeight: "800" }}
+          >
+            {label}
+          </ThemedText>
         </BlurView>
       </HapticPressable>
     );
@@ -445,9 +567,7 @@ export default function InventoryScreen() {
           <ThemedButton
             style={styles.emptyButton}
             onPress={handleAddStorageSpace}
-            disabled={
-              interactionLocked || navigationTransitionLockedRef.current
-            }
+            disabled={interactionLocked || navigationTransitionLockedRef.current}
           >
             <ThemedText style={styles.emptyButtonText}>
               Add Storage Space
@@ -469,12 +589,18 @@ export default function InventoryScreen() {
             {getHeaderTitle()}
           </ThemedText>
 
-          <ThemedText
-            color="secondary"
-            style={{ color: "#FFFFFF", opacity: 0.8, marginBottom: 12 }}
-          >
-            {getHeaderSubtitle()}
-          </ThemedText>
+          <View style={styles.headerSubtitleRow}>
+            <ThemedText
+              color="secondary"
+              style={styles.headerSubtitleText}
+            >
+              {getHeaderSubtitlePrefix()}{" "}
+            </ThemedText>
+
+            <ThemedText style={styles.headerSubtitleScope}>
+              {getHeaderSubtitleScope()}.
+            </ThemedText>
+          </View>
 
           <BlurView
             intensity={theme.isLight ? 18 : 22}
@@ -506,6 +632,21 @@ export default function InventoryScreen() {
                 autoCorrect={false}
                 returnKeyType="search"
               />
+
+              {searchQuery.length > 0 && (
+                <HapticPressable
+                  style={[
+                    styles.clearSearchButton,
+                    (interactionLocked || navigationTransitionLockedRef.current) &&
+                      styles.disabledInteraction,
+                  ]}
+                  onPress={() => setSearchQuery("")}
+                  disabled={interactionLocked || navigationTransitionLockedRef.current}
+                  hitSlop={10}
+                >
+                  <X size={16} color={theme.colors.textSecondary} />
+                </HapticPressable>
+              )}
             </View>
           </BlurView>
 
@@ -528,9 +669,152 @@ export default function InventoryScreen() {
               "toPack",
               "To Pack",
               toPackCount,
-              <AlertCircle size={18} color={theme.colors.text} />
+              <ListChecks size={18} color={theme.colors.text} />
             )}
           </View>
+
+          <View style={styles.storageSelectorWrap}>
+            <HapticPressable
+              style={[
+                styles.storageSelectorPressable,
+                (interactionLocked || navigationTransitionLockedRef.current) &&
+                  styles.disabledInteraction,
+              ]}
+              onPress={handleToggleStorageDropdown}
+              disabled={
+                interactionLocked ||
+                navigationTransitionLockedRef.current ||
+                storageSpaces.length === 0
+              }
+            >
+              <BlurView
+                intensity={theme.isLight ? 18 : 22}
+                tint={theme.isLight ? "light" : "dark"}
+                style={[
+                  styles.storageSelectorCard,
+                  {
+                    backgroundColor: theme.colors.card,
+                    borderColor: theme.colors.border,
+                  },
+                ]}
+              >
+                <View style={styles.storageSelectorIconWrap}>
+                  <Boxes size={22} color="#FFFFFF" />
+                </View>
+
+                <View style={styles.storageSelectorTextWrap}>
+                  <ThemedText
+                    variant="bodyStrong"
+                    style={styles.storageSelectorTitle}
+                  >
+                    Select Storage Space
+                  </ThemedText>
+
+                  <ThemedText
+                    style={styles.storageSelectorSelectedText}
+                    numberOfLines={1}
+                  >
+                    {selectedStorage?.name ?? "No storage spaces found"}
+                  </ThemedText>
+                </View>
+
+                <ChevronDown size={18} color={theme.colors.primary} />
+              </BlurView>
+            </HapticPressable>
+
+            {showStorageDropdown && (
+              <BlurView
+                intensity={theme.isLight ? 18 : 22}
+                tint={theme.isLight ? "light" : "dark"}
+                style={[
+                  styles.storageDropdownCard,
+                  {
+                    backgroundColor: theme.colors.card,
+                    borderColor: theme.colors.border,
+                  },
+                ]}
+              >
+                <ScrollView
+                  showsVerticalScrollIndicator
+                  nestedScrollEnabled
+                  keyboardShouldPersistTaps="handled"
+                >
+                  {sortedStorageSpaces.map((space, index) => (
+                    <HapticPressable
+                      key={space.id}
+                      style={[
+                        styles.storageDropdownRow,
+                        { borderBottomColor: theme.colors.border },
+                        index === sortedStorageSpaces.length - 1 &&
+                          styles.storageDropdownRowLast,
+                      ]}
+                      onPress={() => handleSelectStorageSpace(space.id)}
+                      disabled={
+                        interactionLocked || navigationTransitionLockedRef.current
+                      }
+                    >
+                      <View style={styles.storageDropdownRowTextWrap}>
+                        <ThemedText variant="bodyStrong">{space.name}</ThemedText>
+
+                        <ThemedText
+                          color="secondary"
+                          style={styles.storageDropdownMeta}
+                        >
+                          {space.category === "vehicle" ? "Vehicle" : "Storage"}
+                          {space.subtype ? ` • ${space.subtype}` : ""}
+                        </ThemedText>
+                      </View>
+
+                      {space.id === selectedStorageId && (
+                        <CheckCircle2 size={18} color={theme.colors.primary} />
+                      )}
+                    </HapticPressable>
+                  ))}
+                </ScrollView>
+              </BlurView>
+            )}
+          </View>
+
+          <HapticPressable
+            style={[
+              styles.manageStoragePressable,
+              (interactionLocked || navigationTransitionLockedRef.current) &&
+                styles.disabledInteraction,
+            ]}
+            onPress={handleManageStorageSpaces}
+            disabled={interactionLocked || navigationTransitionLockedRef.current}
+          >
+            <BlurView
+              intensity={theme.isLight ? 18 : 22}
+              tint={theme.isLight ? "light" : "dark"}
+              style={[
+                styles.manageStorageCard,
+                {
+                  backgroundColor: theme.colors.card,
+                  borderColor: theme.colors.border,
+                },
+              ]}
+            >
+              <View style={styles.manageStorageIconWrap}>
+                <FolderCog size={22} color="#FFFFFF" />
+              </View>
+
+              <View style={styles.manageStorageTextWrap}>
+                <ThemedText
+                  variant="bodyStrong"
+                  style={styles.manageStorageTitle}
+                >
+                  Manage Storage Spaces
+                </ThemedText>
+
+                <ThemedText color="secondary" style={styles.manageStorageText}>
+                  Edit names, update subtypes, or remove storage spaces.
+                </ThemedText>
+              </View>
+
+              <ChevronRight size={18} color={theme.colors.primary} />
+            </BlurView>
+          </HapticPressable>
 
           <ThemedText
             variant="title"
@@ -608,11 +892,29 @@ export default function InventoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
+  safe: {
+    flex: 1,
+  },
 
   container: {
     flex: 1,
     paddingHorizontal: 16,
+  },
+
+  headerSubtitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+
+  headerSubtitleText: {
+    color: "#FFFFFF",
+    opacity: 0.8,
+  },
+
+  headerSubtitleScope: {
+    color: "rgb(59,130,246)",
+    fontWeight: "700",
   },
 
   searchCard: {
@@ -632,6 +934,18 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
 
+  clearSearchButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 8,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.10)",
+  },
+
   summaryRow: {
     flexDirection: "row",
     gap: 8,
@@ -647,6 +961,134 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 10,
     alignItems: "center",
+    overflow: "hidden",
+  },
+
+  filterChipSelectedValue: {
+    color: "#FFFFFF",
+    fontWeight: "800",
+  },
+
+  storageSelectorWrap: {
+    marginBottom: 10,
+    zIndex: 50,
+  },
+
+  storageSelectorPressable: {
+    borderRadius: 16,
+    overflow: "hidden",
+  },
+
+  storageSelectorCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    overflow: "hidden",
+  },
+
+  storageSelectorIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
+  },
+
+  storageSelectorTextWrap: {
+    flex: 1,
+    paddingRight: 10,
+  },
+
+  storageSelectorTitle: {
+    marginBottom: 3,
+  },
+
+  storageSelectorText: {
+    lineHeight: 18,
+  },
+
+  storageSelectorSelectedText: {
+    color: "rgb(59,130,246)",
+    fontWeight: "800",
+    lineHeight: 18,
+  },
+
+  storageDropdownCard: {
+    marginTop: 8,
+    maxHeight: 240,
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+
+  storageDropdownRow: {
+    minHeight: 58,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  storageDropdownRowLast: {
+    borderBottomWidth: 0,
+  },
+
+  storageDropdownRowTextWrap: {
+    flex: 1,
+    paddingRight: 10,
+  },
+
+  storageDropdownMeta: {
+    marginTop: 2,
+  },
+
+  manageStoragePressable: {
+    borderRadius: 16,
+    marginBottom: 14,
+    overflow: "hidden",
+  },
+
+  manageStorageCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    overflow: "hidden",
+  },
+
+  manageStorageIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
+  },
+
+  manageStorageTextWrap: {
+    flex: 1,
+    paddingRight: 10,
+  },
+
+  manageStorageTitle: {
+    marginBottom: 3,
+  },
+
+  manageStorageText: {
+    lineHeight: 18,
   },
 
   listContent: {

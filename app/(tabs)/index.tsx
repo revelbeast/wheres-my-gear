@@ -1398,6 +1398,8 @@ export default function DashboardScreen() {
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          onScrollBeginDrag={handleDismissStorageDropdown}
+          scrollEnabled={!showStorageDropdown}
         >
           <View style={styles.headerRow}>
             <View style={styles.brandRow}>
@@ -1678,13 +1680,6 @@ export default function DashboardScreen() {
                     </HapticPressable>
 
                     {showStorageDropdown && (
-                      <HapticPressable
-                        onPress={handleDismissStorageDropdown}
-                        style={styles.dropdownDismissLayer}
-                      />
-                    )}
-
-                    {showStorageDropdown && (
                       <BlurView
                         intensity={theme.isLight ? 18 : 35}
                         tint={theme.isLight ? "light" : "dark"}
@@ -1701,7 +1696,12 @@ export default function DashboardScreen() {
                             No storage spaces found.
                           </ThemedText>
                         ) : (
-                          <ScrollView showsVerticalScrollIndicator={false}>
+                          <ScrollView
+                            style={styles.dropdownScroll}
+                            showsVerticalScrollIndicator
+                            nestedScrollEnabled
+                            keyboardShouldPersistTaps="handled"
+                          >
                             {sortedStorageSpaces.map((space, index) => (
                               <HapticPressable
                                 key={space.id}
@@ -2215,19 +2215,8 @@ const styles = StyleSheet.create({
 
   selectorButtonText: {},
 
-  dropdownDismissLayer: {
-    position: "absolute",
-    top: -240,
-    left: -40,
-    right: -400,
-    bottom: -900,
-    zIndex: 80,
-  },
-
   dropdownCard: {
-    position: "absolute",
-    top: 78,
-    left: 0,
+    marginTop: 8,
     minWidth: 280,
     maxHeight: 260,
     borderRadius: 14,
@@ -2239,6 +2228,10 @@ const styles = StyleSheet.create({
 
   dropdownEmpty: {
     padding: 12,
+  },
+
+  dropdownScroll: {
+    maxHeight: 260,
   },
 
   dropdownRow: {

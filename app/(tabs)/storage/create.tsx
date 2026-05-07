@@ -1,5 +1,5 @@
 import { BlurView } from "expo-blur";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { ChevronDown, ChevronLeft } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -74,6 +74,12 @@ function getSubtypePlaceholder(category: "vehicle" | "storage") {
 
 export default function CreateStorageScreen() {
   const theme = useThemedValues();
+  const params = useLocalSearchParams<{
+    returnTo?: string;
+  }>();
+
+  const returnRoute =
+    params.returnTo === "dashboard" ? "/" : "/storage";
 
   const {
     isLocked: interactionLocked,
@@ -203,7 +209,7 @@ export default function CreateStorageScreen() {
     if (saving || interactionLocked) return;
 
     runWithLock(() => {
-      router.replace("/storage");
+      router.replace(returnRoute);
     });
   }
 
@@ -343,7 +349,7 @@ export default function CreateStorageScreen() {
         }
 
         if (isMountedRef.current) {
-          router.replace("/storage");
+          router.replace(returnRoute);
         }
       } catch (err: any) {
         console.error(
