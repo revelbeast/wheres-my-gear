@@ -4,7 +4,9 @@ import {
   Backpack,
   Check,
   CheckCircle2,
+  Camera,
   ChevronDown,
+  Edit3,
   HeartPulse,
   Minus,
   Plus,
@@ -791,117 +793,227 @@ export default function CreateTemplateScreen() {
                     key={item.id}
                     style={[
                       styles.itemBlock,
+                      packed ? styles.packedItemCard : styles.unpackedItemCard,
                       {
-                        borderColor: theme.colors.border,
-                        backgroundColor: theme.colors.inputSurface,
+                        borderColor: packed
+                          ? "rgba(34,197,94,0.88)"
+                          : theme.colors.border,
+                        backgroundColor: theme.colors.card,
                       },
                     ]}
                   >
-                    <View style={styles.itemHeaderRow}>
-                      <View style={styles.itemNameWrap}>
-                        <TextInput
-                          value={item.name}
-                          onChangeText={(text) => updateItem(item.id, text)}
-                          placeholder={`Item ${index + 1}`}
-                          placeholderTextColor={theme.colors.textMuted}
-                          style={[
-                            styles.itemNameInput,
-                            {
-                              color: theme.colors.text,
-                            },
-                          ]}
-                          returnKeyType="done"
-                        />
-
-                        <View
-                          style={[
-                            styles.statusPill,
-                            packed
-                              ? styles.statusPillPacked
-                              : styles.statusPillToPack,
-                          ]}
-                        >
-                          <ThemedText
-                            style={[
-                              styles.statusPillText,
-                              { color: theme.colors.text },
-                            ]}
-                          >
-                            {packed ? "Packed" : "To Pack"}
-                          </ThemedText>
-                        </View>
-                      </View>
-
-                      <HapticPressable
+                    <View style={styles.itemContentRow}>
+                      <View
                         style={[
-                          styles.deleteButton,
+                          styles.itemPhotoPlaceholder,
                           {
-                            backgroundColor: theme.colors.inputSurface,
+                            backgroundColor: theme.colors.iconSurface,
                             borderColor: theme.colors.border,
                           },
                         ]}
-                        onPress={() => removeItem(item.id)}
                       >
-                        <Trash2 size={17} color={theme.colors.danger} />
-                      </HapticPressable>
-                    </View>
-
-                    <View style={styles.quantityRow}>
-                      <ThemedText color="secondary" style={styles.quantityLabel}>
-                        Quantity
-                      </ThemedText>
-
-                      <View style={styles.quantityControls}>
-                        <HapticPressable
+                        <Camera size={18} color={theme.colors.textSecondary} />
+                        <ThemedText
                           style={[
-                            styles.quantityButton,
-                            {
-                              backgroundColor: theme.colors.inputSurface,
-                              borderColor: theme.colors.border,
-                            },
+                            styles.itemPhotoPlaceholderText,
+                            { color: theme.colors.textSecondary },
                           ]}
-                          onPress={() =>
-                            updateItemQuantity(item.id, item.quantity - 1)
-                          }
                         >
-                          <Minus size={15} color={theme.colors.text} />
-                        </HapticPressable>
-
-                        <ThemedText style={styles.quantityValue}>
-                          {item.quantity}
+                          Photo
                         </ThemedText>
+                      </View>
 
-                        <HapticPressable
-                          style={[
-                            styles.quantityButton,
-                            {
-                              backgroundColor: theme.colors.inputSurface,
-                              borderColor: theme.colors.border,
-                            },
-                          ]}
-                          onPress={() =>
-                            updateItemQuantity(item.id, item.quantity + 1)
-                          }
-                        >
-                          <Plus size={15} color={theme.colors.text} />
-                        </HapticPressable>
+                      <View style={styles.itemMainContent}>
+                        <View style={styles.itemTopRow}>
+                          <View style={styles.itemTitleWrap}>
+                            <TextInput
+                              value={item.name}
+                              onChangeText={(text) => updateItem(item.id, text)}
+                              placeholder={`Item ${index + 1}`}
+                              placeholderTextColor={theme.colors.textMuted}
+                              style={[
+                                styles.itemNameInput,
+                                {
+                                  color: packed
+                                    ? theme.colors.textSecondary
+                                    : theme.colors.text,
+                                },
+                              ]}
+                              returnKeyType="done"
+                            />
+
+                            <ThemedText
+                              style={[
+                                styles.itemCategoryText,
+                                { color: theme.colors.textSecondary },
+                              ]}
+                            >
+                              {selectedCategoryLabel}
+                            </ThemedText>
+
+                            {packed ? (
+                              <ThemedText style={styles.packedBadge}>
+                                Packed
+                              </ThemedText>
+                            ) : null}
+                          </View>
+
+                          <View style={styles.itemActions}>
+                            <HapticPressable
+                              style={[
+                                styles.iconButton,
+                                {
+                                  backgroundColor: theme.colors.iconSurface,
+                                  borderColor: theme.colors.border,
+                                },
+                              ]}
+                            >
+                              <Camera
+                                size={16}
+                                color={theme.colors.textSecondary}
+                              />
+                            </HapticPressable>
+
+                            <HapticPressable
+                              style={[
+                                styles.iconButton,
+                                {
+                                  backgroundColor: theme.colors.iconSurface,
+                                  borderColor: theme.colors.border,
+                                },
+                              ]}
+                            >
+                              <Edit3
+                                size={16}
+                                color={theme.colors.textSecondary}
+                              />
+                            </HapticPressable>
+
+                            <HapticPressable
+                              style={[
+                                styles.iconButton,
+                                {
+                                  backgroundColor: theme.colors.iconSurface,
+                                  borderColor: theme.colors.border,
+                                },
+                              ]}
+                              onPress={() => removeItem(item.id)}
+                            >
+                              <Trash2 size={16} color={theme.colors.danger} />
+                            </HapticPressable>
+                          </View>
+                        </View>
+
+                        <View style={styles.metricsWrap}>
+                          <ThemedText
+                            style={[
+                              styles.metricText,
+                              {
+                                color: packed
+                                  ? theme.colors.textMuted
+                                  : theme.colors.textSecondary,
+                              },
+                            ]}
+                          >
+                            Needed: {item.quantity}
+                          </ThemedText>
+
+                          <ThemedText
+                            style={[
+                              styles.metricText,
+                              {
+                                color: packed
+                                  ? theme.colors.textMuted
+                                  : theme.colors.textSecondary,
+                              },
+                            ]}
+                          >
+                            Packed: {packed ? item.quantity : 0}
+                          </ThemedText>
+
+                          <ThemedText
+                            style={[
+                              styles.metricText,
+                              {
+                                color: packed
+                                  ? theme.colors.textMuted
+                                  : theme.colors.danger,
+                              },
+                            ]}
+                          >
+                            Still To Pack: {packed ? 0 : item.quantity}
+                          </ThemedText>
+                        </View>
+
+                        <View style={styles.controlsRow}>
+                          <View style={styles.quantityControls}>
+                            <HapticPressable
+                              style={[
+                                styles.quantityButton,
+                                {
+                                  backgroundColor: theme.colors.iconSurface,
+                                  borderColor: theme.colors.border,
+                                },
+                              ]}
+                              onPress={() =>
+                                updateItemQuantity(item.id, item.quantity - 1)
+                              }
+                            >
+                              <Minus size={16} color={theme.colors.text} />
+                            </HapticPressable>
+
+                            <View style={styles.quantityValueWrap}>
+                              <ThemedText style={styles.quantityValue}>
+                                {item.quantity}
+                              </ThemedText>
+                            </View>
+
+                            <HapticPressable
+                              style={[
+                                styles.quantityButton,
+                                {
+                                  backgroundColor: theme.colors.iconSurface,
+                                  borderColor: theme.colors.border,
+                                },
+                              ]}
+                              onPress={() =>
+                                updateItemQuantity(item.id, item.quantity + 1)
+                              }
+                            >
+                              <Plus size={16} color={theme.colors.text} />
+                            </HapticPressable>
+                          </View>
+
+                          <HapticPressable
+                            style={[
+                              styles.packedToggleButton,
+                              packed
+                                ? styles.packedToggleButtonPacked
+                                : styles.packedToggleButtonToPack,
+                              !packed && {
+                                backgroundColor: theme.colors.iconSurface,
+                                borderColor: theme.colors.border,
+                              },
+                            ]}
+                            onPress={() => toggleItemPacked(item.id)}
+                          >
+                            <CheckCircle2
+                              size={13}
+                              color={packed ? "#fff" : theme.colors.text}
+                            />
+                            <ThemedText
+                              style={[
+                                styles.packedToggleButtonText,
+                                { color: theme.colors.text },
+                                packed ? styles.packedToggleButtonTextOn : {},
+                              ]}
+                            >
+                              {packed ? "Packed" : "Mark Packed"}
+                            </ThemedText>
+                          </HapticPressable>
+                        </View>
                       </View>
                     </View>
-
-                    <HapticPressable
-                      style={[
-                        styles.packedToggleButton,
-                        packed
-                          ? styles.packedToggleButtonPacked
-                          : styles.packedToggleButtonToPack,
-                      ]}
-                      onPress={() => toggleItemPacked(item.id)}
-                    >
-                      <CheckCircle2 size={18} color="#fff" />
-                      <ThemedText style={styles.packedToggleButtonText}>
-                        {packed ? "Mark To Pack" : "Mark Packed"}
-                      </ThemedText>
-                    </HapticPressable>
                   </View>
                 );
               })}
@@ -1149,9 +1261,184 @@ const styles = StyleSheet.create({
 
   itemBlock: {
     marginBottom: 14,
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
-    padding: 12,
+    padding: 14,
+  },
+
+  packedItemCard: {
+  opacity: 1,
+  backgroundColor: "rgba(255,255,255,0.03)",
+},
+
+  unpackedItemCard: {
+    opacity: 1,
+  },
+
+  itemContentRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+
+  itemPhotoPlaceholder: {
+    width: 82,
+    height: 82,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    paddingHorizontal: 6,
+    marginRight: 14,
+  },
+
+  itemPhotoPlaceholderText: {
+    fontSize: 11,
+    fontWeight: "700",
+    marginTop: 6,
+  },
+
+  itemMainContent: {
+    flex: 1,
+  },
+
+  itemTitleWrap: {
+    flex: 1,
+    paddingRight: 12,
+  },
+
+  itemCategoryText: {
+    fontSize: 13,
+    fontWeight: "600",
+    lineHeight: 18,
+    marginTop: 2,
+  },
+
+  packedBadge: {
+    alignSelf: "flex-start",
+    marginTop: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: "rgba(34,197,94,0.10)",
+    color: "#22C55E",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+
+  itemActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+
+  iconButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+
+  metricsWrap: {
+    marginBottom: 12,
+    gap: 5,
+  },
+
+  metricText: {
+    fontSize: 13,
+    fontWeight: "600",
+    lineHeight: 18,
+  },
+
+  controlsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+
+  quantityValueWrap: {
+    minWidth: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    marginHorizontal: 8,
+  },
+
+  itemTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+
+  itemCategoryBadge: {
+    alignSelf: "flex-start",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+  },
+
+  itemCategoryBadgeText: {
+    fontSize: 12,
+    fontWeight: "800",
+  },
+
+  itemStatsRow: {
+    marginTop: 10,
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    backgroundColor: "rgba(255,255,255,0.07)",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+
+  itemStatBlock: {
+    flex: 1,
+    alignItems: "center",
+  },
+
+  itemStatLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+
+  itemStatValue: {
+    fontSize: 18,
+    fontWeight: "800",
+  },
+
+  itemStatDivider: {
+    width: 1,
+    height: 34,
+    backgroundColor: "rgba(255,255,255,0.14)",
+  },
+
+  itemActionsRow: {
+    marginTop: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+
+  itemIconActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+
+  itemActionIconButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
   },
 
   itemHeaderRow: {
@@ -1216,36 +1503,36 @@ const styles = StyleSheet.create({
   quantityControls: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
   },
 
   quantityButton: {
-    width: 30,
-    height: 30,
-    borderRadius: 9,
+    width: 34,
+    height: 34,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
   },
 
   quantityValue: {
-    minWidth: 24,
-    textAlign: "center",
+    fontSize: 16,
     fontWeight: "700",
   },
 
   packedToggleButton: {
-    marginTop: 12,
-    borderRadius: 14,
-    paddingVertical: 12,
+    borderRadius: 12,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
-    gap: 8,
+    gap: 6,
+    borderWidth: 1,
   },
 
   packedToggleButtonPacked: {
-    backgroundColor: "rgba(71,85,105,0.92)",
+    backgroundColor: "rgba(59,130,246,0.96)",
+    borderColor: "rgba(59,130,246,1)",
   },
 
   packedToggleButtonToPack: {
@@ -1256,6 +1543,10 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 14,
     fontWeight: "700",
+  },
+
+  packedToggleButtonTextOn: {
+    color: "#fff",
   },
 
   addItemButton: {
