@@ -1,11 +1,22 @@
 import { BlurView } from "expo-blur";
 import { router } from "expo-router";
 import {
+  Backpack,
+  Check,
   CheckCircle2,
   ChevronDown,
+  HeartPulse,
   Minus,
   Plus,
+  Sailboat,
+  Shirt,
+  Tent,
   Trash2,
+  Wrench,
+  Utensils,
+  Zap,
+  Fish,
+  Crosshair,
 } from "lucide-react-native";
 import React, { useState } from "react";
 import {
@@ -301,6 +312,36 @@ function createEditableItems(
   }));
 }
 
+function renderStarterTemplateIcon(
+  category: ChecklistCategory,
+  color: string
+) {
+  switch (category) {
+    case "trip":
+      return <Backpack size={24} color={color} />;
+    case "camping":
+      return <Tent size={24} color={color} />;
+    case "hunting":
+      return <Crosshair size={24} color={color} />;
+    case "fishing":
+      return <Fish size={24} color={color} />;
+    case "boating":
+      return <Sailboat size={24} color={color} />;
+    case "clothing":
+      return <Shirt size={24} color={color} />;
+    case "electronics":
+      return <Zap size={24} color={color} />;
+    case "medical":
+      return <HeartPulse size={24} color={color} />;
+    case "tools":
+      return <Wrench size={24} color={color} />;
+    case "food":
+      return <Utensils size={24} color={color} />;
+    default:
+      return <Backpack size={24} color={color} />;
+  }
+}
+
 export default function CreateTemplateScreen() {
   const { user } = useAuth();
   const theme = useThemedValues();
@@ -501,23 +542,18 @@ export default function CreateTemplateScreen() {
             keyboardDismissMode="on-drag"
             automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
           >
-            <AppHeader title="Create Template" showBackButton />
+            <AppHeader title="" showBackButton />
 
-            <FrostedCard style={styles.heroCard}>
-              <ThemedText variant="title" style={styles.heroTitle}>
-                Build a reusable template
+            <View style={styles.heroHeader}>
+              <ThemedText variant="header" style={styles.heroTitle}>
+                Create Template
               </ThemedText>
               <ThemedText color="secondary" style={styles.heroText}>
-                Start from a generic list, then edit, delete, add, set packed
-                status, or discard before saving your template.
+                Build a reusable checklist with starter items, quantities, and default pack status.
               </ThemedText>
-            </FrostedCard>
+            </View>
 
             <FrostedCard>
-              <ThemedText style={styles.sectionEyebrow}>
-                Starter Templates
-              </ThemedText>
-
               <ThemedText variant="title" style={styles.sectionTitle}>
                 Choose a generic list
               </ThemedText>
@@ -531,24 +567,95 @@ export default function CreateTemplateScreen() {
                 style={[
                   styles.starterButton,
                   {
-                    backgroundColor: theme.colors.iconSurface,
+                    backgroundColor: theme.colors.inputSurface,
                     borderColor: theme.colors.border,
                   },
                 ]}
-                onPress={() => setStarterModalVisible(true)}
+                onPress={() => setStarterModalVisible((prev) => !prev)}
               >
-                <Plus size={18} color={theme.colors.text} />
                 <ThemedText style={styles.starterButtonText}>
                   Choose Starter Template
                 </ThemedText>
+                <ChevronDown size={18} color={theme.colors.textSecondary} />
               </HapticPressable>
+
+              {starterModalVisible ? (
+                <BlurView
+                  intensity={theme.isLight ? 35 : 48}
+                  tint={theme.isLight ? "light" : "dark"}
+                  style={[
+                    styles.inlineDropdown,
+                    {
+                      borderColor: theme.colors.border,
+                      backgroundColor: theme.isLight
+                        ? "rgba(255,255,255,0.52)"
+                        : "rgba(255,255,255,0.08)",
+                    },
+                  ]}
+                >
+                  <ScrollView
+                    nestedScrollEnabled
+                    showsVerticalScrollIndicator={false}
+                    style={styles.inlineDropdownScroll}
+                    contentContainerStyle={styles.inlineDropdownScrollContent}
+                  >
+                    {STARTER_TEMPLATE_OPTIONS.map((starter) => {
+                      const selected =
+                        name.trim() === starter.name &&
+                        category === starter.category;
+
+                      return (
+                        <HapticPressable
+                          key={starter.id}
+                          style={[
+                            styles.inlineDropdownOption,
+                            selected ? styles.inlineDropdownOptionSelected : {},
+                          ]}
+                          onPress={() => handleUseStarterTemplate(starter.id)}
+                        >
+                          <View
+                            style={[
+                              styles.inlineDropdownIconWrap,
+                              {
+                                backgroundColor: theme.isLight
+                                  ? "rgba(255,255,255,0.48)"
+                                  : "rgba(255,255,255,0.10)",
+                                borderColor: theme.colors.border,
+                              },
+                            ]}
+                          >
+                            {renderStarterTemplateIcon(
+                              starter.category,
+                              theme.colors.textSecondary
+                            )}
+                          </View>
+
+                          <View style={styles.inlineDropdownTextWrap}>
+                            <ThemedText style={styles.inlineDropdownOptionText}>
+                              {starter.name}
+                            </ThemedText>
+                            <ThemedText
+                              color="secondary"
+                              style={styles.starterItemCount}
+                            >
+                              {starter.categoryLabel} • {starter.items.length} items
+                            </ThemedText>
+                          </View>
+
+                          {selected ? (
+                            <View style={styles.inlineDropdownCheck}>
+                              <Check size={18} color="#fff" />
+                            </View>
+                          ) : null}
+                        </HapticPressable>
+                      );
+                    })}
+                  </ScrollView>
+                </BlurView>
+              ) : null}
             </FrostedCard>
 
             <FrostedCard>
-              <ThemedText style={styles.sectionEyebrow}>
-                Template Details
-              </ThemedText>
-
               <ThemedText variant="title" style={styles.sectionTitle}>
                 Template Name
               </ThemedText>
@@ -581,13 +688,53 @@ export default function CreateTemplateScreen() {
                     borderColor: theme.colors.border,
                   },
                 ]}
-                onPress={() => setCategoryModalVisible(true)}
+                onPress={() => setCategoryModalVisible((prev) => !prev)}
               >
                 <ThemedText style={styles.dropdownButtonText}>
                   {selectedCategoryLabel}
                 </ThemedText>
                 <ChevronDown size={18} color={theme.colors.textSecondary} />
               </HapticPressable>
+
+              {categoryModalVisible ? (
+                <BlurView
+                  intensity={theme.isLight ? 22 : 35}
+                  tint={theme.isLight ? "light" : "dark"}
+                  style={[
+                    styles.inlineDropdown,
+                    {
+                      borderColor: theme.colors.border,
+                      backgroundColor: theme.colors.cardStrong,
+                    },
+                  ]}
+                >
+                  {CATEGORY_OPTIONS.map((option) => {
+                    const selected = category === option.key;
+
+                    return (
+                      <HapticPressable
+                        key={option.key}
+                        style={[
+                          styles.inlineDropdownOption,
+                          selected ? styles.inlineDropdownOptionSelected : {},
+                        ]}
+                        onPress={() => handleSelectCategory(option.key)}
+                      >
+                        <ThemedText
+                          style={[
+                            styles.inlineDropdownOptionText,
+                            selected
+                              ? styles.inlineDropdownOptionTextSelected
+                              : {},
+                          ]}
+                        >
+                          {option.label}
+                        </ThemedText>
+                      </HapticPressable>
+                    );
+                  })}
+                </BlurView>
+              ) : null}
 
               {category === "custom" ? (
                 <View style={styles.customCategoryWrap}>
@@ -617,9 +764,6 @@ export default function CreateTemplateScreen() {
             <FrostedCard>
               <View style={styles.itemsHeaderRow}>
                 <View style={styles.itemsHeaderTextWrap}>
-                  <ThemedText style={styles.sectionEyebrow}>
-                    Template Items
-                  </ThemedText>
                   <ThemedText variant="title" style={styles.sectionTitle}>
                     Items
                   </ThemedText>
@@ -649,7 +793,7 @@ export default function CreateTemplateScreen() {
                       styles.itemBlock,
                       {
                         borderColor: theme.colors.border,
-                        backgroundColor: theme.colors.iconSurface,
+                        backgroundColor: theme.colors.inputSurface,
                       },
                     ]}
                   >
@@ -677,7 +821,12 @@ export default function CreateTemplateScreen() {
                               : styles.statusPillToPack,
                           ]}
                         >
-                          <ThemedText style={styles.statusPillText}>
+                          <ThemedText
+                            style={[
+                              styles.statusPillText,
+                              { color: theme.colors.text },
+                            ]}
+                          >
                             {packed ? "Packed" : "To Pack"}
                           </ThemedText>
                         </View>
@@ -799,131 +948,6 @@ export default function CreateTemplateScreen() {
           </ScrollView>
         </KeyboardAvoidingView>
 
-        <Modal
-          visible={categoryModalVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setCategoryModalVisible(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <BlurView
-              intensity={theme.isLight ? 22 : 35}
-              tint={theme.isLight ? "light" : "dark"}
-              style={[
-                styles.modalCard,
-                {
-                  borderColor: theme.colors.border,
-                  backgroundColor: theme.colors.cardStrong,
-                },
-              ]}
-            >
-              <ThemedText variant="title" style={styles.modalTitle}>
-                Select Category
-              </ThemedText>
-
-              {CATEGORY_OPTIONS.map((option) => {
-                const selected = category === option.key;
-
-                return (
-                  <HapticPressable
-                    key={option.key}
-                    style={[
-                      styles.modalOption,
-                      {
-                        backgroundColor: theme.colors.iconSurface,
-                        borderColor: theme.colors.border,
-                      },
-                      selected ? styles.modalOptionSelected : {},
-                    ]}
-                    onPress={() => handleSelectCategory(option.key)}
-                  >
-                    <ThemedText
-                      style={[
-                        styles.modalOptionText,
-                        selected ? styles.modalOptionTextSelected : {},
-                      ]}
-                    >
-                      {option.label}
-                    </ThemedText>
-                  </HapticPressable>
-                );
-              })}
-
-              <HapticPressable
-                style={styles.modalCancelButton}
-                onPress={() => setCategoryModalVisible(false)}
-              >
-                <ThemedText color="secondary" style={styles.modalCancelText}>
-                  Cancel
-                </ThemedText>
-              </HapticPressable>
-            </BlurView>
-          </View>
-        </Modal>
-
-        <Modal
-          visible={starterModalVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setStarterModalVisible(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <BlurView
-              intensity={theme.isLight ? 22 : 35}
-              tint={theme.isLight ? "light" : "dark"}
-              style={[
-                styles.modalCard,
-                styles.starterModalCard,
-                {
-                  borderColor: theme.colors.border,
-                  backgroundColor: theme.colors.cardStrong,
-                },
-              ]}
-            >
-              <ThemedText variant="title" style={styles.modalTitle}>
-                Choose Starter Template
-              </ThemedText>
-
-              <ThemedText color="secondary" style={styles.modalHelperText}>
-                Select a starter list. You can edit, delete, add, or discard
-                before saving.
-              </ThemedText>
-
-              <ScrollView showsVerticalScrollIndicator={false}>
-                {STARTER_TEMPLATE_OPTIONS.map((starter) => (
-                  <HapticPressable
-                    key={starter.id}
-                    style={[
-                      styles.modalOption,
-                      {
-                        backgroundColor: theme.colors.iconSurface,
-                        borderColor: theme.colors.border,
-                      },
-                    ]}
-                    onPress={() => handleUseStarterTemplate(starter.id)}
-                  >
-                    <ThemedText style={styles.modalOptionText}>
-                      {starter.name}
-                    </ThemedText>
-
-                    <ThemedText color="secondary" style={styles.starterItemCount}>
-                      {starter.categoryLabel} • {starter.items.length} items
-                    </ThemedText>
-                  </HapticPressable>
-                ))}
-              </ScrollView>
-
-              <HapticPressable
-                style={styles.modalCancelButton}
-                onPress={() => setStarterModalVisible(false)}
-              >
-                <ThemedText color="secondary" style={styles.modalCancelText}>
-                  Cancel
-                </ThemedText>
-              </HapticPressable>
-            </BlurView>
-          </View>
-        </Modal>
       </SafeAreaView>
     </ScreenBackground>
   );
@@ -954,6 +978,10 @@ const styles = StyleSheet.create({
 
   heroCard: {
     paddingVertical: 18,
+  },
+
+  heroHeader: {
+    marginBottom: 18,
   },
 
   heroTitle: {
@@ -1015,15 +1043,82 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
+  inlineDropdown: {
+    borderWidth: 1,
+    borderRadius: 18,
+    padding: 8,
+    marginTop: 8,
+    marginBottom: 14,
+    overflow: "hidden",
+    maxHeight: 430,
+  },
+
+  inlineDropdownScroll: {
+    maxHeight: 414,
+  },
+
+  inlineDropdownScrollContent: {
+    paddingBottom: 2,
+  },
+
+  inlineDropdownOption: {
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+
+  inlineDropdownOptionSelected: {
+    borderColor: "rgba(59,130,246,0.95)",
+    backgroundColor: "rgba(255,255,255,0.12)",
+  },
+
+  inlineDropdownIconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+
+  inlineDropdownTextWrap: {
+    flex: 1,
+  },
+
+  inlineDropdownCheck: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(59,130,246,0.95)",
+  },
+
+  inlineDropdownOptionText: {
+    fontSize: 15,
+    fontWeight: "700",
+  },
+
+  inlineDropdownOptionTextSelected: {
+    color: "#fff",
+  },
+
   starterButton: {
     marginTop: 2,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
+    justifyContent: "space-between",
     borderWidth: 1,
     borderRadius: 14,
-    paddingVertical: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
   },
 
   starterButtonText: {
@@ -1084,11 +1179,11 @@ const styles = StyleSheet.create({
   },
 
   statusPillPacked: {
-    backgroundColor: "rgba(34,197,94,0.92)",
+    backgroundColor: "rgba(59,130,246,0.18)",
   },
 
   statusPillToPack: {
-    backgroundColor: "rgba(239,68,68,0.92)",
+    backgroundColor: "rgba(148,163,184,0.18)",
   },
 
   statusPillText: {
@@ -1150,11 +1245,11 @@ const styles = StyleSheet.create({
   },
 
   packedToggleButtonPacked: {
-    backgroundColor: "rgba(239,68,68,0.92)",
+    backgroundColor: "rgba(71,85,105,0.92)",
   },
 
   packedToggleButtonToPack: {
-    backgroundColor: "rgba(34,197,94,0.92)",
+    backgroundColor: "rgba(59,130,246,0.92)",
   },
 
   packedToggleButtonText: {
@@ -1210,20 +1305,21 @@ const styles = StyleSheet.create({
 
   modalOverlay: {
     flex: 1,
-    justifyContent: "center",
-    paddingHorizontal: 20,
-    backgroundColor: "rgba(0,0,0,0.55)",
+    justifyContent: "flex-end",
+    paddingHorizontal: 16,
+    paddingBottom: 24,
+    backgroundColor: "rgba(0,0,0,0.42)",
   },
 
   modalCard: {
-    borderRadius: 18,
+    borderRadius: 24,
     padding: 18,
     overflow: "hidden",
     borderWidth: 1,
   },
 
   starterModalCard: {
-    maxHeight: "78%",
+    maxHeight: "72%",
   },
 
   modalTitle: {

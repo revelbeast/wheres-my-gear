@@ -1,8 +1,9 @@
 import { BlurView } from "expo-blur";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import {
   CheckCircle2,
   ChevronRight,
+  ClipboardList,
   FilePlus2,
   FolderCog,
   ListChecks,
@@ -63,12 +64,20 @@ function StatCard({
   icon,
   value,
   label,
+  tone,
+  selected = false,
   onPress,
   disabled = false,
 }: {
   icon: React.ReactNode;
   value: number;
   label: string;
+  tone: {
+    borderColor: string;
+    backgroundColor: string;
+    textColor: string;
+  };
+  selected?: boolean;
   onPress?: () => void;
   disabled?: boolean;
 }) {
@@ -81,8 +90,16 @@ function StatCard({
       style={[
         styles.statCard,
         {
-          borderColor: theme.colors.border,
-          backgroundColor: theme.colors.card,
+          borderColor: selected ? tone.borderColor : theme.colors.border,
+          backgroundColor: selected ? tone.backgroundColor : theme.colors.card,
+          shadowColor: selected ? tone.borderColor : "#000",
+          shadowOpacity: selected ? 0.52 : 0.12,
+          shadowRadius: selected ? 16 : 8,
+          shadowOffset: {
+            width: 0,
+            height: 0,
+          },
+          elevation: selected ? 8 : 0,
         },
       ]}
     >
@@ -90,8 +107,10 @@ function StatCard({
         style={[
           styles.statIconWrap,
           {
-            backgroundColor: theme.colors.iconSurface,
-            borderColor: theme.colors.border,
+            backgroundColor: selected
+              ? "rgba(255,255,255,0.12)"
+              : theme.colors.iconSurface,
+            borderColor: selected ? tone.borderColor : theme.colors.border,
           },
         ]}
       >
@@ -102,7 +121,12 @@ function StatCard({
         {value}
       </ThemedText>
 
-      <ThemedText color="secondary" style={styles.statLabel}>
+      <ThemedText
+        style={[
+          styles.statLabel,
+          { color: selected ? tone.textColor : theme.colors.textSecondary },
+        ]}
+      >
         {label}
       </ThemedText>
     </BlurView>
@@ -140,15 +164,10 @@ function ActionCard({
 }) {
   const theme = useThemedValues();
 
-  const actionCardStyle = highlight
-    ? {
-        borderColor: theme.colors.primary,
-        backgroundColor: theme.colors.card,
-      }
-    : {
-        borderColor: theme.colors.border,
-        backgroundColor: theme.colors.card,
-      };
+  const actionCardStyle = {
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.card,
+  };
 
   return (
     <HapticPressable
@@ -273,6 +292,9 @@ export default function ChecklistsTabScreen() {
   );
 
   const [checklists, setChecklists] = useState<Checklist[]>([]);
+  const [selectedChecklistStatus, setSelectedChecklistStatus] = useState<
+    "active" | "packed" | "toPack"
+  >("active");
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -287,6 +309,27 @@ export default function ChecklistsTabScreen() {
       }
     };
   }, []);
+
+
+  useFocusEffect(
+    React.useCallback(() => {
+      navigationTransitionLockedRef.current = false;
+
+      if (navigationUnlockTimeoutRef.current) {
+        clearTimeout(navigationUnlockTimeoutRef.current);
+        navigationUnlockTimeoutRef.current = null;
+      }
+
+      return () => {
+        navigationTransitionLockedRef.current = false;
+
+        if (navigationUnlockTimeoutRef.current) {
+          clearTimeout(navigationUnlockTimeoutRef.current);
+          navigationUnlockTimeoutRef.current = null;
+        }
+      };
+    }, [])
+  );
 
   useEffect(() => {
     const subscriptionVersion = checklistSubscriptionVersionRef.current + 1;
@@ -377,17 +420,15 @@ export default function ChecklistsTabScreen() {
   const activeChecklistCount = useMemo(() => checklists.length, [checklists]);
 
   const packedCount = useMemo(() => {
-    return checklists.reduce(
-      (sum, checklist) => sum + (checklist.packedCount ?? 0),
-      0
-    );
+    return checklists.filter(
+      (checklist) =>
+        (checklist.totalCount ?? 0) > 0 && (checklist.missingCount ?? 0) === 0
+    ).length;
   }, [checklists]);
 
   const toPackCount = useMemo(() => {
-    return checklists.reduce(
-      (sum, checklist) => sum + (checklist.missingCount ?? 0),
-      0
-    );
+    return checklists.filter((checklist) => (checklist.missingCount ?? 0) > 0)
+      .length;
   }, [checklists]);
 
   function handleOpenChecklist(checklistId: string) {
@@ -417,23 +458,33 @@ export default function ChecklistsTabScreen() {
     });
   }
 
-  function handleOpenPackedItems() {
-    runNavigationAction(() => {
-      router.push({
-        pathname: "/checklists/items",
-        params: { status: "packed" },
-      });
-    });
+  const displayedChecklists = useMemo(() => {
+    if (selectedChecklistStatus === "packed") {
+      return sortedChecklists.filter(
+        (checklist) =>
+          (checklist.totalCount ?? 0) > 0 && (checklist.missingCount ?? 0) === 0
+      );
+    }
+
+    if (selectedChecklistStatus === "toPack") {
+      return sortedChecklists.filter((checklist) => (checklist.missingCount ?? 0) > 0);
+    }
+
+    return sortedChecklists;
+  }, [selectedChecklistStatus, sortedChecklists]);
+
+  function handleSelectChecklistStatus(
+    nextStatus: "active" | "packed" | "toPack"
+  ) {
+    setSelectedChecklistStatus(nextStatus);
   }
 
-  function handleOpenToPackItems() {
-    runNavigationAction(() => {
-      router.push({
-        pathname: "/checklists/items",
-        params: { status: "to_pack" },
-      });
-    });
-  }
+  const selectedChecklistTitle =
+    selectedChecklistStatus === "packed"
+      ? "Packed Checklists"
+      : selectedChecklistStatus === "toPack"
+        ? "To Pack Checklists"
+        : "Active Checklists";
 
   const navigationDisabled =
     interactionLocked || navigationTransitionLockedRef.current;
@@ -455,52 +506,57 @@ export default function ChecklistsTabScreen() {
           </View>
 
           <View style={styles.heroSection}>
-            <ThemedText style={[styles.eyebrow, styles.whiteLabelMuted]}>
-              Packing System
-            </ThemedText>
-
-            <ThemedText
-              variant="header"
-              style={[styles.heroTitle, styles.whiteLabel]}
-            >
-              Build and manage your checklists
-            </ThemedText>
-
             <ThemedText style={[styles.heroSubtitle, styles.whiteLabelMuted]}>
-              Start from a blank checklist or a template, track progress, and
+              Start from a blank checklist or template, track progress, and
               keep your gear organized.
             </ThemedText>
           </View>
 
           <View style={styles.statsRow}>
             <StatCard
-              icon={<ListChecks size={18} color={theme.colors.text} />}
+              icon={<ClipboardList size={18} color={theme.colors.text} />}
               value={activeChecklistCount}
               label="Active"
+              tone={{
+                borderColor: "rgba(59,130,246,0.95)",
+                backgroundColor: "rgba(37,99,235,0.28)",
+                textColor: "rgb(59,130,246)",
+              }}
+              selected={selectedChecklistStatus === "active"}
+              onPress={() => handleSelectChecklistStatus("active")}
+              disabled={false}
             />
 
             <StatCard
               icon={<CheckCircle2 size={18} color={theme.colors.text} />}
               value={packedCount}
               label="Packed"
-              onPress={handleOpenPackedItems}
-              disabled={navigationDisabled}
+              tone={{
+                borderColor: "rgba(34,197,94,0.95)",
+                backgroundColor: "rgba(34,197,94,0.24)",
+                textColor: "rgb(34,197,94)",
+              }}
+              selected={selectedChecklistStatus === "packed"}
+              onPress={() => handleSelectChecklistStatus("packed")}
+              disabled={false}
             />
 
             <StatCard
               icon={<ListChecks size={18} color={theme.colors.text} />}
               value={toPackCount}
               label="To Pack"
-              onPress={handleOpenToPackItems}
-              disabled={navigationDisabled}
+              tone={{
+                borderColor: "rgba(255,76,76,0.98)",
+                backgroundColor: "rgba(120,20,32,0.34)",
+                textColor: "rgb(255,110,110)",
+              }}
+              selected={selectedChecklistStatus === "toPack"}
+              onPress={() => handleSelectChecklistStatus("toPack")}
+              disabled={false}
             />
           </View>
 
           <View style={styles.sectionWrap}>
-            <ThemedText style={[styles.sectionEyebrow, styles.whiteLabelMuted]}>
-              Create
-            </ThemedText>
-
             <ThemedText
               variant="title"
               style={[styles.sectionTitle, styles.whiteLabel]}
@@ -519,7 +575,6 @@ export default function ChecklistsTabScreen() {
               title="New Blank Checklist"
               subtitle="Start from scratch and add your own items"
               onPress={handleCreateBlankChecklist}
-              highlight
               disabled={navigationDisabled}
             />
 
@@ -541,15 +596,11 @@ export default function ChecklistsTabScreen() {
           </View>
 
           <View style={styles.sectionWrap}>
-            <ThemedText style={[styles.sectionEyebrow, styles.whiteLabelMuted]}>
-              Your Checklists
-            </ThemedText>
-
             <ThemedText
               variant="title"
               style={[styles.sectionTitle, styles.whiteLabel]}
             >
-              Active Checklists ({activeChecklistCount})
+              {selectedChecklistTitle} ({displayedChecklists.length})
             </ThemedText>
           </View>
 
@@ -571,8 +622,13 @@ export default function ChecklistsTabScreen() {
               onPress={handleCreateBlankChecklist}
               disabled={navigationDisabled}
             />
+          ) : displayedChecklists.length === 0 ? (
+            <EmptyChecklistCard
+              title="No matching checklists"
+              text="Select another card above to view more checklist results."
+            />
           ) : (
-            sortedChecklists.map((checklist) => (
+            displayedChecklists.map((checklist) => (
               <ThemedCard key={checklist.id} style={styles.checklistCard}>
                 <HapticPressable
                   style={[
@@ -595,14 +651,23 @@ export default function ChecklistsTabScreen() {
                     </ThemedText>
 
                     <View style={styles.progressRow}>
-                      <ThemedText color="secondary" style={styles.meta}>
+                      <ThemedText
+                        color="secondary"
+                        style={[
+                          styles.meta,
+                          selectedChecklistStatus === "packed" &&
+                            styles.packedProgressText,
+                        ]}
+                      >
                         {checklist.packedCount ?? 0} /{" "}
                         {checklist.totalCount ?? 0} packed
                       </ThemedText>
 
-                      <ThemedText color="danger" style={styles.toPackBadge}>
-                        {checklist.missingCount ?? 0} to pack
-                      </ThemedText>
+                      {selectedChecklistStatus !== "packed" && (
+                        <ThemedText color="danger" style={styles.toPackBadge}>
+                          {checklist.missingCount ?? 0} to pack
+                        </ThemedText>
+                      )}
                     </View>
                   </View>
 
@@ -641,13 +706,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 18,
+    marginBottom: 6,
   },
 
   headerTitle: {},
 
   heroSection: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
 
   eyebrow: {
@@ -674,35 +739,43 @@ const styles = StyleSheet.create({
 
   statCardWrap: {
     flex: 1,
-    borderRadius: 18,
+    borderRadius: 14,
     overflow: "hidden",
   },
 
   statCard: {
-    minHeight: 106,
-    borderRadius: 18,
+    minHeight: 78,
+    borderRadius: 14,
     borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
     justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
   },
 
   statIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+    width: 28,
+    height: 28,
+    borderRadius: 9,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    marginBottom: 10,
+    marginBottom: 6,
   },
 
   statValue: {
-    marginBottom: 2,
+    marginBottom: 0,
+    fontSize: 16,
+    lineHeight: 18,
+    textAlign: "center",
   },
 
   statLabel: {
-    fontWeight: "600",
+    fontWeight: "800",
+    fontSize: 12,
+    lineHeight: 14,
+    textAlign: "center",
   },
 
   sectionWrap: {
@@ -813,6 +886,11 @@ const styles = StyleSheet.create({
 
   toPackBadge: {
     fontWeight: "700",
+  },
+
+  packedProgressText: {
+    color: "rgb(34,197,94)",
+    fontWeight: "800",
   },
 
   emptyStateCard: {

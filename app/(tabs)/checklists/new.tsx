@@ -163,12 +163,11 @@ export default function NewBlankChecklistScreen() {
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
           >
-            <AppHeader title="New Blank Checklist" showBackButton />
+            <AppHeader title="" showBackButton />
 
             <View style={styles.heroSection}>
-              <Text style={styles.eyebrow}>Blank Checklist</Text>
               <Text style={styles.heroTitle}>
-                Create a checklist from scratch
+                New Blank Checklist
               </Text>
               <Text style={styles.heroSubtitle}>
                 Give it a name, choose a category, then start adding your own
@@ -262,7 +261,9 @@ export default function NewBlankChecklistScreen() {
                           styles.dropdownCard,
                           {
                             borderColor: theme.colors.border,
-                            backgroundColor: theme.colors.cardStrong,
+                            backgroundColor: theme.isLight
+                              ? "rgba(255,255,255,0.72)"
+                              : "rgba(255,255,255,0.10)",
                           },
                         ]}
                       >
@@ -379,6 +380,7 @@ const styles = StyleSheet.create({
 
   heroSection: {
     marginBottom: 16,
+    alignItems: "flex-start",
   },
 
   eyebrow: {
@@ -397,6 +399,8 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     lineHeight: 30,
     marginBottom: 8,
+    textAlign: "left",
+    alignSelf: "flex-start",
   },
 
   heroSubtitle: {
