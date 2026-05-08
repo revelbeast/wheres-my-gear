@@ -429,9 +429,17 @@ export default function ProfileScreen() {
       return;
     }
 
-    await runWithLock(async () => {
-      const restoreVersion = restorePurchasesVersionRef.current + 1;
-      restorePurchasesVersionRef.current = restoreVersion;
+    Alert.alert(
+      "Restore Purchases?",
+      "This will check your Apple ID for an active Premium subscription and restore access if one is found. No new purchase will be made.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Restore Purchases",
+          onPress: () => {
+            void runWithLock(async () => {
+              const restoreVersion = restorePurchasesVersionRef.current + 1;
+              restorePurchasesVersionRef.current = restoreVersion;
 
       try {
         setIsRestoringPurchases(true);
@@ -481,7 +489,11 @@ export default function ProfileScreen() {
           setIsRestoringPurchases(false);
         }
       }
-    });
+            });
+          },
+        },
+      ]
+    );
   }
 
   async function handleDeleteAllData() {
@@ -765,7 +777,7 @@ export default function ProfileScreen() {
               onPress={
                 isPremium ? handleOpenSubscriptionDetails : handleOpenPaywall
               }
-              showChevron
+              showChevron={false}
               disabled={rowActionsDisabled}
             />
 
