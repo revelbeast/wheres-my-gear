@@ -243,10 +243,25 @@ export default function CompartmentsScreen() {
   useFocusEffect(
     useCallback(() => {
       isMountedRef.current = true;
+      actionLockRef.current = false;
+      navigationTransitionLockedRef.current = false;
+
+      if (navigationUnlockTimeoutRef.current) {
+        clearTimeout(navigationUnlockTimeoutRef.current);
+        navigationUnlockTimeoutRef.current = null;
+      }
+
       loadCompartments();
 
       return () => {
         loadRequestVersionRef.current += 1;
+        actionLockRef.current = false;
+        navigationTransitionLockedRef.current = false;
+
+        if (navigationUnlockTimeoutRef.current) {
+          clearTimeout(navigationUnlockTimeoutRef.current);
+          navigationUnlockTimeoutRef.current = null;
+        }
       };
     }, [loadCompartments])
   );
@@ -338,7 +353,7 @@ export default function CompartmentsScreen() {
 
     runNavigationAction(() => {
       router.push({
-        pathname: "/vehicles/[vehicleId]/compartments/[compartmentId]",
+        pathname: "/(tabs)/vehicles/[vehicleId]/compartments/[compartmentId]",
         params: {
           vehicleId,
           compartmentId,

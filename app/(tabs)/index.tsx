@@ -141,23 +141,13 @@ function FrostedCard({
   children: React.ReactNode;
   style?: any;
 }) {
-  const theme = useThemedValues();
-
   return (
-    <BlurView
-      intensity={theme.isLight ? 18 : 35}
-      tint={theme.isLight ? "light" : "dark"}
-      style={[
-        styles.frostedCard,
-        {
-          borderColor: theme.colors.border,
-          backgroundColor: theme.colors.card,
-        },
-        style,
-      ]}
+    <ThemedCard
+      style={[styles.frostedCard, style]}
+      contentStyle={styles.frostedCardContent}
     >
       {children}
-    </BlurView>
+    </ThemedCard>
   );
 }
 
@@ -2032,6 +2022,10 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderRadius: 14,
     borderWidth: 1,
+  },
+
+  frostedCardContent: {
+    padding: 0,
   },
 
   headerRow: {

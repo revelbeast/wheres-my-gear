@@ -351,6 +351,7 @@ export default function ProfileAddressScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
+    backgroundColor: "transparent",
   },
 
   flex: {

@@ -685,6 +685,7 @@ export default function ChecklistsTabScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
+    backgroundColor: "transparent",
   },
 
   content: {

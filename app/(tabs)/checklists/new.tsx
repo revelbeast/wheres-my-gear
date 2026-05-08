@@ -356,6 +356,7 @@ export default function NewBlankChecklistScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
+    backgroundColor: "transparent",
   },
 
   flex: {

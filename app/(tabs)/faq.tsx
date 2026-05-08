@@ -163,6 +163,7 @@ export default function FAQScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
+    backgroundColor: "transparent",
   },
 
   content: {

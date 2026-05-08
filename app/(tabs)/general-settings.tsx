@@ -297,6 +297,7 @@ export default function GeneralSettingsScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
+    backgroundColor: "transparent",
   },
 
   content: {

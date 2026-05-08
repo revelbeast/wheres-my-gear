@@ -805,6 +805,7 @@ export default function VehicleDetailScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
+    backgroundColor: "transparent",
   },
 
   keyboardWrap: {

@@ -403,6 +403,7 @@ export default function ChecklistItemsSummaryScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
+    backgroundColor: "transparent",
   },
 
   content: {

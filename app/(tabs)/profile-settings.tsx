@@ -944,6 +944,16 @@ export default function ProfileSettingsScreen() {
                       ? "Opening photo library..."
                       : "Edit your background"}
                   </ThemedText>
+
+                  <HapticPressable
+                    onPress={handleRemoveBackground}
+                    disabled={interactionBusy}
+                    style={interactionBusy && styles.disabledInteraction}
+                  >
+                    <ThemedText color="secondary" style={styles.backgroundResetText}>
+                      Reset Background to Default
+                    </ThemedText>
+                  </HapticPressable>
                 </View>
 
                 <View
@@ -1045,16 +1055,6 @@ export default function ProfileSettingsScreen() {
                       );
                     })}
                   </View>
-
-                  <HapticPressable
-                    onPress={handleRemoveBackground}
-                    disabled={interactionBusy}
-                    style={interactionBusy && styles.disabledInteraction}
-                  >
-                    <ThemedText color="secondary" style={styles.cancelText}>
-                      Remove Custom Background
-                    </ThemedText>
-                  </HapticPressable>
                 </>
               ) : null}
             </ThemedCard>
@@ -1329,6 +1329,13 @@ const styles = StyleSheet.create({
 
   backgroundSubtitle: {
     lineHeight: 18,
+  },
+
+  backgroundResetText: {
+    marginTop: 16,
+    fontSize: 12,
+    fontWeight: "700",
+    paddingVertical: 8,
   },
 
   backgroundIconCircle: {

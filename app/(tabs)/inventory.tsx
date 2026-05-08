@@ -920,6 +920,7 @@ export default function InventoryScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
+    backgroundColor: "transparent",
   },
 
   container: {
