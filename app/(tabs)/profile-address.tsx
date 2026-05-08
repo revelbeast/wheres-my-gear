@@ -266,16 +266,6 @@ export default function ProfileAddressScreen() {
               </ThemedCard>
             ) : (
               <>
-                <ThemedCard style={styles.heroCard}>
-                  <ThemedText variant="title" style={styles.heroTitle}>
-                    Address Information
-                  </ThemedText>
-                  <ThemedText color="secondary" style={styles.heroText}>
-                    Add or update your address details. This information is saved
-                    to your profile settings.
-                  </ThemedText>
-                </ThemedCard>
-
                 <ThemedCard>
                   <LabeledInput
                     label="Street Address"
