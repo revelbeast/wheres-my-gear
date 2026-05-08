@@ -30,6 +30,7 @@ import {
 } from "../../components/ui/Themed";
 import { db } from "../../firebaseConfig";
 import {
+  getCustomerInfo,
   hasActivePremiumEntitlement,
   isPremiumUser,
   restorePurchases,
@@ -271,6 +272,90 @@ export default function ProfileScreen() {
   function handleOpenPaywall() {
     runNavigationAction(() => {
       router.push("/paywall");
+    });
+  }
+
+  async function handleOpenSubscriptionDetails() {
+    if (interactionLocked) return;
+
+    await runWithLock(async () => {
+      try {
+        const customerInfo = await getCustomerInfo();
+        const premiumEntitlement = customerInfo?.entitlements.active.premium;
+
+        if (!premiumEntitlement) {
+          Alert.alert(
+            "Subscription Details",
+            "No active Premium subscription was found for this account."
+          );
+          return;
+        }
+
+        const periodType = premiumEntitlement.periodType?.toUpperCase?.() ?? "";
+        const isTrial = periodType === "TRIAL";
+        const productId = isTrial
+          ? "7-Day Free Trial"
+          : premiumEntitlement.productIdentifier || "Premium";
+        const isIntro = periodType === "INTRO";
+        const planStatus = isTrial
+          ? "Trial"
+          : isIntro
+            ? "Intro Offer"
+            : "Premium";
+
+        const latestPurchaseDate = premiumEntitlement.latestPurchaseDate
+          ? new Date(premiumEntitlement.latestPurchaseDate).toLocaleDateString()
+          : "Not available";
+        const originalPurchaseDate = premiumEntitlement.originalPurchaseDate
+          ? new Date(premiumEntitlement.originalPurchaseDate).toLocaleDateString()
+          : "Not available";
+        const expirationDate = premiumEntitlement.expirationDate
+          ? new Date(premiumEntitlement.expirationDate).toLocaleDateString()
+          : "Lifetime access";
+
+        const daysRemaining =
+          premiumEntitlement.expirationDateMillis !== null
+            ? Math.max(
+                0,
+                Math.ceil(
+                  (premiumEntitlement.expirationDateMillis - Date.now()) /
+                    (1000 * 60 * 60 * 24)
+                )
+              )
+            : null;
+
+        const daysRemainingText =
+          daysRemaining === null
+            ? "No expiration"
+            : `${daysRemaining} day${daysRemaining === 1 ? "" : "s"} left`;
+
+        const startLabel = isTrial ? "Trial Started" : "Premium Started";
+        const renewalText = isTrial
+          ? `Trial Ends: ${expirationDate}`
+          : premiumEntitlement.willRenew
+            ? `Renews: ${expirationDate}`
+            : `Expires: ${expirationDate}`;
+
+        Alert.alert(
+          "Premium Subscription",
+          `Type: ${planStatus}\nPlan: ${productId}\n${startLabel}: ${originalPurchaseDate}\nLatest Purchase/Renewal: ${latestPurchaseDate}\n${renewalText}\nTime Remaining: ${daysRemainingText}\nAuto-renew: ${premiumEntitlement.willRenew ? "On" : "Off"}\n\nUse Manage to view, update, or cancel your Apple subscription.`,
+          [
+            {
+              text: "Manage",
+              onPress: () => {
+                void Linking.openURL("https://apps.apple.com/account/subscriptions");
+              },
+            },
+            { text: "OK", style: "cancel" },
+          ]
+        );
+      } catch (err) {
+        console.error("Failed to load subscription details:", err);
+        Alert.alert(
+          "Subscription Details Unavailable",
+          "Unable to load subscription details right now. Please try again."
+        );
+      }
     });
   }
 
@@ -636,9 +721,11 @@ export default function ProfileScreen() {
                   ? "Your Premium subscription is active"
                   : "Remove ads and unlock premium features"
               }
-              onPress={isPremium ? undefined : handleOpenPaywall}
-              showChevron={!isPremium}
-              disabled={!isPremium && rowActionsDisabled}
+              onPress={
+                isPremium ? handleOpenSubscriptionDetails : handleOpenPaywall
+              }
+              showChevron
+              disabled={rowActionsDisabled}
             />
 
             <View
