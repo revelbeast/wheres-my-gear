@@ -182,7 +182,6 @@ async function optimizeImageForUpload(localUri: string, kind: ImagePickerKind) {
       ? {
           resize: {
             width: PROFILE_IMAGE_MAX_DIMENSION,
-            height: PROFILE_IMAGE_MAX_DIMENSION,
           },
         }
       : {
@@ -292,6 +291,7 @@ export default function ProfileSettingsScreen() {
   const [backgroundPreviewUri, setBackgroundPreviewUri] = useState<
     string | null
   >(null);
+  const [showBackgroundOptions, setShowBackgroundOptions] = useState(false);
   const [, setActionLockRevision] = useState(0);
 
   const userId = user?.uid ?? "";
@@ -424,6 +424,7 @@ export default function ProfileSettingsScreen() {
           return;
         }
 
+        setShowBackgroundOptions(false);
         Alert.alert("Saved", "Your profile has been updated.");
       } catch (err) {
         console.error("Failed to save profile settings:", err);
@@ -457,7 +458,8 @@ export default function ProfileSettingsScreen() {
         const result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ["images"],
           allowsEditing: true,
-          quality: 0.8,
+          aspect: [1, 1],
+          quality: 0.9,
         });
 
         if (!isMountedRef.current || result.canceled) {
@@ -564,6 +566,7 @@ export default function ProfileSettingsScreen() {
 
         setProfile(nextProfile);
         setBackgroundPreviewUri(null);
+        setShowBackgroundOptions(true);
 
         await saveProfileSettings(activeUserId, nextProfile);
 
@@ -619,6 +622,7 @@ export default function ProfileSettingsScreen() {
         if (!isMountedRef.current) return;
 
         setBackgroundPreviewUri(null);
+        setShowBackgroundOptions(false);
 
         const nextProfile = {
           ...activeProfile,
@@ -755,7 +759,7 @@ export default function ProfileSettingsScreen() {
         <SafeAreaView style={styles.safe}>
           <View style={styles.container}>
             <AppHeader
-              title="Profile Settings"
+              title="My Account"
               showBackButton
               backHref="/(tabs)/profile"
             />
@@ -786,50 +790,144 @@ export default function ProfileSettingsScreen() {
             showsVerticalScrollIndicator={false}
           >
             <AppHeader
-              title="Profile Settings"
+              title="My Account"
               showBackButton
               backHref="/(tabs)/profile"
             />
 
-            <ThemedCard
-              style={styles.heroCard}
-              contentStyle={styles.heroCardContent}
+            <View style={styles.heroSection}>
+              <HapticPressable
+                onPress={handlePickProfilePhoto}
+                disabled={interactionBusy}
+                style={[
+                  styles.heroPhotoButton,
+                  interactionBusy && styles.disabledInteraction,
+                ]}
+              >
+                {profile.profilePhotoUri ? (
+                  <Image
+                    key={profile.profilePhotoUri}
+                    source={{ uri: profile.profilePhotoUri }}
+                    style={styles.heroPhoto}
+                  />
+                ) : (
+                  <View
+                    style={[
+                      styles.heroPhotoFallback,
+                      { backgroundColor: theme.colors.iconSurface },
+                    ]}
+                  >
+                    <UserCircle2 size={54} color={theme.colors.text} />
+                  </View>
+                )}
+
+                <View
+                  style={[
+                    styles.cameraBadge,
+                    {
+                      backgroundColor: theme.colors.primary,
+                      borderColor: theme.colors.card,
+                    },
+                  ]}
+                >
+                  <ImagePlus size={22} color="#FFFFFF" />
+                </View>
+              </HapticPressable>
+
+              <ThemedText variant="header" style={styles.heroTitle}>
+                {displayName}
+              </ThemedText>
+
+              <View
+                style={[
+                  styles.phonePill,
+                  {
+                    backgroundColor: theme.isLight
+                      ? "rgba(219,234,254,0.92)"
+                      : "rgba(15,23,42,0.58)",
+                    borderColor: theme.colors.primary,
+                  },
+                ]}
+              >
+                <ThemedText style={styles.heroPhoneText}>
+                  {profile.phoneNumber || "Add your phone number below"}
+                </ThemedText>
+              </View>
+
+              {user?.email ? (
+                <View
+                  style={[
+                    styles.emailPill,
+                    {
+                      backgroundColor: theme.isLight
+                        ? "rgba(255,255,255,0.78)"
+                        : "rgba(15,23,42,0.50)",
+                      borderColor: theme.colors.border,
+                    },
+                  ]}
+                >
+                  <ThemedText style={styles.emailText}>
+                    {user.email}
+                  </ThemedText>
+                </View>
+              ) : null}
+            </View>
+
+            <HapticPressable
+              onPress={handlePickBackgroundPhoto}
+              disabled={interactionBusy}
+              style={[
+                styles.backgroundPhotoCard,
+                {
+                  backgroundColor: theme.colors.card,
+                  borderColor: theme.isLight
+                    ? "rgba(148,163,184,0.62)"
+                    : "rgba(226,232,240,0.34)",
+                },
+                interactionBusy && styles.disabledInteraction,
+              ]}
             >
-              <View style={styles.heroRow}>
-                <View style={styles.heroPhotoWrap}>
-                  {profile.profilePhotoUri ? (
+              <View style={styles.backgroundPhotoRow}>
+                <View style={styles.backgroundThumbWrap}>
+                  {activeBackgroundUri ? (
                     <Image
-                      key={profile.profilePhotoUri}
-                      source={{ uri: profile.profilePhotoUri }}
-                      style={styles.heroPhoto}
+                      key={activeBackgroundUri}
+                      source={{ uri: activeBackgroundUri }}
+                      style={styles.backgroundThumb}
                     />
                   ) : (
                     <View
                       style={[
-                        styles.heroPhotoFallback,
-                        { backgroundColor: theme.colors.iconSurface },
+                        styles.backgroundThumbFallback,
+                        { backgroundColor: theme.colors.inputSurface },
                       ]}
                     >
-                      <UserCircle2 size={34} color={theme.colors.text} />
+                      <ImagePlus size={22} color={theme.colors.text} />
                     </View>
                   )}
                 </View>
 
-                <View style={styles.heroTextWrap}>
-                  <ThemedText
-                    variant="title"
-                    color="blue"
-                    style={styles.heroTitle}
-                  >
-                    {displayName}
+                <View style={styles.backgroundTextWrap}>
+                  <ThemedText variant="bodyStrong" style={styles.backgroundTitle}>
+                    Background Photo
                   </ThemedText>
-
-                  <ThemedText color="secondary" style={styles.heroSubtitle}>
-                    {user?.email ?? "Account basics only for now"}
+                  <ThemedText color="secondary" style={styles.backgroundSubtitle}>
+                    {pickingBackgroundPhoto
+                      ? "Opening photo library..."
+                      : "Edit your background"}
                   </ThemedText>
                 </View>
+
+                <View
+                  style={[
+                    styles.backgroundIconCircle,
+                    { backgroundColor: theme.colors.iconSurface },
+                  ]}
+                >
+                  <ImagePlus size={20} color={theme.colors.text} />
+                </View>
               </View>
-            </ThemedCard>
+            </HapticPressable>
 
             <ThemedCard
               style={styles.formCard}
@@ -856,16 +954,6 @@ export default function ProfileSettingsScreen() {
               />
 
               <LabeledInput
-                label="Email"
-                value={profile.email}
-                onChangeText={(t) => updateField("email", t)}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                editable={!interactionBusy}
-                onFocus={() => scrollToFocusedInput(190)}
-              />
-
-              <LabeledInput
                 label="Phone"
                 value={profile.phoneNumber}
                 onChangeText={(t) =>
@@ -873,155 +961,114 @@ export default function ProfileSettingsScreen() {
                 }
                 keyboardType="phone-pad"
                 editable={!interactionBusy}
-                onFocus={() => scrollToFocusedInput(240)}
+                onFocus={() => scrollToFocusedInput(190)}
               />
 
-              <View
-                style={[
-                  styles.photoCard,
-                  {
-                    backgroundColor: theme.colors.iconSurface,
-                    borderColor: theme.colors.border,
-                  },
-                ]}
-              >
-                <View style={styles.photoHeader}>
-                  <ImagePlus size={18} color={theme.colors.text} />
-                  <ThemedText variant="bodyStrong">Profile Photo</ThemedText>
-                </View>
+              {showBackgroundOptions &&
+              (profile.backgroundPhotoUri || backgroundPreviewUri) ? (
+                <>
+                  <View style={styles.fitSection}>
+                    <ThemedText variant="small" style={styles.fitTitle}>
+                      Background Fit
+                    </ThemedText>
 
-                <ThemedText color="secondary" style={styles.photoText}>
-                  Select a photo from your device library.
-                </ThemedText>
+                    {BACKGROUND_FIT_OPTIONS.map((option) => {
+                      const isSelected =
+                        profile.backgroundResizeMode === option.value;
 
-                <ThemedButton
-                  onPress={handlePickProfilePhoto}
-                  disabled={interactionBusy}
-                  style={styles.photoButton}
-                >
-                  <ThemedText style={styles.buttonText}>
-                    {pickingProfilePhoto ? "Opening..." : "Choose Photo"}
-                  </ThemedText>
-                </ThemedButton>
-              </View>
+                      return (
+                        <HapticPressable
+                          key={option.value}
+                          onPress={() => handleSelectBackgroundFit(option.value)}
+                          disabled={interactionBusy}
+                          style={[
+                            styles.fitOption,
+                            {
+                              borderColor: isSelected
+                                ? theme.colors.primary
+                                : theme.colors.border,
+                              backgroundColor: isSelected
+                                ? theme.colors.card
+                                : theme.colors.inputSurface,
+                            },
+                            interactionBusy && styles.disabledInteraction,
+                          ]}
+                        >
+                          <View style={styles.fitOptionTextWrap}>
+                            <ThemedText
+                              variant="bodyStrong"
+                              style={styles.fitOptionLabel}
+                            >
+                              {option.label}
+                            </ThemedText>
 
-              <View
-                style={[
-                  styles.photoCard,
-                  {
-                    backgroundColor: theme.colors.iconSurface,
-                    borderColor: theme.colors.border,
-                  },
-                ]}
-              >
-                <View style={styles.photoHeader}>
-                  <ImagePlus size={18} color={theme.colors.text} />
-                  <ThemedText variant="bodyStrong">App Background</ThemedText>
-                </View>
+                            <ThemedText
+                              color="secondary"
+                              style={styles.fitOptionDescription}
+                            >
+                              {option.description}
+                            </ThemedText>
+                          </View>
 
-                <ThemedText color="secondary" style={styles.photoText}>
-                  Customize the background across the entire app.
-                </ThemedText>
+                          {isSelected ? (
+                            <Check size={18} color={theme.colors.primary} />
+                          ) : null}
+                        </HapticPressable>
+                      );
+                    })}
+                  </View>
 
-                <ThemedButton
-                  onPress={handlePickBackgroundPhoto}
-                  disabled={interactionBusy}
-                  style={styles.photoButton}
-                >
-                  <ThemedText style={styles.buttonText}>
-                    {pickingBackgroundPhoto
-                      ? "Opening..."
-                      : "Choose Background"}
-                  </ThemedText>
-                </ThemedButton>
-
-                {profile.backgroundPhotoUri || backgroundPreviewUri ? (
-                  <>
-                    <View style={styles.fitSection}>
-                      <ThemedText variant="small" style={styles.fitTitle}>
-                        Background Fit
-                      </ThemedText>
-
-                      {BACKGROUND_FIT_OPTIONS.map((option) => {
-                        const isSelected =
-                          profile.backgroundResizeMode === option.value;
-
-                        return (
-                          <HapticPressable
-                            key={option.value}
-                            onPress={() =>
-                              handleSelectBackgroundFit(option.value)
-                            }
-                            disabled={interactionBusy}
-                            style={[
-                              styles.fitOption,
-                              {
-                                borderColor: isSelected
-                                  ? theme.colors.primary
-                                  : theme.colors.border,
-                                backgroundColor: isSelected
-                                  ? theme.colors.card
-                                  : theme.colors.inputSurface,
-                              },
-                              interactionBusy && styles.disabledInteraction,
-                            ]}
-                          >
-                            <View style={styles.fitOptionTextWrap}>
-                              <ThemedText
-                                variant="bodyStrong"
-                                style={styles.fitOptionLabel}
-                              >
-                                {option.label}
-                              </ThemedText>
-
-                              <ThemedText
-                                color="secondary"
-                                style={styles.fitOptionDescription}
-                              >
-                                {option.description}
-                              </ThemedText>
-                            </View>
-
-                            {isSelected ? (
-                              <Check size={18} color={theme.colors.primary} />
-                            ) : null}
-                          </HapticPressable>
-                        );
-                      })}
-                    </View>
-
-                    <HapticPressable
-                      onPress={handleRemoveBackground}
-                      disabled={interactionBusy}
-                      style={interactionBusy && styles.disabledInteraction}
-                    >
-                      <ThemedText color="secondary" style={styles.cancelText}>
-                        Remove Custom Background
-                      </ThemedText>
-                    </HapticPressable>
-                  </>
-                ) : null}
-              </View>
+                  <HapticPressable
+                    onPress={handleRemoveBackground}
+                    disabled={interactionBusy}
+                    style={interactionBusy && styles.disabledInteraction}
+                  >
+                    <ThemedText color="secondary" style={styles.cancelText}>
+                      Remove Custom Background
+                    </ThemedText>
+                  </HapticPressable>
+                </>
+              ) : null}
             </ThemedCard>
 
-            <ThemedButton onPress={handleSave} disabled={interactionBusy}>
-              <Check size={18} color="#fff" />
-              <ThemedText style={styles.buttonText}>
-                {saving ? "Saving..." : "Save Profile"}
-              </ThemedText>
-            </ThemedButton>
-
-            <ThemedButton
-              destructive
-              onPress={handleSignOut}
-              disabled={interactionBusy}
-              style={styles.signOutButton}
+            <ThemedCard
+              style={styles.actionsCard}
+              contentStyle={styles.actionsCardContent}
             >
-              <LogOut size={18} color="#fff" />
-              <ThemedText style={styles.buttonText}>
-                {signingOut ? "Signing Out..." : "Sign Out"}
-              </ThemedText>
-            </ThemedButton>
+              <ThemedButton
+                onPress={handleSave}
+                disabled={interactionBusy}
+                style={styles.saveButton}
+              >
+                <Check size={18} color="#FFFFFF" />
+                <ThemedText style={styles.buttonText}>
+                  {saving ? "Saving..." : "Save Changes"}
+                </ThemedText>
+              </ThemedButton>
+
+              <HapticPressable
+                onPress={handleSignOut}
+                disabled={interactionBusy}
+                style={[
+                  styles.secondarySignOutButton,
+                  {
+                    borderColor: theme.colors.primary,
+                    backgroundColor: "rgba(15,23,42,0.28)",
+                  },
+                  interactionBusy && styles.disabledInteraction,
+                ]}
+              >
+                <LogOut size={18} color={theme.colors.primary} />
+                <ThemedText
+                  style={[
+                    styles.secondarySignOutText,
+                    { color: theme.colors.primary },
+                  ]}
+                >
+                  {signingOut ? "Signing Out..." : "Sign Out"}
+                </ThemedText>
+              </HapticPressable>
+            </ThemedCard>
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -1043,48 +1090,152 @@ const styles = StyleSheet.create({
     paddingBottom: 220,
   },
 
-  heroCard: {
-    marginBottom: 16,
-  },
-
-  heroCardContent: {
-    padding: 14,
-  },
-
-  heroRow: {
-    flexDirection: "row",
+  heroSection: {
     alignItems: "center",
-    minHeight: 58,
+    marginBottom: 22,
+    paddingTop: 4,
   },
 
-  heroPhotoWrap: {
-    marginRight: 12,
+  heroPhotoButton: {
+    width: 136,
+    height: 136,
+    borderRadius: 68,
+    marginBottom: 18,
   },
 
   heroPhoto: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
+    width: 136,
+    height: 136,
+    borderRadius: 68,
+    borderWidth: 2,
+    borderColor: "rgba(191,219,254,0.88)",
+    resizeMode: "cover",
   },
 
   heroPhotoFallback: {
+    width: 136,
+    height: 136,
+    borderRadius: 68,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "rgba(191,219,254,0.88)",
+  },
+
+  cameraBadge: {
+    position: "absolute",
+    right: -2,
+    bottom: 4,
     width: 52,
     height: 52,
-    borderRadius: 16,
+    borderRadius: 26,
+    borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
   },
 
-  heroTextWrap: {
+  heroTitle: {
+    color: "#FFFFFF",
+    fontWeight: "900",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+
+  phonePill: {
+    minHeight: 38,
+    borderRadius: 19,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+
+  heroPhoneText: {
+    color: "#2F80FF",
+    fontWeight: "900",
+    textAlign: "center",
+    letterSpacing: 0.2,
+  },
+
+  emailPill: {
+    minHeight: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  emailText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+    textAlign: "center",
+  },
+
+  backgroundPhotoCard: {
+    minHeight: 96,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+  },
+
+  backgroundPhotoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  backgroundThumbWrap: {
+    width: 58,
+    height: 58,
+    borderRadius: 14,
+    overflow: "hidden",
+    marginRight: 14,
+  },
+
+  backgroundThumb: {
+    width: 58,
+    height: 58,
+    borderRadius: 14,
+  },
+
+  backgroundThumbFallback: {
+    width: 58,
+    height: 58,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  backgroundTextWrap: {
     flex: 1,
   },
 
-  heroTitle: {
+  backgroundTitle: {
+    color: "#FFFFFF",
     fontWeight: "800",
+    marginBottom: 4,
   },
 
-  heroSubtitle: {
-    marginTop: 2,
+  backgroundSubtitle: {
+    lineHeight: 18,
+  },
+
+  backgroundIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 10,
   },
 
   formCard: {
@@ -1172,9 +1323,33 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
 
-  signOutButton: {
-    marginTop: 12,
+  actionsCard: {
     marginBottom: 16,
+  },
+
+  actionsCardContent: {
+    padding: 14,
+    gap: 12,
+  },
+
+  saveButton: {
+    minHeight: 56,
+    borderRadius: 18,
+    backgroundColor: "#2F80FF",
+  },
+
+  secondarySignOutButton: {
+    minHeight: 56,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 10,
+  },
+
+  secondarySignOutText: {
+    fontWeight: "800",
   },
 
   buttonText: {
