@@ -26,9 +26,11 @@ import {
   StorageSpace,
 } from "../../../lib/gearService";
 import { useInteractionLock } from "../../../lib/useInteractionLock";
-import { colors } from "../../../theme/tokens";
+import { useTheme } from "../../../lib/useTheme";
+
 
 export default function StorageManagementScreen() {
+  const theme = useTheme();
   const {
     isLocked: interactionLocked,
     lock: lockInteraction,
@@ -259,7 +261,7 @@ export default function StorageManagementScreen() {
         onPress={() => handleConfirmDeleteStorage(space)}
         disabled={disabled}
       >
-        <Trash2 size={20} color={colors.text} />
+        <Trash2 size={20} color={"#FFFFFF"} />
         <Text style={styles.deleteActionText}>
           {isDeleting ? "Deleting" : "Delete"}
         </Text>
@@ -304,11 +306,11 @@ export default function StorageManagementScreen() {
                 hitSlop={8}
                 disabled={interactionDisabled}
               >
-                <Pencil size={16} color={colors.textSecondary} />
+                <Pencil size={16} color={"#94A3B8"} />
               </HapticPressable>
 
               <View style={styles.chevronWrap}>
-                <ChevronRight size={18} color={colors.textSecondary} />
+                <ChevronRight size={18} color={"#94A3B8"} />
               </View>
             </View>
           </HapticPressable>
@@ -327,7 +329,7 @@ export default function StorageManagementScreen() {
               style={[styles.backButton, isBusy() && styles.disabledInteraction]}
               disabled={isBusy()}
             >
-              <ChevronLeft size={24} color={colors.text} />
+              <ChevronLeft size={24} color={"#FFFFFF"} />
             </HapticPressable>
 
             <View style={styles.headerTextWrap}>
@@ -340,7 +342,7 @@ export default function StorageManagementScreen() {
               disabled={isBusy()}
             >
               <BlurView intensity={20} tint="dark" style={styles.addButtonInner}>
-                <Plus size={18} color={colors.text} />
+                <Plus size={18} color={"#FFFFFF"} />
               </BlurView>
             </HapticPressable>
           </View>
@@ -404,7 +406,7 @@ const styles = StyleSheet.create({
   },
 
   headerTitle: {
-    color: colors.text,
+    color: "#FFFFFF",
     fontSize: 20,
     fontWeight: "700",
     textAlign: "center",
@@ -426,7 +428,7 @@ const styles = StyleSheet.create({
   },
 
   headerSubtitle: {
-    color: colors.textSecondary,
+    color: "#94A3B8",
     fontSize: 13,
     marginBottom: 14,
   },
@@ -457,13 +459,13 @@ const styles = StyleSheet.create({
   },
 
   storageTitle: {
-    color: colors.text,
+    color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "700",
   },
 
   storageMeta: {
-    color: colors.textSecondary,
+    color: "#94A3B8",
     fontSize: 12,
   },
 
@@ -494,11 +496,11 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.danger,
+    backgroundColor: "#EF4444",
   },
 
   deleteActionText: {
-    color: colors.text,
+    color: "#FFFFFF",
     fontSize: 12,
     fontWeight: "700",
   },
@@ -510,13 +512,13 @@ const styles = StyleSheet.create({
   },
 
   emptyTitle: {
-    color: colors.text,
+    color: "#FFFFFF",
     fontSize: 15,
     fontWeight: "700",
   },
 
   emptyText: {
-    color: colors.textSecondary,
+    color: "#94A3B8",
     fontSize: 13,
   },
 
