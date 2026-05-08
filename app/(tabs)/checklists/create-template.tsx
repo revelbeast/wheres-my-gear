@@ -1,3 +1,4 @@
+import * as ImagePicker from "expo-image-picker";
 import { BlurView } from "expo-blur";
 import { router } from "expo-router";
 import {
@@ -20,9 +21,10 @@ import {
   Fish,
   Crosshair,
 } from "lucide-react-native";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   Alert,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -50,6 +52,7 @@ type EditableTemplateItem = {
   name: string;
   quantity: number;
   packed: boolean;
+  itemPhotoUri?: string;
 };
 
 const CATEGORY_OPTIONS: {
@@ -311,6 +314,7 @@ function createEditableItems(
     name: item.name,
     quantity: Math.max(1, Number(item.quantity ?? 1)),
     packed: Boolean(item.packed ?? false),
+    itemPhotoUri: "",
   }));
 }
 
@@ -357,6 +361,7 @@ export default function CreateTemplateScreen() {
     { id: "1", name: "", quantity: 1, packed: false },
   ]);
   const [saving, setSaving] = useState(false);
+  const itemInputRefs = useRef<Record<string, TextInput | null>>({});
 
   const selectedCategoryLabel =
     CATEGORY_OPTIONS.find((option) => option.key === category)?.label ??
@@ -365,7 +370,13 @@ export default function CreateTemplateScreen() {
   function addItem() {
     setItems((prev) => [
       ...prev,
-      { id: Date.now().toString(), name: "", quantity: 1, packed: false },
+      {
+        id: Date.now().toString(),
+        name: "",
+        quantity: 1,
+        packed: false,
+        itemPhotoUri: "",
+      },
     ]);
   }
 
@@ -396,11 +407,115 @@ export default function CreateTemplateScreen() {
   function removeItem(id: string) {
     setItems((prev) => {
       if (prev.length === 1) {
-        return [{ id: "1", name: "", quantity: 1, packed: false }];
+        return [
+          { id: "1", name: "", quantity: 1, packed: false, itemPhotoUri: "" },
+        ];
       }
 
       return prev.filter((item) => item.id !== id);
     });
+  }
+
+  function updateItemPhoto(id: string, itemPhotoUri: string) {
+    setItems((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, itemPhotoUri: itemPhotoUri ?? "" } : item
+      )
+    );
+  }
+
+  function focusItemName(id: string) {
+    itemInputRefs.current[id]?.focus();
+  }
+
+  function handleItemPhotoAction(item: EditableTemplateItem) {
+    Alert.alert("Item Photo", item.name.trim() || "Checklist item", [
+      {
+        text: "Take Photo",
+        onPress: () => void handleTakeItemPhoto(item),
+      },
+      {
+        text: "Choose Photo",
+        onPress: () => void handlePickItemPhoto(item),
+      },
+      ...(item.itemPhotoUri
+        ? [
+            {
+              text: "Remove Photo",
+              style: "destructive" as const,
+              onPress: () => updateItemPhoto(item.id, ""),
+            },
+          ]
+        : []),
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+    ]);
+  }
+
+  async function handleTakeItemPhoto(item: EditableTemplateItem) {
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+
+      if (!permission.granted) {
+        Alert.alert("Camera access needed", "Please allow camera access first.");
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (result.canceled) return;
+
+      const asset = result.assets?.[0];
+
+      if (!asset?.uri) {
+        Alert.alert("Photo not captured", "No valid image was returned.");
+        return;
+      }
+
+      updateItemPhoto(item.id, asset.uri);
+    } catch (err: any) {
+      const message = String(err?.message ?? err ?? "");
+
+      if (message.toLowerCase().includes("camera not available on simulator")) {
+        Alert.alert(
+          "Simulator Limitation",
+          "Take Photo is not available on the iPhone Simulator. Use Choose Photo here, or test Take Photo on a real iPhone."
+        );
+      } else {
+        console.error("Failed to take template item photo:", err);
+        Alert.alert("Error", "Failed to save item photo.");
+      }
+    }
+  }
+
+  async function handlePickItemPhoto(item: EditableTemplateItem) {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (result.canceled) return;
+
+      const asset = result.assets?.[0];
+
+      if (!asset?.uri) {
+        Alert.alert("Photo not selected", "No valid image was returned.");
+        return;
+      }
+
+      updateItemPhoto(item.id, asset.uri);
+    } catch (err) {
+      console.error("Failed to choose template item photo:", err);
+      Alert.alert("Error", "Failed to save item photo.");
+    }
   }
 
   function handleSelectCategory(nextCategory: ChecklistCategory) {
@@ -491,6 +606,7 @@ export default function CreateTemplateScreen() {
         name: item.name.trim(),
         quantity: Math.max(1, Number(item.quantity ?? 1)),
         packed: Boolean(item.packed ?? false),
+        itemPhotoUri: item.itemPhotoUri ?? "",
       }))
       .filter((item) => item.name.length > 0);
 
@@ -700,41 +816,76 @@ export default function CreateTemplateScreen() {
 
               {categoryModalVisible ? (
                 <BlurView
-                  intensity={theme.isLight ? 22 : 35}
+                  intensity={theme.isLight ? 35 : 48}
                   tint={theme.isLight ? "light" : "dark"}
                   style={[
                     styles.inlineDropdown,
                     {
                       borderColor: theme.colors.border,
-                      backgroundColor: theme.colors.cardStrong,
+                      backgroundColor: theme.isLight
+                        ? "rgba(255,255,255,0.52)"
+                        : "rgba(255,255,255,0.08)",
                     },
                   ]}
                 >
-                  {CATEGORY_OPTIONS.map((option) => {
-                    const selected = category === option.key;
+                  <ScrollView
+                    key={`category-dropdown-${categoryModalVisible}`}
+                    nestedScrollEnabled
+                    showsVerticalScrollIndicator={false}
+                    style={styles.inlineDropdownScroll}
+                    contentContainerStyle={styles.inlineDropdownScrollContent}
+                    keyboardShouldPersistTaps="handled"
+                  >
+                    {CATEGORY_OPTIONS.map((option, index) => {
+                      const selected = category === option.key;
 
-                    return (
-                      <HapticPressable
-                        key={option.key}
-                        style={[
-                          styles.inlineDropdownOption,
-                          selected ? styles.inlineDropdownOptionSelected : {},
-                        ]}
-                        onPress={() => handleSelectCategory(option.key)}
-                      >
-                        <ThemedText
+                      return (
+                        <HapticPressable
+                          key={option.key}
                           style={[
-                            styles.inlineDropdownOptionText,
-                            selected
-                              ? styles.inlineDropdownOptionTextSelected
-                              : {},
+                            styles.inlineDropdownOption,
+                            selected ? styles.inlineDropdownOptionSelected : {},
                           ]}
+                          onPress={() => handleSelectCategory(option.key)}
                         >
-                          {option.label}
-                        </ThemedText>
-                      </HapticPressable>
-                    );
-                  })}
+                          <View
+                            style={[
+                              styles.inlineDropdownIconWrap,
+                              {
+                                backgroundColor: theme.isLight
+                                  ? "rgba(255,255,255,0.48)"
+                                  : "rgba(255,255,255,0.10)",
+                                borderColor: theme.colors.border,
+                              },
+                            ]}
+                          >
+                            {renderStarterTemplateIcon(
+                              option.key,
+                              theme.colors.textSecondary
+                            )}
+                          </View>
+
+                          <View style={styles.inlineDropdownTextWrap}>
+                            <ThemedText style={styles.inlineDropdownOptionText}>
+                              {option.label}
+                            </ThemedText>
+                            <ThemedText
+                              color="secondary"
+                              style={styles.starterItemCount}
+                            >
+                              Checklist category
+                            </ThemedText>
+                          </View>
+
+                          {selected ? (
+                            <View style={styles.inlineDropdownCheck}>
+                              <Check size={18} color="#fff" />
+                            </View>
+                          ) : null}
+                        </HapticPressable>
+                      );
+                    })}
+                  </ScrollView>
                 </BlurView>
               ) : null}
 
@@ -803,30 +954,48 @@ export default function CreateTemplateScreen() {
                     ]}
                   >
                     <View style={styles.itemContentRow}>
-                      <View
-                        style={[
-                          styles.itemPhotoPlaceholder,
-                          {
-                            backgroundColor: theme.colors.iconSurface,
-                            borderColor: theme.colors.border,
-                          },
-                        ]}
+                      <HapticPressable
+                        style={styles.itemPhotoWrap}
+                        onPress={() => handleItemPhotoAction(item)}
                       >
-                        <Camera size={18} color={theme.colors.textSecondary} />
-                        <ThemedText
-                          style={[
-                            styles.itemPhotoPlaceholderText,
-                            { color: theme.colors.textSecondary },
-                          ]}
-                        >
-                          Photo
-                        </ThemedText>
-                      </View>
+                        {item.itemPhotoUri ? (
+                          <Image
+                            source={{ uri: item.itemPhotoUri }}
+                            style={styles.itemPhoto}
+                          />
+                        ) : (
+                          <View
+                            style={[
+                              styles.itemPhotoPlaceholder,
+                              {
+                                backgroundColor: theme.colors.iconSurface,
+                                borderColor: theme.colors.border,
+                              },
+                            ]}
+                          >
+                            <Camera
+                              size={18}
+                              color={theme.colors.textSecondary}
+                            />
+                            <ThemedText
+                              style={[
+                                styles.itemPhotoPlaceholderText,
+                                { color: theme.colors.textSecondary },
+                              ]}
+                            >
+                              Photo
+                            </ThemedText>
+                          </View>
+                        )}
+                      </HapticPressable>
 
                       <View style={styles.itemMainContent}>
                         <View style={styles.itemTopRow}>
                           <View style={styles.itemTitleWrap}>
                             <TextInput
+                              ref={(ref) => {
+                                itemInputRefs.current[item.id] = ref;
+                              }}
                               value={item.name}
                               onChangeText={(text) => updateItem(item.id, text)}
                               placeholder={`Item ${index + 1}`}
@@ -867,6 +1036,7 @@ export default function CreateTemplateScreen() {
                                   borderColor: theme.colors.border,
                                 },
                               ]}
+                              onPress={() => handleItemPhotoAction(item)}
                             >
                               <Camera
                                 size={16}
@@ -882,6 +1052,7 @@ export default function CreateTemplateScreen() {
                                   borderColor: theme.colors.border,
                                 },
                               ]}
+                              onPress={() => focusItemName(item.id)}
                             >
                               <Edit3
                                 size={16}
@@ -1156,17 +1327,17 @@ const styles = StyleSheet.create({
   },
 
   inlineDropdown: {
-    borderWidth: 1,
-    borderRadius: 18,
-    padding: 8,
     marginTop: 8,
     marginBottom: 14,
+    maxHeight: 300,
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 8,
     overflow: "hidden",
-    maxHeight: 430,
   },
 
   inlineDropdownScroll: {
-    maxHeight: 414,
+    maxHeight: 284,
   },
 
   inlineDropdownScrollContent: {
@@ -1219,7 +1390,7 @@ const styles = StyleSheet.create({
   },
 
   inlineDropdownOptionTextSelected: {
-    color: "#fff",
+    color: "rgb(59,130,246)",
   },
 
   starterButton: {
@@ -1278,6 +1449,20 @@ const styles = StyleSheet.create({
   itemContentRow: {
     flexDirection: "row",
     alignItems: "flex-start",
+  },
+
+  itemPhotoWrap: {
+    width: 82,
+    height: 82,
+    borderRadius: 14,
+    marginRight: 14,
+    overflow: "hidden",
+  },
+
+  itemPhoto: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 14,
   },
 
   itemPhotoPlaceholder: {

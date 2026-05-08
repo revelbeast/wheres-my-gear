@@ -256,6 +256,7 @@ export async function createChecklistTemplateWithItems(
       notes?: string;
       quantity?: number;
       packed?: boolean;
+      itemPhotoUri?: string;
     }[];
   }
 ) {
@@ -277,6 +278,7 @@ export async function createChecklistTemplateWithItems(
       notes: item.notes ?? "",
       quantity: Math.max(1, Number(item.quantity ?? 1) || 1),
       packed: Boolean(item.packed ?? false),
+      itemPhotoUri: item.itemPhotoUri ?? "",
     }))
     .filter((item) => item.name.length > 0);
 
@@ -307,7 +309,7 @@ export async function createChecklistTemplateWithItems(
       quantity: item.quantity,
       packed: item.packed,
       sortOrder: index + 1,
-      itemPhotoUri: "",
+      itemPhotoUri: item.itemPhotoUri,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
