@@ -1523,12 +1523,13 @@ const styles = StyleSheet.create({
   packedToggleButton: {
     borderRadius: 12,
     paddingVertical: 9,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
-    gap: 6,
+    gap: 5,
     borderWidth: 1,
+    flexShrink: 1,
   },
 
   packedToggleButtonPacked: {
