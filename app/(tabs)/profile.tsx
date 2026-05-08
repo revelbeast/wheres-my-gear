@@ -7,7 +7,6 @@ import {
   FileText,
   Info,
   LogOut,
-  MapPin,
   Moon,
   RotateCcw,
   ShieldCheck,
@@ -403,12 +402,6 @@ export default function ProfileScreen() {
   function handleOpenProfileSettings() {
     runNavigationAction(() => {
       router.push("/profile-settings");
-    });
-  }
-
-  function handleOpenProfileAddress() {
-    runNavigationAction(() => {
-      router.push("/profile-address");
     });
   }
 
@@ -811,20 +804,6 @@ export default function ProfileScreen() {
               disabled={rowActionsDisabled}
             />
 
-            <View
-              style={[
-                styles.divider,
-                { backgroundColor: theme.colors.border },
-              ]}
-            />
-
-            <ProfileRow
-              icon={<MapPin size={20} color={iconColor} />}
-              title="My Address"
-              subtitle="Edit your address information"
-              onPress={handleOpenProfileAddress}
-              disabled={rowActionsDisabled}
-            />
           </ThemedCard>
 
           <ThemedCard contentStyle={styles.profileCardContent}>

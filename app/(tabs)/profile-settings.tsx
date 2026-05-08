@@ -34,6 +34,7 @@ import {
 import { storage } from "../../firebaseConfig";
 import { publishAppBackgroundUpdate } from "../../lib/backgroundUpdateBus";
 import {
+  AppAddress,
   AppProfile,
   BackgroundResizeMode,
   getProfileSettings,
@@ -80,6 +81,14 @@ function formatPhoneNumber(value: string) {
   }
 
   return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
+}
+
+function formatState(value: string) {
+  return value.replace(/[^a-zA-Z]/g, "").slice(0, 2).toUpperCase();
+}
+
+function formatZipCode(value: string) {
+  return value.replace(/\D/g, "").slice(0, 5);
 }
 
 function getStorageSafeFileName(kind: ImagePickerKind) {
@@ -753,6 +762,25 @@ export default function ProfileSettingsScreen() {
     setProfile((prev) => (prev ? { ...prev, [key]: value } : prev));
   }
 
+  function updateAddressField<K extends keyof AppAddress>(
+    key: K,
+    value: AppAddress[K]
+  ) {
+    if (interactionBusy) return;
+
+    setProfile((prev) =>
+      prev
+        ? {
+            ...prev,
+            address: {
+              ...prev.address,
+              [key]: value,
+            },
+          }
+        : prev
+    );
+  }
+
   if (loading || !profile) {
     return (
       <ScreenBackground>
@@ -1032,6 +1060,80 @@ export default function ProfileSettingsScreen() {
             </ThemedCard>
 
             <ThemedCard
+              style={styles.formCard}
+              contentStyle={styles.formCardContent}
+            >
+              <ThemedText variant="bodyStrong" style={styles.sectionTitle}>
+                Address
+              </ThemedText>
+
+              <LabeledInput
+                label="Street Address"
+                value={profile.address.streetAddress}
+                onChangeText={(t) => updateAddressField("streetAddress", t)}
+                placeholder="Enter street address"
+                editable={!interactionBusy}
+                onFocus={() => scrollToFocusedInput(300)}
+              />
+
+              <LabeledInput
+                label="Apartment / Suite"
+                value={profile.address.apartmentSuite}
+                onChangeText={(t) => updateAddressField("apartmentSuite", t)}
+                placeholder="Apt, suite, unit, etc."
+                editable={!interactionBusy}
+                onFocus={() => scrollToFocusedInput(350)}
+              />
+
+              <LabeledInput
+                label="City"
+                value={profile.address.city}
+                onChangeText={(t) => updateAddressField("city", t)}
+                placeholder="Enter city"
+                editable={!interactionBusy}
+                onFocus={() => scrollToFocusedInput(400)}
+              />
+
+              <View style={styles.inlineFieldsRow}>
+                <View style={styles.stateField}>
+                  <LabeledInput
+                    label="State"
+                    value={profile.address.state}
+                    onChangeText={(t) => updateAddressField("state", formatState(t))}
+                    placeholder="State"
+                    autoCapitalize="characters"
+                    editable={!interactionBusy}
+                    onFocus={() => scrollToFocusedInput(450)}
+                  />
+                </View>
+
+                <View style={styles.zipField}>
+                  <LabeledInput
+                    label="ZIP Code"
+                    value={profile.address.zipCode}
+                    onChangeText={(t) =>
+                      updateAddressField("zipCode", formatZipCode(t))
+                    }
+                    placeholder="ZIP Code"
+                    keyboardType="phone-pad"
+                    autoCapitalize="none"
+                    editable={!interactionBusy}
+                    onFocus={() => scrollToFocusedInput(450)}
+                  />
+                </View>
+              </View>
+
+              <LabeledInput
+                label="Country"
+                value={profile.address.country}
+                onChangeText={(t) => updateAddressField("country", t)}
+                placeholder="Country"
+                editable={!interactionBusy}
+                onFocus={() => scrollToFocusedInput(500)}
+              />
+            </ThemedCard>
+
+            <ThemedCard
               style={styles.actionsCard}
               contentStyle={styles.actionsCardContent}
             >
@@ -1261,6 +1363,19 @@ const styles = StyleSheet.create({
 
   inputDisabled: {
     opacity: 0.6,
+  },
+
+  inlineFieldsRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+
+  stateField: {
+    flex: 0.42,
+  },
+
+  zipField: {
+    flex: 0.58,
   },
 
   photoCard: {
