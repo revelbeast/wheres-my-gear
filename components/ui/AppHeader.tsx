@@ -6,7 +6,7 @@ import { StyleSheet, View } from "react-native";
 import HapticPressable from "./HapticPressable";
 import { ThemedText, useThemedValues } from "./Themed";
 
-const LABEL_WHITE = "#FFFFFF";
+
 
 export default function AppHeader({
   title,
@@ -46,7 +46,7 @@ export default function AppHeader({
             ]}
             onPress={handleBackPress}
           >
-            <ArrowLeft size={20} color={LABEL_WHITE} />
+            <ArrowLeft size={20} color={theme.colors.text} />
           </HapticPressable>
         ) : (
           <View style={styles.iconSpacer} />
@@ -56,7 +56,7 @@ export default function AppHeader({
           <ThemedText
             variant="title"
             numberOfLines={1}
-            style={[styles.title, { color: LABEL_WHITE }]}
+            style={[styles.title, { color: theme.colors.text }]}
           >
             {title}
           </ThemedText>
