@@ -132,6 +132,9 @@ export default function ProfileScreen() {
 
   const [isDeletingAllData, setIsDeletingAllData] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
+  const [premiumSubtitle, setPremiumSubtitle] = useState(
+    "Your Premium subscription is active"
+  );
   const [isRestoringPurchases, setIsRestoringPurchases] = useState(false);
 
   const version =
@@ -172,13 +175,17 @@ export default function ProfileScreen() {
           isScreenMountedRef.current
         ) {
           setIsPremium(false);
+        setPremiumSubtitle("Remove ads and unlock premium features");
+          setPremiumSubtitle("Remove ads and unlock premium features");
         }
 
         return;
       }
 
       try {
-        const premium = await isPremiumUser();
+        const customerInfo = await getCustomerInfo();
+        const premiumEntitlement = customerInfo?.entitlements.active.premium;
+        const premium = Boolean(premiumEntitlement);
 
         if (
           premiumCheckVersionRef.current !== checkVersion ||
@@ -188,6 +195,40 @@ export default function ProfileScreen() {
         }
 
         setIsPremium(premium);
+
+        if (!premiumEntitlement) {
+          setPremiumSubtitle("Remove ads and unlock premium features");
+          return;
+        }
+
+        const expirationDateText = premiumEntitlement.expirationDate
+          ? new Date(premiumEntitlement.expirationDate).toLocaleDateString()
+          : null;
+        const daysRemaining =
+          premiumEntitlement.expirationDateMillis !== null
+            ? Math.max(
+                0,
+                Math.ceil(
+                  (premiumEntitlement.expirationDateMillis - Date.now()) /
+                    (1000 * 60 * 60 * 24)
+                )
+              )
+            : null;
+        const periodType = premiumEntitlement.periodType?.toUpperCase?.() ?? "";
+        const daysText =
+          daysRemaining === null
+            ? ""
+            : ` in ${daysRemaining} day${daysRemaining === 1 ? "" : "s"}`;
+
+        if (periodType === "TRIAL") {
+          setPremiumSubtitle(`Trial ends${daysText}`);
+        } else if (premiumEntitlement.willRenew && expirationDateText) {
+          setPremiumSubtitle(`Premium renews on ${expirationDateText}`);
+        } else if (expirationDateText) {
+          setPremiumSubtitle(`Premium expires on ${expirationDateText}`);
+        } else {
+          setPremiumSubtitle("Premium subscription is active");
+        }
       } catch (err) {
         if (
           premiumCheckVersionRef.current !== checkVersion ||
@@ -718,7 +759,7 @@ export default function ProfileScreen() {
               title={isPremium ? "Premium Active" : "Upgrade to Premium"}
               subtitle={
                 isPremium
-                  ? "Your Premium subscription is active"
+                  ? premiumSubtitle
                   : "Remove ads and unlock premium features"
               }
               onPress={
