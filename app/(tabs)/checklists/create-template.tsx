@@ -662,14 +662,14 @@ export default function CreateTemplateScreen() {
           >
             <AppHeader title="" showBackButton />
 
-            <View style={styles.heroHeader}>
+            <FrostedCard style={styles.heroHeader}>
               <ThemedText variant="header" style={styles.heroTitle}>
                 Create Template
               </ThemedText>
               <ThemedText color="secondary" style={styles.heroText}>
                 Build a reusable checklist with starter items, quantities, and default pack status.
               </ThemedText>
-            </View>
+            </FrostedCard>
 
             <FrostedCard>
               <ThemedText variant="title" style={styles.sectionTitle}>

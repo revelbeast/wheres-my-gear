@@ -1645,13 +1645,13 @@ export default function DashboardScreen() {
                       disabled={navigationDisabled}
                     >
                       <BlurView
-                        intensity={theme.isLight ? 18 : 35}
+                        intensity={theme.isLight ? 45 : 35}
                         tint={theme.isLight ? "light" : "dark"}
                         style={[
                           styles.selectorButton,
                           {
                             borderColor: theme.colors.border,
-                            backgroundColor: theme.colors.card,
+                            backgroundColor: theme.isLight ? "rgba(255,255,255,0.92)" : theme.colors.card,
                           },
                         ]}
                       >
