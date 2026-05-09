@@ -175,7 +175,6 @@ export default function ProfileScreen() {
         ) {
           setIsPremium(false);
         setPremiumSubtitle("Remove ads and unlock premium features");
-          setPremiumSubtitle("Remove ads and unlock premium features");
         }
 
         return;

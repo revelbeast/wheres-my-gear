@@ -1430,7 +1430,7 @@ export default function DashboardScreen() {
                   }}
                 />
               ) : (
-                <UserCircle2 size={44} color={LABEL_WHITE} />
+                <UserCircle2 size={44} color={theme.colors.text} />
               )}
             </HapticPressable>
           </View>
@@ -1625,7 +1625,7 @@ export default function DashboardScreen() {
                         onPress={handleAddStorageSpace}
                         disabled={navigationDisabled}
                       >
-                        <Plus size={18} color={LABEL_WHITE} />
+                        <Plus size={18} color={theme.colors.text} />
                       </HapticPressable>
 
                       <ThemedText
@@ -1734,14 +1734,14 @@ export default function DashboardScreen() {
 
                   <View style={styles.statsRow}>
                     <NoteCard
-                      icon={<FileText size={20} color={LABEL_WHITE} />}
+                      icon={<FileText size={20} color={theme.colors.text} />}
                       title="Notes"
                       onPress={handleOpenNotes}
                       disabled={navigationDisabled}
                     />
 
                     <StatCard
-                      icon={<CheckCircle2 size={22} color={LABEL_WHITE} />}
+                      icon={<CheckCircle2 size={22} color={theme.colors.text} />}
                       value={packedCount}
                       label="Items Packed"
                       tone="success"
@@ -1750,7 +1750,7 @@ export default function DashboardScreen() {
                     />
 
                     <StatCard
-                      icon={<ListChecks size={22} color={LABEL_WHITE} />}
+                      icon={<ListChecks size={22} color={theme.colors.text} />}
                       value={toPackCount}
                       label="To Pack"
                       tone="danger"
@@ -1770,7 +1770,7 @@ export default function DashboardScreen() {
                         onPress={handleAddCompartment}
                         disabled={!selectedStorageId || navigationDisabled}
                       >
-                        <Plus size={18} color={LABEL_WHITE} />
+                        <Plus size={18} color={theme.colors.text} />
                       </HapticPressable>
 
                       <ThemedText
@@ -1880,7 +1880,7 @@ export default function DashboardScreen() {
                           onPress={handleAddTrip}
                           disabled={navigationDisabled}
                         >
-                          <Plus size={18} color={LABEL_WHITE} />
+                          <Plus size={18} color={theme.colors.text} />
                         </HapticPressable>
 
                         <ThemedText
