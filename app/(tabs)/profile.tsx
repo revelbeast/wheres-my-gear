@@ -14,7 +14,8 @@ import {
   Trash2,
   User,
 } from "lucide-react-native";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import { Alert, Linking, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { collection, getDocs, writeBatch } from "firebase/firestore";
@@ -156,6 +157,17 @@ export default function ProfileScreen() {
       }
     };
   }, []);
+
+  useFocusEffect(
+  useCallback(() => {
+    navigationTransitionLockedRef.current = false;
+
+    if (navigationUnlockTimeoutRef.current) {
+      clearTimeout(navigationUnlockTimeoutRef.current);
+      navigationUnlockTimeoutRef.current = null;
+    }
+  }, [])
+);
 
   useEffect(() => {
     if (!initializing && !user) {

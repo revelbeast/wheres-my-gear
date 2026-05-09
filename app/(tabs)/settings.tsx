@@ -1,6 +1,7 @@
 import { router } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 import { ChevronRight, Shield, UserCircle2 } from "lucide-react-native";
-import React, { useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -98,6 +99,17 @@ export default function SettingsScreen() {
       }
     };
   }, []);
+
+  useFocusEffect(
+  useCallback(() => {
+    navigationTransitionLockedRef.current = false;
+
+    if (navigationUnlockTimeoutRef.current) {
+      clearTimeout(navigationUnlockTimeoutRef.current);
+      navigationUnlockTimeoutRef.current = null;
+    }
+  }, [])
+);
 
   function lockNavigationTransition() {
     if (navigationTransitionLockedRef.current) {
