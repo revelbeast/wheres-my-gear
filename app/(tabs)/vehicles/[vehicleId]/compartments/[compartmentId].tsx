@@ -1146,6 +1146,7 @@ export default function CompartmentDetailScreen() {
             <AppHeader
               title={compartment?.name || "Compartment"}
               showBackButton
+              backHref="/(tabs)/inventory"
               rightContent={headerRight}
             />
 

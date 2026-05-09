@@ -39,14 +39,17 @@ export default function AppHeader({
               styles.iconButton,
               {
                 backgroundColor: theme.isLight
-                  ? "rgba(255,255,255,0.35)"
+                  ? "rgba(255,255,255,0.92)"
                   : "rgba(255,255,255,0.08)",
                 borderColor: theme.colors.border,
               },
             ]}
             onPress={handleBackPress}
           >
-            <ArrowLeft size={20} color={LABEL_WHITE} />
+            <ArrowLeft
+            size={20}
+            color={theme.isLight ? "#111827" : LABEL_WHITE}
+          />
           </HapticPressable>
         ) : (
           <View style={styles.iconSpacer} />

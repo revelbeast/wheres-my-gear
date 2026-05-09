@@ -131,6 +131,13 @@ export default function InventoryScreen() {
       const loadVersion = inventoryLoadVersionRef.current + 1;
       inventoryLoadVersionRef.current = loadVersion;
 
+      navigationTransitionLockedRef.current = false;
+
+      if (navigationUnlockTimeoutRef.current) {
+        clearTimeout(navigationUnlockTimeoutRef.current);
+        navigationUnlockTimeoutRef.current = null;
+      }
+
       if (initializing) {
         return;
       }
@@ -494,7 +501,9 @@ export default function InventoryScreen() {
             {
               backgroundColor: selected
                 ? tone.backgroundColor
-                : "rgba(15,23,42,0.34)",
+                :theme.isLight
+                  ? "rgba(255,255,255,0.92)"
+                  : "rgba(15,23,42,0.34)",
               borderColor: selected
                 ? tone.borderColor
                 : "rgba(255,255,255,0.16)",
@@ -725,7 +734,10 @@ export default function InventoryScreen() {
                 ]}
               >
                 <View style={styles.storageSelectorIconWrap}>
-                  <Boxes size={22} color="#FFFFFF" />
+                  <Boxes
+                    size={22}
+                    color={theme.isLight ? theme.colors.primary : "#FFFFFF"}
+                  />
                 </View>
 
                 <View style={styles.storageSelectorTextWrap}>
@@ -822,7 +834,10 @@ export default function InventoryScreen() {
               ]}
             >
               <View style={styles.manageStorageIconWrap}>
-                <FolderCog size={22} color="#FFFFFF" />
+                <FolderCog
+                  size={22}
+                  color={theme.isLight ? theme.colors.primary : "#FFFFFF"}
+                />
               </View>
 
               <View style={styles.manageStorageTextWrap}>
