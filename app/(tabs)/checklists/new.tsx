@@ -1,6 +1,18 @@
 import { BlurView } from "expo-blur";
 import { router } from "expo-router";
-import { ChevronDown } from "lucide-react-native";
+import {
+  Backpack,
+  ChevronDown,
+  Crosshair,
+  Fish,
+  HeartPulse,
+  Sailboat,
+  Shirt,
+  Tent,
+  Utensils,
+  Wrench,
+  Zap,
+} from "lucide-react-native";
 import React, { useMemo, useState } from "react";
 import {
   Alert,
@@ -281,10 +293,24 @@ export default function NewBlankChecklistScreen() {
                                   borderBottomColor: theme.colors.border,
                                 },
                                 index === CATEGORY_OPTIONS.length - 1 &&
-                                  styles.dropdownRowLast,
+                                styles.dropdownRowLast,
                               ]}
                               onPress={() => handleSelectCategory(option.value)}
                             >
+                              <View style={styles.dropdownRowIcon}>
+                                {option.value === "trip" && <Backpack size={18} color={theme.colors.text} />}
+                                {option.value === "camping" && <Tent size={18} color={theme.colors.text} />}
+                                {option.value === "hunting" && <Crosshair size={18} color={theme.colors.text} />}
+                                {option.value === "fishing" && <Fish size={18} color={theme.colors.text} />}
+                                {option.value === "boating" && <Sailboat size={18} color={theme.colors.text} />}
+                                {option.value === "clothing" && <Shirt size={18} color={theme.colors.text} />}
+                                {option.value === "electronics" && <Zap size={18} color={theme.colors.text} />}
+                                {option.value === "medical" && <HeartPulse size={18} color={theme.colors.text} />}
+                                {option.value === "tools" && <Wrench size={18} color={theme.colors.text} />}
+                                {option.value === "food" && <Utensils size={18} color={theme.colors.text} />}
+                                {option.value === "custom" && <Backpack size={18} color={theme.colors.text} />}
+                              </View>
+
                               <Text
                                 style={[
                                   styles.dropdownRowTitle,
@@ -471,10 +497,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 12,
     borderBottomWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
   },
 
   dropdownRowLast: {
     borderBottomWidth: 0,
+  },
+
+  dropdownRowIcon: {
+    width: 24,
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   dropdownRowTitle: {
