@@ -524,10 +524,10 @@ export default function TripsScreen() {
                               hitSlop={8}
                               disabled={tripDisabled}
                             >
-                              <Pencil size={16} color={LABEL_WHITE} />
+                              <Pencil size={16} color="#000" />
                             </HapticPressable>
 
-                            <ChevronRight size={18} color={LABEL_WHITE} />
+                            <ChevronRight size={18} color="#000" />
                           </View>
                         </View>
                       </FrostedCard>
@@ -672,13 +672,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.14)",
+    backgroundColor: "rgba(255,255,255,0.88)",
     borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.10)",
   },
 
   countdownText: {
-    color: LABEL_WHITE,
-    fontWeight: "700",
+    color: "#000",
+  fontWeight: "700",
     fontSize: 12,
   },
 

@@ -2415,13 +2415,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.14)",
+    backgroundColor: "rgba(255,255,255,0.88)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.16)",
+    borderColor: "rgba(0,0,0,0.10)",
   },
 
   upcomingTripCountdownText: {
-    color: LABEL_WHITE,
+    color: "#000",
     fontWeight: "700",
     fontSize: 12,
   },
