@@ -503,11 +503,21 @@ export default function TripsScreen() {
                               style={[
                                 styles.countdownPill,
                                 {
-                                  borderColor: theme.colors.border,
+                                  backgroundColor: theme.isLight
+                                    ? "rgba(255,255,255,0.88)"
+                                    : "rgba(255,255,255,0.14)",
+                                  borderColor: theme.isLight
+                                    ? "rgba(0,0,0,0.10)"
+                                    : "rgba(255,255,255,0.16)",
                                 },
                               ]}
                             >
-                              <ThemedText style={styles.countdownText}>
+                              <ThemedText
+                                style={[
+                                  styles.countdownText,
+                                  { color: theme.isLight ? "#000" : LABEL_WHITE },
+                                ]}
+                              >
                                 {getTripCountdownText(trip.date)}
                               </ThemedText>
                             </View>
@@ -524,10 +534,10 @@ export default function TripsScreen() {
                               hitSlop={8}
                               disabled={tripDisabled}
                             >
-                              <Pencil size={16} color="#000" />
+                              <Pencil size={16} color={theme.isLight ? "#000" : LABEL_WHITE} />
                             </HapticPressable>
 
-                            <ChevronRight size={18} color="#000" />
+                            <ChevronRight size={18} color={theme.isLight ? "#000" : LABEL_WHITE} />
                           </View>
                         </View>
                       </FrostedCard>
@@ -679,7 +689,7 @@ const styles = StyleSheet.create({
 
   countdownText: {
     color: "#000",
-  fontWeight: "700",
+    fontWeight: "700",
     fontSize: 12,
   },
 

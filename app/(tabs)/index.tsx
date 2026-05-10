@@ -71,52 +71,52 @@ type TemplateSearchItem = ChecklistTemplateItem & {
 
 type SearchResultItem =
   | {
-      type: "item";
-      id: string;
-      name: string;
-      subtitle: string;
-      statusLabel: "Packed" | "To Pack";
-      compartmentId: string;
-      vehicleId: string;
-    }
+    type: "item";
+    id: string;
+    name: string;
+    subtitle: string;
+    statusLabel: "Packed" | "To Pack";
+    compartmentId: string;
+    vehicleId: string;
+  }
   | {
-      type: "checklistItem";
-      id: string;
-      name: string;
-      subtitle: string;
-      checklistId: string;
-      statusLabel: "Packed" | "To Pack";
-    }
+    type: "checklistItem";
+    id: string;
+    name: string;
+    subtitle: string;
+    checklistId: string;
+    statusLabel: "Packed" | "To Pack";
+  }
   | {
-      type: "templateItem";
-      id: string;
-      name: string;
-      subtitle: string;
-      templateId: string;
-    }
+    type: "templateItem";
+    id: string;
+    name: string;
+    subtitle: string;
+    templateId: string;
+  }
   | {
-      type: "storage";
-      id: string;
-      name: string;
-      subtitle: string;
-      vehicleId: string;
-    }
+    type: "storage";
+    id: string;
+    name: string;
+    subtitle: string;
+    vehicleId: string;
+  }
   | {
-      type: "compartment";
-      id: string;
-      name: string;
-      subtitle: string;
-      compartmentId: string;
-      vehicleId: string;
-    }
+    type: "compartment";
+    id: string;
+    name: string;
+    subtitle: string;
+    compartmentId: string;
+    vehicleId: string;
+  }
   | {
-      type: "checklist";
-      id: string;
-      name: string;
-      subtitle: string;
-      checklistId: string;
-      statusLabel: "Packed" | "To Pack";
-    };
+    type: "checklist";
+    id: string;
+    name: string;
+    subtitle: string;
+    checklistId: string;
+    statusLabel: "Packed" | "To Pack";
+  };
 
 type QuickCompartment = {
   id: string;
@@ -222,25 +222,38 @@ function StatCard({
   const toneStyles =
     tone === "success"
       ? {
-          card: styles.statCardSuccess,
-          iconWrap: styles.statIconWrapSuccess,
-        }
+        card: styles.statCardSuccess,
+        iconWrap: styles.statIconWrapSuccess,
+      }
       : tone === "danger"
         ? {
-            card: styles.statCardDanger,
-            iconWrap: styles.statIconWrapDanger,
-          }
+          card: styles.statCardDanger,
+          iconWrap: styles.statIconWrapDanger,
+        }
         : {
-            card: styles.statCardDefault,
-            iconWrap: styles.statIconWrapDefault,
-          };
+          card: styles.statCardDefault,
+          iconWrap: styles.statIconWrapDefault,
+        };
 
   const cardOverride =
     tone === "success"
       ? {
-          borderColor: "rgba(34,197,94,0.95)",
-          backgroundColor: "rgba(34,197,94,0.24)",
-          shadowColor: "rgba(34,197,94,0.95)",
+        borderColor: "rgba(34,197,94,0.95)",
+        backgroundColor: "rgba(34,197,94,0.24)",
+        shadowColor: "rgba(34,197,94,0.95)",
+        shadowOpacity: 0.48,
+        shadowRadius: 16,
+        shadowOffset: {
+          width: 0,
+          height: 0,
+        },
+        elevation: 8,
+      }
+      : tone === "danger"
+        ? {
+          borderColor: "rgba(239,68,68,0.95)",
+          backgroundColor: "rgba(239,68,68,0.24)",
+          shadowColor: "rgba(239,68,68,0.95)",
           shadowOpacity: 0.48,
           shadowRadius: 16,
           shadowOffset: {
@@ -249,19 +262,6 @@ function StatCard({
           },
           elevation: 8,
         }
-      : tone === "danger"
-        ? {
-            borderColor: "rgba(239,68,68,0.95)",
-            backgroundColor: "rgba(239,68,68,0.24)",
-            shadowColor: "rgba(239,68,68,0.95)",
-            shadowOpacity: 0.48,
-            shadowRadius: 16,
-            shadowOffset: {
-              width: 0,
-              height: 0,
-            },
-            elevation: 8,
-          }
         : null;
 
   return (
@@ -666,11 +666,10 @@ export default function DashboardScreen() {
             type: "item",
             id: item.id,
             name: item.name,
-            subtitle: `${item.compartmentName || "Unassigned compartment"} • ${
-              item.vehicleName ||
+            subtitle: `${item.compartmentName || "Unassigned compartment"} • ${item.vehicleName ||
               storageNameById.get(item.vehicleId ?? "") ||
               "Unknown storage space"
-            }`,
+              }`,
             statusLabel: item.status === "packed" ? "Packed" : "To Pack",
             compartmentId: item.compartmentId ?? "",
             vehicleId: item.vehicleId ?? "",
@@ -725,9 +724,8 @@ export default function DashboardScreen() {
             type: "storage",
             id: space.id,
             name: space.name,
-            subtitle: `${space.category === "vehicle" ? "Vehicle" : "Storage"}${
-              space.subtype ? ` • ${space.subtype}` : ""
-            }`,
+            subtitle: `${space.category === "vehicle" ? "Vehicle" : "Storage"}${space.subtype ? ` • ${space.subtype}` : ""
+              }`,
             vehicleId: space.id,
           }));
 
@@ -763,9 +761,8 @@ export default function DashboardScreen() {
             type: "checklist",
             id: checklist.id,
             name: checklist.name,
-            subtitle: `${checklist.packedCount ?? 0} packed • ${
-              checklist.missingCount ?? 0
-            } to pack`,
+            subtitle: `${checklist.packedCount ?? 0} packed • ${checklist.missingCount ?? 0
+              } to pack`,
             checklistId: checklist.id,
             statusLabel: (checklist.missingCount ?? 0) > 0 ? "To Pack" : "Packed",
           }));
@@ -1701,7 +1698,7 @@ export default function DashboardScreen() {
                                     borderBottomColor: theme.colors.border,
                                   },
                                   index === sortedStorageSpaces.length - 1 &&
-                                    styles.dropdownRowLast,
+                                  styles.dropdownRowLast,
                                   interactionLocked && styles.disabledInteraction,
                                 ]}
                                 onPress={() => handleSelectStorage(space)}
@@ -1790,7 +1787,7 @@ export default function DashboardScreen() {
                           styles.viewAllText,
                           styles.whiteLabelMuted,
                           (!selectedStorageId || navigationDisabled) &&
-                            styles.disabledText,
+                          styles.disabledText,
                         ]}
                       >
                         View All
@@ -1947,8 +1944,25 @@ export default function DashboardScreen() {
                               </ThemedText>
                             </View>
 
-                            <View style={styles.upcomingTripCountdownPill}>
-                              <ThemedText style={styles.upcomingTripCountdownText}>
+                            <View
+                              style={[
+                                styles.upcomingTripCountdownPill,
+                                {
+                                  backgroundColor: theme.isLight
+                                    ? "rgba(255,255,255,0.88)"
+                                    : "rgba(255,255,255,0.14)",
+                                  borderColor: theme.isLight
+                                    ? "rgba(0,0,0,0.10)"
+                                    : "rgba(255,255,255,0.16)",
+                                },
+                              ]}
+                            >
+                              <ThemedText
+                                style={[
+                                  styles.upcomingTripCountdownText,
+                                  { color: theme.isLight ? "#000" : LABEL_WHITE },
+                                ]}
+                              >
                                 {getTripCountdownText(nextUpcomingTrip.date)}
                               </ThemedText>
                             </View>
@@ -1969,7 +1983,7 @@ export default function DashboardScreen() {
           />
         </View>
       </SafeAreaView>
-    </ScreenBackground>
+    </ScreenBackground >
   );
 }
 
@@ -2412,19 +2426,16 @@ const styles = StyleSheet.create({
   },
 
   upcomingTripCountdownPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.88)",
-    borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.10)",
-  },
+  paddingHorizontal: 10,
+  paddingVertical: 6,
+  borderRadius: 999,
+  borderWidth: 1,
+},
 
-  upcomingTripCountdownText: {
-    color: "#000",
-    fontWeight: "700",
-    fontSize: 12,
-  },
+upcomingTripCountdownText: {
+  fontWeight: "700",
+  fontSize: 12,
+},
 
   sectionHeaderRow: {
     flexDirection: "row",
