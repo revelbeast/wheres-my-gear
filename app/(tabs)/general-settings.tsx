@@ -154,11 +154,45 @@ export default function GeneralSettingsScreen() {
     }
   }
 
-  function handleSelectTheme(option: AppTheme) {
-    if (saving || loading || actionLockRef.current) return;
+  async function handleSelectTheme(option: AppTheme) {
+    if (!user || !profile || loading) return;
+    if (theme === option) return;
+
+    const previousTheme = theme;
+    const nextProfile: AppProfile = {
+      ...profile,
+      theme: option,
+    };
 
     setTheme(option);
+    setProfile(nextProfile);
+
+    publishAppThemeUpdate(
+      user.uid,
+      option,
+      nextProfile.fontSize ?? "medium"
+    );
+
+    try {
+      await saveProfileSettings(user.uid, nextProfile);
+    } catch (err) {
+      console.error("Failed to save theme setting:", err);
+
+      if (isMountedRef.current) {
+        setTheme(previousTheme);
+        setProfile(profile);
+
+        publishAppThemeUpdate(
+          user.uid,
+          previousTheme,
+          profile.fontSize ?? "medium"
+        );
+
+        Alert.alert("Error", "Failed to save theme setting.");
+      }
+    }
   }
+
 
   function handleHapticsChange(value: boolean) {
     if (saving || loading || actionLockRef.current) return;
@@ -232,19 +266,28 @@ export default function GeneralSettingsScreen() {
               </ThemedCard>
 
               <ThemedCard>
-                <ThemedText variant="bodyStrong" style={styles.sectionTitle}>
-                  Theme
-                </ThemedText>
+                <View style={styles.settingRow}>
+                  <View style={styles.settingTextBlock}>
+                    <ThemedText variant="bodyStrong">Phone Theme</ThemedText>
+                    <ThemedText color="secondary" style={styles.settingHelper}>
+                      Switch between Light Mode and Dark Mode.
+                    </ThemedText>
+                  </View>
 
-                <View style={styles.optionRow}>
-                  {renderThemeOption("dark")}
-                  {renderThemeOption("light")}
+                  <Switch
+                    value={theme === "light"}
+                    onValueChange={(value) => handleSelectTheme(value ? "light" : "dark")}
+                    disabled={saving || loading || actionLockRef.current}
+                    trackColor={{
+                      false: activeTheme.colors.inputSurface,
+                      true: "rgba(55,130,245,0.45)",
+                    }}
+                    thumbColor={
+                      theme === "light" ? activeTheme.colors.primary : activeTheme.colors.textMuted
+                    }
+                    ios_backgroundColor={activeTheme.colors.inputSurface}
+                  />
                 </View>
-
-                <ThemedText color="secondary" style={styles.helperText}>
-                  Theme is saved to your profile and applied to screens using
-                  the shared themed components.
-                </ThemedText>
               </ThemedCard>
 
               <ThemedCard style={styles.feedbackCard}>
@@ -277,15 +320,6 @@ export default function GeneralSettingsScreen() {
                 </View>
               </ThemedCard>
 
-              <ThemedButton
-                onPress={handleSaveSettings}
-                disabled={saving || loading || actionLockRef.current}
-              >
-                <Check size={18} color="#fff" />
-                <ThemedText style={styles.saveButtonText}>
-                  {saving ? "Saving..." : "Save Settings"}
-                </ThemedText>
-              </ThemedButton>
             </>
           )}
         </ScrollView>
