@@ -4,7 +4,6 @@ import { ChevronDown, ChevronLeft } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
-  InputAccessoryView,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -17,6 +16,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import HapticPressable from "../../../components/ui/HapticPressable";
+import KeyboardDismissAccessory from "../../../components/ui/KeyboardDismissAccessory";
 import ScreenBackground from "../../../components/ui/ScreenBackground";
 import { useThemedValues } from "../../../components/ui/Themed";
 import { createStorageSpace } from "../../../lib/gearService";
@@ -717,23 +717,7 @@ export default function CreateStorageScreen() {
             </BlurView>
           </ScrollView>
 
-          {Platform.OS === "ios" && (
-            <InputAccessoryView
-              nativeID={KEYBOARD_ACCESSORY_ID}
-            >
-              <View style={styles.keyboardAccessory}>
-                <HapticPressable
-                  onPress={Keyboard.dismiss}
-                  style={styles.keyboardDismissButton}
-                >
-                  <ChevronDown
-                    size={22}
-                    color="#FFFFFF"
-                  />
-                </HapticPressable>
-              </View>
-            </InputAccessoryView>
-          )}
+          <KeyboardDismissAccessory nativeID={KEYBOARD_ACCESSORY_ID} />
         </KeyboardAvoidingView>
       </SafeAreaView>
     </ScreenBackground>
