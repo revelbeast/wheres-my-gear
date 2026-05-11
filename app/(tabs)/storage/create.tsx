@@ -361,7 +361,7 @@ export default function CreateStorageScreen() {
           Alert.alert(
             "Save failed",
             err?.message ||
-              "Unable to save this storage space. Please try again."
+            "Unable to save this storage space. Please try again."
           );
         }
       } finally {
@@ -404,7 +404,7 @@ export default function CreateStorageScreen() {
                       : "rgba(255,255,255,0.10)",
                   },
                   (saving || interactionLocked) &&
-                    styles.disabledInteraction,
+                  styles.disabledInteraction,
                 ]}
                 disabled={saving || interactionLocked}
               >
@@ -425,7 +425,7 @@ export default function CreateStorageScreen() {
                 style={[
                   styles.cancelButton,
                   (saving || interactionLocked) &&
-                    styles.disabledInteraction,
+                  styles.disabledInteraction,
                 ]}
                 disabled={saving || interactionLocked}
               >
@@ -441,14 +441,17 @@ export default function CreateStorageScreen() {
             </Text>
 
             <BlurView
-              intensity={20}
-              tint="systemUltraThinMaterialDark"
+              intensity={theme.isLight ? 18 : 20}
+              tint={theme.isLight ? "light" : "systemUltraThinMaterialDark"}
               style={[
                 styles.card,
                 {
-                  borderColor: "rgba(255,255,255,0.14)",
-                  backgroundColor:
-                    "rgba(255,255,255,0.05)",
+                  borderColor: theme.isLight
+                    ? "rgba(0,0,0,0.08)"
+                    : "rgba(255,255,255,0.14)",
+                  backgroundColor: theme.isLight
+                    ? "rgba(255,255,255,0.88)"
+                    : "rgba(255,255,255,0.05)",
                 },
               ]}
             >
@@ -476,10 +479,12 @@ export default function CreateStorageScreen() {
                   styles.input,
                   {
                     color: theme.colors.text,
-                    backgroundColor:
-                      "rgba(255,255,255,0.05)",
-                    borderColor:
-                      "rgba(255,255,255,0.12)",
+                    backgroundColor: theme.isLight
+                      ? "rgba(255,255,255,0.72)"
+                      : "rgba(255,255,255,0.05)",
+                    borderColor: theme.isLight
+                      ? "rgba(0,0,0,0.12)"
+                      : "rgba(255,255,255,0.12)",
                   },
                 ]}
                 returnKeyType="done"
@@ -509,13 +514,15 @@ export default function CreateStorageScreen() {
                   style={[
                     styles.toggle,
                     {
-                      backgroundColor:
-                        "rgba(255,255,255,0.05)",
-                      borderColor:
-                        "rgba(255,255,255,0.12)",
+                      backgroundColor: theme.isLight
+                        ? "rgba(255,255,255,0.72)"
+                        : "rgba(255,255,255,0.05)",
+                      borderColor: theme.isLight
+                        ? "rgba(0,0,0,0.12)"
+                        : "rgba(255,255,255,0.12)",
                     },
                     category === "vehicle" &&
-                      styles.toggleActive,
+                    styles.toggleActive,
                   ]}
                   onPress={() =>
                     handleSelectCategory("vehicle")
@@ -524,8 +531,13 @@ export default function CreateStorageScreen() {
                   <Text
                     style={[
                       styles.toggleText,
+                      {
+                        color: theme.isLight
+                          ? "#000000"
+                          : "#FFFFFF",
+                      },
                       category === "vehicle" &&
-                        styles.toggleTextActive,
+                      styles.toggleTextActive,
                     ]}
                   >
                     Vehicle
@@ -536,13 +548,15 @@ export default function CreateStorageScreen() {
                   style={[
                     styles.toggle,
                     {
-                      backgroundColor:
-                        "rgba(255,255,255,0.05)",
-                      borderColor:
-                        "rgba(255,255,255,0.12)",
+                      backgroundColor: theme.isLight
+                        ? "rgba(255,255,255,0.72)"
+                        : "rgba(255,255,255,0.05)",
+                      borderColor: theme.isLight
+                        ? "rgba(0,0,0,0.12)"
+                        : "rgba(255,255,255,0.12)",
                     },
                     category === "storage" &&
-                      styles.toggleActive,
+                    styles.toggleActive,
                   ]}
                   onPress={() =>
                     handleSelectCategory("storage")
@@ -551,8 +565,13 @@ export default function CreateStorageScreen() {
                   <Text
                     style={[
                       styles.toggleText,
+                      {
+                        color: theme.isLight
+                          ? "#000000"
+                          : "#FFFFFF",
+                      },
                       category === "storage" &&
-                        styles.toggleTextActive,
+                      styles.toggleTextActive,
                     ]}
                   >
                     Storage
@@ -593,7 +612,7 @@ export default function CreateStorageScreen() {
                         {
                           color:
                             !subtype &&
-                            !customSubtype
+                              !customSubtype
                               ? theme.colors.textMuted
                               : "#FFFFFF",
                         },
@@ -612,9 +631,19 @@ export default function CreateStorageScreen() {
 
                 {showSubtypeDropdown && (
                   <BlurView
-                    intensity={40}
-                    tint="systemUltraThinMaterialDark"
-                    style={styles.dropdownCard}
+                    intensity={theme.isLight ? 18 : 40}
+                    tint={theme.isLight ? "light" : "systemUltraThinMaterialDark"}
+                    style={[
+                      styles.dropdownCard,
+                      {
+                        borderColor: theme.isLight
+                          ? "rgba(0,0,0,0.10)"
+                          : "rgba(255,255,255,0.14)",
+                        backgroundColor: theme.isLight
+                          ? "#FFFFFF"
+                          : "rgba(255,255,255,0.04)",
+                      },
+                    ]}
                   >
                     <ScrollView
                       showsVerticalScrollIndicator={
@@ -634,9 +663,9 @@ export default function CreateStorageScreen() {
                                   "rgba(255,255,255,0.10)",
                               },
                               index ===
-                                subtypeOptions.length -
-                                  1 &&
-                                styles.dropdownRowLast,
+                              subtypeOptions.length -
+                              1 &&
+                              styles.dropdownRowLast,
                             ]}
                             onPress={() =>
                               handleSelectSubtype(
@@ -645,9 +674,12 @@ export default function CreateStorageScreen() {
                             }
                           >
                             <Text
-                              style={
-                                styles.dropdownRowTitle
-                              }
+                              style={[
+                                styles.dropdownRowTitle,
+                                {
+                                  color: theme.isLight ? "#000000" : "#FFFFFF",
+                                },
+                              ]}
                             >
                               {option}
                             </Text>

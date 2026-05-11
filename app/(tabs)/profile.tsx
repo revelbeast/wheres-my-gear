@@ -49,22 +49,24 @@ const APP_STORE_FALLBACK_URL =
   "https://apps.apple.com/app/id6762979732";
 
 function ProfileRow({
-  icon,
-  title,
-  subtitle,
-  onPress,
-  destructive = false,
-  showChevron = true,
-  disabled = false,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  subtitle?: string;
-  onPress?: () => void;
-  destructive?: boolean;
-  showChevron?: boolean;
-  disabled?: boolean;
-}) {
+    icon,
+    title,
+    subtitle,
+    onPress,
+    destructive = false,
+    showChevron = true,
+    disabled = false,
+    iconBackgroundColor,
+  }: {
+    icon: React.ReactNode;
+    title: string;
+    subtitle?: string;
+    onPress?: () => void;
+    destructive?: boolean;
+    showChevron?: boolean;
+    disabled?: boolean;
+    iconBackgroundColor?: string;
+  }) {
   const theme = useThemedValues();
 
   return (
@@ -78,7 +80,9 @@ function ProfileRow({
           style={[
             styles.iconWrap,
             {
-              backgroundColor: theme.colors.iconSurface,
+              backgroundColor:
+                iconBackgroundColor ??
+                theme.colors.iconSurface,
               borderColor: theme.colors.border,
             },
           ]}
@@ -174,7 +178,7 @@ export default function ProfileScreen() {
           isScreenMountedRef.current
         ) {
           setIsPremium(false);
-        setPremiumSubtitle("Remove ads and unlock premium features");
+          setPremiumSubtitle("Remove ads and unlock premium features");
           setPremiumSubtitle("Remove ads and unlock premium features");
         }
 
@@ -206,12 +210,12 @@ export default function ProfileScreen() {
         const daysRemaining =
           premiumEntitlement.expirationDateMillis !== null
             ? Math.max(
-                0,
-                Math.ceil(
-                  (premiumEntitlement.expirationDateMillis - Date.now()) /
-                    (1000 * 60 * 60 * 24)
-                )
+              0,
+              Math.ceil(
+                (premiumEntitlement.expirationDateMillis - Date.now()) /
+                (1000 * 60 * 60 * 24)
               )
+            )
             : null;
         const periodType = premiumEntitlement.periodType?.toUpperCase?.() ?? "";
         const daysText =
@@ -356,12 +360,12 @@ export default function ProfileScreen() {
         const daysRemaining =
           premiumEntitlement.expirationDateMillis !== null
             ? Math.max(
-                0,
-                Math.ceil(
-                  (premiumEntitlement.expirationDateMillis - Date.now()) /
-                    (1000 * 60 * 60 * 24)
-                )
+              0,
+              Math.ceil(
+                (premiumEntitlement.expirationDateMillis - Date.now()) /
+                (1000 * 60 * 60 * 24)
               )
+            )
             : null;
 
         const daysRemainingText =
@@ -434,54 +438,54 @@ export default function ProfileScreen() {
               const restoreVersion = restorePurchasesVersionRef.current + 1;
               restorePurchasesVersionRef.current = restoreVersion;
 
-      try {
-        setIsRestoringPurchases(true);
+              try {
+                setIsRestoringPurchases(true);
 
-        const customerInfo = await restorePurchases();
-        const hasPremium = hasActivePremiumEntitlement(customerInfo);
+                const customerInfo = await restorePurchases();
+                const hasPremium = hasActivePremiumEntitlement(customerInfo);
 
-        if (
-          restorePurchasesVersionRef.current !== restoreVersion ||
-          !isScreenMountedRef.current
-        ) {
-          return;
-        }
+                if (
+                  restorePurchasesVersionRef.current !== restoreVersion ||
+                  !isScreenMountedRef.current
+                ) {
+                  return;
+                }
 
-        setIsPremium(hasPremium);
+                setIsPremium(hasPremium);
 
-        if (hasPremium) {
-          Alert.alert(
-            "Purchases Restored",
-            "Your Premium access has been restored."
-          );
-          return;
-        }
+                if (hasPremium) {
+                  Alert.alert(
+                    "Purchases Restored",
+                    "Your Premium access has been restored."
+                  );
+                  return;
+                }
 
-        Alert.alert(
-          "No Purchases Found",
-          "No active Premium purchase was found for this Apple ID."
-        );
-      } catch (err) {
-        if (
-          restorePurchasesVersionRef.current !== restoreVersion ||
-          !isScreenMountedRef.current
-        ) {
-          return;
-        }
+                Alert.alert(
+                  "No Purchases Found",
+                  "No active Premium purchase was found for this Apple ID."
+                );
+              } catch (err) {
+                if (
+                  restorePurchasesVersionRef.current !== restoreVersion ||
+                  !isScreenMountedRef.current
+                ) {
+                  return;
+                }
 
-        console.error("Failed to restore purchases:", err);
-        Alert.alert(
-          "Restore Failed",
-          "Unable to restore purchases right now. Please try again."
-        );
-      } finally {
-        if (
-          restorePurchasesVersionRef.current === restoreVersion &&
-          isScreenMountedRef.current
-        ) {
-          setIsRestoringPurchases(false);
-        }
-      }
+                console.error("Failed to restore purchases:", err);
+                Alert.alert(
+                  "Restore Failed",
+                  "Unable to restore purchases right now. Please try again."
+                );
+              } finally {
+                if (
+                  restorePurchasesVersionRef.current === restoreVersion &&
+                  isScreenMountedRef.current
+                ) {
+                  setIsRestoringPurchases(false);
+                }
+              }
             });
           },
         },
@@ -754,13 +758,17 @@ export default function ProfileScreen() {
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
         >
-          <ThemedText variant="header" style={styles.header}>
+          <ThemedText
+            variant="header"
+            style={[styles.header, styles.headerWhite]}
+          >
             Profile
           </ThemedText>
 
           <ThemedCard contentStyle={styles.profileCardContent}>
             <ProfileRow
               icon={<Crown size={20} color="#FACC15" />}
+              iconBackgroundColor="#000000"
               title={isPremium ? "Premium Active" : "Upgrade to Premium"}
               subtitle={
                 isPremium
@@ -927,6 +935,10 @@ const styles = StyleSheet.create({
 
   header: {
     marginBottom: 16,
+  },
+
+  headerWhite: {
+    color: "#FFFFFF",
   },
 
   profileCardContent: {
