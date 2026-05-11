@@ -1488,21 +1488,21 @@ export default function ChecklistDetailScreen() {
                 const tone =
                   option.key === "packed"
                     ? {
-                        borderColor: "rgba(34,197,94,0.95)",
-                        backgroundColor: "rgba(34,197,94,0.24)",
-                        textColor: "rgb(34,197,94)",
-                      }
+                      borderColor: "rgba(34,197,94,0.95)",
+                      backgroundColor: "rgba(34,197,94,0.24)",
+                      textColor: "rgb(34,197,94)",
+                    }
                     : option.key === "unpacked"
                       ? {
-                          borderColor: "rgba(255,76,76,0.98)",
-                          backgroundColor: "rgba(120,20,32,0.34)",
-                          textColor: "rgb(255,110,110)",
-                        }
+                        borderColor: "rgba(255,76,76,0.98)",
+                        backgroundColor: "rgba(120,20,32,0.34)",
+                        textColor: "rgb(255,110,110)",
+                      }
                       : {
-                          borderColor: "rgba(59,130,246,0.95)",
-                          backgroundColor: "rgba(37,99,235,0.28)",
-                          textColor: "rgb(59,130,246)",
-                        };
+                        borderColor: "rgba(59,130,246,0.95)",
+                        backgroundColor: "rgba(37,99,235,0.28)",
+                        textColor: "rgb(59,130,246)",
+                      };
 
                 const count =
                   option.key === "packed"
@@ -2176,15 +2176,19 @@ const styles = StyleSheet.create({
   filterChip: {
     borderRadius: 14,
     borderWidth: 1,
-    padding: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
     alignItems: "center",
+    justifyContent: "center",
     overflow: "hidden",
+    minHeight: 72,
   },
 
   filterChipCount: {
-    fontSize: 24,
-    fontWeight: "800",
-    marginTop: 4,
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 2,
+    lineHeight: 16,
   },
 
   filterChipSelectedValue: {
@@ -2193,9 +2197,9 @@ const styles = StyleSheet.create({
   },
 
   filterChipText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "600",
-    marginTop: 2,
+    marginTop: 0,
   },
 
   row: {
