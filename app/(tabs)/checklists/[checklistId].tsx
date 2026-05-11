@@ -1480,8 +1480,8 @@ export default function ChecklistDetailScreen() {
             <View style={styles.filterRow}>
               {[
                 { key: "all", label: "All" },
-                { key: "unpacked", label: "To Pack" },
                 { key: "packed", label: "Packed" },
+                { key: "unpacked", label: "To Pack" },
               ].map((option) => {
                 const isActive = filter === option.key;
 
