@@ -1460,49 +1460,6 @@ export default function ChecklistDetailScreen() {
               rightContent={headerRight}
             />
 
-            <FrostedCard style={styles.summaryCard}>
-              <View style={styles.summaryRow}>
-                <View style={styles.summaryBlock}>
-                  <Text
-                    style={[styles.summaryValue, { color: theme.colors.text }]}
-                  >
-                    {checklistTotals.needed}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.summaryLabel,
-                      { color: theme.colors.textSecondary },
-                    ]}
-                  >
-                    Needed
-                  </Text>
-                </View>
-
-                <View
-                  style={[
-                    styles.summaryDivider,
-                    { backgroundColor: theme.colors.border },
-                  ]}
-                />
-
-                <View style={styles.summaryBlock}>
-                  <Text
-                    style={[styles.summaryValue, { color: theme.colors.text }]}
-                  >
-                    {checklistTotals.toPack}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.summaryLabel,
-                      { color: theme.colors.textSecondary },
-                    ]}
-                  >
-                    To Pack
-                  </Text>
-                </View>
-              </View>
-            </FrostedCard>
-
             <FrostedCard style={styles.categoryCard}>
               <Text
                 style={[
@@ -2188,10 +2145,6 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
 
-  summaryCard: {
-    paddingVertical: 18,
-  },
-
   categoryCard: {
     marginBottom: 16,
     paddingVertical: 14,
@@ -2243,36 +2196,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     marginTop: 2,
-  },
-
-  summaryRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-
-  summaryBlock: {
-    flex: 1,
-    alignItems: "center",
-  },
-
-  summaryDivider: {
-    width: 1,
-    height: 40,
-    marginHorizontal: 10,
-  },
-
-  summaryValue: {
-    fontSize: 24,
-    fontWeight: "800",
-    marginBottom: 4,
-  },
-
-  summaryLabel: {
-    fontSize: 12,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
   },
 
   row: {
