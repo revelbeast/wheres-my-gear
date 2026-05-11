@@ -1,7 +1,19 @@
 import { BlurView } from "expo-blur";
+import { ChevronDown } from "lucide-react-native";
 import { useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  Alert,
+  InputAccessoryView,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import AppHeader from "../../components/ui/AppHeader";
@@ -12,6 +24,8 @@ import {
   getStorageSpaceById,
   updateStorageSpaceNotes,
 } from "../../lib/gearService";
+
+const NOTES_KEYBOARD_ACCESSORY_ID = "notes-keyboard-accessory";
 
 function FrostedCard({
   children,
@@ -79,12 +93,12 @@ export default function NotesScreen() {
 
   const resolvedStorageId = useMemo(
     () => getFirstParamValue(params.storageId).trim(),
-    [params.storageId]
+    [params.storageId],
   );
 
   const resolvedStorageName = useMemo(
     () => getFirstParamValue(params.storageName).trim(),
-    [params.storageName]
+    [params.storageName],
   );
 
   const isScreenMountedRef = useRef(true);
@@ -260,60 +274,88 @@ export default function NotesScreen() {
   return (
     <ScreenBackground>
       <SafeAreaView style={styles.safe}>
-        <ScrollView contentContainerStyle={styles.content}>
-          <AppHeader title={title} showBackButton />
+        <KeyboardAvoidingView
+          style={styles.keyboardAvoidingView}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.content}
+          >
+            <AppHeader title={title} showBackButton />
 
-          <FrostedCard>
-            <Text style={styles.heroTitle}>{title}</Text>
-            <Text style={styles.heroText}>{helperText}</Text>
-          </FrostedCard>
+            <FrostedCard>
+              <Text style={styles.heroTitle}>{title}</Text>
+              <Text style={styles.heroText}>{helperText}</Text>
+            </FrostedCard>
 
-          <FrostedCard>
-            <View style={styles.headerRow}>
-              <Text style={[styles.label, { color: theme.colors.text }]}>
-                Notes
-              </Text>
-              <Text style={{ color: theme.colors.textSecondary, fontSize: 12 }}>
-                {loading
-                  ? "Loading..."
-                  : saveState === "saving"
-                  ? "Saving..."
-                  : saveState === "unsaved"
-                  ? "Unsaved changes"
-                  : formatTimeAgo(lastSavedAt)}
-              </Text>
-            </View>
+            <FrostedCard>
+              <View style={styles.headerRow}>
+                <Text style={[styles.label, { color: theme.colors.text }]}>
+                  Notes
+                </Text>
+                <Text
+                  style={{ color: theme.colors.textSecondary, fontSize: 12 }}
+                >
+                  {loading
+                    ? "Loading..."
+                    : saveState === "saving"
+                      ? "Saving..."
+                      : saveState === "unsaved"
+                        ? "Unsaved changes"
+                        : formatTimeAgo(lastSavedAt)}
+                </Text>
+              </View>
 
-            <TextInput
-              value={notes}
-              onChangeText={handleChange}
-              multiline
-              editable={!loading && !!resolvedStorageId}
-              placeholder="Write notes..."
-              placeholderTextColor={theme.colors.textMuted}
-              style={[
-                styles.textArea,
-                {
-                  color: theme.colors.text,
-                  borderColor: theme.colors.border,
-                  backgroundColor: theme.isLight
-                    ? "rgba(0,0,0,0.04)"
-                    : "rgba(255,255,255,0.06)",
-                },
-              ]}
-            />
+              <TextInput
+                value={notes}
+                onChangeText={handleChange}
+                multiline
+                editable={!loading && !!resolvedStorageId}
+                placeholder="Write notes..."
+                placeholderTextColor={theme.colors.textMuted}
+                inputAccessoryViewID={
+                  Platform.OS === "ios"
+                    ? NOTES_KEYBOARD_ACCESSORY_ID
+                    : undefined
+                }
+                style={[
+                  styles.textArea,
+                  {
+                    color: theme.colors.text,
+                    borderColor: theme.colors.border,
+                    backgroundColor: theme.isLight
+                      ? "rgba(0,0,0,0.04)"
+                      : "rgba(255,255,255,0.06)",
+                  },
+                ]}
+              />
 
-            <HapticPressable
-              style={[styles.saveButton, saving && styles.saveButtonDisabled]}
-              onPress={() => saveNotes(notes, true)}
-              disabled={saving}
-            >
-              <Text style={styles.saveText}>
-                {saving ? "Saving..." : "Save Notes"}
-              </Text>
-            </HapticPressable>
-          </FrostedCard>
-        </ScrollView>
+              <HapticPressable
+                style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+                onPress={() => saveNotes(notes, true)}
+                disabled={saving}
+              >
+                <Text style={styles.saveText}>
+                  {saving ? "Saving..." : "Save Notes"}
+                </Text>
+              </HapticPressable>
+            </FrostedCard>
+
+            {Platform.OS === "ios" && (
+              <InputAccessoryView nativeID={NOTES_KEYBOARD_ACCESSORY_ID}>
+                <View style={styles.keyboardAccessory}>
+                  <HapticPressable
+                    onPress={Keyboard.dismiss}
+                    style={styles.keyboardDismissButton}
+                  >
+                    <ChevronDown size={22} color="#FFFFFF" />
+                  </HapticPressable>
+                </View>
+              </InputAccessoryView>
+            )}
+          </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </ScreenBackground>
   );
@@ -321,6 +363,10 @@ export default function NotesScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
+
+  keyboardAvoidingView: {
+    flex: 1,
+  },
 
   content: {
     paddingHorizontal: 16,
@@ -382,5 +428,23 @@ const styles = StyleSheet.create({
   saveText: {
     color: "#fff",
     fontWeight: "700",
+  },
+
+  keyboardAccessory: {
+    minHeight: 44,
+    backgroundColor: "rgba(20,20,24,0.96)",
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.12)",
+    alignItems: "flex-end",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+  },
+
+  keyboardDismissButton: {
+    width: 40,
+    height: 34,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
