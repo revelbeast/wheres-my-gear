@@ -1,11 +1,8 @@
 import { BlurView } from "expo-blur";
-import { ChevronDown } from "lucide-react-native";
 import { useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
-  InputAccessoryView,
-  Keyboard,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -18,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import AppHeader from "../../components/ui/AppHeader";
 import HapticPressable from "../../components/ui/HapticPressable";
+import KeyboardDismissAccessory from "../../components/ui/KeyboardDismissAccessory";
 import ScreenBackground from "../../components/ui/ScreenBackground";
 import { useThemedValues } from "../../components/ui/Themed";
 import {
@@ -342,18 +340,7 @@ export default function NotesScreen() {
               </HapticPressable>
             </FrostedCard>
 
-            {Platform.OS === "ios" && (
-              <InputAccessoryView nativeID={NOTES_KEYBOARD_ACCESSORY_ID}>
-                <View style={styles.keyboardAccessory}>
-                  <HapticPressable
-                    onPress={Keyboard.dismiss}
-                    style={styles.keyboardDismissButton}
-                  >
-                    <ChevronDown size={22} color="#FFFFFF" />
-                  </HapticPressable>
-                </View>
-              </InputAccessoryView>
-            )}
+            <KeyboardDismissAccessory nativeID={NOTES_KEYBOARD_ACCESSORY_ID} />
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -428,23 +415,5 @@ const styles = StyleSheet.create({
   saveText: {
     color: "#fff",
     fontWeight: "700",
-  },
-
-  keyboardAccessory: {
-    minHeight: 44,
-    backgroundColor: "rgba(20,20,24,0.96)",
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.12)",
-    alignItems: "flex-end",
-    justifyContent: "center",
-    paddingHorizontal: 12,
-  },
-
-  keyboardDismissButton: {
-    width: 40,
-    height: 34,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
   },
 });
