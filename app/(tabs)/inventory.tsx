@@ -828,7 +828,10 @@ export default function InventoryScreen() {
               ]}
             >
               <View style={styles.manageStorageIconWrap}>
-                <FolderCog size={22} color="#FFFFFF" />
+                <FolderCog
+                  size={22}
+                  color={theme.isLight ? "#000000" : "#FFFFFF"}
+                />
               </View>
 
               <View style={styles.manageStorageTextWrap}>
