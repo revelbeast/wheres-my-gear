@@ -20,8 +20,6 @@ import React, {
 } from "react";
 import {
   FlatList,
-  InputAccessoryView,
-  Keyboard,
   Platform,
   ScrollView,
   StyleSheet,
@@ -32,6 +30,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../components/auth/AuthProvider";
 import HapticPressable from "../../components/ui/HapticPressable";
+import KeyboardDismissAccessory from "../../components/ui/KeyboardDismissAccessory";
 import ScreenBackground from "../../components/ui/ScreenBackground";
 import { ThemedButton, ThemedText } from "../../components/ui/Themed";
 const INVENTORY_SEARCH_KEYBOARD_ACCESSORY_ID =
@@ -661,20 +660,9 @@ export default function InventoryScreen() {
             </View>
           </BlurView>
 
-          {Platform.OS === "ios" && (
-            <InputAccessoryView
-              nativeID={INVENTORY_SEARCH_KEYBOARD_ACCESSORY_ID}
-            >
-              <View style={styles.keyboardAccessory}>
-                <HapticPressable
-                  onPress={Keyboard.dismiss}
-                  style={styles.keyboardDismissButton}
-                >
-                  <ChevronDown size={22} color="#FFFFFF" />
-                </HapticPressable>
-              </View>
-            </InputAccessoryView>
-          )}
+          <KeyboardDismissAccessory
+            nativeID={INVENTORY_SEARCH_KEYBOARD_ACCESSORY_ID}
+          />
 
           <View style={styles.summaryRow}>
             {renderFilterChip(
@@ -975,24 +963,6 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.10)",
   },
 
-  keyboardAccessory: {
-    minHeight: 44,
-    backgroundColor: "rgba(20,20,24,0.96)",
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.12)",
-    alignItems: "flex-end",
-    justifyContent: "center",
-    paddingHorizontal: 12,
-  },
-
-  keyboardDismissButton: {
-    width: 40,
-    height: 34,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.12)",
-  },
 
   summaryRow: {
     flexDirection: "row",
