@@ -2,10 +2,12 @@ import { BlurView } from "expo-blur";
 import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
 import {
+  Boxes,
   Camera,
   Check,
   CheckCircle2,
   Image as ImageIcon,
+  ListChecks,
   Minus,
   Pencil,
   Plus,
@@ -1526,16 +1528,45 @@ export default function ChecklistDetailScreen() {
               ].map((option) => {
                 const isActive = filter === option.key;
 
+                const tone =
+                  option.key === "packed"
+                    ? {
+                        borderColor: "rgba(34,197,94,0.95)",
+                        backgroundColor: "rgba(34,197,94,0.24)",
+                        textColor: "rgb(34,197,94)",
+                      }
+                    : option.key === "unpacked"
+                      ? {
+                          borderColor: "rgba(255,76,76,0.98)",
+                          backgroundColor: "rgba(120,20,32,0.34)",
+                          textColor: "rgb(255,110,110)",
+                        }
+                      : {
+                          borderColor: "rgba(59,130,246,0.95)",
+                          backgroundColor: "rgba(37,99,235,0.28)",
+                          textColor: "rgb(59,130,246)",
+                        };
+
+                const count =
+                  option.key === "packed"
+                    ? packedItems.length
+                    : option.key === "unpacked"
+                      ? unpackedItems.length
+                      : sortedItems.length;
+
+                const Icon =
+                  option.key === "packed"
+                    ? CheckCircle2
+                    : option.key === "unpacked"
+                      ? ListChecks
+                      : Boxes;
+
                 return (
                   <HapticPressable
                     key={option.key}
                     style={[
-                      styles.filterChip,
-                      {
-                        backgroundColor: theme.colors.iconSurface,
-                        borderColor: theme.colors.border,
-                      },
-                      isActive && styles.filterChipActive,
+                      styles.filterPressable,
+                      interactionLocked && styles.disabledInteraction,
                     ]}
                     onPress={() =>
                       handleFilterChange(
@@ -1544,15 +1575,56 @@ export default function ChecklistDetailScreen() {
                     }
                     disabled={interactionLocked}
                   >
-                    <Text
+                    <BlurView
+                      intensity={theme.isLight ? 18 : 22}
+                      tint={theme.isLight ? "light" : "dark"}
                       style={[
-                        styles.filterChipText,
-                        { color: theme.colors.text },
-                        isActive && styles.filterChipTextActive,
+                        styles.filterChip,
+                        {
+                          backgroundColor: isActive
+                            ? tone.backgroundColor
+                            : "rgba(15,23,42,0.34)",
+                          borderColor: isActive
+                            ? tone.borderColor
+                            : "rgba(255,255,255,0.16)",
+                          shadowColor: isActive ? tone.borderColor : "#000",
+                          shadowOpacity: isActive ? 0.52 : 0.12,
+                          shadowRadius: isActive ? 16 : 8,
+                          shadowOffset: {
+                            width: 0,
+                            height: 0,
+                          },
+                          elevation: isActive ? 8 : 0,
+                        },
                       ]}
                     >
-                      {option.label}
-                    </Text>
+                      <Icon
+                        size={22}
+                        color={isActive ? "#FFFFFF" : theme.colors.textSecondary}
+                      />
+                      <Text
+                        style={[
+                          styles.filterChipCount,
+                          isActive && styles.filterChipSelectedValue,
+                          !isActive && { color: theme.colors.text },
+                        ]}
+                      >
+                        {count}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.filterChipText,
+                          {
+                            color: isActive
+                              ? tone.textColor
+                              : theme.colors.textSecondary,
+                          },
+                          isActive && { fontWeight: "800" },
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                    </BlurView>
                   </HapticPressable>
                 );
               })}
@@ -2144,25 +2216,33 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 
-  filterChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 20,
-    borderWidth: 1,
+  filterPressable: {
+    flex: 1,
   },
 
-  filterChipActive: {
-    backgroundColor: "rgba(55,130,245,0.95)",
-    borderColor: "rgba(55,130,245,0.95)",
+  filterChip: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 10,
+    alignItems: "center",
+    overflow: "hidden",
+  },
+
+  filterChipCount: {
+    fontSize: 24,
+    fontWeight: "800",
+    marginTop: 4,
+  },
+
+  filterChipSelectedValue: {
+    color: "#FFFFFF",
+    fontWeight: "800",
   },
 
   filterChipText: {
     fontSize: 13,
     fontWeight: "600",
-  },
-
-  filterChipTextActive: {
-    color: "#fff",
+    marginTop: 2,
   },
 
   summaryRow: {
