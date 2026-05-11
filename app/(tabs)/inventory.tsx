@@ -25,6 +25,7 @@ import {
   StyleSheet,
   TextInput,
   View,
+  Text,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -447,6 +448,7 @@ export default function InventoryScreen() {
     });
   }
 
+
   function renderFilterChip(
     value: StatusFilter,
     label: string,
@@ -458,73 +460,73 @@ export default function InventoryScreen() {
     const tone =
       value === "packed"
         ? {
-            borderColor: "rgba(34,197,94,0.95)",
-            backgroundColor: "rgba(34,197,94,0.24)",
-            textColor: "rgb(34,197,94)",
-          }
+          borderColor: "rgba(34,197,94,0.95)",
+          backgroundColor: "rgba(34,197,94,0.24)",
+          textColor: "rgb(34,197,94)",
+        }
         : value === "toPack"
           ? {
-              borderColor: "rgba(255,76,76,0.98)",
-              backgroundColor: "rgba(120,20,32,0.34)",
-              textColor: "rgb(255,110,110)",
-            }
+            borderColor: "rgba(255,76,76,0.98)",
+            backgroundColor: "rgba(120,20,32,0.34)",
+            textColor: "rgb(255,110,110)",
+          }
           : {
-              borderColor: "rgba(59,130,246,0.95)",
-              backgroundColor: "rgba(37,99,235,0.28)",
-              textColor: "rgb(59,130,246)",
-            };
+            borderColor: "rgba(59,130,246,0.95)",
+            backgroundColor: "rgba(37,99,235,0.28)",
+            textColor: "rgb(59,130,246)",
+          };
+
+    const unselectedBg = theme.isLight
+      ? "#FFFFFF"
+      : "rgba(15,23,42,0.34)";
+
+    const unselectedText = theme.isLight
+      ? "#000000"
+      : theme.colors.text;
+
+    const textColor = selected ? "#FFFFFF" : unselectedText;
 
     return (
       <HapticPressable
-        key={value}
         style={[
           styles.filterPressable,
           (interactionLocked || navigationTransitionLockedRef.current) &&
-            styles.disabledInteraction,
+          styles.disabledInteraction,
         ]}
         onPress={() => setStatusFilter(value)}
         disabled={interactionLocked || navigationTransitionLockedRef.current}
       >
-        <BlurView
-          intensity={theme.isLight ? 18 : 22}
-          tint={theme.isLight ? "light" : "dark"}
+        <View
           style={[
             styles.filterChip,
             {
               backgroundColor: selected
                 ? tone.backgroundColor
-                : "rgba(15,23,42,0.34)",
+                : unselectedBg,
+
               borderColor: selected
                 ? tone.borderColor
-                : "rgba(255,255,255,0.16)",
-              shadowColor: selected ? tone.borderColor : "#000",
-              shadowOpacity: selected ? 0.52 : 0.12,
-              shadowRadius: selected ? 16 : 8,
-              shadowOffset: {
-                width: 0,
-                height: 0,
-              },
-              elevation: selected ? 8 : 0,
+                : theme.colors.border,
             },
           ]}
         >
-          {icon}
-          <ThemedText
-            variant="title"
-            style={selected && styles.filterChipSelectedValue}
-          >
+          {React.cloneElement(icon as any, {
+            size: 22,
+            color: selected ? tone.textColor : unselectedText
+          })}
+
+          <Text style={[styles.filterChipCount, { color: textColor }]}>
             {count}
-          </ThemedText>
-          <ThemedText
-            color="secondary"
-            style={selected && { color: tone.textColor, fontWeight: "800" }}
-          >
+          </Text>
+
+          <Text style={[styles.filterChipText, { color: textColor }]}>
             {label}
-          </ThemedText>
-        </BlurView>
+          </Text>
+        </View>
       </HapticPressable>
     );
   }
+
 
   function renderEmptyState() {
     const showAddStorageAction =
@@ -648,7 +650,7 @@ export default function InventoryScreen() {
                   style={[
                     styles.clearSearchButton,
                     (interactionLocked || navigationTransitionLockedRef.current) &&
-                      styles.disabledInteraction,
+                    styles.disabledInteraction,
                   ]}
                   onPress={() => setSearchQuery("")}
                   disabled={interactionLocked || navigationTransitionLockedRef.current}
@@ -692,7 +694,7 @@ export default function InventoryScreen() {
               style={[
                 styles.storageSelectorPressable,
                 (interactionLocked || navigationTransitionLockedRef.current) &&
-                  styles.disabledInteraction,
+                styles.disabledInteraction,
               ]}
               onPress={handleToggleStorageDropdown}
               disabled={
@@ -712,8 +714,24 @@ export default function InventoryScreen() {
                   },
                 ]}
               >
-                <View style={styles.storageSelectorIconWrap}>
-                  <Boxes size={22} color="#FFFFFF" />
+                <View
+                  style={[
+                    styles.storageSelectorIconWrap,
+                    {
+                      backgroundColor: theme.isLight
+                        ? "rgba(0,0,0,0.10)"
+                        : "rgba(255,255,255,0.10)",
+                      borderWidth: 1,
+                      borderColor: theme.isLight
+                        ? "rgba(0,0,0,0.08)"
+                        : "rgba(255,255,255,0.12)",
+                    },
+                  ]}
+                >
+                  <Boxes
+                    size={18}
+                    color={theme.isLight ? "#000000" : "#FFFFFF"}
+                  />
                 </View>
 
                 <View style={styles.storageSelectorTextWrap}>
@@ -760,7 +778,7 @@ export default function InventoryScreen() {
                         styles.storageDropdownRow,
                         { borderBottomColor: theme.colors.border },
                         index === sortedStorageSpaces.length - 1 &&
-                          styles.storageDropdownRowLast,
+                        styles.storageDropdownRowLast,
                       ]}
                       onPress={() => handleSelectStorageSpace(space.id)}
                       disabled={
@@ -793,7 +811,7 @@ export default function InventoryScreen() {
             style={[
               styles.manageStoragePressable,
               (interactionLocked || navigationTransitionLockedRef.current) &&
-                styles.disabledInteraction,
+              styles.disabledInteraction,
             ]}
             onPress={handleManageStorageSpaces}
             disabled={interactionLocked || navigationTransitionLockedRef.current}
@@ -977,9 +995,25 @@ const styles = StyleSheet.create({
   filterChip: {
     borderRadius: 14,
     borderWidth: 1,
-    padding: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
     alignItems: "center",
+    justifyContent: "center",
     overflow: "hidden",
+    minHeight: 72,
+  },
+
+  filterChipCount: {
+    fontSize: 15,
+    fontWeight: "800",
+    marginTop: 2,
+    lineHeight: 20,
+  },
+
+  filterChipText: {
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 0,
   },
 
   filterChipSelectedValue: {
@@ -1014,9 +1048,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
-    backgroundColor: "rgba(255,255,255,0.12)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.14)",
   },
 
   storageSelectorTextWrap: {
