@@ -16,8 +16,6 @@ import {
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Image,
-  InputAccessoryView,
-  Keyboard,
   Platform,
   ScrollView,
   StyleSheet,
@@ -32,6 +30,7 @@ const DASHBOARD_SEARCH_KEYBOARD_ACCESSORY_ID =
 import SafeBannerAd from "../../components/ads/SafeBannerAd";
 import { useAuth } from "../../components/auth/AuthProvider";
 import HapticPressable from "../../components/ui/HapticPressable";
+import KeyboardDismissAccessory from "../../components/ui/KeyboardDismissAccessory";
 import ScreenBackground from "../../components/ui/ScreenBackground";
 import {
   ThemedButton,
@@ -1479,23 +1478,9 @@ export default function DashboardScreen() {
             </View>
           </FrostedCard>
 
-          {Platform.OS === "ios" && (
-            <InputAccessoryView
-              nativeID={DASHBOARD_SEARCH_KEYBOARD_ACCESSORY_ID}
-            >
-              <View style={styles.keyboardAccessory}>
-                <HapticPressable
-                  onPress={Keyboard.dismiss}
-                  style={styles.keyboardDismissButton}
-                >
-                  <ChevronDown
-                    size={22}
-                    color="#FFFFFF"
-                  />
-                </HapticPressable>
-              </View>
-            </InputAccessoryView>
-          )}
+          <KeyboardDismissAccessory
+            nativeID={DASHBOARD_SEARCH_KEYBOARD_ACCESSORY_ID}
+          />
 
           {initializing ? (
             <ThemedCard style={styles.emptyCard}>
@@ -2132,24 +2117,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  keyboardAccessory: {
-    minHeight: 44,
-    backgroundColor: "rgba(20,20,24,0.96)",
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.12)",
-    alignItems: "flex-end",
-    justifyContent: "center",
-    paddingHorizontal: 12,
-  },
-
-  keyboardDismissButton: {
-    width: 40,
-    height: 34,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.12)",
-  },
 
   searchResultsWrap: {
     marginBottom: 16,
