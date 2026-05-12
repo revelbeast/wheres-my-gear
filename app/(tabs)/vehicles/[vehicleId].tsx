@@ -678,16 +678,50 @@ export default function VehicleDetailScreen() {
             </HapticPressable>
 
             {showCreateBox && (
-              <BlurView intensity={18} tint="dark" style={styles.createCard}>
-                <Text style={styles.createTitle}>Create Compartment</Text>
+              <BlurView
+                intensity={18}
+                tint={theme.isLight ? "light" : "dark"}
+                style={[
+                  styles.createCard,
+                  {
+                    backgroundColor: theme.isLight
+                      ? "#FFFFFF"
+                      : "rgba(12,24,50,0.20)",
+                    borderColor: theme.isLight
+                      ? "rgba(0,0,0,0.10)"
+                      : "rgba(255,255,255,0.08)",
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.createTitle,
+                    {
+                      color: theme.isLight ? "#000000" : colors.text,
+                    },
+                  ]}
+                >
+                  Create Compartment
+                </Text>
 
                 <View style={styles.createRow}>
                   <TextInput
                     value={newCompartmentName}
                     onChangeText={setNewCompartmentName}
                     placeholder="Enter compartment name"
-                    placeholderTextColor={colors.textMuted}
-                    style={styles.createInput}
+                    placeholderTextColor={theme.isLight ? "rgba(0,0,0,0.45)" : colors.textMuted}
+                    style={[
+                      styles.createInput,
+                      {
+                        color: theme.isLight ? "#000000" : colors.text,
+                        backgroundColor: theme.isLight
+                          ? "rgba(255,255,255,0.82)"
+                          : "rgba(7,20,44,0.55)",
+                        borderColor: theme.isLight
+                          ? "rgba(0,0,0,0.12)"
+                          : "rgba(255,255,255,0.08)",
+                      },
+                    ]}
                     returnKeyType="done"
                     onFocus={() => scrollToBottom(180)}
                     onSubmitEditing={handleCreateCompartment}
@@ -777,7 +811,21 @@ export default function VehicleDetailScreen() {
                     overshootRight={false}
                     enabled={!isEditing && !interactionDisabled}
                   >
-                    <BlurView intensity={18} tint="dark" style={styles.card}>
+                    <BlurView
+                      intensity={18}
+                      tint={theme.isLight ? "light" : "dark"}
+                      style={[
+                        styles.card,
+                        {
+                          backgroundColor: theme.isLight
+                            ? "#FFFFFF"
+                            : "rgba(12,24,50,0.20)",
+                          borderColor: theme.isLight
+                            ? "rgba(0,0,0,0.10)"
+                            : "rgba(255,255,255,0.08)",
+                        },
+                      ]}
+                    >
                       {isEditing ? (
                         <View style={styles.editWrap}>
                           <Text style={styles.editLabel}>
@@ -846,7 +894,14 @@ export default function VehicleDetailScreen() {
                             }
                             disabled={interactionDisabled}
                           >
-                            <Text style={styles.cardTitle}>
+                            <Text
+                              style={[
+                                styles.cardTitle,
+                                {
+                                  color: theme.isLight ? "#000000" : colors.text,
+                                },
+                              ]}
+                            >
                               {compartment.name}
                             </Text>
                           </HapticPressable>
@@ -863,7 +918,11 @@ export default function VehicleDetailScreen() {
                             >
                               <Pencil
                                 size={16}
-                                color={colors.textSecondary}
+                                color={
+                                  theme.isLight
+                                    ? "rgba(0,0,0,0.55)"
+                                    : colors.textSecondary
+                                }
                               />
                             </HapticPressable>
 
