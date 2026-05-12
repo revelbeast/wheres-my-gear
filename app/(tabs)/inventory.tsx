@@ -411,7 +411,7 @@ export default function InventoryScreen() {
 
   function handleManageStorageSpaces() {
     runNavigationAction(() => {
-      router.push("/storage");
+      router.push("/(tabs)/storage");
     });
   }
 

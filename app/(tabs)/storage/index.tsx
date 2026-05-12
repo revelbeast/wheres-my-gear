@@ -20,6 +20,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import HapticPressable from "../../../components/ui/HapticPressable";
 import ScreenBackground from "../../../components/ui/ScreenBackground";
+import { useThemedValues } from "../../../components/ui/Themed";
 import {
   deleteStorageSpace,
   getStorageSpaces,
@@ -29,6 +30,8 @@ import { useInteractionLock } from "../../../lib/useInteractionLock";
 import { colors } from "../../../theme/tokens";
 
 export default function StorageManagementScreen() {
+  const theme = useThemedValues();
+
   const {
     isLocked: interactionLocked,
     lock: lockInteraction,
@@ -287,17 +290,25 @@ export default function StorageManagementScreen() {
             disabled={interactionDisabled}
           >
             <View style={styles.storageCardLeft}>
-              <Text style={[
-                styles.storageTitle,
-                { color: colors.text }
-              ]}>
+              <Text
+                style={[
+                  styles.storageTitle,
+                  {
+                    color: theme.isLight ? "#000000" : colors.text,
+                  },
+                ]}
+              >
                 {space.name}
               </Text>
 
-              <Text style={[
-                styles.storageMeta,
-                { color: colors.textSecondary }
-              ]}>
+              <Text
+                style={[
+                  styles.storageMeta,
+                  {
+                    color: theme.isLight ? "#000000" : colors.textSecondary,
+                  },
+                ]}
+              >
                 {space.category === "vehicle" ? "Vehicle" : "Storage"}
                 {space.subtype ? ` • ${space.subtype}` : ""}
               </Text>
@@ -315,14 +326,14 @@ export default function StorageManagementScreen() {
               >
                 <Pencil
                   size={16}
-                  color={colors.textSecondary}
+                  color={theme.isLight ? "#000000" : colors.textSecondary}
                 />
               </HapticPressable>
 
               <View style={styles.chevronWrap}>
                 <ChevronRight
                   size={18}
-                  color={colors.textSecondary}
+                  color={theme.isLight ? "#000000" : colors.textSecondary}
                 />
               </View>
             </View>
