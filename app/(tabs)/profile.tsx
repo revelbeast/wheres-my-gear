@@ -104,7 +104,7 @@ function ProfileRow({
               style={[
                 styles.subText,
                 {
-                  color: theme.colors.textSecondary,
+                  color: theme.isLight ? "#000000" : theme.colors.textSecondary,
                 },
               ]}
             >

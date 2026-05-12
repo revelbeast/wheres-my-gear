@@ -1,3 +1,4 @@
+import { BlurView } from "expo-blur";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 import { Check, ImagePlus, LogOut, UserCircle2 } from "lucide-react-native";
@@ -55,22 +56,22 @@ const BACKGROUND_FIT_OPTIONS: {
   value: BackgroundResizeMode;
   description: string;
 }[] = [
-  {
-    label: "Fill Screen",
-    value: "cover",
-    description: "Fills the screen and may crop the photo.",
-  },
-  {
-    label: "Fit Full Photo",
-    value: "contain",
-    description: "Shows the full photo with less cropping.",
-  },
-  {
-    label: "Center Photo",
-    value: "center",
-    description: "Centers the photo without stretching it.",
-  },
-];
+    {
+      label: "Fill Screen",
+      value: "cover",
+      description: "Fills the screen and may crop the photo.",
+    },
+    {
+      label: "Fit Full Photo",
+      value: "contain",
+      description: "Shows the full photo with less cropping.",
+    },
+    {
+      label: "Center Photo",
+      value: "center",
+      description: "Centers the photo without stretching it.",
+    },
+  ];
 
 function formatPhoneNumber(value: string) {
   const digits = value.replace(/\D/g, "").slice(0, 10);
@@ -189,15 +190,15 @@ async function optimizeImageForUpload(localUri: string, kind: ImagePickerKind) {
   const resizeAction =
     kind === "profile"
       ? {
-          resize: {
-            width: PROFILE_IMAGE_MAX_DIMENSION,
-          },
-        }
+        resize: {
+          width: PROFILE_IMAGE_MAX_DIMENSION,
+        },
+      }
       : {
-          resize: {
-            width: BACKGROUND_IMAGE_MAX_WIDTH,
-          },
-        };
+        resize: {
+          width: BACKGROUND_IMAGE_MAX_WIDTH,
+        },
+      };
 
   const result = await ImageManipulator.manipulateAsync(
     localUri,
@@ -771,12 +772,12 @@ export default function ProfileSettingsScreen() {
     setProfile((prev) =>
       prev
         ? {
-            ...prev,
-            address: {
-              ...prev.address,
-              [key]: value,
-            },
-          }
+          ...prev,
+          address: {
+            ...prev.address,
+            [key]: value,
+          },
+        }
         : prev
     );
   }
@@ -825,13 +826,19 @@ export default function ProfileSettingsScreen() {
 
             <View style={styles.heroSection}>
               <HapticPressable
-                onPress={handlePickProfilePhoto}
+                onPress={handlePickBackgroundPhoto}
                 disabled={interactionBusy}
                 style={[
-                  styles.heroPhotoButton,
+                  styles.backgroundPhotoCard,
+                  {
+                    borderColor: theme.isLight
+                      ? "rgba(148,163,184,0.62)"
+                      : "rgba(226,232,240,0.34)",
+                  },
                   interactionBusy && styles.disabledInteraction,
                 ]}
               >
+
                 {profile.profilePhotoUri ? (
                   <Image
                     key={profile.profilePhotoUri}
@@ -894,7 +901,14 @@ export default function ProfileSettingsScreen() {
                     },
                   ]}
                 >
-                  <ThemedText style={styles.emailText}>
+                  <ThemedText
+                    style={[
+                      styles.emailText,
+                      {
+                        color: theme.isLight ? "#000000" : "#FFFFFF",
+                      },
+                    ]}
+                  >
                     {user.email}
                   </ThemedText>
                 </View>
@@ -915,56 +929,77 @@ export default function ProfileSettingsScreen() {
                 interactionBusy && styles.disabledInteraction,
               ]}
             >
-              <View style={styles.backgroundPhotoRow}>
-                <View style={styles.backgroundThumbWrap}>
-                  {activeBackgroundUri ? (
-                    <Image
-                      key={activeBackgroundUri}
-                      source={{ uri: activeBackgroundUri }}
-                      style={styles.backgroundThumb}
-                    />
-                  ) : (
-                    <View
+              <BlurView
+                intensity={theme.isLight ? 24 : 38}
+                tint={theme.isLight ? "light" : "dark"}
+                style={styles.backgroundPhotoBlur}
+              >
+                <View style={styles.backgroundPhotoRow}>
+                  <View style={styles.backgroundThumbWrap}>
+                    {activeBackgroundUri ? (
+                      <Image
+                        key={activeBackgroundUri}
+                        source={{ uri: activeBackgroundUri }}
+                        style={styles.backgroundThumb}
+                      />
+                    ) : (
+                      <View
+                        style={[
+                          styles.backgroundThumbFallback,
+                          { backgroundColor: theme.colors.inputSurface },
+                        ]}
+                      >
+                        <ImagePlus size={22} color={theme.colors.text} />
+                      </View>
+                    )}
+                  </View>
+
+                  <View style={styles.backgroundTextWrap}>
+                    <ThemedText
+                      variant="bodyStrong"
                       style={[
-                        styles.backgroundThumbFallback,
-                        { backgroundColor: theme.colors.inputSurface },
+                        styles.backgroundTitle,
+                        {
+                          color: theme.isLight ? "#000000" : theme.colors.text,
+                        },
                       ]}
                     >
-                      <ImagePlus size={22} color={theme.colors.text} />
-                    </View>
-                  )}
-                </View>
-
-                <View style={styles.backgroundTextWrap}>
-                  <ThemedText variant="bodyStrong" style={styles.backgroundTitle}>
-                    Background Photo
-                  </ThemedText>
-                  <ThemedText color="secondary" style={styles.backgroundSubtitle}>
-                    {pickingBackgroundPhoto
-                      ? "Opening photo library..."
-                      : "Edit your background"}
-                  </ThemedText>
-
-                  <HapticPressable
-                    onPress={handleRemoveBackground}
-                    disabled={interactionBusy}
-                    style={interactionBusy && styles.disabledInteraction}
-                  >
-                    <ThemedText color="secondary" style={styles.backgroundResetText}>
-                      Reset Background to Default
+                      Background Photo
                     </ThemedText>
-                  </HapticPressable>
-                </View>
+                    <ThemedText
+                      style={[
+                        styles.backgroundSubtitle,
+                        {
+                          color: theme.isLight ? "#000000" : theme.colors.textSecondary,
+                        },
+                      ]}
+                    >
+                      {pickingBackgroundPhoto
+                        ? "Opening photo library..."
+                        : "Edit your background"}
+                    </ThemedText>
 
-                <View
-                  style={[
-                    styles.backgroundIconCircle,
-                    { backgroundColor: theme.colors.iconSurface },
-                  ]}
-                >
-                  <ImagePlus size={20} color={theme.colors.text} />
+                    <HapticPressable
+                      onPress={handleRemoveBackground}
+                      disabled={interactionBusy}
+                      style={interactionBusy && styles.disabledInteraction}
+                    >
+                      <ThemedText color="secondary" style={styles.backgroundResetText}>
+                        Reset Background to Default
+                      </ThemedText>
+                    </HapticPressable>
+                  </View>
+
+                  <View
+                    style={[
+                      styles.backgroundIconCircle,
+                      { backgroundColor: theme.colors.iconSurface },
+                    ]}
+                  >
+                    <ImagePlus size={20} color={theme.colors.text} />
+                  </View>
                 </View>
-              </View>
+              </BlurView>
             </HapticPressable>
 
             <ThemedCard
@@ -1003,7 +1038,7 @@ export default function ProfileSettingsScreen() {
               />
 
               {showBackgroundOptions &&
-              (profile.backgroundPhotoUri || backgroundPreviewUri) ? (
+                (profile.backgroundPhotoUri || backgroundPreviewUri) ? (
                 <>
                   <View style={styles.fitSection}>
                     <ThemedText variant="small" style={styles.fitTitle}>
@@ -1281,13 +1316,17 @@ const styles = StyleSheet.create({
     minHeight: 96,
     borderRadius: 22,
     borderWidth: 1.5,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
     marginBottom: 16,
+    overflow: "hidden",
     shadowColor: "#000",
     shadowOpacity: 0.18,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
+  },
+
+  backgroundPhotoBlur: {
+    paddingHorizontal: 14,
+    paddingVertical: 14,
   },
 
   backgroundPhotoRow: {
