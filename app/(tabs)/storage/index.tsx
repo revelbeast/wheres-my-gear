@@ -106,10 +106,19 @@ export default function StorageManagementScreen() {
   useFocusEffect(
     useCallback(() => {
       isMountedRef.current = true;
+
+      // IMPORTANT: reset interaction state when returning to screen
+      navigationTransitionLockedRef.current = false;
+      actionLockRef.current = false;
+
       loadStorageSpaces();
 
       return () => {
         loadRequestVersionRef.current += 1;
+
+        // safety reset on blur
+        navigationTransitionLockedRef.current = false;
+        actionLockRef.current = false;
       };
     }, [loadStorageSpaces])
   );
@@ -183,7 +192,12 @@ export default function StorageManagementScreen() {
     const lockAcquired = lockNavigationTransition();
     if (!lockAcquired) return;
 
-    router.push(`/vehicles/${encodeURIComponent(String(space.id))}`);
+    router.push({
+      pathname: "/vehicles/[vehicleId]",
+      params: {
+        vehicleId: String(space.id),
+      },
+    });
   }
 
   function handleEditStorage(space: StorageSpace) {
@@ -193,7 +207,7 @@ export default function StorageManagementScreen() {
     if (!lockAcquired) return;
 
     router.push({
-      pathname: "/storage/edit",
+      pathname: "/(tabs)/storage/edit",
       params: { id: String(space.id) },
     });
   }

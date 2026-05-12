@@ -144,7 +144,12 @@ export default function VehiclesScreen() {
 
   function handleOpenVehicle(vehicleId: string) {
     runNavigationAction(() => {
-      router.push(`/vehicles/${vehicleId}`);
+      router.push({
+        pathname: "/vehicles/[vehicleId]",
+        params: {
+          vehicleId,
+        },
+      });
     });
   }
 
@@ -242,7 +247,7 @@ export default function VehiclesScreen() {
           style={[
             styles.addButton,
             (interactionLocked || navigationTransitionLockedRef.current) &&
-              styles.disabledButton,
+            styles.disabledButton,
           ]}
           onPress={handleAddStorage}
           disabled={interactionLocked || navigationTransitionLockedRef.current}

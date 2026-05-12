@@ -579,6 +579,7 @@ export default function VehicleDetailScreen() {
             <AppHeader
               title={headerTitle}
               showBackButton
+              backHref="/(tabs)/storage"
               rightContent={headerRight}
             />
 

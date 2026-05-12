@@ -342,7 +342,7 @@ export default function CompartmentsScreen() {
     Keyboard.dismiss();
 
     runNavigationAction(() => {
-      router.replace("/(tabs)");
+      router.replace("/(tabs)/storage");
     });
   }
 
