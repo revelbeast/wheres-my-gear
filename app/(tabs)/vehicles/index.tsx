@@ -155,7 +155,9 @@ export default function VehiclesScreen() {
 
   function handleAddStorage() {
     runNavigationAction(() => {
-      router.push("/(tabs)/storage/create");
+      router.push({
+        pathname: "/(tabs)/storage/create",
+      });
     });
   }
 

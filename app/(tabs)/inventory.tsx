@@ -404,14 +404,18 @@ export default function InventoryScreen() {
           return;
         }
 
-        router.push("/(tabs)/storage/create");
+        router.push({
+          pathname: "/(tabs)/storage/create",
+        });
       });
     });
   }
 
   function handleManageStorageSpaces() {
     runNavigationAction(() => {
-      router.push("/(tabs)/storage");
+      router.push({
+        pathname: "/(tabs)/storage",
+      });
     });
   }
 

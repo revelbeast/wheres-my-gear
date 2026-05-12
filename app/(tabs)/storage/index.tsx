@@ -183,7 +183,9 @@ export default function StorageManagementScreen() {
     const lockAcquired = lockNavigationTransition();
     if (!lockAcquired) return;
 
-    router.push("/(tabs)/storage/create");
+    router.push({
+      pathname: "/(tabs)/storage/create",
+    });
   }
 
   function handleOpenCompartments(space: StorageSpace) {
