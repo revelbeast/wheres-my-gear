@@ -97,14 +97,14 @@ const styles = StyleSheet.create({
 
   titleWrap: {
     flex: 1,
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "center",
     paddingHorizontal: 10,
   },
 
   title: {
     fontWeight: "800",
-    textAlign: "center",
+    textAlign: "left",
   },
 
   rightWrap: {

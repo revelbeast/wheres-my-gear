@@ -283,7 +283,14 @@ export default function NotesScreen() {
             <AppHeader title={title} showBackButton />
 
             <FrostedCard>
-              <Text style={styles.heroTitle}>{title}</Text>
+              <Text
+                style={[
+                  styles.heroTitle,
+                  { color: theme.isLight ? "#111827" : "#FFFFFF" },
+                ]}
+              >
+                {title}
+              </Text>
               <Text style={styles.heroText}>{helperText}</Text>
             </FrostedCard>
 
@@ -363,6 +370,7 @@ const styles = StyleSheet.create({
 
   card: {
     borderRadius: 16,
+    overflow: "hidden",
     padding: 16,
     borderWidth: 1,
     marginBottom: 12,
@@ -372,7 +380,8 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
     marginBottom: 6,
-    color: "#fff",
+    color: "#111827",
+    textAlign: "left",
   },
 
   heroText: {
