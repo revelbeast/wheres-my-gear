@@ -1148,10 +1148,11 @@ const styles = StyleSheet.create({
   },
 
   itemCard: {
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
     padding: 12,
     marginBottom: 8,
+    overflow: "hidden",
   },
 
   itemRow: {
