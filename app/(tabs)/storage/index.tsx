@@ -20,6 +20,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import HapticPressable from "../../../components/ui/HapticPressable";
 import ScreenBackground from "../../../components/ui/ScreenBackground";
+import { useThemedValues } from "../../../components/ui/Themed";
 import {
   deleteStorageSpace,
   getStorageSpaces,
@@ -29,6 +30,8 @@ import { useInteractionLock } from "../../../lib/useInteractionLock";
 import { colors } from "../../../theme/tokens";
 
 export default function StorageManagementScreen() {
+  const theme = useThemedValues();
+
   const {
     isLocked: interactionLocked,
     lock: lockInteraction,
@@ -277,7 +280,17 @@ export default function StorageManagementScreen() {
         renderRightActions={() => renderRightActions(space)}
         enabled={!interactionDisabled}
       >
-        <BlurView intensity={18} tint="dark" style={styles.storageCard}>
+        <BlurView
+          intensity={theme.isLight ? 0 : 18}
+          tint={theme.isLight ? "light" : "dark"}
+          style={[
+            styles.storageCard,
+            theme.isLight && {
+              backgroundColor: "#FFFFFF",
+              borderColor: "rgba(15,23,42,0.10)",
+            },
+          ]}
+        >
           <HapticPressable
             style={[
               styles.storageCardMainPressable,
@@ -287,8 +300,10 @@ export default function StorageManagementScreen() {
             disabled={interactionDisabled}
           >
             <View style={styles.storageCardLeft}>
-              <Text style={styles.storageTitle}>{space.name}</Text>
-              <Text style={styles.storageMeta}>
+              <Text style={[styles.storageTitle, theme.isLight && { color: "#111827" }]}>
+                {space.name}
+              </Text>
+              <Text style={[styles.storageMeta, theme.isLight && { color: "#475569" }]}>
                 {space.category === "vehicle" ? "Vehicle" : "Storage"}
                 {space.subtype ? ` • ${space.subtype}` : ""}
               </Text>
@@ -304,11 +319,14 @@ export default function StorageManagementScreen() {
                 hitSlop={8}
                 disabled={interactionDisabled}
               >
-                <Pencil size={16} color={colors.textSecondary} />
+                <Pencil
+                  size={16}
+                  color={theme.isLight ? "#111827" : colors.textSecondary}
+                />
               </HapticPressable>
 
               <View style={styles.chevronWrap}>
-                <ChevronRight size={18} color={colors.textSecondary} />
+                <ChevronRight size={18} color={theme.isLight ? "#111827" : colors.textSecondary} />
               </View>
             </View>
           </HapticPressable>
