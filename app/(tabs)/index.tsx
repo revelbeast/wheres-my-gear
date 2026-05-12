@@ -1607,7 +1607,7 @@ export default function DashboardScreen() {
                         onPress={handleAddStorageSpace}
                         disabled={navigationDisabled}
                       >
-                        <Plus size={18} color={LABEL_WHITE} />
+                        <Plus size={18} color="#111827" />
                       </HapticPressable>
 
                       <ThemedText
@@ -1752,7 +1752,8 @@ export default function DashboardScreen() {
                         onPress={handleAddCompartment}
                         disabled={!selectedStorageId || navigationDisabled}
                       >
-                        <Plus size={18} color={LABEL_WHITE} />
+                        <Plus size={18} color="#111827" />
+
                       </HapticPressable>
 
                       <ThemedText
@@ -1862,7 +1863,7 @@ export default function DashboardScreen() {
                           onPress={handleAddTrip}
                           disabled={navigationDisabled}
                         >
-                          <Plus size={18} color={LABEL_WHITE} />
+                          <Plus size={18} color="#111827" />
                         </HapticPressable>
 
                         <ThemedText
@@ -2163,7 +2164,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginRight: 14,
-    backgroundColor: "rgba(255,255,255,0.14)",
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.16)",
   },
@@ -2354,7 +2355,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginRight: 10,
-    backgroundColor: "rgba(255,255,255,0.14)",
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.16)",
   },
@@ -2393,16 +2394,16 @@ const styles = StyleSheet.create({
   },
 
   upcomingTripCountdownPill: {
-  paddingHorizontal: 10,
-  paddingVertical: 6,
-  borderRadius: 999,
-  borderWidth: 1,
-},
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
 
-upcomingTripCountdownText: {
-  fontWeight: "700",
-  fontSize: 12,
-},
+  upcomingTripCountdownText: {
+    fontWeight: "700",
+    fontSize: 12,
+  },
 
   sectionHeaderRow: {
     flexDirection: "row",
@@ -2425,7 +2426,7 @@ upcomingTripCountdownText: {
     alignItems: "center",
     justifyContent: "center",
     marginRight: 10,
-    backgroundColor: "rgba(255,255,255,0.14)",
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.16)",
   },
