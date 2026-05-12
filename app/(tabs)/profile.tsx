@@ -49,24 +49,24 @@ const APP_STORE_FALLBACK_URL =
   "https://apps.apple.com/app/id6762979732";
 
 function ProfileRow({
-    icon,
-    title,
-    subtitle,
-    onPress,
-    destructive = false,
-    showChevron = true,
-    disabled = false,
-    iconBackgroundColor,
-  }: {
-    icon: React.ReactNode;
-    title: string;
-    subtitle?: string;
-    onPress?: () => void;
-    destructive?: boolean;
-    showChevron?: boolean;
-    disabled?: boolean;
-    iconBackgroundColor?: string;
-  }) {
+  icon,
+  title,
+  subtitle,
+  onPress,
+  destructive = false,
+  showChevron = true,
+  disabled = false,
+  iconBackgroundColor,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  subtitle?: string;
+  onPress?: () => void;
+  destructive?: boolean;
+  showChevron?: boolean;
+  disabled?: boolean;
+  iconBackgroundColor?: string;
+}) {
   const theme = useThemedValues();
 
   return (
@@ -100,7 +100,14 @@ function ProfileRow({
           </ThemedText>
 
           {subtitle ? (
-            <ThemedText color="secondary" style={styles.subText}>
+            <ThemedText
+              style={[
+                styles.subText,
+                {
+                  color: theme.colors.textSecondary,
+                },
+              ]}
+            >
               {subtitle}
             </ThemedText>
           ) : null}
