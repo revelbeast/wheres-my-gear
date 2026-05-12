@@ -422,7 +422,7 @@ export default function TripsScreen() {
               onPress={handleBack}
               disabled={isActionBusy}
             >
-              <ChevronLeft size={22} color={LABEL_WHITE} />
+              <ChevronLeft size={22} color="#111827" />
             </HapticPressable>
 
             <View style={styles.headerTitleWrap}>
@@ -584,7 +584,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.10)",
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.14)",
   },

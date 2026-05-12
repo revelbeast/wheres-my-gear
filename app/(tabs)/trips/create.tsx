@@ -340,12 +340,12 @@ export default function CreateTripScreen() {
                 onPress={handleBack}
                 disabled={isActionBusy}
               >
-                <ChevronLeft size={22} color={theme.colors.text} />
+                <ChevronLeft size={22} color="#111827" />
               </HapticPressable>
 
               <View style={styles.headerTitleWrap}>
                 <View style={styles.headerIconWrap}>
-                  <CalendarDays size={20} color={theme.colors.text} />
+                  <CalendarDays size={20} color="#111827" />
                 </View>
 
                 <ThemedText variant="header" style={styles.headerTitle}>
@@ -361,7 +361,7 @@ export default function CreateTripScreen() {
                 onPress={handleBack}
                 disabled={isActionBusy}
               >
-                <X size={19} color={theme.colors.text} />
+                <X size={19} color="#111827" />
               </HapticPressable>
             </View>
 
@@ -375,7 +375,10 @@ export default function CreateTripScreen() {
                 <ThemedText
                   variant="bodyStrong"
                   color="primary"
-                  style={styles.inputLabel}
+                  style={[
+                    styles.inputLabel,
+                    theme.isLight ? null : { color: "#FFFFFF" },
+                  ]}
                 >
                   Trip Name
                 </ThemedText>
@@ -404,7 +407,10 @@ export default function CreateTripScreen() {
                 <ThemedText
                   variant="bodyStrong"
                   color="primary"
-                  style={styles.inputLabel}
+                  style={[
+                    styles.inputLabel,
+                    theme.isLight ? null : { color: "#FFFFFF" },
+                  ]}
                 >
                   Trip Date
                 </ThemedText>

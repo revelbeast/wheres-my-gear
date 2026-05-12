@@ -327,7 +327,7 @@ export default function StorageManagementScreen() {
               style={[styles.backButton, isBusy() && styles.disabledInteraction]}
               disabled={isBusy()}
             >
-              <ChevronLeft size={24} color={colors.text} />
+              <ChevronLeft size={24} color="#111827" />
             </HapticPressable>
 
             <View style={styles.headerTextWrap}>
@@ -391,10 +391,14 @@ const styles = StyleSheet.create({
   },
 
   backButton: {
-    width: 36,
-    height: 36,
-    alignItems: "flex-start",
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
   },
 
   headerTextWrap: {

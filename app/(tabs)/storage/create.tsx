@@ -410,7 +410,7 @@ export default function CreateStorageScreen() {
               >
                 <ChevronLeft
                   size={24}
-                  color={LABEL_WHITE}
+                  color="#111827"
                 />
               </HapticPressable>
 
@@ -446,12 +446,8 @@ export default function CreateStorageScreen() {
               style={[
                 styles.card,
                 {
-                  borderColor: theme.isLight
-                    ? "rgba(0,0,0,0.08)"
-                    : "rgba(255,255,255,0.14)",
-                  backgroundColor: theme.isLight
-                    ? "rgba(255,255,255,0.88)"
-                    : "rgba(255,255,255,0.05)",
+                  backgroundColor: "#FFFFFF",
+                  borderColor: "rgba(255,255,255,0.14)",
                 },
               ]}
             >
