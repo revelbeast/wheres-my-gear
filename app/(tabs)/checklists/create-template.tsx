@@ -663,10 +663,10 @@ export default function CreateTemplateScreen() {
             <AppHeader title="" showBackButton />
 
             <View style={styles.heroHeader}>
-              <ThemedText variant="header" style={styles.heroTitle}>
+              <ThemedText variant="header" style={[styles.heroTitle, { color: "#FFFFFF" }]}>
                 Create Template
               </ThemedText>
-              <ThemedText color="secondary" style={styles.heroText}>
+              <ThemedText color="secondary" style={[styles.heroText, { color: "#E5E7EB" }]}>
                 Build a reusable checklist with starter items, quantities, and default pack status.
               </ThemedText>
             </View>
