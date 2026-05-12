@@ -516,15 +516,16 @@ export default function CompartmentsScreen() {
                 style={[
                   styles.headerIconButton,
                   {
-                    backgroundColor: theme.colors.iconSurface,
-                    borderColor: theme.colors.border,
+                    backgroundColor: "#FFFFFF",
+                    borderColor: "rgba(0,0,0,0.12)",
                   },
                   isBusy() && styles.actionDisabled,
                 ]}
                 onPress={handleBack}
                 disabled={isBusy()}
               >
-                <ArrowLeft size={20} color="#111827" />
+
+                <ArrowLeft size={18} color="#000000" />
               </HapticPressable>
 
               <View style={styles.headerTitleWrap}>
@@ -787,9 +788,9 @@ const styles = StyleSheet.create({
   },
 
   headerIconButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 13,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
