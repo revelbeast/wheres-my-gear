@@ -16,7 +16,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import AppHeader from "../../../../../components/ui/AppHeader";
 import HapticPressable from "../../../../../components/ui/HapticPressable";
 import ScreenBackground from "../../../../../components/ui/ScreenBackground";
-import { useThemedValues } from "../../../../../components/ui/Themed";
+import {
+  ThemedCard,
+  useThemedValues,
+} from "../../../../../components/ui/Themed";
 import { createCompartment } from "../../../../../lib/gearService";
 
 function FrostedCard({
@@ -26,29 +29,13 @@ function FrostedCard({
   children: React.ReactNode;
   style?: any;
 }) {
-  const theme = useThemedValues();
-
   return (
-    <View
-      style={[
-        styles.frostedCard,
-        {
-          borderColor: theme.colors.border,
-          backgroundColor: theme.isLight
-            ? "rgba(255,255,255,0.68)"
-            : "rgba(255,255,255,0.02)",
-        },
-        style,
-      ]}
+    <ThemedCard
+      style={[styles.frostedCard, style]}
+      contentStyle={styles.frostedCardContent}
     >
-      <BlurView
-        intensity={theme.isLight ? 22 : 35}
-        tint={theme.isLight ? "light" : "dark"}
-        style={styles.frostedBlur}
-      >
-        {children}
-      </BlurView>
-    </View>
+      {children}
+    </ThemedCard>
   );
 }
 
@@ -180,9 +167,12 @@ const styles = StyleSheet.create({
   },
 
   frostedCard: {
-    overflow: "hidden",
     borderRadius: 16,
-    borderWidth: 1,
+  },
+
+  frostedCardContent: {
+    paddingHorizontal: 14,
+    paddingVertical: 14,
   },
 
   frostedBlur: {
