@@ -28,6 +28,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import AppHeader from "../../../components/ui/AppHeader";
 import HapticPressable from "../../../components/ui/HapticPressable";
 import ScreenBackground from "../../../components/ui/ScreenBackground";
+import { useThemedValues } from "../../../components/ui/Themed";
 import {
   Compartment,
   StorageSpace,
@@ -41,6 +42,8 @@ import { useInteractionLock } from "../../../lib/useInteractionLock";
 import { colors } from "../../../theme/tokens";
 
 export default function VehicleDetailScreen() {
+  const theme = useThemedValues();
+
   const params = useLocalSearchParams<{ vehicleId?: string | string[] }>();
 
   const vehicleId = useMemo(() => {
@@ -297,8 +300,8 @@ export default function VehicleDetailScreen() {
     const compartmentText =
       compartments.length > 0
         ? compartments
-            .map((compartment, index) => `${index + 1}. ${compartment.name}`)
-            .join("\n")
+          .map((compartment, index) => `${index + 1}. ${compartment.name}`)
+          .join("\n")
         : "- No compartments added yet";
 
     const message = [
@@ -533,11 +536,25 @@ export default function VehicleDetailScreen() {
         showCreateBox ? "Close add compartment" : "Add compartment"
       }
     >
-      <BlurView intensity={18} tint="dark" style={styles.headerAddButtonInner}>
+      <BlurView
+        intensity={theme.isLight ? 18 : 35}
+        tint={theme.isLight ? "light" : "dark"}
+        style={[
+          styles.headerAddButtonInner,
+          {
+            backgroundColor: theme.isLight
+              ? "#FFFFFF"
+              : "rgba(255,255,255,0.08)",
+            borderColor: theme.isLight
+              ? "rgba(0,0,0,0.10)"
+              : "rgba(255,255,255,0.16)",
+          },
+        ]}
+      >
         {showCreateBox ? (
-          <X size={22} color="#fff" />
+          <X size={20} color={theme.isLight ? "#000000" : "#FFFFFF"} />
         ) : (
-          <Plus size={24} color="#fff" />
+          <Plus size={20} color={theme.isLight ? "#000000" : "#FFFFFF"} />
         )}
       </BlurView>
     </HapticPressable>
@@ -565,10 +582,42 @@ export default function VehicleDetailScreen() {
               rightContent={headerRight}
             />
 
-            <BlurView intensity={18} tint="dark" style={styles.topActionCard}>
+            <BlurView
+              intensity={theme.isLight ? 18 : 18}
+              tint={theme.isLight ? "light" : "dark"}
+              style={[
+                styles.topActionCard,
+                {
+                  backgroundColor: theme.isLight
+                    ? "#FFFFFF"
+                    : "rgba(255,255,255,0.04)",
+                  borderColor: theme.isLight
+                    ? "rgba(0,0,0,0.10)"
+                    : "rgba(255,255,255,0.12)",
+                },
+              ]}
+            >
               <View style={styles.topActionTextWrap}>
-                <Text style={styles.topActionTitle}>Add Compartment</Text>
-                <Text style={styles.topActionSubtitle}>
+                <Text
+                  style={[
+                    styles.topActionTitle,
+                    {
+                      color: theme.isLight ? "#000000" : "#FFFFFF",
+                    },
+                  ]}
+                >
+                  Add Compartment
+                </Text>
+                <Text
+                  style={[
+                    styles.topActionSubtitle,
+                    {
+                      color: theme.isLight
+                        ? "#000000"
+                        : "rgba(255,255,255,0.75)",
+                    },
+                  ]}
+                >
                   Create a compartment inside this storage space for better
                   organization.
                 </Text>
@@ -602,13 +651,28 @@ export default function VehicleDetailScreen() {
             <HapticPressable
               style={[
                 styles.shareStorageButton,
+                {
+                  backgroundColor: theme.isLight
+                    ? "#FFFFFF"
+                    : "rgba(12,24,50,0.28)",
+                  borderColor: theme.isLight
+                    ? "rgba(0,0,0,0.10)"
+                    : "rgba(255,255,255,0.08)",
+                },
                 isBusy() && styles.disabledInteraction,
               ]}
               onPress={handleShareStorageSpace}
               disabled={isBusy()}
             >
-              <Share2 size={18} color="#fff" />
-              <Text style={styles.shareStorageButtonText}>
+              <Share2 size={18} color={theme.isLight ? "#000000" : "#fff"} />
+              <Text
+                style={[
+                  styles.shareStorageButtonText,
+                  {
+                    color: theme.isLight ? "#000000" : "#FFFFFF",
+                  },
+                ]}
+              >
                 Share Storage Space
               </Text>
             </HapticPressable>
@@ -637,7 +701,7 @@ export default function VehicleDetailScreen() {
                       (!newCompartmentName.trim() ||
                         isCreating ||
                         interactionLocked) &&
-                        styles.createButtonDisabled,
+                      styles.createButtonDisabled,
                     ]}
                     onPress={handleCreateCompartment}
                     disabled={
@@ -661,9 +725,41 @@ export default function VehicleDetailScreen() {
             </View>
 
             {compartments.length === 0 ? (
-              <BlurView intensity={18} tint="dark" style={styles.emptyCard}>
-                <Text style={styles.emptyTitle}>No compartments found</Text>
-                <Text style={styles.emptyText}>
+              <BlurView
+                intensity={18}
+                tint={theme.isLight ? "light" : "dark"}
+                style={[
+                  styles.emptyCard,
+                  {
+                    backgroundColor: theme.isLight
+                      ? "#FFFFFF"
+                      : "rgba(255,255,255,0.04)",
+                    borderColor: theme.isLight
+                      ? "rgba(0,0,0,0.10)"
+                      : "rgba(255,255,255,0.12)",
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.emptyTitle,
+                    {
+                      color: theme.isLight ? "#000000" : "#FFFFFF",
+                    },
+                  ]}
+                >
+                  No compartments found
+                </Text>
+                <Text
+                  style={[
+                    styles.emptyText,
+                    {
+                      color: theme.isLight
+                        ? "#000000"
+                        : "rgba(255,255,255,0.75)",
+                    },
+                  ]}
+                >
                   Add your first compartment for this storage space to start
                   organizing items.
                 </Text>
@@ -709,7 +805,7 @@ export default function VehicleDetailScreen() {
                                 (!editingCompartmentName.trim() ||
                                   savingEdit ||
                                   interactionLocked) &&
-                                  styles.createButtonDisabled,
+                                styles.createButtonDisabled,
                               ]}
                               onPress={() => saveEditing(compartment.id)}
                               disabled={
@@ -728,7 +824,7 @@ export default function VehicleDetailScreen() {
                               style={[
                                 styles.cancelEditButton,
                                 (savingEdit || interactionLocked) &&
-                                  styles.disabledInteraction,
+                                styles.disabledInteraction,
                               ]}
                               onPress={cancelEditing}
                               disabled={savingEdit || interactionLocked}
@@ -760,7 +856,7 @@ export default function VehicleDetailScreen() {
                               style={[
                                 styles.iconButton,
                                 interactionDisabled &&
-                                  styles.disabledInteraction,
+                                styles.disabledInteraction,
                               ]}
                               onPress={() => startEditing(compartment)}
                               disabled={interactionDisabled}
@@ -775,7 +871,7 @@ export default function VehicleDetailScreen() {
                               style={[
                                 styles.iconButton,
                                 interactionDisabled &&
-                                  styles.disabledInteraction,
+                                styles.disabledInteraction,
                               ]}
                               onPress={() =>
                                 handleOpenCompartment(compartment.id)
@@ -818,14 +914,14 @@ const styles = StyleSheet.create({
   },
 
   headerAddButton: {
-    borderRadius: 18,
+    borderRadius: 13,
     overflow: "hidden",
   },
 
   headerAddButtonInner: {
-    width: 58,
-    height: 58,
-    borderRadius: 18,
+    width: 42,
+    height: 42,
+    borderRadius: 13,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,

@@ -441,13 +441,13 @@ const styles = StyleSheet.create({
   },
 
   addButton: {
-    borderRadius: 12,
+    borderRadius: 13,
     overflow: "hidden",
   },
 
   addButtonInner: {
-    width: 38,
-    height: 38,
+    width: 42,
+    height: 42,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,

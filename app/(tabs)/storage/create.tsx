@@ -79,7 +79,7 @@ export default function CreateStorageScreen() {
   }>();
 
   const returnRoute =
-    params.returnTo === "dashboard" ? "/" : "/storage";
+    params.returnTo === "dashboard" ? "/" : "/(tabs)/storage";
 
   const {
     isLocked: interactionLocked,
@@ -596,8 +596,8 @@ export default function CreateStorageScreen() {
                   }
                 >
                   <BlurView
-                    intensity={28}
-                    tint="systemUltraThinMaterialDark"
+                    intensity={theme.isLight ? 18 : 28}
+                    tint={theme.isLight ? "light" : "systemUltraThinMaterialDark"}
                     style={styles.dropdownButton}
                   >
                     <Text
@@ -608,7 +608,9 @@ export default function CreateStorageScreen() {
                             !subtype &&
                               !customSubtype
                               ? theme.colors.textMuted
-                              : "#FFFFFF",
+                              : theme.isLight
+                                ? "#000000"
+                                : "#FFFFFF",
                         },
                       ]}
                       numberOfLines={1}
@@ -618,7 +620,7 @@ export default function CreateStorageScreen() {
 
                     <ChevronDown
                       size={18}
-                      color="#FFFFFF"
+                      color={theme.isLight ? "#000000" : "#FFFFFF"}
                     />
                   </BlurView>
                 </HapticPressable>
