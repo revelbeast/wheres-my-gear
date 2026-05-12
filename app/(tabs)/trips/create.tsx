@@ -38,7 +38,7 @@ import {
 import { db } from "../../../firebaseConfig";
 import { useInteractionLock } from "../../../lib/useInteractionLock";
 
-const LABEL_WHITE = "#FFFFFF";
+
 
 function FrostedCard({
   children,
@@ -48,6 +48,7 @@ function FrostedCard({
   style?: any;
 }) {
   const theme = useThemedValues();
+
 
   return (
     <BlurView
@@ -124,6 +125,8 @@ function buildCalendarDays(monthDate: Date) {
 }
 
 export default function CreateTripScreen() {
+  const theme = useThemedValues();
+
   const params = useLocalSearchParams<{
     returnTo?: string;
     createSession?: string;
@@ -132,12 +135,12 @@ export default function CreateTripScreen() {
   const returnRoute =
     params.returnTo === "dashboard" ? "/" : "/trips";
   const { user, initializing } = useAuth();
-  const theme = useThemedValues();
   const {
     isLocked: interactionLocked,
     lock: lockInteraction,
     unlock: unlockInteraction,
   } = useInteractionLock(450);
+
 
   const [tripName, setTripName] = useState("");
   const [tripDate, setTripDate] = useState(getNoonDate(new Date()));
@@ -337,12 +340,12 @@ export default function CreateTripScreen() {
                 onPress={handleBack}
                 disabled={isActionBusy}
               >
-                <ChevronLeft size={22} color={LABEL_WHITE} />
+                <ChevronLeft size={22} color={theme.colors.text} />
               </HapticPressable>
 
               <View style={styles.headerTitleWrap}>
                 <View style={styles.headerIconWrap}>
-                  <CalendarDays size={20} color={LABEL_WHITE} />
+                  <CalendarDays size={20} color={theme.colors.text} />
                 </View>
 
                 <ThemedText variant="header" style={styles.headerTitle}>
@@ -358,7 +361,7 @@ export default function CreateTripScreen() {
                 onPress={handleBack}
                 disabled={isActionBusy}
               >
-                <X size={19} color={LABEL_WHITE} />
+                <X size={19} color={theme.colors.text} />
               </HapticPressable>
             </View>
 
@@ -369,7 +372,11 @@ export default function CreateTripScreen() {
 
             <FrostedCard style={styles.formCard}>
               <View style={styles.inputGroup}>
-                <ThemedText variant="bodyStrong" style={styles.inputLabel}>
+                <ThemedText
+                  variant="bodyStrong"
+                  color="primary"
+                  style={styles.inputLabel}
+                >
                   Trip Name
                 </ThemedText>
 
@@ -394,7 +401,11 @@ export default function CreateTripScreen() {
               </View>
 
               <View style={styles.inputGroupLast}>
-                <ThemedText variant="bodyStrong" style={styles.inputLabel}>
+                <ThemedText
+                  variant="bodyStrong"
+                  color="primary"
+                  style={styles.inputLabel}
+                >
                   Trip Date
                 </ThemedText>
 
@@ -432,7 +443,7 @@ export default function CreateTripScreen() {
               disabled={isActionBusy}
             >
               <View style={styles.saveButtonInner}>
-                <Save size={18} color={LABEL_WHITE} />
+                <Save size={18} color={theme.colors.text} />
                 <ThemedText style={styles.saveButtonText}>
                   {isSaving ? "Saving Trip..." : "Save Trip"}
                 </ThemedText>
@@ -444,7 +455,7 @@ export default function CreateTripScreen() {
               onPress={handleBack}
               disabled={isActionBusy}
             >
-              <X size={18} color={LABEL_WHITE} />
+              <X size={18} color={theme.colors.text} />
               <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
             </HapticPressable>
 
@@ -477,7 +488,7 @@ export default function CreateTripScreen() {
                   onPress={handlePreviousMonth}
                   disabled={isActionBusy}
                 >
-                  <ChevronLeft size={20} color={LABEL_WHITE} />
+                  <ChevronLeft size={20} color={theme.colors.text} />
                 </HapticPressable>
 
                 <ThemedText variant="bodyStrong" style={styles.calendarTitle}>
@@ -492,7 +503,7 @@ export default function CreateTripScreen() {
                   onPress={handleNextMonth}
                   disabled={isActionBusy}
                 >
-                  <ChevronRight size={20} color={LABEL_WHITE} />
+                  <ChevronRight size={20} color={theme.colors.text} />
                 </HapticPressable>
               </View>
 
@@ -595,7 +606,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.10)",
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.14)",
   },
@@ -604,7 +615,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "flex-start",
     paddingHorizontal: 12,
   },
 
@@ -615,13 +626,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginRight: 10,
-    backgroundColor: "rgba(255,255,255,0.14)",
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.16)",
   },
 
   headerTitle: {
-    color: LABEL_WHITE,
+    color: "#FFFFFF",
     fontWeight: "700",
   },
 
@@ -631,7 +642,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.10)",
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.14)",
   },
@@ -641,7 +652,7 @@ const styles = StyleSheet.create({
   },
 
   headerSubtitle: {
-    color: LABEL_WHITE,
+    color: "#FFFFFF",
     opacity: 0.82,
     lineHeight: 20,
     marginBottom: 14,
@@ -662,7 +673,7 @@ const styles = StyleSheet.create({
   },
 
   inputLabel: {
-    color: LABEL_WHITE,
+    color: "#111827",
     marginBottom: 8,
   },
 
@@ -717,7 +728,7 @@ const styles = StyleSheet.create({
     minHeight: 48,
     borderRadius: 12,
     marginBottom: 14,
-    backgroundColor: "rgba(255,255,255,0.14)",
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.18)",
     flexDirection: "row",
@@ -727,7 +738,7 @@ const styles = StyleSheet.create({
   },
 
   cancelButtonText: {
-    color: LABEL_WHITE,
+    color: "#111827",
     fontWeight: "700",
   },
 
@@ -767,13 +778,13 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "rgba(0,0,0,0.06)",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.16)",
   },
 
   calendarTitle: {
-    color: LABEL_WHITE,
+    color: "#111827",
   },
 
   weekdayRow: {
@@ -818,7 +829,7 @@ const styles = StyleSheet.create({
   },
 
   selectedDayText: {
-    color: LABEL_WHITE,
+    color: "#111827",
   },
 
   cancelCalendarButton: {
