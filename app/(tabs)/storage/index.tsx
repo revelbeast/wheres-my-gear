@@ -340,7 +340,7 @@ export default function StorageManagementScreen() {
               disabled={isBusy()}
             >
               <BlurView intensity={20} tint="dark" style={styles.addButtonInner}>
-                <Plus size={18} color={colors.text} />
+                <Plus size={18} color="#111827" />
               </BlurView>
             </HapticPressable>
           </View>
@@ -403,7 +403,7 @@ const styles = StyleSheet.create({
 
   headerTextWrap: {
     flex: 1,
-    alignItems: "center",
+    alignItems: "flex-start",
     paddingHorizontal: 8,
   },
 
@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 20,
     fontWeight: "700",
-    textAlign: "center",
+    textAlign: "left",
   },
 
   addButton: {
@@ -425,8 +425,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
-    backgroundColor: "rgba(255,255,255,0.04)",
+    borderColor: "rgba(255,255,255,0.14)",
+    backgroundColor: "#FFFFFF",
   },
 
   headerSubtitle: {
