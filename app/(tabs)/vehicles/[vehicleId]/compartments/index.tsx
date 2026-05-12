@@ -524,7 +524,7 @@ export default function CompartmentsScreen() {
                 onPress={handleBack}
                 disabled={isBusy()}
               >
-                <ArrowLeft size={20} color={LABEL_WHITE} />
+                <ArrowLeft size={20} color="#111827" />
               </HapticPressable>
 
               <View style={styles.headerTitleWrap}>
@@ -542,15 +542,15 @@ export default function CompartmentsScreen() {
                   style={[
                     styles.headerIconButton,
                     {
-                      backgroundColor: theme.colors.iconSurface,
-                      borderColor: theme.colors.border,
+                      backgroundColor: "#FFFFFF",
+                      borderColor: "rgba(255,255,255,0.14)",
                     },
                     isBusy() && styles.actionDisabled,
                   ]}
                   onPress={handleCreateCompartment}
                   disabled={isBusy()}
                 >
-                  <Plus size={20} color={LABEL_WHITE} />
+                  <Plus size={20} color="#111827" />
                 </HapticPressable>
               ) : (
                 <View style={styles.headerSpacer} />
@@ -642,7 +642,7 @@ export default function CompartmentsScreen() {
                                   (!editingCompartmentName.trim() ||
                                     savingEdit ||
                                     interactionLocked) &&
-                                    styles.actionDisabled,
+                                  styles.actionDisabled,
                                 ]}
                                 onPress={() =>
                                   saveEditingCompartment(compartment.id)
@@ -667,7 +667,7 @@ export default function CompartmentsScreen() {
                                     backgroundColor: theme.colors.iconSurface,
                                   },
                                   (savingEdit || interactionLocked) &&
-                                    styles.actionDisabled,
+                                  styles.actionDisabled,
                                 ]}
                                 onPress={cancelEditingCompartment}
                                 disabled={savingEdit || interactionLocked}
@@ -708,8 +708,8 @@ export default function CompartmentsScreen() {
                                 style={[
                                   styles.iconButton,
                                   {
-                                    backgroundColor: theme.colors.iconSurface,
-                                    borderColor: theme.colors.border,
+                                    backgroundColor: "#FFFFFF",
+                                    borderColor: "rgba(255,255,255,0.14)",
                                   },
                                   rowDisabled && styles.actionDisabled,
                                 ]}
@@ -797,13 +797,13 @@ const styles = StyleSheet.create({
 
   headerTitleWrap: {
     flex: 1,
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "center",
     paddingHorizontal: 10,
   },
 
   headerTitle: {
-    textAlign: "center",
+    textAlign: "left",
     fontWeight: "800",
   },
 
