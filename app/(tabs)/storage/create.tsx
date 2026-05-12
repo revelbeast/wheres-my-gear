@@ -396,12 +396,8 @@ export default function CreateStorageScreen() {
                 style={[
                   styles.backButton,
                   {
-                    backgroundColor: theme.isLight
-                      ? "rgba(255,255,255,0.24)"
-                      : "rgba(255,255,255,0.08)",
-                    borderColor: theme.isLight
-                      ? "rgba(255,255,255,0.22)"
-                      : "rgba(255,255,255,0.10)",
+                    backgroundColor: "#FFFFFF",
+                    borderColor: "rgba(255,255,255,0.14)",
                   },
                   (saving || interactionLocked) &&
                   styles.disabledInteraction,
@@ -446,7 +442,9 @@ export default function CreateStorageScreen() {
               style={[
                 styles.card,
                 {
-                  backgroundColor: "#FFFFFF",
+                  backgroundColor: theme.isLight
+                    ? "#FFFFFF"
+                    : "rgba(10,18,32,0.52)",
                   borderColor: "rgba(255,255,255,0.14)",
                 },
               ]}
@@ -807,13 +805,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 10,
-    backgroundColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.14)",
   },
 
   cancelText: {
-    color: "#FFFFFF",
+    color: "#111827",
     fontSize: 13,
     fontWeight: "700",
   },
