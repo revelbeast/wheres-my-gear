@@ -277,7 +277,7 @@ export default function StorageManagementScreen() {
         renderRightActions={() => renderRightActions(space)}
         enabled={!interactionDisabled}
       >
-        <BlurView intensity={18} tint="dark" style={styles.storageCard}>
+        <BlurView intensity={0} tint="light" style={styles.storageCard}>
           <HapticPressable
             style={[
               styles.storageCardMainPressable,
@@ -287,8 +287,17 @@ export default function StorageManagementScreen() {
             disabled={interactionDisabled}
           >
             <View style={styles.storageCardLeft}>
-              <Text style={styles.storageTitle}>{space.name}</Text>
-              <Text style={styles.storageMeta}>
+              <Text style={[
+                styles.storageTitle,
+                { color: colors.text }
+              ]}>
+                {space.name}
+              </Text>
+
+              <Text style={[
+                styles.storageMeta,
+                { color: colors.textSecondary }
+              ]}>
                 {space.category === "vehicle" ? "Vehicle" : "Storage"}
                 {space.subtype ? ` • ${space.subtype}` : ""}
               </Text>
@@ -304,16 +313,22 @@ export default function StorageManagementScreen() {
                 hitSlop={8}
                 disabled={interactionDisabled}
               >
-                <Pencil size={16} color={colors.textSecondary} />
+                <Pencil
+                  size={16}
+                  color={colors.textSecondary}
+                />
               </HapticPressable>
 
               <View style={styles.chevronWrap}>
-                <ChevronRight size={18} color={colors.textSecondary} />
+                <ChevronRight
+                  size={18}
+                  color={colors.textSecondary}
+                />
               </View>
             </View>
           </HapticPressable>
         </BlurView>
-      </Swipeable>
+      </Swipeable >
     );
   }
 
@@ -443,8 +458,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
-    backgroundColor: "rgba(255,255,255,0.02)",
+    borderColor: "rgba(15,23,42,0.10)",
+    backgroundColor: "#FFFFFF",
     marginBottom: 8,
   },
 

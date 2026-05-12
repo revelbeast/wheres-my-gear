@@ -326,7 +326,12 @@ export default function ScreenBackground({
         }
       }}
     >
-      <View style={styles.baseOverlay} />
+      <View
+        style={[
+          styles.baseOverlay,
+          { backgroundColor: "rgba(0,0,0,0.18)" }
+        ]}
+      />
       <View style={styles.topGlow} />
       <View style={styles.bottomShade} />
 
