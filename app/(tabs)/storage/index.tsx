@@ -346,6 +346,21 @@ export default function StorageManagementScreen() {
                 />
               </HapticPressable>
 
+              <HapticPressable
+                style={[
+                  styles.iconButton,
+                  interactionDisabled && styles.disabledInteraction,
+                ]}
+                onPress={() => handleConfirmDeleteStorage(space)}
+                hitSlop={8}
+                disabled={interactionDisabled}
+              >
+                <Trash2
+                  size={16}
+                  color={theme.isLight ? "#DC2626" : "#F87171"}
+                />
+              </HapticPressable>
+
               <View style={styles.chevronWrap}>
                 <ChevronRight
                   size={18}
