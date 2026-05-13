@@ -829,12 +829,7 @@ export default function ProfileSettingsScreen() {
                 onPress={handlePickBackgroundPhoto}
                 disabled={interactionBusy}
                 style={[
-                  styles.backgroundPhotoCard,
-                  {
-                    borderColor: theme.isLight
-                      ? "rgba(148,163,184,0.62)"
-                      : "rgba(226,232,240,0.34)",
-                  },
+                  styles.heroPhotoButton,
                   interactionBusy && styles.disabledInteraction,
                 ]}
               >
