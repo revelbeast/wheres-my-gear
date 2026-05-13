@@ -2,7 +2,7 @@ export default {
   expo: {
     name: "Where's My Gear",
     slug: "wheres-my-gear",
-    version: "1.0.3",
+    version: "1.0.4",
     orientation: "portrait",
     scheme: "wheres-my-gear",
 
@@ -10,7 +10,7 @@ export default {
 
     ios: {
       bundleIdentifier: "com.richgarcia.wheresmygear",
-      buildNumber: "29",
+      buildNumber: "30",
       supportsTablet: false,
       usesIap: true,
       usesAppleSignIn: true,
