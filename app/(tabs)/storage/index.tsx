@@ -296,7 +296,21 @@ export default function StorageManagementScreen() {
         renderRightActions={() => renderRightActions(space)}
         enabled={!interactionDisabled}
       >
-        <BlurView intensity={0} tint="light" style={styles.storageCard}>
+        <BlurView
+          intensity={theme.isLight ? 0 : 18}
+          tint={theme.isLight ? "light" : "dark"}
+          style={[
+            styles.storageCard,
+            {
+              backgroundColor: theme.isLight
+                ? "#FFFFFF"
+                : "rgba(15,23,42,0.20)",
+              borderColor: theme.isLight
+                ? "rgba(15,23,42,0.10)"
+                : "rgba(255,255,255,0.12)",
+            },
+          ]}
+        >
           <HapticPressable
             style={[
               styles.storageCardMainPressable,

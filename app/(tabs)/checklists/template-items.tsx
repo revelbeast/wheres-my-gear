@@ -589,7 +589,7 @@ export default function TemplateItemsScreen() {
           packed ? styles.packedItemCard : styles.unpackedItemCard,
           {
             borderColor: packed
-              ? "rgba(34,197,94,0.24)"
+              ? "rgba(34,197,94,0.95)"
               : theme.colors.border,
             backgroundColor: theme.colors.card,
           },
@@ -623,7 +623,7 @@ export default function TemplateItemsScreen() {
                 style={[
                   styles.saveEditButton,
                   (!editingItemName.trim() || savingItemName) &&
-                    styles.createButtonDisabled,
+                  styles.createButtonDisabled,
                 ]}
                 onPress={() => handleSaveItemName(item)}
                 disabled={!editingItemName.trim() || savingItemName}
@@ -985,7 +985,7 @@ export default function TemplateItemsScreen() {
                       style={[
                         styles.createButton,
                         (!newItemName.trim() || addingItem || interactionLocked) &&
-                          styles.createButtonDisabled,
+                        styles.createButtonDisabled,
                       ]}
                       onPress={handleAddItem}
                       disabled={
@@ -1154,7 +1154,7 @@ const styles = StyleSheet.create({
   packedItemCard: {
     marginBottom: 12,
     padding: 14,
-    opacity: 0.9,
+    opacity: 1.5,
   },
 
   itemContentRow: {

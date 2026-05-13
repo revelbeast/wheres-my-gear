@@ -537,16 +537,21 @@ export default function InventoryScreen() {
       !!user && inventoryItems.length === 0 && searchQuery.trim().length === 0;
 
     return (
-      <BlurView
-        intensity={theme.isLight ? 18 : 22}
-        tint={theme.isLight ? "light" : "dark"}
-        style={[
-          styles.emptyCard,
-          {
-            backgroundColor: theme.colors.card,
-            borderColor: theme.colors.border,
-          },
-        ]}
+      < BlurView
+  intensity = { theme.isLight ? 18 : 18 }
+    tint = { theme.isLight ? "light" : "dark" }
+    style = {
+      [
+      styles.manageStorageCard,
+      {
+        backgroundColor: theme.isLight
+          ? theme.colors.card
+          : "rgba(255,255,255,0.20)",
+        borderColor: theme.isLight
+          ? theme.colors.border
+          : "rgba(255,255,255,0.12)",
+      },
+  ]}
       >
         <View
           style={[
@@ -574,18 +579,20 @@ export default function InventoryScreen() {
           {getEmptyText()}
         </ThemedText>
 
-        {showAddStorageAction && (
-          <ThemedButton
-            style={styles.emptyButton}
-            onPress={handleAddStorageSpace}
-            disabled={interactionLocked || navigationTransitionLockedRef.current}
-          >
-            <ThemedText style={styles.emptyButtonText}>
-              Add Storage Space
-            </ThemedText>
-          </ThemedButton>
-        )}
-      </BlurView>
+    {
+      showAddStorageAction && (
+        <ThemedButton
+          style={styles.emptyButton}
+          onPress={handleAddStorageSpace}
+          disabled={interactionLocked || navigationTransitionLockedRef.current}
+        >
+          <ThemedText style={styles.emptyButtonText}>
+            Add Storage Space
+          </ThemedText>
+        </ThemedButton>
+      )
+    }
+      </BlurView >
     );
   }
 

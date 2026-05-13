@@ -1660,8 +1660,12 @@ export default function ChecklistDetailScreen() {
                   style={[
                     styles.shareChecklistButton,
                     {
-                      backgroundColor: "#FFFFFF",
-                      borderColor: "rgba(0,0,0,0.10)",
+                      backgroundColor: theme.isLight
+                        ? "#FFFFFF"
+                        : "rgba(255,255,255,0.10)",
+                      borderColor: theme.isLight
+                        ? "rgba(0,0,0,0.10)"
+                        : "rgba(255,255,255,0.16)",
                     },
                     interactionLocked && styles.disabledButton,
                   ]}
