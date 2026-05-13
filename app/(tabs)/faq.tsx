@@ -18,15 +18,31 @@ type FAQItem = {
 };
 
 const FAQ_ITEMS: FAQItem[] = [
+
   {
     question: "What is Where's My Gear?",
     answer:
       "Where's My Gear helps you track gear by storage space, compartment, and checklist so you know where items are located and what still needs to be packed.",
   },
   {
-    question: "What are Upcoming Trips?",
+    question: "Can I add photos to items?",
     answer:
-      "Upcoming Trips help you plan ahead by organizing your packing needs by date. You can create a trip, assign a date, and track what needs to be packed before you leave.",
+      "Yes. You can take a photo or choose one from your device library. Item photos help you identify gear faster.",
+  },
+  {
+    question: "Can I save notes?",
+    answer:
+      "Yes. Notes are saved by Storage Space. Open Notes from the Dashboard to add storage-specific notes. Notes auto-save while you type and can also be saved manually.",
+  },
+  {
+    question: "Does Where's My Gear use Apple sign-in?",
+    answer:
+      "Yes. The app uses Apple sign-in, so you do not need to create or manage a separate password inside the app.",
+  },
+  {
+    question: "How do Checklists work?",
+    answer:
+      "Checklists help you plan what to pack. You can create a checklist, add items, assign checklist items to a storage space and compartment, and mark items as Packed or To Pack.",
   },
   {
     question: "How do I use Upcoming Trips?",
@@ -34,24 +50,14 @@ const FAQ_ITEMS: FAQItem[] = [
       "Create a trip from the Dashboard, select your trip date, and add or link a checklist. As your trip approaches, you can track your progress using Packed and To Pack items.",
   },
   {
-    question: "Will I get reminders for Upcoming Trips?",
+    question: "What are Upcoming Trips?",
     answer:
-      "Upcoming Trips reminders are planned for a future update. You will be able to receive notifications as your trip date approaches.",
+      "Upcoming Trips help you plan ahead by organizing your packing needs by date. You can create a trip, assign a date, and track what needs to be packed before you leave.",
   },
   {
-    question: "What is a Storage Space?",
+    question: "What can I search for?",
     answer:
-      "A Storage Space is the larger place where your gear is stored, such as a van, truck, RV, garage, shed, storage unit, or other location.",
-  },
-  {
-    question: "What is a Compartment?",
-    answer:
-      "A Compartment is a smaller area inside a Storage Space. Examples include a drawer, cabinet, bin, box, shelf, rear cargo area, or under-seat storage area.",
-  },
-  {
-    question: "What is an Item?",
-    answer:
-      "An Item is a piece of gear stored inside a compartment. Items can include a quantity, packed status, and an optional photo.",
+      "Dashboard search can find Items, Storage Spaces, Compartments, Checklists, and Templates. You can search by names, storage types, packed status, or To Pack status.",
   },
   {
     question: "What does Packed mean?",
@@ -64,34 +70,33 @@ const FAQ_ITEMS: FAQItem[] = [
       "To Pack means the item still needs to be packed or accounted for. These items increase the To Pack count on the Dashboard for the selected Storage Space.",
   },
   {
-    question: "How do Checklists work?",
-    answer:
-      "Checklists help you plan what to pack. You can create a checklist, add items, assign checklist items to a storage space and compartment, and mark items as packed.",
-  },
-  {
-    question: "Can I save notes?",
-    answer:
-      "Yes. Notes are saved by Storage Space. Open Notes from the Dashboard to add storage-specific notes. Notes auto-save while you type and can also be saved manually.",
-  },
-  {
-    question: "What can I search for?",
-    answer:
-      "Dashboard search can find Items, Storage Spaces, Compartments, and Checklists. You can search by names, storage types, packed status, or To Pack status.",
-  },
-  {
-    question: "Can I add photos to items?",
-    answer:
-      "Yes. You can take a photo or choose one from your device library. Item photos help you identify gear faster.",
-  },
-  {
-    question: "Does Where's My Gear use Apple sign-in?",
-    answer:
-      "Yes. The app uses Apple sign-in, so you do not need to create or manage a separate password inside the app.",
-  },
-  {
     question: "What happens if I delete all data?",
     answer:
       "Delete All Data permanently removes your Storage Spaces, Compartments, Inventory Items, Checklists, Checklist Items, and Checklist Templates. Notes saved to Storage Spaces are also removed. This action cannot be undone.",
+  },
+  {
+    question: "What is a Compartment?",
+    answer:
+      "A Compartment is a smaller area inside a Storage Space. Examples include a drawer, cabinet, bin, box, shelf, rear cargo area, or under-seat storage area.",
+  },
+  {
+    question: "What is a Storage Space?",
+    answer:
+      "A Storage Space is the larger place where your gear is stored, such as a van, truck, RV, garage, shed, storage unit, or other location.",
+  },
+  {
+    question: "What is an Item?",
+    answer:
+      "An Item is a piece of gear stored inside a compartment. Items can include a quantity, packed status, and an optional photo.",
+  },
+  {
+    question: "What is the difference between a Checklist and a Template?",
+    answer:
+      "A Checklist is an active packing list used to track what is Packed and what is still To Pack for a trip, activity, or gear setup. A Template is a reusable packing blueprint that helps you quickly create future checklists without starting over. Create Template saves the reusable blueprint under Manage Templates. New Blank Checklist creates an active checklist under Active Checklists. A common workflow is: Template, create Checklist, then pack items.",
+  },  {
+    question: "Will I get reminders for Upcoming Trips?",
+    answer:
+      "Upcoming Trips reminders are planned for a future update. You will be able to receive notifications as your trip date approaches.",
   },
 ];
 
