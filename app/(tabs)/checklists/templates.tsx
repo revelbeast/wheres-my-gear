@@ -19,6 +19,7 @@ import HapticPressable from "../../../components/ui/HapticPressable";
 import ScreenBackground from "../../../components/ui/ScreenBackground";
 import { useThemedValues } from "../../../components/ui/Themed";
 import {
+  createChecklistFromTemplate,
   deleteChecklistTemplate,
   getChecklistTemplateItems,
   getChecklistTemplates,
@@ -309,6 +310,28 @@ export default function ManageTemplatesScreen() {
     });
   }
 
+  async function handleCreateChecklistFromTemplate(template: ChecklistTemplate) {
+    if (!user || interactionLocked || savingRename) return;
+
+    const uid = user.uid;
+
+    await runWithLock(async () => {
+      try {
+        const checklistId = await createChecklistFromTemplate(uid, template);
+
+        router.push({
+          pathname: "/checklists/[checklistId]",
+          params: { checklistId },
+        });
+      } catch (err) {
+        if (!isMountedRef.current) return;
+
+        console.error(err);
+        Alert.alert("Error", "Failed to create checklist from template.");
+      }
+    });
+  }
+
   function handleDeleteTemplate(template: ChecklistTemplate) {
     if (!user || interactionLocked || savingRename) return;
 
@@ -403,6 +426,32 @@ export default function ManageTemplatesScreen() {
                             { color: theme.colors.textSecondary },
                           ]}
                         >
+                          •
+                        </Text>
+
+                        <HapticPressable
+                          onPress={() =>
+                            handleCreateChecklistFromTemplate(template)
+                          }
+                          hitSlop={10}
+                          disabled={navigationDisabled}
+                        >
+                          <Text
+                            style={[
+                              styles.previewText,
+                              navigationDisabled && styles.disabledButton,
+                            ]}
+                          >
+                            Use Template
+                          </Text>
+                        </HapticPressable>
+
+                        <Text
+                          style={[
+                            styles.editHintText,
+                            { color: theme.colors.textSecondary },
+                          ]}
+                        >
                           Tap card to edit items
                         </Text>
                       </View>
@@ -420,7 +469,7 @@ export default function ManageTemplatesScreen() {
                           borderColor: theme.colors.border,
                         },
                         (navigationDisabled || savingRename) &&
-                          styles.disabledButton,
+                        styles.disabledButton,
                       ]}
                     >
                       <Pencil size={17} color={theme.colors.text} />
@@ -436,7 +485,7 @@ export default function ManageTemplatesScreen() {
                           borderColor: theme.colors.border,
                         },
                         (navigationDisabled || savingRename) &&
-                          styles.disabledButton,
+                        styles.disabledButton,
                       ]}
                     >
                       <Trash2 size={17} color={theme.colors.danger} />

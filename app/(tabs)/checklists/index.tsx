@@ -22,7 +22,11 @@ import {
   ThemedText,
   useThemedValues,
 } from "../../../components/ui/Themed";
-import { subscribeToChecklists } from "../../../lib/checklistsService";
+import {
+  getChecklistTemplateItems,
+  getChecklistTemplates,
+  subscribeToChecklists,
+} from "../../../lib/checklistsService";
 import { useInteractionLock } from "../../../lib/useInteractionLock";
 import type { Checklist, ChecklistCategory } from "../../../types/checklists";
 
@@ -292,6 +296,7 @@ export default function ChecklistsTabScreen() {
   );
 
   const [checklists, setChecklists] = useState<Checklist[]>([]);
+  const [templateRows, setTemplateRows] = useState<Checklist[]>([]);
   const [selectedChecklistStatus, setSelectedChecklistStatus] = useState<
     "active" | "packed" | "toPack"
   >("active");
@@ -342,10 +347,13 @@ export default function ChecklistsTabScreen() {
     if (!userId) {
       if (isMountedRef.current) {
         setChecklists([]);
+        setTemplateRows([]);
       }
 
       return;
     }
+
+    void loadTemplateRows(userId);
 
     const unsubscribe = subscribeToChecklists(userId, (items) => {
       if (
@@ -363,6 +371,48 @@ export default function ChecklistsTabScreen() {
       unsubscribe();
     };
   }, [initializing, userId]);
+
+  async function loadTemplateRows(uid: string) {
+    try {
+      const templates = await getChecklistTemplates(uid);
+
+      const rows = await Promise.all(
+        templates.map(async (template) => {
+          const items = await getChecklistTemplateItems(uid, template.id);
+          const totalCount = items.length;
+          const packedCount = items.filter((item) => item.packed).length;
+          const missingCount = totalCount - packedCount;
+
+          return {
+            id: `template:${template.id}`,
+            name: template.name,
+            templateId: template.id,
+            category: template.category,
+            customCategoryLabel: template.customCategoryLabel ?? "",
+            status: "active" as const,
+            packedCount,
+            totalCount,
+            missingCount,
+            vehicleId: null,
+            tripId: null,
+            isArchived: false,
+            createdAt: template.createdAt,
+            updatedAt: template.updatedAt,
+          };
+        })
+      );
+
+      if (isMountedRef.current) {
+        setTemplateRows(rows);
+      }
+    } catch (err) {
+      console.error("Failed to load checklist templates:", err);
+
+      if (isMountedRef.current) {
+        setTemplateRows([]);
+      }
+    }
+  }
 
   async function runWithLock(action: () => Promise<void> | void) {
     if (interactionLocked) return;
@@ -408,31 +458,46 @@ export default function ChecklistsTabScreen() {
     void runWithLock(action);
   }
 
+  const combinedChecklists = useMemo(() => {
+    return [...checklists, ...templateRows];
+  }, [checklists, templateRows]);
+
   const sortedChecklists = useMemo(() => {
-    return [...checklists].sort((a, b) => {
+    return [...combinedChecklists].sort((a, b) => {
       const aName = String(a.name ?? "").trim().toLowerCase();
       const bName = String(b.name ?? "").trim().toLowerCase();
 
       return aName.localeCompare(bName);
     });
-  }, [checklists]);
+  }, [combinedChecklists]);
 
-  const activeChecklistCount = useMemo(() => checklists.length, [checklists]);
+  const activeChecklistCount = useMemo(
+    () => combinedChecklists.length,
+    [combinedChecklists]
+  );
 
   const packedCount = useMemo(() => {
-    return checklists.filter(
+    return combinedChecklists.filter(
       (checklist) =>
         (checklist.totalCount ?? 0) > 0 && (checklist.missingCount ?? 0) === 0
     ).length;
-  }, [checklists]);
+  }, [combinedChecklists]);
 
   const toPackCount = useMemo(() => {
-    return checklists.filter((checklist) => (checklist.missingCount ?? 0) > 0)
-      .length;
-  }, [checklists]);
+    return combinedChecklists.filter(
+      (checklist) => (checklist.missingCount ?? 0) > 0
+    ).length;
+  }, [combinedChecklists]);
 
   function handleOpenChecklist(checklistId: string) {
     runNavigationAction(() => {
+      if (checklistId.startsWith("template:")) {
+        const templateId = checklistId.replace("template:", "");
+
+        router.push(`/checklists/template-items?templateId=${templateId}`);
+        return;
+      }
+
       router.push({
         pathname: "/checklists/[checklistId]",
         params: { checklistId },
@@ -656,7 +721,7 @@ export default function ChecklistsTabScreen() {
                         style={[
                           styles.meta,
                           selectedChecklistStatus === "packed" &&
-                            styles.packedProgressText,
+                          styles.packedProgressText,
                         ]}
                       >
                         {checklist.packedCount ?? 0} /{" "}

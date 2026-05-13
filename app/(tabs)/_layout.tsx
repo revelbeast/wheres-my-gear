@@ -31,7 +31,7 @@ export default function TabsLayout() {
           paddingBottom: 22,
         },
 
-        tabBarActiveTintColor: theme.colors.primary,
+        tabBarActiveTintColor: theme.isLight ? "#2563EB" : "#60A5FA",
         tabBarInactiveTintColor: theme.colors.textSecondary,
 
         tabBarLabelStyle: {
@@ -83,6 +83,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="vehicles" options={{ href: null }} />
       <Tabs.Screen name="storage/index" options={{ href: null }} />
       <Tabs.Screen name="storage/create" options={{ href: null }} />
+      <Tabs.Screen name="storage/edit" options={{ href: null }} />
       <Tabs.Screen name="notes" options={{ href: null }} />
       <Tabs.Screen name="trips" options={{ href: null }} />
       <Tabs.Screen name="explore" options={{ href: null }} />
