@@ -709,8 +709,12 @@ export default function CompartmentsScreen() {
                                 style={[
                                   styles.iconButton,
                                   {
-                                    backgroundColor: "#FFFFFF",
-                                    borderColor: "rgba(255,255,255,0.14)",
+                                    backgroundColor: theme.isLight
+                                      ? "#FFFFFF"
+                                      : theme.colors.iconSurface,
+                                    borderColor: theme.isLight
+                                      ? "rgba(255,255,255,0.14)"
+                                      : theme.colors.border,
                                   },
                                   rowDisabled && styles.actionDisabled,
                                 ]}
