@@ -1029,8 +1029,8 @@ export default function ChecklistDetailScreen() {
       style={[
         styles.headerActionButton,
         {
-          backgroundColor: theme.colors.iconSurface,
-          borderColor: theme.colors.border,
+          backgroundColor: "#FFFFFF",
+          borderColor: "rgba(255,255,255,0.14)",
         },
         isBusyWithItemActions() && styles.disabledButton,
       ]}
@@ -1040,9 +1040,9 @@ export default function ChecklistDetailScreen() {
       accessibilityLabel={showCreateBox ? "Close add item" : "Add checklist item"}
     >
       {showCreateBox ? (
-        <X size={18} color="#fff" />
+        <X size={18} color="#000000" />
       ) : (
-        <Plus size={18} color="#fff" />
+        <Plus size={18} color="#000000" />
       )}
     </HapticPressable>
   );
@@ -1540,10 +1540,14 @@ export default function ChecklistDetailScreen() {
                         {
                           backgroundColor: isActive
                             ? tone.backgroundColor
-                            : "rgba(15,23,42,0.34)",
+                            : theme.isLight
+                              ? "#FFFFFF"
+                              : "rgba(15,23,42,0.34)",
                           borderColor: isActive
                             ? tone.borderColor
-                            : "rgba(255,255,255,0.16)",
+                            : theme.isLight
+                              ? "rgba(0,0,0,0.10)"
+                              : "rgba(255,255,255,0.16)",
                           shadowColor: isActive ? tone.borderColor : "#000",
                           shadowOpacity: isActive ? 0.52 : 0.12,
                           shadowRadius: isActive ? 16 : 8,
@@ -1557,7 +1561,13 @@ export default function ChecklistDetailScreen() {
                     >
                       <Icon
                         size={22}
-                        color={isActive ? "#FFFFFF" : theme.colors.textSecondary}
+                        color={
+                          isActive
+                            ? "#FFFFFF"
+                            : theme.isLight
+                              ? "#000000"
+                              : theme.colors.textSecondary
+                        }
                       />
                       <Text
                         style={[
@@ -1638,7 +1648,7 @@ export default function ChecklistDetailScreen() {
                     onPress={handleCreateItem}
                     disabled={!newItemName.trim() || savingNewItem}
                   >
-                    <Plus size={18} color="#fff" />
+                    <Plus size={18} color="#000000" />
                   </HapticPressable>
                 </View>
               </View>
@@ -1650,8 +1660,8 @@ export default function ChecklistDetailScreen() {
                   style={[
                     styles.shareChecklistButton,
                     {
-                      backgroundColor: theme.colors.iconSurface,
-                      borderColor: theme.colors.border,
+                      backgroundColor: "#FFFFFF",
+                      borderColor: "rgba(0,0,0,0.10)",
                     },
                     interactionLocked && styles.disabledButton,
                   ]}

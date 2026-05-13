@@ -8,9 +8,10 @@ import {
   FolderCog,
   ListChecks,
   SquarePen,
+  Trash2,
 } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { Alert, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../../components/auth/AuthProvider";
@@ -23,6 +24,8 @@ import {
   useThemedValues,
 } from "../../../components/ui/Themed";
 import {
+  deleteChecklist,
+  deleteChecklistTemplate,
   getChecklistTemplateItems,
   getChecklistTemplates,
   subscribeToChecklists,
@@ -88,14 +91,16 @@ function StatCard({
   const theme = useThemedValues();
 
   const content = (
-    <BlurView
-      intensity={theme.isLight ? 20 : 18}
-      tint={theme.isLight ? "light" : "dark"}
-      style={[
+    <View
+  style={[
         styles.statCard,
         {
           borderColor: selected ? tone.borderColor : theme.colors.border,
-          backgroundColor: selected ? tone.backgroundColor : theme.colors.card,
+          backgroundColor: selected
+            ? tone.backgroundColor
+            : theme.isLight
+              ? "#FFFFFF"
+              : theme.colors.card,
           shadowColor: selected ? tone.borderColor : "#000",
           shadowOpacity: selected ? 0.52 : 0.12,
           shadowRadius: selected ? 16 : 8,
@@ -121,19 +126,31 @@ function StatCard({
         {icon}
       </View>
 
-      <ThemedText variant="title" style={styles.statValue}>
+      <ThemedText
+        variant="title"
+        style={[
+          styles.statValue,
+          !selected && theme.isLight && { color: "#000000" },
+        ]}
+      >
         {value}
       </ThemedText>
 
       <ThemedText
         style={[
           styles.statLabel,
-          { color: selected ? tone.textColor : theme.colors.textSecondary },
+          {
+            color: selected
+              ? tone.textColor
+              : theme.isLight
+                ? "#000000"
+                : theme.colors.textSecondary,
+          },
         ]}
       >
         {label}
       </ThemedText>
-    </BlurView>
+    </View>
   );
 
   if (!onPress) {
@@ -320,6 +337,10 @@ export default function ChecklistsTabScreen() {
     React.useCallback(() => {
       navigationTransitionLockedRef.current = false;
 
+      if (userId) {
+        void loadTemplateRows(userId);
+      }
+
       if (navigationUnlockTimeoutRef.current) {
         clearTimeout(navigationUnlockTimeoutRef.current);
         navigationUnlockTimeoutRef.current = null;
@@ -333,7 +354,7 @@ export default function ChecklistsTabScreen() {
           navigationUnlockTimeoutRef.current = null;
         }
       };
-    }, [])
+    }, [userId])
   );
 
   useEffect(() => {
@@ -459,7 +480,10 @@ export default function ChecklistsTabScreen() {
   }
 
   const combinedChecklists = useMemo(() => {
-    return [...checklists, ...templateRows];
+    return [
+      ...checklists.map(c => ({ ...c, _type: "checklist" })),
+      ...templateRows.map(t => ({ ...t, _type: "template" })),
+    ];
   }, [checklists, templateRows]);
 
   const sortedChecklists = useMemo(() => {
@@ -679,7 +703,7 @@ export default function ChecklistsTabScreen() {
               title="Sign in required"
               text="Sign in to create, manage, and track your packing checklists."
             />
-          ) : checklists.length === 0 ? (
+          ) : displayedChecklists.length === 0 ? (
             <EmptyChecklistCard
               title="No checklists yet"
               text="Create your first checklist to track what is packed and what still needs to be packed."
@@ -687,57 +711,105 @@ export default function ChecklistsTabScreen() {
               onPress={handleCreateBlankChecklist}
               disabled={navigationDisabled}
             />
-          ) : displayedChecklists.length === 0 ? (
-            <EmptyChecklistCard
-              title="No matching checklists"
-              text="Select another card above to view more checklist results."
-            />
           ) : (
             displayedChecklists.map((checklist) => (
               <ThemedCard key={checklist.id} style={styles.checklistCard}>
-                <HapticPressable
-                  style={[
-                    styles.row,
-                    navigationDisabled && styles.disabledInteraction,
-                  ]}
-                  onPress={() => handleOpenChecklist(checklist.id)}
-                  disabled={navigationDisabled}
-                >
-                  <View style={styles.left}>
-                    <ThemedText variant="title" style={styles.title}>
-                      {checklist.name}
-                    </ThemedText>
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
 
-                    <ThemedText variant="small" style={styles.categoryText}>
-                      {getCategoryLabel(
-                        checklist.category,
-                        checklist.customCategoryLabel
-                      )}
-                    </ThemedText>
-
-                    <View style={styles.progressRow}>
-                      <ThemedText
-                        color="secondary"
-                        style={[
-                          styles.meta,
-                          selectedChecklistStatus === "packed" &&
-                          styles.packedProgressText,
-                        ]}
-                      >
-                        {checklist.packedCount ?? 0} /{" "}
-                        {checklist.totalCount ?? 0} packed
+                  {/* LEFT CONTENT */}
+                  <HapticPressable
+                    style={[
+                      styles.row,
+                      { flex: 1, minWidth: 0 },
+                      navigationDisabled && styles.disabledInteraction,
+                    ]}
+                    onPress={() => handleOpenChecklist(checklist.id)}
+                    disabled={navigationDisabled}
+                  >
+                    <View style={styles.left}>
+                      <ThemedText variant="title" style={styles.title}>
+                        {checklist.name}
                       </ThemedText>
 
-                      {selectedChecklistStatus !== "packed" && (
-                        <ThemedText color="danger" style={styles.toPackBadge}>
-                          {checklist.missingCount ?? 0} to pack
-                        </ThemedText>
-                      )}
-                    </View>
-                  </View>
+                      <ThemedText variant="small" style={styles.categoryText}>
+                        {getCategoryLabel(
+                          checklist.category,
+                          checklist.customCategoryLabel
+                        )}
+                      </ThemedText>
 
-                  <ChevronRight size={18} color={theme.colors.textSecondary} />
-                </HapticPressable>
+                      <View style={styles.progressRow}>
+                        <ThemedText
+                          color="secondary"
+                          style={[
+                            styles.meta,
+                            selectedChecklistStatus === "packed" &&
+                            styles.packedProgressText,
+                          ]}
+                        >
+                          {checklist.packedCount ?? 0} / {checklist.totalCount ?? 0} packed
+                        </ThemedText>
+
+                        {selectedChecklistStatus !== "packed" && (
+                          <ThemedText color="danger" style={styles.toPackBadge}>
+                            {checklist.missingCount ?? 0} to pack
+                          </ThemedText>
+                        )}
+                      </View>
+                    </View>
+
+                    <ChevronRight size={18} color={theme.colors.textSecondary} />
+                  </HapticPressable>
+
+                  {/* DELETE ACTION */}
+                  <HapticPressable
+                    onPress={() => {
+                      Alert.alert(
+                        "Delete Checklist",
+                        `Delete "${checklist.name}"?`,
+                        [
+                          { text: "Cancel", style: "cancel" },
+                          {
+                            text: "Delete",
+                            style: "destructive",
+                            onPress: async () => {
+                              console.log("DELETE CLICKED:", checklist.id);
+
+                              if (checklist._type === "template") {
+                                const templateId = checklist.id.replace("template:", "");
+
+                                await deleteChecklistTemplate(userId, templateId);
+
+                                setTemplateRows((prev) =>
+                                  prev.filter((t) => t.id !== checklist.id)
+                                );
+                              } else {
+                                await deleteChecklist(userId, checklist.id);
+
+                                setChecklists((prev) =>
+                                  prev.filter((c) => c.id !== checklist.id)
+                                );
+                              }
+
+                              console.log("DELETE COMPLETE:", checklist.id);
+                            }
+                          },
+                        ]
+                      );
+                    }}
+                    style={{
+                      width: 44,
+                      height: 44,
+                      justifyContent: "center",
+                      alignItems: "center",
+                      flexShrink: 0,
+                    }}
+                    disabled={navigationDisabled}
+                  >
+                    <Trash2 size={18} color="#ff3b30" />
+                  </HapticPressable>
+
+                </View>
               </ThemedCard>
             ))
           )}
