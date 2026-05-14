@@ -538,23 +538,19 @@ export default function VehicleDetailScreen() {
     >
       <BlurView
         intensity={theme.isLight ? 18 : 35}
-        tint={theme.isLight ? "light" : "dark"}
+        tint="light"
         style={[
           styles.headerAddButtonInner,
           {
-            backgroundColor: theme.isLight
-              ? "#FFFFFF"
-              : "rgba(255,255,255,0.08)",
-            borderColor: theme.isLight
-              ? "rgba(0,0,0,0.10)"
-              : "rgba(255,255,255,0.16)",
+            backgroundColor: "#FFFFFF",
+            borderColor: "rgba(255,255,255,0.14)",
           },
         ]}
       >
         {showCreateBox ? (
-          <X size={20} color={theme.isLight ? "#000000" : "#FFFFFF"} />
+          <X size={20} color="#111827" />
         ) : (
-          <Plus size={20} color={theme.isLight ? "#000000" : "#FFFFFF"} />
+          <Plus size={20} color="#111827" />
         )}
       </BlurView>
     </HapticPressable>
