@@ -1,6 +1,5 @@
 import { BlurView } from "expo-blur";
 import * as FileSystem from "expo-file-system/legacy";
-import * as Print from "expo-print";
 import { router, useLocalSearchParams } from "expo-router";
 import {
   Check,
