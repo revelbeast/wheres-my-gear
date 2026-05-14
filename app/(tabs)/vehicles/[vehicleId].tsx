@@ -1,4 +1,6 @@
 import { BlurView } from "expo-blur";
+import * as FileSystem from "expo-file-system/legacy";
+import * as Print from "expo-print";
 import { router, useLocalSearchParams } from "expo-router";
 import {
   Check,
@@ -11,6 +13,7 @@ import {
 } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActionSheetIOS,
   Alert,
   Keyboard,
   KeyboardAvoidingView,
@@ -40,6 +43,82 @@ import {
 } from "../../../lib/gearService";
 import { useInteractionLock } from "../../../lib/useInteractionLock";
 import { colors } from "../../../theme/tokens";
+
+function escapeCsvValue(value: string | number) {
+  const text = String(value ?? "");
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function buildStorageSpaceShareMessage(
+  storageName: string,
+  compartments: Compartment[]
+) {
+  const compartmentText =
+    compartments.length > 0
+      ? compartments
+        .map((compartment, index) => `${index + 1}. ${compartment.name}`)
+        .join("\n")
+      : "- No compartments added yet";
+
+  return [
+    `Where's My Gear Storage Space`,
+    ``,
+    `Storage: ${storageName}`,
+    `Compartments: ${compartments.length}`,
+    ``,
+    `Compartment List`,
+    compartmentText,
+  ].join("\n");
+}
+
+function buildStorageSpaceCsv(storageName: string, compartments: Compartment[]) {
+  const rows = [
+    ["Storage Space", "Compartment Number", "Compartment Name"],
+    ...compartments.map((compartment, index) => [
+      storageName,
+      index + 1,
+      compartment.name,
+    ]),
+  ];
+
+  return rows
+    .map((row) => row.map((value) => escapeCsvValue(value)).join(","))
+    .join("\n");
+}
+
+function buildStorageSpaceHtml(storageName: string, compartments: Compartment[]) {
+  const compartmentRows =
+    compartments.length > 0
+      ? compartments
+        .map(
+          (compartment, index) =>
+            `<tr><td>${index + 1}</td><td>${compartment.name}</td></tr>`
+        )
+        .join("")
+      : `<tr><td colspan="2">No compartments added yet</td></tr>`;
+
+  return `
+    <html>
+      <body>
+        <h1>Where's My Gear Storage Space</h1>
+        <p><strong>Storage:</strong> ${storageName}</p>
+        <p><strong>Compartments:</strong> ${compartments.length}</p>
+        <h2>Compartment List</h2>
+        <table border="1" cellspacing="0" cellpadding="6">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Compartment</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${compartmentRows}
+          </tbody>
+        </table>
+      </body>
+    </html>
+  `;
+}
 
 export default function VehicleDetailScreen() {
   const theme = useThemedValues();
@@ -297,22 +376,7 @@ export default function VehicleDetailScreen() {
 
     const storageName = storageSpace?.name?.trim() || "Storage Space";
 
-    const compartmentText =
-      compartments.length > 0
-        ? compartments
-          .map((compartment, index) => `${index + 1}. ${compartment.name}`)
-          .join("\n")
-        : "- No compartments added yet";
-
-    const message = [
-      `Where's My Gear Storage Space`,
-      ``,
-      `Storage: ${storageName}`,
-      `Compartments: ${compartments.length}`,
-      ``,
-      `Compartment List`,
-      compartmentText,
-    ].join("\n");
+    const message = buildStorageSpaceShareMessage(storageName, compartments);
 
     await runWithLock(async () => {
       try {
@@ -330,6 +394,77 @@ export default function VehicleDetailScreen() {
         );
       }
     });
+  }
+
+  async function handleExportStorageSpaceCsv() {
+    if (isBusy()) return;
+
+    const storageName = storageSpace?.name?.trim() || "Storage Space";
+    const csv = buildStorageSpaceCsv(storageName, compartments);
+    const fileName = `${storageName.replace(/[^a-z0-9]/gi, "_")}_storage_space.csv`;
+    const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
+
+    await runWithLock(async () => {
+      try {
+        await FileSystem.writeAsStringAsync(fileUri, csv, {
+          encoding: FileSystem.EncodingType.UTF8,
+        });
+
+        await Share.share({
+          title: `${storageName} Storage Space CSV`,
+          message: csv,
+          url: fileUri,
+        });
+      } catch (err) {
+        if (!isScreenMountedRef.current) return;
+
+        console.error("Failed to export storage space CSV:", err);
+        Alert.alert(
+          "Export failed",
+          "Something went wrong while exporting this storage space."
+        );
+      }
+    });
+  }
+
+  function handleStorageSpaceExportOptions() {
+    if (isBusy()) return;
+
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          title: "Share Storage Space",
+          options: ["Share", "Export Excel/CSV", "Cancel"],
+          cancelButtonIndex: 2,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 0) {
+            handleShareStorageSpace();
+          }
+
+          if (buttonIndex === 1) {
+            handleExportStorageSpaceCsv();
+          }
+        }
+      );
+
+      return;
+    }
+
+    Alert.alert("Share Storage Space", "Choose an option.", [
+      {
+        text: "Share",
+        onPress: handleShareStorageSpace,
+      },
+      {
+        text: "Export Excel/CSV",
+        onPress: handleExportStorageSpaceCsv,
+      },
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+    ]);
   }
 
   async function handleCreateCompartment() {
@@ -658,7 +793,7 @@ export default function VehicleDetailScreen() {
                 },
                 isBusy() && styles.disabledInteraction,
               ]}
-              onPress={handleShareStorageSpace}
+              onPress={handleStorageSpaceExportOptions}
               disabled={isBusy()}
             >
               <Share2 size={18} color={theme.isLight ? "#000000" : "#fff"} />
