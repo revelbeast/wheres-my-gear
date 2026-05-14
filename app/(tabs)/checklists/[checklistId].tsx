@@ -35,6 +35,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../../components/auth/AuthProvider";
 import AppHeader from "../../../components/ui/AppHeader";
 import HapticPressable from "../../../components/ui/HapticPressable";
+import KeyboardDismissAccessory from "../../../components/ui/KeyboardDismissAccessory";
 import ScreenBackground from "../../../components/ui/ScreenBackground";
 import { useThemedValues } from "../../../components/ui/Themed";
 import {
@@ -129,6 +130,9 @@ function getCategoryLabel(
       return "Checklist";
   }
 }
+
+const CHECKLIST_KEYBOARD_ACCESSORY_ID =
+  "checklist-detail-keyboard-accessory";
 
 function formatChecklistItemForShare(item: any) {
   const quantity = getSafeQuantity(item.quantity);
@@ -1083,6 +1087,11 @@ export default function ChecklistDetailScreen() {
                 },
               ]}
               autoFocus
+              inputAccessoryViewID={
+                Platform.OS === "ios"
+                  ? CHECKLIST_KEYBOARD_ACCESSORY_ID
+                  : undefined
+              }
               editable={!savingItemEdit}
             />
 
@@ -1634,6 +1643,11 @@ export default function ChecklistDetailScreen() {
                       },
                     ]}
                     autoFocus
+                    inputAccessoryViewID={
+                      Platform.OS === "ios"
+                        ? CHECKLIST_KEYBOARD_ACCESSORY_ID
+                        : undefined
+                    }
                     returnKeyType="done"
                     onSubmitEditing={handleCreateItem}
                     editable={!savingNewItem}
@@ -1811,6 +1825,8 @@ export default function ChecklistDetailScreen() {
           </ScrollView>
         </KeyboardAvoidingView>
 
+        <KeyboardDismissAccessory nativeID={CHECKLIST_KEYBOARD_ACCESSORY_ID} />
+
         <Modal visible={renameModal} transparent animationType="fade">
           <View style={styles.modalOverlay}>
             <View
@@ -1839,6 +1855,11 @@ export default function ChecklistDetailScreen() {
                 ]}
                 placeholder="Checklist name"
                 placeholderTextColor={theme.colors.textMuted}
+                inputAccessoryViewID={
+                  Platform.OS === "ios"
+                    ? CHECKLIST_KEYBOARD_ACCESSORY_ID
+                    : undefined
+                }
                 editable={!savingRename}
               />
 

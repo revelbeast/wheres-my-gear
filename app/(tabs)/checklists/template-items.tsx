@@ -27,6 +27,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../../components/auth/AuthProvider";
 import AppHeader from "../../../components/ui/AppHeader";
 import HapticPressable from "../../../components/ui/HapticPressable";
+import KeyboardDismissAccessory from "../../../components/ui/KeyboardDismissAccessory";
 import ScreenBackground from "../../../components/ui/ScreenBackground";
 import { useThemedValues } from "../../../components/ui/Themed";
 import {
@@ -46,6 +47,12 @@ import type {
   ChecklistTemplate,
   ChecklistTemplateItem,
 } from "../../../types/checklists";
+
+const TEMPLATE_ITEMS_KEYBOARD_ACCESSORY_ID =
+  "template-items-keyboard-accessory";
+
+const TEMPLATE_ITEM_EDIT_KEYBOARD_ACCESSORY_ID =
+  "template-item-edit-keyboard-accessory";
 
 const CATEGORY_LABELS: Record<ChecklistCategory, string> = {
   trip: "Trip",
@@ -611,11 +618,20 @@ export default function TemplateItemsScreen() {
                 },
               ]}
               autoFocus
+              inputAccessoryViewID={
+                Platform.OS === "ios"
+                  ? TEMPLATE_ITEM_EDIT_KEYBOARD_ACCESSORY_ID
+                  : undefined
+              }
               returnKeyType="done"
               enablesReturnKeyAutomatically
               blurOnSubmit
               editable={!savingItemName && !interactionLocked}
               onSubmitEditing={() => handleSaveItemName(item)}
+            />
+
+            <KeyboardDismissAccessory
+              nativeID={TEMPLATE_ITEM_EDIT_KEYBOARD_ACCESSORY_ID}
             />
 
             <View style={styles.editActions}>
@@ -977,6 +993,11 @@ export default function TemplateItemsScreen() {
                         },
                       ]}
                       editable={!addingItem && !interactionLocked}
+                      inputAccessoryViewID={
+                        Platform.OS === "ios"
+                          ? TEMPLATE_ITEMS_KEYBOARD_ACCESSORY_ID
+                          : undefined
+                      }
                       returnKeyType="done"
                       onSubmitEditing={handleAddItem}
                     />
@@ -996,6 +1017,10 @@ export default function TemplateItemsScreen() {
                     </HapticPressable>
                   </View>
                 </FrostedCard>
+
+                <KeyboardDismissAccessory
+                  nativeID={TEMPLATE_ITEMS_KEYBOARD_ACCESSORY_ID}
+                />
 
                 <Text
                   style={[
