@@ -6,6 +6,7 @@ import {
   Check,
   CheckCircle2,
   Image as ImageIcon,
+  MoveRight,
   Minus,
   Pencil,
   Plus,
@@ -38,6 +39,8 @@ import {
   Item,
   createItem,
   deleteItem,
+  getAllCompartments,
+  getStorageSpaces,
   getCompartmentById,
   getItemsByCompartment,
   updateItem,
@@ -148,6 +151,7 @@ export default function CompartmentDetailScreen() {
   );
   const [updatingPhotoId, setUpdatingPhotoId] = useState<string | null>(null);
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
+  const [movingItemId, setMovingItemId] = useState<string | null>(null);
 
   const [photoViewerVisible, setPhotoViewerVisible] = useState(false);
   const [selectedPhotoItem, setSelectedPhotoItem] = useState<Item | null>(null);
@@ -523,6 +527,123 @@ export default function CompartmentDetailScreen() {
       } finally {
         if (isMountedRef.current) {
           setUpdatingStatusId(null);
+        }
+      }
+    });
+  }
+
+  async function handleMoveItem(item: Item) {
+    if (interactionLocked || movingItemId === item.id) return;
+
+    await runWithLock(async () => {
+      try {
+        if (!isMountedRef.current) return;
+
+        setMovingItemId(item.id);
+
+        const [storageSpaces, allCompartments] = await Promise.all([
+          getStorageSpaces(),
+          getAllCompartments(),
+        ]);
+
+        if (!isMountedRef.current) return;
+
+        const destinationOptions = storageSpaces
+          .map((space) => {
+            const spaceCompartments = allCompartments.filter(
+              (candidate) => candidate.vehicleId === space.id
+            );
+
+            return {
+              space,
+              compartments: spaceCompartments,
+            };
+          })
+          .filter((option) => option.compartments.length > 0);
+
+        if (destinationOptions.length === 0) {
+          Alert.alert(
+            "No compartments available",
+            "Create another compartment before moving this item."
+          );
+          return;
+        }
+
+        Alert.alert(
+          "Move item",
+          `Choose where to move "${item.name}".`,
+          [
+            ...destinationOptions.map((option) => ({
+              text: option.space.name,
+              onPress: () => {
+                Alert.alert(
+                  option.space.name,
+                  "Choose a destination compartment.",
+                  [
+                    ...option.compartments.map((destination) => ({
+                      text: destination.name,
+                      onPress: async () => {
+                        if (
+                          destination.id === item.compartmentId &&
+                          option.space.id === item.vehicleId
+                        ) {
+                          Alert.alert(
+                            "Already there",
+                            `"${item.name}" is already in that compartment.`
+                          );
+                          return;
+                        }
+
+                        await runWithLock(async () => {
+                          try {
+                            if (!isMountedRef.current) return;
+
+                            setMovingItemId(item.id);
+
+                            await updateItem(item.id, {
+                              compartmentId: destination.id,
+                              compartmentName: destination.name,
+                              vehicleId: option.space.id,
+                              vehicleName: option.space.name,
+                            });
+
+                            if (!isMountedRef.current) return;
+
+                            await refreshItems();
+
+                            Alert.alert(
+                              "Item moved",
+                              `"${item.name}" was moved to ${destination.name}.`
+                            );
+                          } catch (err) {
+                            if (!isMountedRef.current) return;
+
+                            console.error("Failed to move item:", err);
+                            Alert.alert("Error", "Failed to move item.");
+                          } finally {
+                            if (isMountedRef.current) {
+                              setMovingItemId(null);
+                            }
+                          }
+                        });
+                      },
+                    })),
+                    { text: "Cancel", style: "cancel" },
+                  ]
+                );
+              },
+            })),
+            { text: "Cancel", style: "cancel" },
+          ]
+        );
+      } catch (err) {
+        if (!isMountedRef.current) return;
+
+        console.error("Failed to prepare move item:", err);
+        Alert.alert("Error", "Failed to load move options.");
+      } finally {
+        if (isMountedRef.current) {
+          setMovingItemId(null);
         }
       }
     });
@@ -961,10 +1082,10 @@ export default function CompartmentDetailScreen() {
                         },
                         isBusy && styles.createButtonDisabled,
                       ]}
-                      onPress={() => handleItemPhotoAction(item)}
-                      disabled={isBusy}
+                      onPress={() => handleMoveItem(item)}
+                      disabled={isBusy || movingItemId === item.id}
                     >
-                      <ImageIcon size={16} color={theme.colors.textSecondary} />
+                      <MoveRight size={16} color={theme.colors.textSecondary} />
                     </HapticPressable>
 
                     <HapticPressable
