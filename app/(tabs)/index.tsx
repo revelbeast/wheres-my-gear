@@ -439,6 +439,11 @@ export default function DashboardScreen() {
     [storageSpaces]
   );
 
+  const storageDropdownHeight = Math.min(
+    sortedStorageSpaces.length * 58,
+    260
+  );
+
   const storageNameById = useMemo(() => {
     return new Map(storageSpaces.map((space) => [space.id, space.name]));
   }, [storageSpaces]);
@@ -1660,6 +1665,9 @@ export default function DashboardScreen() {
                           {
                             borderColor: theme.colors.border,
                             backgroundColor: theme.colors.card,
+                            height: sortedStorageSpaces.length > 0
+                              ? storageDropdownHeight
+                              : undefined,
                           },
                         ]}
                       >

@@ -349,6 +349,11 @@ export default function CreateStorageScreen() {
         }
 
         if (isMountedRef.current) {
+          setName("");
+          setCategory("vehicle");
+          setSubtype("");
+          setCustomSubtype("");
+          setShowSubtypeDropdown(false);
           router.replace(returnRoute);
         }
       } catch (err: any) {
