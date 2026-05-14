@@ -11,7 +11,7 @@ export default {
     ios: {
       bundleIdentifier: "com.richgarcia.wheresmygear",
       buildNumber: "30",
-      supportsTablet: false,
+      supportsTablet: true,
       usesIap: true,
       usesAppleSignIn: true,
     },
