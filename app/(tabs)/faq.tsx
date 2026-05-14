@@ -90,6 +90,11 @@ const FAQ_ITEMS: FAQItem[] = [
       "An Item is a piece of gear stored inside a compartment. Items can include a quantity, packed status, and an optional photo.",
   },
   {
+    question: "Can I move an Item to another Compartment?",
+    answer:
+      "Yes. Open the Item card inside a Compartment, tap Move, choose the destination Storage Space, then choose the destination Compartment. The Item will move without being deleted, and its name, quantity, packed status, notes, and photo stay with it.",
+  },
+  {
     question: "What is the difference between a Checklist and a Template?",
     answer:
       "A Checklist is an active packing list used to track what is Packed and what is still To Pack for a trip, activity, or gear setup. A Template is a reusable packing blueprint that helps you quickly create future checklists without starting over. Create Template saves the reusable blueprint under Manage Templates. New Blank Checklist creates an active checklist under Active Checklists. A common workflow is: Template, create Checklist, then pack items.",
