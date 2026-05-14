@@ -57,6 +57,7 @@ import { triggerSuccessHaptic } from "../../lib/haptics";
 import { isPremiumUser } from "../../lib/revenuecat";
 import { getProfileSettings } from "../../lib/settingsService";
 import { useInteractionLock } from "../../lib/useInteractionLock";
+import { useResponsiveLayout } from "../../lib/useResponsiveLayout";
 import type {
   Checklist,
   ChecklistTemplate,
@@ -381,6 +382,7 @@ function formatTripDate(date: Date) {
 export default function DashboardScreen() {
   const { user, initializing } = useAuth();
   const theme = useThemedValues();
+  const { isTablet, isLandscape } = useResponsiveLayout();
   const {
     isLocked: interactionLocked,
     lock: lockInteraction,
@@ -1386,7 +1388,14 @@ export default function DashboardScreen() {
     <ScreenBackground>
       <SafeAreaView style={styles.safe}>
         <ScrollView
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[
+            styles.content,
+            isTablet && {
+              maxWidth: isLandscape ? 1100 : 900,
+              width: "100%",
+              alignSelf: "center",
+            },
+          ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           onScrollBeginDrag={handleDismissStorageDropdown}

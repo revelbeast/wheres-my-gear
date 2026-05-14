@@ -3,7 +3,7 @@ export default {
     name: "Where's My Gear",
     slug: "wheres-my-gear",
     version: "1.0.4",
-    orientation: "portrait",
+    orientation: "default",
     scheme: "wheres-my-gear",
 
     icon: "./assets/images/app-icon.png",
