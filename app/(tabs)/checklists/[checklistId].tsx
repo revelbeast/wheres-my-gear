@@ -1,4 +1,5 @@
 import { BlurView } from "expo-blur";
+import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
 import {
@@ -18,6 +19,7 @@ import {
 } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActionSheetIOS,
   Alert,
   Image,
   KeyboardAvoidingView,
@@ -140,6 +142,40 @@ function formatChecklistItemForShare(item: any) {
     ? `, Storage: ${item.compartmentName}`
     : "";
   return `- ${item.name} (Qty: ${quantity}${storage})`;
+}
+
+function escapeCsvValue(value: string | number) {
+  const text = String(value ?? "");
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function buildChecklistCsv(
+  checklistName: string,
+  categoryLabel: string,
+  items: any[]
+) {
+  const rows = [
+    [
+      "Checklist",
+      "Category",
+      "Item",
+      "Quantity",
+      "Status",
+      "Storage / Compartment",
+    ],
+    ...items.map((item) => [
+      checklistName,
+      categoryLabel,
+      item.name,
+      getSafeQuantity(item.quantity),
+      item.packed ? "Packed" : "To Pack",
+      item.compartmentName ?? "",
+    ]),
+  ];
+
+  return rows
+    .map((row) => row.map((value) => escapeCsvValue(value)).join(","))
+    .join("\n");
 }
 
 export default function ChecklistDetailScreen() {
@@ -446,6 +482,75 @@ export default function ChecklistDetailScreen() {
         Alert.alert("Error", "Failed to share checklist.");
       }
     });
+  }
+
+  async function handleExportChecklistCsv() {
+    if (!checklist || interactionLocked) return;
+
+    const categoryLabel = getCategoryLabel(
+      checklist.category,
+      checklist.customCategoryLabel
+    );
+    const csv = buildChecklistCsv(checklist.name, categoryLabel, sortedItems);
+    const fileName = `${checklist.name.replace(/[^a-z0-9]/gi, "_")}_checklist.csv`;
+    const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
+
+    await runWithLock(async () => {
+      try {
+        await FileSystem.writeAsStringAsync(fileUri, csv, {
+          encoding: FileSystem.EncodingType.UTF8,
+        });
+
+        await Share.share({
+          title: `${checklist.name} Checklist CSV`,
+          message: csv,
+          url: fileUri,
+        });
+      } catch (err) {
+        console.error(err);
+        Alert.alert("Error", "Failed to export checklist CSV.");
+      }
+    });
+  }
+
+  function handleChecklistShareOptions() {
+    if (!checklist || interactionLocked) return;
+
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          title: "Share Checklist",
+          options: ["Share", "Export Excel/CSV", "Cancel"],
+          cancelButtonIndex: 2,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 0) {
+            handleShareChecklist();
+          }
+
+          if (buttonIndex === 1) {
+            handleExportChecklistCsv();
+          }
+        }
+      );
+
+      return;
+    }
+
+    Alert.alert("Share Checklist", "Choose an option.", [
+      {
+        text: "Share",
+        onPress: handleShareChecklist,
+      },
+      {
+        text: "Export Excel/CSV",
+        onPress: handleExportChecklistCsv,
+      },
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+    ]);
   }
 
   function handleAddItem() {
@@ -1683,7 +1788,7 @@ export default function ChecklistDetailScreen() {
                     },
                     interactionLocked && styles.disabledButton,
                   ]}
-                  onPress={handleShareChecklist}
+                  onPress={handleChecklistShareOptions}
                   disabled={interactionLocked}
                 >
                   <Share2 size={18} color={theme.colors.text} />

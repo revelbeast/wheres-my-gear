@@ -1,4 +1,5 @@
 import { BlurView } from "expo-blur";
+import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import {
@@ -8,15 +9,18 @@ import {
   Minus,
   Pencil,
   Plus,
+  Share2,
   Trash2,
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActionSheetIOS,
   Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -581,6 +585,90 @@ export default function TemplateItemsScreen() {
     ]);
   }
 
+  function buildTemplateCsv() {
+    const templateName = template?.name?.trim() || "Checklist Template";
+    const categoryLabel = template
+      ? CATEGORY_LABELS[template.category] ?? "Checklist"
+      : "Checklist";
+
+    const rows = [
+      ["Template", "Category", "Item", "Quantity", "Default Status"],
+      ...sortedItems.map((item) => [
+        templateName,
+        categoryLabel,
+        item.name,
+        Math.max(1, Number(item.quantity ?? 1)),
+        item.packed ? "Packed" : "To Pack",
+      ]),
+    ];
+
+    return rows
+      .map((row) =>
+        row
+          .map((value) => `"${String(value ?? "").replace(/"/g, '""')}"`)
+          .join(",")
+      )
+      .join("\n");
+  }
+
+  async function handleExportTemplateCsv() {
+    if (!template || interactionLocked) return;
+
+    const templateName = template.name?.trim() || "Checklist Template";
+    const csv = buildTemplateCsv();
+    const fileName = `${templateName.replace(/[^a-z0-9]/gi, "_")}_template.csv`;
+    const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
+
+    await runWithLock(async () => {
+      try {
+        await FileSystem.writeAsStringAsync(fileUri, csv, {
+          encoding: FileSystem.EncodingType.UTF8,
+        });
+
+        await Share.share({
+          title: `${templateName} Template CSV`,
+          message: csv,
+          url: fileUri,
+        });
+      } catch (err) {
+        console.error("Failed to export template CSV:", err);
+        Alert.alert("Error", "Failed to export template CSV.");
+      }
+    });
+  }
+
+  function handleTemplateShareOptions() {
+    if (!template || interactionLocked) return;
+
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          title: "Share Template",
+          options: ["Export Excel/CSV", "Cancel"],
+          cancelButtonIndex: 1,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 0) {
+            handleExportTemplateCsv();
+          }
+        }
+      );
+
+      return;
+    }
+
+    Alert.alert("Share Template", "Choose an option.", [
+      {
+        text: "Export Excel/CSV",
+        onPress: handleExportTemplateCsv,
+      },
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+    ]);
+  }
+
   function renderItem(item: ChecklistTemplateItem) {
     const isEditing = editingItemId === item.id;
     const neededQty = Math.max(1, Number(item.quantity ?? 1));
@@ -1021,6 +1109,30 @@ export default function TemplateItemsScreen() {
                 <KeyboardDismissAccessory
                   nativeID={TEMPLATE_ITEMS_KEYBOARD_ACCESSORY_ID}
                 />
+
+                <FrostedCard style={{ marginBottom: 12 }}>
+                  <HapticPressable
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 8,
+                      paddingVertical: 14,
+                    }}
+                    onPress={handleTemplateShareOptions}
+                  >
+                    <Share2 size={18} color={theme.colors.text} />
+                    <Text
+                      style={{
+                        color: theme.colors.text,
+                        fontSize: 16,
+                        fontWeight: "600",
+                      }}
+                    >
+                      Share / Export Template
+                    </Text>
+                  </HapticPressable>
+                </FrostedCard>
 
                 <Text
                   style={[
