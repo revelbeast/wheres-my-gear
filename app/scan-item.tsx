@@ -7,6 +7,7 @@ import HapticPressable from "../components/ui/HapticPressable";
 export default function ScanItemScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [ready, setReady] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     if (!permission) return;
@@ -15,6 +16,10 @@ export default function ScanItemScreen() {
       requestPermission();
     }
   }, [permission]);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   if (!permission) {
     return (
@@ -36,19 +41,21 @@ export default function ScanItemScreen() {
     );
   }
 
+  if (!mounted || !permission?.granted || !ready) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator />
+        <Text style={styles.text}>Starting camera...</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <CameraView
         style={styles.camera}
         onCameraReady={() => setReady(true)}
       />
-
-      {!ready && (
-        <View style={styles.overlay}>
-          <ActivityIndicator color="#fff" />
-          <Text style={styles.overlayText}>Starting camera...</Text>
-        </View>
-      )}
 
       <View style={styles.footer}>
         <HapticPressable
