@@ -61,7 +61,7 @@ import { triggerSuccessHaptic } from "../../lib/haptics";
 import { isPremiumUser } from "../../lib/revenuecat";
 import { getProfileSettings } from "../../lib/settingsService";
 import { useInteractionLock } from "../../lib/useInteractionLock";
-import { useResponsiveLayout } from "../../lib/useResponsiveLayout";
+import { useDeviceLayout } from "../../lib/useDeviceLayout";
 import type {
   Checklist,
   ChecklistTemplate,
@@ -386,7 +386,12 @@ function formatTripDate(date: Date) {
 export default function DashboardScreen() {
   const { user, initializing } = useAuth();
   const theme = useThemedValues();
-  const { isTablet, isLandscape } = useResponsiveLayout();
+  const { isTablet, isLandscape } = useDeviceLayout();
+  console.log("LAYOUT DEBUG", {
+    isTablet,
+    isLandscape,
+    isTabletLandscape: isTablet && isLandscape,
+  });
   const isTabletLandscape = isTablet && isLandscape;
   const {
     isLocked: interactionLocked,
@@ -1376,6 +1381,10 @@ export default function DashboardScreen() {
 
   const navigationDisabled = isNavigationBusy();
 
+  useEffect(() => {
+    console.log("INDEX SCREEN ACTIVE");
+  }, []);
+
   if (!initializing && !user) {
     return null;
   }
@@ -1420,7 +1429,15 @@ export default function DashboardScreen() {
           onScrollBeginDrag={handleDismissStorageDropdown}
           scrollEnabled={!showStorageDropdown}
         >
-          <View style={styles.headerRow}>
+          <View
+            style={[
+              styles.headerRow,
+              isTablet && {
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+              },
+            ]}
+          >
             <View style={styles.brandRow}>
               <View style={styles.brandIconGlow}>
                 <Image
@@ -1431,386 +1448,494 @@ export default function DashboardScreen() {
               </View>
 
               <View style={styles.brandTitleWrap}>
-                <ThemedText
-                  variant="header"
-                  style={[styles.brandText, styles.whiteLabel]}
-                >
+                <ThemedText variant="header">
                   Where&apos;s My Gear
                 </ThemedText>
               </View>
             </View>
 
-            <HapticPressable
-              style={[
-                styles.profileButton,
-                navigationDisabled && styles.disabledInteraction,
-              ]}
-              onPress={handleOpenProfile}
-              disabled={navigationDisabled}
-            >
-              {profilePhotoUri.trim().length > 0 && !profilePhotoFailed ? (
-                <Image
-                  source={{ uri: profilePhotoUri }}
-                  style={styles.profileAvatar}
-                  onError={() => {
-                    if (isMountedRef.current) {
-                      setProfilePhotoFailed(true);
-                    }
-                  }}
-                />
-              ) : (
-                <UserCircle2 size={44} color={LABEL_WHITE} />
-              )}
-            </HapticPressable>
-          </View>
+            {/* RIGHT SIDE (profile button or future iPad spacing anchor) */}
 
-          <FrostedCard style={styles.searchCard}>
-            <View style={styles.searchInputWrap}>
-              <Search size={20} color={theme.colors.textMuted} />
-
-              <TextInput
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                placeholder="Search gear, checklist items, templates..."
-                placeholderTextColor={theme.colors.textMuted}
-                style={[
-                  styles.searchInput,
-                  {
-                    color: theme.colors.text,
-                    fontSize: theme.fontSizes.body,
-                  },
-                ]}
-                autoCapitalize="none"
-                autoCorrect={false}
-                returnKeyType="search"
-                inputAccessoryViewID={
-                  Platform.OS === "ios"
-                    ? DASHBOARD_SEARCH_KEYBOARD_ACCESSORY_ID
-                    : undefined
-                }
-                editable={
-                  !initializing &&
-                  !!user &&
-                  isPremium &&
-                  !navigationDisabled
-                }
+          <HapticPressable
+            style={[
+              styles.profileButton,
+              navigationDisabled && styles.disabledInteraction,
+            ]}
+            onPress={handleOpenProfile}
+            disabled={navigationDisabled}
+          >
+            {profilePhotoUri.trim().length > 0 && !profilePhotoFailed ? (
+              <Image
+                source={{ uri: profilePhotoUri }}
+                style={styles.profileAvatar}
+                onError={() => {
+                  if (isMountedRef.current) {
+                    setProfilePhotoFailed(true);
+                  }
+                }}
               />
+            ) : (
+              <UserCircle2 size={44} color={LABEL_WHITE} />
+            )}
+          </HapticPressable>
+        </View>
 
-              {searchQuery.length > 0 && (
-                <HapticPressable
-                  onPress={handleClearSearch}
-                  style={styles.clearSearchButton}
-                  hitSlop={10}
-                  disabled={interactionLocked}
-                >
-                  <ThemedText color="secondary" style={styles.clearSearchButtonText}>
-                    ✕
-                  </ThemedText>
-                </HapticPressable>
-              )}
-            </View>
-          </FrostedCard>
+        <FrostedCard style={styles.searchCard}>
+          <View style={styles.searchInputWrap}>
+            <Search size={20} color={theme.colors.textMuted} />
 
-          <KeyboardDismissAccessory
-            nativeID={DASHBOARD_SEARCH_KEYBOARD_ACCESSORY_ID}
-          />
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search gear, checklist items, templates..."
+              placeholderTextColor={theme.colors.textMuted}
+              style={[
+                styles.searchInput,
+                {
+                  color: theme.colors.text,
+                  fontSize: theme.fontSizes.body,
+                },
+              ]}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="search"
+              inputAccessoryViewID={
+                Platform.OS === "ios"
+                  ? DASHBOARD_SEARCH_KEYBOARD_ACCESSORY_ID
+                  : undefined
+              }
+              editable={
+                !initializing &&
+                !!user &&
+                isPremium &&
+                !navigationDisabled
+              }
+            />
 
-          {initializing ? (
-            <ThemedCard style={styles.emptyCard}>
-              <ThemedText variant="bodyStrong" style={styles.emptyTitle}>
-                Loading account
-              </ThemedText>
-              <ThemedText color="secondary" style={styles.emptyText}>
-                Restoring your signed-in session.
-              </ThemedText>
-            </ThemedCard>
-          ) : (
-            <>
-              {searchQuery.trim().length > 0 && (
-                <View style={styles.searchResultsWrap}>
-                  <ThemedText style={[styles.sectionTitle, styles.whiteLabel]}>
-                    {isSearching ? "Searching..." : "Results"}
-                  </ThemedText>
+            {searchQuery.length > 0 && (
+              <HapticPressable
+                onPress={handleClearSearch}
+                style={styles.clearSearchButton}
+                hitSlop={10}
+                disabled={interactionLocked}
+              >
+                <ThemedText color="secondary" style={styles.clearSearchButtonText}>
+                  ✕
+                </ThemedText>
+              </HapticPressable>
+            )}
+          </View>
+        </FrostedCard>
 
-                  {!isSearching && searchResults.length === 0 ? (
-                    <ThemedCard style={styles.emptyCard}>
-                      <ThemedText variant="bodyStrong" style={styles.emptyTitle}>
-                        No results found
-                      </ThemedText>
-                      <ThemedText color="secondary" style={styles.emptyText}>
-                        Try searching by item name, storage space, compartment,
-                        checklist, or template.
-                      </ThemedText>
-                    </ThemedCard>
-                  ) : (
-                    searchResults.map((item) => (
-                      <ThemedCard
-                        key={`${item.type}:${item.id}`}
-                        style={styles.searchResultCard}
+        <KeyboardDismissAccessory
+          nativeID={DASHBOARD_SEARCH_KEYBOARD_ACCESSORY_ID}
+        />
+
+        {initializing ? (
+          <ThemedCard style={styles.emptyCard}>
+            <ThemedText variant="bodyStrong" style={styles.emptyTitle}>
+              Loading account
+            </ThemedText>
+            <ThemedText color="secondary" style={styles.emptyText}>
+              Restoring your signed-in session.
+            </ThemedText>
+          </ThemedCard>
+        ) : (
+          <>
+            {searchQuery.trim().length > 0 && (
+              <View style={styles.searchResultsWrap}>
+                <ThemedText style={[styles.sectionTitle, styles.whiteLabel]}>
+                  {isSearching ? "Searching..." : "Results"}
+                </ThemedText>
+
+                {!isSearching && searchResults.length === 0 ? (
+                  <ThemedCard style={styles.emptyCard}>
+                    <ThemedText variant="bodyStrong" style={styles.emptyTitle}>
+                      No results found
+                    </ThemedText>
+                    <ThemedText color="secondary" style={styles.emptyText}>
+                      Try searching by item name, storage space, compartment,
+                      checklist, or template.
+                    </ThemedText>
+                  </ThemedCard>
+                ) : (
+                  searchResults.map((item) => (
+                    <ThemedCard
+                      key={`${item.type}:${item.id}`}
+                      style={styles.searchResultCard}
+                    >
+                      <HapticPressable
+                        onPress={() => handleSearchResultPress(item)}
+                        disabled={navigationDisabled}
+                        style={navigationDisabled && styles.disabledInteraction}
                       >
-                        <HapticPressable
-                          onPress={() => handleSearchResultPress(item)}
-                          disabled={navigationDisabled}
-                          style={navigationDisabled && styles.disabledInteraction}
-                        >
-                          <ThemedText variant="bodyStrong" style={styles.searchTitle}>
-                            {item.name}
+                        <ThemedText variant="bodyStrong" style={styles.searchTitle}>
+                          {item.name}
+                        </ThemedText>
+                        <ThemedText color="muted" style={styles.searchLocation}>
+                          {item.subtitle}
+                        </ThemedText>
+
+                        {"statusLabel" in item && (
+                          <ThemedText
+                            color={
+                              item.statusLabel === "To Pack"
+                                ? "danger"
+                                : "primary"
+                            }
+                            style={[
+                              styles.searchStatus,
+                              item.statusLabel !== "To Pack" && {
+                                color: theme.colors.success,
+                              },
+                            ]}
+                          >
+                            {item.statusLabel}
                           </ThemedText>
-                          <ThemedText color="muted" style={styles.searchLocation}>
-                            {item.subtitle}
-                          </ThemedText>
+                        )}
+                      </HapticPressable>
+                    </ThemedCard>
+                  ))
+                )}
+              </View>
+            )}
 
-                          {"statusLabel" in item && (
-                            <ThemedText
-                              color={
-                                item.statusLabel === "To Pack"
-                                  ? "danger"
-                                  : "primary"
-                              }
-                              style={[
-                                styles.searchStatus,
-                                item.statusLabel !== "To Pack" && {
-                                  color: theme.colors.success,
-                                },
-                              ]}
-                            >
-                              {item.statusLabel}
-                            </ThemedText>
-                          )}
-                        </HapticPressable>
-                      </ThemedCard>
-                    ))
-                  )}
-                </View>
-              )}
+            {!hasStorageSpaces ? (
+              <ThemedCard style={styles.firstRunCard}>
+                <ThemedText variant="title" style={styles.firstRunTitle}>
+                  Start by adding a storage space
+                </ThemedText>
+                <ThemedText color="secondary" style={styles.firstRunText}>
+                  Add your van, truck, garage, shed, trailer, or other storage
+                  space. Then create compartments and add the gear you want to
+                  track.
+                </ThemedText>
 
-              {!hasStorageSpaces ? (
-                <ThemedCard style={styles.firstRunCard}>
-                  <ThemedText variant="title" style={styles.firstRunTitle}>
-                    Start by adding a storage space
-                  </ThemedText>
-                  <ThemedText color="secondary" style={styles.firstRunText}>
-                    Add your van, truck, garage, shed, trailer, or other storage
-                    space. Then create compartments and add the gear you want to
-                    track.
-                  </ThemedText>
-
-                  <View style={styles.firstRunSteps}>
-                    <View style={styles.firstRunStep}>
-                      <ThemedText style={styles.firstRunStepNumber}>1</ThemedText>
-                      <ThemedText color="secondary" style={styles.firstRunStepText}>
-                        Add a storage space
-                      </ThemedText>
-                    </View>
-
-                    <View style={styles.firstRunStep}>
-                      <ThemedText style={styles.firstRunStepNumber}>2</ThemedText>
-                      <ThemedText color="secondary" style={styles.firstRunStepText}>
-                        Create compartments
-                      </ThemedText>
-                    </View>
-
-                    <View style={styles.firstRunStep}>
-                      <ThemedText style={styles.firstRunStepNumber}>3</ThemedText>
-                      <ThemedText color="secondary" style={styles.firstRunStepText}>
-                        Add items and photos
-                      </ThemedText>
-                    </View>
+                <View style={styles.firstRunSteps}>
+                  <View style={styles.firstRunStep}>
+                    <ThemedText style={styles.firstRunStepNumber}>1</ThemedText>
+                    <ThemedText color="secondary" style={styles.firstRunStepText}>
+                      Add a storage space
+                    </ThemedText>
                   </View>
 
-                  <ThemedButton
-                    style={styles.firstRunButton}
-                    onPress={handleFirstRunAddStorageSpace}
-                    disabled={navigationDisabled}
-                  >
-                    <ThemedText style={styles.signInButtonText}>
-                      Add Storage Space
+                  <View style={styles.firstRunStep}>
+                    <ThemedText style={styles.firstRunStepNumber}>2</ThemedText>
+                    <ThemedText color="secondary" style={styles.firstRunStepText}>
+                      Create compartments
                     </ThemedText>
-                  </ThemedButton>
-                </ThemedCard>
-              ) : (
-                <View style={isTabletLandscape ? styles.tabletLandscapeLayout : undefined}>
-                  <View style={isTabletLandscape ? styles.tabletLeftColumn : undefined}>
-                    <View style={styles.selectorWrap}>
-                      <View style={styles.selectorHeaderRow}>
-                        <HapticPressable
-                          style={[
-                            styles.selectorAddButton,
-                            navigationDisabled && styles.disabledInteraction,
-                          ]}
-                          onPress={handleAddStorageSpace}
-                          disabled={navigationDisabled}
-                        >
-                          <Plus size={18} color="#111827" />
-                        </HapticPressable>
+                  </View>
 
-                        <ThemedText
-                          variant="bodyStrong"
-                          style={[styles.selectorLabel, styles.whiteLabel]}
-                        >
-                          Selected Storage Space
-                        </ThemedText>
-                      </View>
+                  <View style={styles.firstRunStep}>
+                    <ThemedText style={styles.firstRunStepNumber}>3</ThemedText>
+                    <ThemedText color="secondary" style={styles.firstRunStepText}>
+                      Add items and photos
+                    </ThemedText>
+                  </View>
+                </View>
 
+                <ThemedButton
+                  style={styles.firstRunButton}
+                  onPress={handleFirstRunAddStorageSpace}
+                  disabled={navigationDisabled}
+                >
+                  <ThemedText style={styles.signInButtonText}>
+                    Add Storage Space
+                  </ThemedText>
+                </ThemedButton>
+              </ThemedCard>
+            ) : (
+              <View style={isTabletLandscape ? styles.tabletLandscapeLayout : undefined}>
+                <View style={isTabletLandscape ? styles.tabletLeftColumn : undefined}>
+                  <View style={styles.selectorWrap}>
+                    <View style={styles.selectorHeaderRow}>
                       <HapticPressable
                         style={[
-                          styles.selectorPressable,
+                          styles.selectorAddButton,
                           navigationDisabled && styles.disabledInteraction,
                         ]}
-                        onPress={handleToggleStorageDropdown}
+                        onPress={handleAddStorageSpace}
                         disabled={navigationDisabled}
                       >
-                        <BlurView
-                          intensity={theme.isLight ? 18 : 35}
-                          tint={theme.isLight ? "light" : "dark"}
-                          style={[
-                            styles.selectorButton,
-                            {
-                              borderColor: theme.colors.border,
-                              backgroundColor: theme.colors.card,
-                            },
-                          ]}
-                        >
-                          <ThemedText
-                            variant="bodyStrong"
-                            style={styles.selectorButtonText}
-                            numberOfLines={1}
-                          >
-                            {selectedStorage?.name ?? "Select a storage space"}
-                          </ThemedText>
-                          <ChevronDown
-                            size={18}
-                            color={theme.colors.textSecondary}
-                          />
-                        </BlurView>
+                        <Plus size={18} color="#111827" />
                       </HapticPressable>
 
-                      {showStorageDropdown && (
-                        <BlurView
-                          intensity={theme.isLight ? 18 : 35}
-                          tint={theme.isLight ? "light" : "dark"}
-                          style={[
-                            styles.dropdownCard,
-                            {
-                              borderColor: theme.colors.border,
-                              backgroundColor: theme.colors.card,
-                              height: sortedStorageSpaces.length > 0
-                                ? storageDropdownHeight
-                                : undefined,
-                            },
-                          ]}
+                      <ThemedText
+                        variant="bodyStrong"
+                        style={[styles.selectorLabel, styles.whiteLabel]}
+                      >
+                        Selected Storage Space
+                      </ThemedText>
+                    </View>
+
+                    <HapticPressable
+                      style={[
+                        styles.selectorPressable,
+                        navigationDisabled && styles.disabledInteraction,
+                      ]}
+                      onPress={handleToggleStorageDropdown}
+                      disabled={navigationDisabled}
+                    >
+                      <BlurView
+                        intensity={theme.isLight ? 18 : 35}
+                        tint={theme.isLight ? "light" : "dark"}
+                        style={[
+                          styles.selectorButton,
+                          {
+                            borderColor: theme.colors.border,
+                            backgroundColor: theme.colors.card,
+                          },
+                        ]}
+                      >
+                        <ThemedText
+                          variant="bodyStrong"
+                          style={styles.selectorButtonText}
+                          numberOfLines={1}
                         >
-                          {sortedStorageSpaces.length === 0 ? (
-                            <ThemedText color="secondary" style={styles.dropdownEmpty}>
-                              No storage spaces found.
-                            </ThemedText>
-                          ) : (
-                            <ScrollView
-                              style={styles.dropdownScroll}
-                              showsVerticalScrollIndicator
-                              nestedScrollEnabled
-                              keyboardShouldPersistTaps="handled"
-                            >
-                              {sortedStorageSpaces.map((space, index) => (
-                                <HapticPressable
-                                  key={space.id}
-                                  style={[
-                                    styles.dropdownRow,
-                                    {
-                                      borderBottomColor: theme.colors.border,
-                                    },
-                                    index === sortedStorageSpaces.length - 1 &&
-                                    styles.dropdownRowLast,
-                                    interactionLocked && styles.disabledInteraction,
-                                  ]}
-                                  onPress={() => handleSelectStorage(space)}
-                                  disabled={interactionLocked}
-                                >
-                                  <View style={styles.dropdownRowLeft}>
-                                    <ThemedText
-                                      variant="bodyStrong"
-                                      style={styles.dropdownRowTitle}
-                                    >
-                                      {space.name}
-                                    </ThemedText>
-                                    <ThemedText
-                                      color="secondary"
-                                      style={styles.dropdownRowMeta}
-                                    >
-                                      {space.category === "vehicle"
-                                        ? "Vehicle"
-                                        : "Storage"}
-                                      {space.subtype ? ` • ${space.subtype}` : ""}
-                                    </ThemedText>
-                                  </View>
-                                </HapticPressable>
-                              ))}
-                            </ScrollView>
-                          )}
-                        </BlurView>
-                      )}
+                          {selectedStorage?.name ?? "Select a storage space"}
+                        </ThemedText>
+                        <ChevronDown
+                          size={18}
+                          color={theme.colors.textSecondary}
+                        />
+                      </BlurView>
+                    </HapticPressable>
+
+                    {showStorageDropdown && (
+                      <BlurView
+                        intensity={theme.isLight ? 18 : 35}
+                        tint={theme.isLight ? "light" : "dark"}
+                        style={[
+                          styles.dropdownCard,
+                          {
+                            borderColor: theme.colors.border,
+                            backgroundColor: theme.colors.card,
+                            height: sortedStorageSpaces.length > 0
+                              ? storageDropdownHeight
+                              : undefined,
+                          },
+                        ]}
+                      >
+                        {sortedStorageSpaces.length === 0 ? (
+                          <ThemedText color="secondary" style={styles.dropdownEmpty}>
+                            No storage spaces found.
+                          </ThemedText>
+                        ) : (
+                          <ScrollView
+                            style={styles.dropdownScroll}
+                            showsVerticalScrollIndicator
+                            nestedScrollEnabled
+                            keyboardShouldPersistTaps="handled"
+                          >
+                            {sortedStorageSpaces.map((space, index) => (
+                              <HapticPressable
+                                key={space.id}
+                                style={[
+                                  styles.dropdownRow,
+                                  {
+                                    borderBottomColor: theme.colors.border,
+                                  },
+                                  index === sortedStorageSpaces.length - 1 &&
+                                  styles.dropdownRowLast,
+                                  interactionLocked && styles.disabledInteraction,
+                                ]}
+                                onPress={() => handleSelectStorage(space)}
+                                disabled={interactionLocked}
+                              >
+                                <View style={styles.dropdownRowLeft}>
+                                  <ThemedText
+                                    variant="bodyStrong"
+                                    style={styles.dropdownRowTitle}
+                                  >
+                                    {space.name}
+                                  </ThemedText>
+                                  <ThemedText
+                                    color="secondary"
+                                    style={styles.dropdownRowMeta}
+                                  >
+                                    {space.category === "vehicle"
+                                      ? "Vehicle"
+                                      : "Storage"}
+                                    {space.subtype ? ` • ${space.subtype}` : ""}
+                                  </ThemedText>
+                                </View>
+                              </HapticPressable>
+                            ))}
+                          </ScrollView>
+                        )}
+                      </BlurView>
+                    )}
+                  </View>
+
+                  <View style={styles.statsRow}>
+                    <NoteCard
+                      icon={<FileText size={20} color={LABEL_WHITE} />}
+                      title="Notes"
+                      onPress={handleOpenNotes}
+                      disabled={navigationDisabled}
+                    />
+
+                    <StatCard
+                      icon={<CheckCircle2 size={22} color={LABEL_WHITE} />}
+                      value={packedCount}
+                      label="Items Packed"
+                      tone="success"
+                      onPress={handleOpenPackedItems}
+                      disabled={navigationDisabled}
+                    />
+
+                    <StatCard
+                      icon={<ListChecks size={22} color={LABEL_WHITE} />}
+                      value={toPackCount}
+                      label="To Pack"
+                      tone="danger"
+                      onPress={handleOpenToPack}
+                      disabled={navigationDisabled}
+                    />
+                  </View>
+
+                  <View style={styles.sectionHeaderRow}>
+                    <View style={styles.sectionHeaderLeft}>
+                      <HapticPressable
+                        style={[
+                          styles.compartmentAddButton,
+                          !selectedStorageId && styles.compartmentAddButtonDisabled,
+                          navigationDisabled && styles.disabledInteraction,
+                        ]}
+                        onPress={handleAddCompartment}
+                        disabled={!selectedStorageId || navigationDisabled}
+                      >
+                        <Plus size={18} color="#111827" />
+
+                      </HapticPressable>
+
+                      <ThemedText
+                        variant="title"
+                        style={[styles.sectionHeaderTitle, styles.whiteLabel]}
+                      >
+                        Compartment Quick View
+                      </ThemedText>
                     </View>
 
-                    <View style={styles.statsRow}>
-                      <NoteCard
-                        icon={<FileText size={20} color={LABEL_WHITE} />}
-                        title="Notes"
-                        onPress={handleOpenNotes}
-                        disabled={navigationDisabled}
-                      />
+                    <HapticPressable
+                      onPress={handleOpenAllCompartments}
+                      disabled={!selectedStorageId || navigationDisabled}
+                    >
+                      <ThemedText
+                        style={[
+                          styles.viewAllText,
+                          styles.whiteLabelMuted,
+                          (!selectedStorageId || navigationDisabled) &&
+                          styles.disabledText,
+                        ]}
+                      >
+                        View All
+                      </ThemedText>
+                    </HapticPressable>
+                  </View>
 
-                      <StatCard
-                        icon={<CheckCircle2 size={22} color={LABEL_WHITE} />}
-                        value={packedCount}
-                        label="Items Packed"
-                        tone="success"
-                        onPress={handleOpenPackedItems}
-                        disabled={navigationDisabled}
-                      />
+                  {selectedStorageId == null ? (
+                    <ThemedCard style={styles.emptyCard}>
+                      <ThemedText variant="bodyStrong" style={styles.emptyTitle}>
+                        Select a storage space
+                      </ThemedText>
+                      <ThemedText color="secondary" style={styles.emptyText}>
+                        Choose a storage space above to view compartments and gear.
+                      </ThemedText>
+                    </ThemedCard>
+                  ) : quickCompartments.length === 0 ? (
+                    <ThemedCard style={styles.emptyCard}>
+                      <ThemedText variant="bodyStrong" style={styles.emptyTitle}>
+                        No compartments yet
+                      </ThemedText>
+                      <ThemedText color="secondary" style={styles.emptyText}>
+                        Create compartments such as rear drawer, side cabinet,
+                        garage shelf, or under-seat storage to organize your gear.
+                      </ThemedText>
 
-                      <StatCard
-                        icon={<ListChecks size={22} color={LABEL_WHITE} />}
-                        value={toPackCount}
-                        label="To Pack"
-                        tone="danger"
-                        onPress={handleOpenToPack}
+                      <ThemedButton
+                        style={styles.emptyActionButton}
+                        onPress={handleAddCompartment}
                         disabled={navigationDisabled}
-                      />
+                      >
+                        <ThemedText style={styles.signInButtonText}>
+                          Add Compartment
+                        </ThemedText>
+                      </ThemedButton>
+                    </ThemedCard>
+                  ) : (
+                    <View style={styles.quickGrid}>
+                      {quickCompartments.map((compartment) => (
+                        <ThemedCard
+                          key={compartment.id}
+                          style={styles.quickGridCard}
+                          contentStyle={styles.quickGridCardContent}
+                        >
+                          <HapticPressable
+                            style={[
+                              styles.quickGridRow,
+                              navigationDisabled && styles.disabledInteraction,
+                            ]}
+                            onPress={() => handleOpenCompartment(compartment.id)}
+                            disabled={navigationDisabled}
+                          >
+                            <View style={styles.quickGridLeft}>
+                              <ThemedText
+                                variant="bodyStrong"
+                                style={styles.quickGridTitle}
+                                numberOfLines={2}
+                              >
+                                {compartment.name}
+                              </ThemedText>
+                              <ThemedText
+                                color="secondary"
+                                style={styles.quickGridMeta}
+                              >
+                                {compartment.itemCount}{" "}
+                                {compartment.itemCount === 1 ? "item" : "items"}
+                              </ThemedText>
+                            </View>
+                            <ChevronRight
+                              size={16}
+                              color={theme.colors.textSecondary}
+                            />
+                          </HapticPressable>
+                        </ThemedCard>
+                      ))}
                     </View>
+                  )}
 
-                    <View style={styles.sectionHeaderRow}>
+                  <View style={styles.upcomingTripsSection}>
+                    <View style={styles.upcomingTripsHeaderRow}>
                       <View style={styles.sectionHeaderLeft}>
                         <HapticPressable
                           style={[
-                            styles.compartmentAddButton,
-                            !selectedStorageId && styles.compartmentAddButtonDisabled,
+                            styles.upcomingTripsAddButton,
                             navigationDisabled && styles.disabledInteraction,
                           ]}
-                          onPress={handleAddCompartment}
-                          disabled={!selectedStorageId || navigationDisabled}
+                          onPress={handleAddTrip}
+                          disabled={navigationDisabled}
                         >
                           <Plus size={18} color="#111827" />
-
                         </HapticPressable>
 
                         <ThemedText
                           variant="title"
                           style={[styles.sectionHeaderTitle, styles.whiteLabel]}
                         >
-                          Compartment Quick View
+                          Upcoming Trips
                         </ThemedText>
                       </View>
 
                       <HapticPressable
-                        onPress={handleOpenAllCompartments}
-                        disabled={!selectedStorageId || navigationDisabled}
+                        onPress={handleOpenTrips}
+                        disabled={navigationDisabled}
                       >
                         <ThemedText
                           style={[
                             styles.viewAllText,
                             styles.whiteLabelMuted,
-                            (!selectedStorageId || navigationDisabled) &&
-                            styles.disabledText,
+                            navigationDisabled && styles.disabledText,
                           ]}
                         >
                           View All
@@ -1818,269 +1943,160 @@ export default function DashboardScreen() {
                       </HapticPressable>
                     </View>
 
-                    {selectedStorageId == null ? (
-                      <ThemedCard style={styles.emptyCard}>
-                        <ThemedText variant="bodyStrong" style={styles.emptyTitle}>
-                          Select a storage space
-                        </ThemedText>
-                        <ThemedText color="secondary" style={styles.emptyText}>
-                          Choose a storage space above to view compartments and gear.
-                        </ThemedText>
-                      </ThemedCard>
-                    ) : quickCompartments.length === 0 ? (
-                      <ThemedCard style={styles.emptyCard}>
-                        <ThemedText variant="bodyStrong" style={styles.emptyTitle}>
-                          No compartments yet
-                        </ThemedText>
-                        <ThemedText color="secondary" style={styles.emptyText}>
-                          Create compartments such as rear drawer, side cabinet,
-                          garage shelf, or under-seat storage to organize your gear.
-                        </ThemedText>
-
-                        <ThemedButton
-                          style={styles.emptyActionButton}
-                          onPress={handleAddCompartment}
-                          disabled={navigationDisabled}
-                        >
-                          <ThemedText style={styles.signInButtonText}>
-                            Add Compartment
-                          </ThemedText>
-                        </ThemedButton>
-                      </ThemedCard>
-                    ) : (
-                      <View style={styles.quickGrid}>
-                        {quickCompartments.map((compartment) => (
-                          <ThemedCard
-                            key={compartment.id}
-                            style={styles.quickGridCard}
-                            contentStyle={styles.quickGridCardContent}
-                          >
-                            <HapticPressable
-                              style={[
-                                styles.quickGridRow,
-                                navigationDisabled && styles.disabledInteraction,
-                              ]}
-                              onPress={() => handleOpenCompartment(compartment.id)}
-                              disabled={navigationDisabled}
-                            >
-                              <View style={styles.quickGridLeft}>
-                                <ThemedText
-                                  variant="bodyStrong"
-                                  style={styles.quickGridTitle}
-                                  numberOfLines={2}
-                                >
-                                  {compartment.name}
-                                </ThemedText>
-                                <ThemedText
-                                  color="secondary"
-                                  style={styles.quickGridMeta}
-                                >
-                                  {compartment.itemCount}{" "}
-                                  {compartment.itemCount === 1 ? "item" : "items"}
-                                </ThemedText>
-                              </View>
-                              <ChevronRight
-                                size={16}
-                                color={theme.colors.textSecondary}
-                              />
-                            </HapticPressable>
-                          </ThemedCard>
-                        ))}
-                      </View>
-                    )}
-
-                    <View style={styles.upcomingTripsSection}>
-                      <View style={styles.upcomingTripsHeaderRow}>
-                        <View style={styles.sectionHeaderLeft}>
-                          <HapticPressable
-                            style={[
-                              styles.upcomingTripsAddButton,
-                              navigationDisabled && styles.disabledInteraction,
-                            ]}
-                            onPress={handleAddTrip}
-                            disabled={navigationDisabled}
-                          >
-                            <Plus size={18} color="#111827" />
-                          </HapticPressable>
-
-                          <ThemedText
-                            variant="title"
-                            style={[styles.sectionHeaderTitle, styles.whiteLabel]}
-                          >
-                            Upcoming Trips
-                          </ThemedText>
-                        </View>
-
-                        <HapticPressable
-                          onPress={handleOpenTrips}
-                          disabled={navigationDisabled}
-                        >
-                          <ThemedText
-                            style={[
-                              styles.viewAllText,
-                              styles.whiteLabelMuted,
-                              navigationDisabled && styles.disabledText,
-                            ]}
-                          >
-                            View All
-                          </ThemedText>
-                        </HapticPressable>
-                      </View>
-
-                      {!nextUpcomingTrip ? (
-                        <FrostedCard style={styles.upcomingTripEmptyCard}>
-                          <ThemedText
-                            variant="bodyStrong"
-                            style={styles.upcomingTripTitle}
-                          >
-                            No upcoming trips
-                          </ThemedText>
-                          <ThemedText
-                            color="secondary"
-                            style={styles.upcomingTripEmptyText}
-                          >
-                            Create a trip later to see countdowns and packing reminders
-                            here.
-                          </ThemedText>
-                        </FrostedCard>
-                      ) : (
-                        <HapticPressable
-                          onPress={() => handleOpenTrip(nextUpcomingTrip.id)}
-                          disabled={navigationDisabled}
-                          style={navigationDisabled && styles.disabledInteraction}
-                        >
-                          <FrostedCard style={styles.upcomingTripCard}>
-                            <View style={styles.upcomingTripRow}>
-                              <View style={styles.upcomingTripLeft}>
-                                <ThemedText
-                                  variant="bodyStrong"
-                                  style={styles.upcomingTripTitle}
-                                  numberOfLines={1}
-                                >
-                                  {nextUpcomingTrip.name}
-                                </ThemedText>
-                                <ThemedText
-                                  color="secondary"
-                                  style={styles.upcomingTripDate}
-                                >
-                                  {formatTripDate(nextUpcomingTrip.date)}
-                                </ThemedText>
-                              </View>
-
-                              <View
-                                style={[
-                                  styles.upcomingTripCountdownPill,
-                                  {
-                                    backgroundColor: theme.isLight
-                                      ? "rgba(255,255,255,0.88)"
-                                      : "rgba(255,255,255,0.14)",
-                                    borderColor: theme.isLight
-                                      ? "rgba(0,0,0,0.10)"
-                                      : "rgba(255,255,255,0.16)",
-                                  },
-                                ]}
-                              >
-                                <ThemedText
-                                  style={[
-                                    styles.upcomingTripCountdownText,
-                                    { color: theme.isLight ? "#000" : LABEL_WHITE },
-                                  ]}
-                                >
-                                  {getTripCountdownText(nextUpcomingTrip.date)}
-                                </ThemedText>
-                              </View>
-                            </View>
-                          </FrostedCard>
-                        </HapticPressable>
-                      )}
-                    </View>
-                  </View>
-
-                  {isTabletLandscape && (
-                    <View style={styles.tabletRightColumn}>
-                      <ThemedCard style={styles.tabletPanelSpacing}>
+                    {!nextUpcomingTrip ? (
+                      <FrostedCard style={styles.upcomingTripEmptyCard}>
                         <ThemedText
                           variant="bodyStrong"
-                          style={styles.emptyTitle}
+                          style={styles.upcomingTripTitle}
                         >
-                          Quick Actions
+                          No upcoming trips
                         </ThemedText>
+                        <ThemedText
+                          color="secondary"
+                          style={styles.upcomingTripEmptyText}
+                        >
+                          Create a trip later to see countdowns and packing reminders
+                          here.
+                        </ThemedText>
+                      </FrostedCard>
+                    ) : (
+                      <HapticPressable
+                        onPress={() => handleOpenTrip(nextUpcomingTrip.id)}
+                        disabled={navigationDisabled}
+                        style={navigationDisabled && styles.disabledInteraction}
+                      >
+                        <FrostedCard style={styles.upcomingTripCard}>
+                          <View style={styles.upcomingTripRow}>
+                            <View style={styles.upcomingTripLeft}>
+                              <ThemedText
+                                variant="bodyStrong"
+                                style={styles.upcomingTripTitle}
+                                numberOfLines={1}
+                              >
+                                {nextUpcomingTrip.name}
+                              </ThemedText>
+                              <ThemedText
+                                color="secondary"
+                                style={styles.upcomingTripDate}
+                              >
+                                {formatTripDate(nextUpcomingTrip.date)}
+                              </ThemedText>
+                            </View>
 
-                        <View style={styles.tabletQuickActionsGrid}>
-
-                          <View style={styles.tabletQuickActionsRow}>
-                            <HapticPressable
+                            <View
                               style={[
-                                styles.selectorButton,
-                                styles.tabletQuickActionButton,
-                                { borderWidth: 2, borderColor: quickActionColors.scan }
-                              ]}
-                              onPress={handleOpenScanQuickAction}
-                            >
-                              <Camera size={18} color={quickActionColors.scan} />
-                              <ThemedText>QR / Barcode Scanner</ThemedText>
-                            </HapticPressable>
-
-                            <HapticPressable
-                              style={[
-                                styles.selectorButton,
-                                styles.tabletQuickActionButton,
-                                { borderWidth: 2, borderColor: quickActionColors.addItem }
-                              ]}
-                            >
-                              <PackagePlus size={18} color={quickActionColors.addItem} />
-                              <ThemedText>Scan Item w/ AI</ThemedText>
-                            </HapticPressable>
-                          </View>
-
-                          <View style={styles.tabletQuickActionsRow}>
-                            <HapticPressable style={[styles.selectorButton, styles.tabletQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.compartment }]} onPress={handleAddCompartment}>
-                              <FolderPlus size={18} color={quickActionColors.compartment} />
-                              <ThemedText>Add Compartment</ThemedText>
-                            </HapticPressable>
-
-                            <HapticPressable style={[styles.selectorButton, styles.tabletQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.storage }]} onPress={handleAddStorageSpace}>
-                              <Plus size={18} color={quickActionColors.storage} />
-                              <ThemedText>Add Storage Space</ThemedText>
-                            </HapticPressable>
-                          </View>
-
-                          <View style={styles.tabletQuickActionsRow}>
-                            <HapticPressable style={[styles.selectorButton, styles.tabletQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.trip }]} onPress={handleAddTrip}>
-                              <CalendarDays size={18} color={quickActionColors.trip} />
-                              <ThemedText>Create Trip</ThemedText>
-                            </HapticPressable>
-
-                            <HapticPressable
-                              style={[
-                                styles.selectorButton,
-                                styles.tabletQuickActionButton,
-                                { borderWidth: 2, borderColor: quickActionColors.export }
+                                styles.upcomingTripCountdownPill,
+                                {
+                                  backgroundColor: theme.isLight
+                                    ? "rgba(255,255,255,0.88)"
+                                    : "rgba(255,255,255,0.14)",
+                                  borderColor: theme.isLight
+                                    ? "rgba(0,0,0,0.10)"
+                                    : "rgba(255,255,255,0.16)",
+                                },
                               ]}
                             >
-                              <Share size={18} color={quickActionColors.export} />
-                              <ThemedText>Export To...</ThemedText>
-                            </HapticPressable>
+                              <ThemedText
+                                style={[
+                                  styles.upcomingTripCountdownText,
+                                  { color: theme.isLight ? "#000" : LABEL_WHITE },
+                                ]}
+                              >
+                                {getTripCountdownText(nextUpcomingTrip.date)}
+                              </ThemedText>
+                            </View>
                           </View>
-
-                        </View>
-                      </ThemedCard>
-
-
-                    </View>
-                  )}
+                        </FrostedCard>
+                      </HapticPressable>
+                    )}
+                  </View>
                 </View>
-              )}
-            </>
-          )}
-        </ScrollView>
 
-        <View style={styles.bottomAdWrap}>
-          <SafeBannerAd
-            enabled={!initializing && !!user && !isPremiumLoading && !isPremium}
-          />
-        </View>
-      </SafeAreaView>
+                {isTabletLandscape && (
+                  <View style={styles.tabletRightColumn}>
+                    <ThemedCard style={styles.tabletPanelSpacing}>
+                      <ThemedText
+                        variant="bodyStrong"
+                        style={styles.emptyTitle}
+                      >
+                        Quick Actions
+                      </ThemedText>
+
+                      <View style={styles.tabletQuickActionsGrid}>
+
+                        <View style={styles.tabletQuickActionsRow}>
+                          <HapticPressable
+                            style={[
+                              styles.selectorButton,
+                              styles.tabletQuickActionButton,
+                              { borderWidth: 2, borderColor: quickActionColors.scan }
+                            ]}
+                            onPress={handleOpenScanQuickAction}
+                          >
+                            <Camera size={18} color={quickActionColors.scan} />
+                            <ThemedText>QR / Barcode Scanner</ThemedText>
+                          </HapticPressable>
+
+                          <HapticPressable
+                            style={[
+                              styles.selectorButton,
+                              styles.tabletQuickActionButton,
+                              { borderWidth: 2, borderColor: quickActionColors.addItem }
+                            ]}
+                          >
+                            <PackagePlus size={18} color={quickActionColors.addItem} />
+                            <ThemedText>Scan Item w/ AI</ThemedText>
+                          </HapticPressable>
+                        </View>
+
+                        <View style={styles.tabletQuickActionsRow}>
+                          <HapticPressable style={[styles.selectorButton, styles.tabletQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.compartment }]} onPress={handleAddCompartment}>
+                            <FolderPlus size={18} color={quickActionColors.compartment} />
+                            <ThemedText>Add Compartment</ThemedText>
+                          </HapticPressable>
+
+                          <HapticPressable style={[styles.selectorButton, styles.tabletQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.storage }]} onPress={handleAddStorageSpace}>
+                            <Plus size={18} color={quickActionColors.storage} />
+                            <ThemedText>Add Storage Space</ThemedText>
+                          </HapticPressable>
+                        </View>
+
+                        <View style={styles.tabletQuickActionsRow}>
+                          <HapticPressable style={[styles.selectorButton, styles.tabletQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.trip }]} onPress={handleAddTrip}>
+                            <CalendarDays size={18} color={quickActionColors.trip} />
+                            <ThemedText>Create Trip</ThemedText>
+                          </HapticPressable>
+
+                          <HapticPressable
+                            style={[
+                              styles.selectorButton,
+                              styles.tabletQuickActionButton,
+                              { borderWidth: 2, borderColor: quickActionColors.export }
+                            ]}
+                          >
+                            <Share size={18} color={quickActionColors.export} />
+                            <ThemedText>Export To...</ThemedText>
+                          </HapticPressable>
+                        </View>
+
+                      </View>
+                    </ThemedCard>
+
+
+                  </View>
+                )}
+              </View>
+            )}
+          </>
+        )}
+      </ScrollView>
+
+      <View style={styles.bottomAdWrap}>
+        <SafeBannerAd
+          enabled={!initializing && !!user && !isPremiumLoading && !isPremium}
+        />
+      </View>
+    </SafeAreaView>
     </ScreenBackground >
   );
 }
