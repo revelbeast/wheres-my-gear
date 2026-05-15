@@ -1302,6 +1302,12 @@ export default function DashboardScreen() {
     });
   }
 
+  function handleOpenScanQuickAction() {
+    pushWithNavigationLock(() => {
+      router.push("/scan-item");
+    });
+  }
+
   function handleAddStorageSpace() {
     pushWithNavigationLock(() => {
       router.push({
@@ -2009,9 +2015,10 @@ export default function DashboardScreen() {
                                 styles.tabletQuickActionButton,
                                 { borderWidth: 2, borderColor: quickActionColors.scan }
                               ]}
+                              onPress={handleOpenScanQuickAction}
                             >
                               <Camera size={18} color={quickActionColors.scan} />
-                              <ThemedText>Scan QR / Barcode</ThemedText>
+                              <ThemedText>QR / Barcode Scanner</ThemedText>
                             </HapticPressable>
 
                             <HapticPressable
@@ -2022,7 +2029,7 @@ export default function DashboardScreen() {
                               ]}
                             >
                               <PackagePlus size={18} color={quickActionColors.addItem} />
-                              <ThemedText>Add Item</ThemedText>
+                              <ThemedText>Scan Item w/ AI</ThemedText>
                             </HapticPressable>
                           </View>
 
