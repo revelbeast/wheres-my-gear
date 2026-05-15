@@ -2679,7 +2679,7 @@ const styles = StyleSheet.create({
   },
 
   tabletRightColumn: {
-    width: 300,
+    width: 360,
     flexShrink: 0,
   },
 
