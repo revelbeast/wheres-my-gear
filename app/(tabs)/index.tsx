@@ -2059,51 +2059,7 @@ export default function DashboardScreen() {
                         </View>
                       </ThemedCard>
 
-                      <ThemedCard style={styles.tabletPanelSpacing}>
-                        <ThemedText
-                          variant="bodyStrong"
-                          style={styles.emptyTitle}
-                        >
-                          Recent Activity
-                        </ThemedText>
 
-                        <View
-                          style={{
-                            flexDirection: "row",
-                            gap: 12,
-                            marginTop: 12,
-                          }}
-                        >
-                          <View style={{ flex: 1 }}>
-                            <ThemedText
-                              variant="bodyStrong"
-                              style={{ marginBottom: 8 }}
-                            >
-                              Storage Spaces
-                            </ThemedText>
-
-                            <ThemedText
-                              color="secondary"
-                              style={{ marginBottom: 6 }}
-                            >
-                              Activity coming soon
-                            </ThemedText>
-                          </View>
-
-                          <View style={{ flex: 1 }}>
-                            <ThemedText
-                              variant="bodyStrong"
-                              style={{ marginBottom: 8 }}
-                            >
-                              Checklists & Trips
-                            </ThemedText>
-
-                            <ThemedText color="secondary">
-                              Activity coming soon
-                            </ThemedText>
-                          </View>
-                        </View>
-                      </ThemedCard>
                     </View>
                   )}
                 </View>
