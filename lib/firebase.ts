@@ -1,4 +1,4 @@
-import { initializeApp } from "firebase/app";
+import { getApp, getApps, initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -10,6 +10,7 @@ const firebaseConfig = {
   appId: "YOUR_APP_ID",
 };
 
-const app = initializeApp(firebaseConfig);
+// Prevent duplicate Firebase initialization (critical for Expo hot reload)
+const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
 export const db = getFirestore(app);

@@ -3,15 +3,17 @@ import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import HapticPressable from "../components/ui/HapticPressable";
+import { resolveBarcode } from "../lib/barcodeResolver";
 
 export default function ScanItemScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [mounted, setMounted] = useState(false);
+  const _resolverAnchor = resolveBarcode;
 
-  // scan lock (prevents duplicate scan triggers)
+  // scan lock
   const [isScanning, setIsScanning] = useState(false);
 
-  // camera lifecycle control (STEP 7.3 FIX)
+  // camera lifecycle control
   const [cameraActive, setCameraActive] = useState(true);
 
   // session tracking
@@ -23,7 +25,7 @@ export default function ScanItemScreen() {
 
   const scanHistoryRef = React.useRef<string[]>([]);
 
-  // derived values (debug / UI)
+  // derived UI values
   const lastScan =
     scanHistoryRef.current.length > 0
       ? scanHistoryRef.current[scanHistoryRef.current.length - 1]
@@ -31,14 +33,55 @@ export default function ScanItemScreen() {
 
   const scanCount = scanHistoryRef.current.length;
 
-  // 🧠 STEP 7.5 — Scan Intelligence Layer
-  const getScanContext = (value: string) => {
+  // -----------------------------
+  // PRODUCT LOOKUP (SAFE)
+  // -----------------------------
+  const lookupProductName = async (barcode: string): Promise<string | null> => {
+    try {
+      const res = await fetch(
+        `https://world.openfoodfacts.org/api/v0/product/${barcode}.json`
+      );
+
+      const text = await res.text();
+
+      // guard against HTML responses
+      if (text.trim().startsWith("<")) {
+        return null;
+      }
+
+      const data = JSON.parse(text);
+
+      if (data?.status === 1) {
+        return (
+          data?.product?.product_name ||
+          data?.product?.generic_name ||
+          null
+        );
+      }
+
+      return null;
+    } catch (err) {
+      console.log("PRODUCT LOOKUP FAILED:", err);
+      return null;
+    }
+  };
+
+  // -----------------------------
+  // SCAN CONTEXT (OPTION A CORE)
+  // -----------------------------
+  const getScanContext = async (value: string) => {
+    const productName = await lookupProductName(value);
+
+    const isFound = !!productName;
+
     const isDuplicateInSession = scanHistoryRef.current.includes(value);
 
     return {
       barcode: value,
       scanNumber: scanHistoryRef.current.length + 1,
       isDuplicateInSession,
+      found: isFound,
+      suggestedName: isFound ? productName : null,
       timestamp: Date.now(),
     };
   };
@@ -57,18 +100,16 @@ export default function ScanItemScreen() {
     setMounted(true);
   }, []);
 
-  // CAMERA LIFECYCLE CONTROL
+  // camera lifecycle control
   useFocusEffect(
     useCallback(() => {
       setCameraActive(true);
-
       scanSessionRef.current.active = true;
 
       return () => {
         setCameraActive(false);
         scanSessionRef.current.active = false;
 
-        // reset scan session state
         scanSessionRef.current.lastCode = null;
         scanSessionRef.current.timestamp = 0;
         scanHistoryRef.current = [];
@@ -107,7 +148,7 @@ export default function ScanItemScreen() {
 
   return (
     <View style={styles.container}>
-      {/* SESSION DEBUG OVERLAY */}
+      {/* DEBUG OVERLAY */}
       <View
         style={{
           position: "absolute",
@@ -148,21 +189,26 @@ export default function ScanItemScreen() {
             "upc_e",
           ],
         }}
-        onBarcodeScanned={(event) => {
+        onBarcodeScanned={async (event) => {
           const value = event?.data;
 
           if (!value) return;
 
+          // HARD GUARD
+          if (!cameraActive) return;
           if (!scanSessionRef.current.active) return;
 
-          // enhanced duplicate protection
-          if (scanSessionRef.current.lastCode === value) {
-            console.log("DUPLICATE BLOCKED (lastCode):", value);
-            return;
-          }
+          // HARD LOCK
+          scanSessionRef.current.active = false;
+          setCameraActive(false);
+          setIsScanning(true);
 
-          if (scanHistoryRef.current.includes(value)) {
-            console.log("DUPLICATE BLOCKED (history):", value);
+          // duplicate protection
+          if (
+            scanSessionRef.current.lastCode === value ||
+            scanHistoryRef.current.includes(value)
+          ) {
+            console.log("DUPLICATE BLOCKED:", value);
             return;
           }
 
@@ -171,22 +217,22 @@ export default function ScanItemScreen() {
 
           scanSessionRef.current.lastCode = value;
           scanSessionRef.current.timestamp = now;
-
-          // record scan safely
           scanHistoryRef.current.push(value);
 
-          const context = getScanContext(value);
+          // 🧠 SINGLE SOURCE OF TRUTH (NEW)
+          const result = await resolveBarcode(value);
 
-          setIsScanning(true);
+          console.log("SCAN RESULT:", result);
 
-          console.log("SCAN INTELLIGENCE:", context);
-
+          // route
           router.replace({
             pathname: "/scan-result",
-            params: { code: value },
+            params: {
+              code: result.barcode,
+              found: String(result.found),
+              suggestedName: result.bestName ?? "",
+            },
           });
-
-          console.log("SCAN SESSION HISTORY:", scanHistoryRef.current);
 
           setTimeout(() => {
             setIsScanning(false);
@@ -222,17 +268,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   buttonText: { color: "#fff" },
-  overlay: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(0,0,0,0.4)",
-  },
-  overlayText: { color: "#fff", marginTop: 10 },
   footer: {
     position: "absolute",
     bottom: 30,
