@@ -225,6 +225,16 @@ export default function ScanResultScreen() {
         Scan Result
       </Text>
 
+      <Text
+        onPress={() => router.back()}
+        style={{
+          marginTop: 10,
+          color: "#9CA3AF",
+          fontWeight: "600",
+        }}
+      >
+      </Text>
+
       <View style={{ marginTop: 40, width: "100%", alignItems: "center" }}>
         {loading ? (
           <Text>Checking inventory...</Text>
@@ -294,29 +304,64 @@ export default function ScanResultScreen() {
               ))
             )}
 
-            {/* COMPARTMENT */}
-            <Text style={{ marginTop: 20, fontWeight: "600" }}>Compartment</Text>
+            {!selectedChecklist ? (
+              <>
+                {/* COMPARTMENT */}
+                <Text style={{ marginTop: 20, fontWeight: "600" }}>Compartment</Text>
 
-            {!selectedStorage ? (
+                {!selectedStorage ? (
+                  <Text style={{ marginTop: 6, opacity: 0.6, textAlign: "center" }}>
+                    Select a storage space first.
+                  </Text>
+                ) : compartmentSpaces.length === 0 ? (
+                  <Text style={{ marginTop: 6, opacity: 0.6, textAlign: "center" }}>
+                    No compartments created for this storage.
+                  </Text>
+                ) : (
+                  compartmentSpaces.map((c) => (
+                    <Text
+                      key={c.id}
+                      onPress={() => {
+                        setSelectedCompartment((current) => (current === c.id ? null : c.id));
+                        setSelectedChecklist(null);
+                      }}
+                      style={{
+                        padding: 10,
+                        marginTop: 6,
+                        backgroundColor: selectedCompartment === c.id ? "#16A34A" : "#222",
+                        color: "#fff",
+                        width: "100%",
+                        textAlign: "center",
+                        borderRadius: 8,
+                      }}
+                    >
+                      {c.name}
+                    </Text>
+                  ))
+                )}
+              </>
+            ) : null}
+
+            {/* CHECKLIST */}
+            <Text style={{ marginTop: 20, fontWeight: "600" }}>Checklist</Text>
+
+            {checklists.length === 0 ? (
               <Text style={{ marginTop: 6, opacity: 0.6, textAlign: "center" }}>
-                Select a storage space first.
-              </Text>
-            ) : compartmentSpaces.length === 0 ? (
-              <Text style={{ marginTop: 6, opacity: 0.6, textAlign: "center" }}>
-                No compartments created for this storage.
+                No active checklists created yet.
               </Text>
             ) : (
-              compartmentSpaces.map((c) => (
+              checklists.map((c) => (
                 <Text
                   key={c.id}
                   onPress={() => {
-                    setSelectedCompartment((current) => (current === c.id ? null : c.id));
-                    setSelectedChecklist(null);
+                    setSelectedChecklist((current) => (current === c.id ? null : c.id));
+                    setSelectedStorage(null);
+                    setSelectedCompartment(null);
                   }}
                   style={{
                     padding: 10,
                     marginTop: 6,
-                    backgroundColor: selectedCompartment === c.id ? "#16A34A" : "#222",
+                    backgroundColor: selectedChecklist === c.id ? "#7C3AED" : "#222",
                     color: "#fff",
                     width: "100%",
                     textAlign: "center",
@@ -328,30 +373,17 @@ export default function ScanResultScreen() {
               ))
             )}
 
-            {/* CHECKLIST */}
-            <Text style={{ marginTop: 20, fontWeight: "600" }}>Checklist</Text>
-
-            {checklists.map((c) => (
+            {selectedChecklist ? (
               <Text
-                key={c.id}
-                onPress={() => {
-                  setSelectedChecklist((current) => (current === c.id ? null : c.id));
-                  setSelectedStorage(null);
-                  setSelectedCompartment(null);
-                }}
                 style={{
-                  padding: 10,
-                  marginTop: 6,
-                  backgroundColor: selectedChecklist === c.id ? "#7C3AED" : "#222",
-                  color: "#fff",
-                  width: "100%",
+                  marginTop: 10,
+                  opacity: 0.7,
                   textAlign: "center",
-                  borderRadius: 8,
                 }}
               >
-                {c.name}
+                Checklist selected. This item will be saved to a checklist instead of a storage space.
               </Text>
-            ))}
+            ) : null}
 
             {amazonUrl ? (
               <View
@@ -387,6 +419,22 @@ export default function ScanResultScreen() {
                 </Text>
               </View>
             ) : null}
+
+            <Text
+              onPress={() => router.back()}
+              style={{
+                marginTop: 24,
+                padding: 12,
+                backgroundColor: "#374151",
+                color: "#fff",
+                borderRadius: 8,
+                width: "100%",
+                textAlign: "center",
+                fontWeight: "600",
+              }}
+            >
+              Cancel
+            </Text>
 
             {/* CONTINUE */}
             <Text
@@ -471,7 +519,7 @@ export default function ScanResultScreen() {
                 textAlign: "center",
               }}
             >
-              Finish Setup
+              Save Item
             </Text>
           </View>
         )}
