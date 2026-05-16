@@ -141,24 +141,41 @@ export default function ScanResultScreen() {
       setItem(result);
 
       if (result) {
+        const existingName =
+          typeof result.name === "string" ? result.name.trim() : "";
+
+        const scanName =
+          suggestedName && String(suggestedName).trim().length > 0
+            ? String(suggestedName).trim()
+            : "";
+
+        const isWeakExistingName =
+          !existingName ||
+          existingName.toLowerCase() === "unidentified item" ||
+          existingName.toLowerCase().startsWith("item ");
+
         const resolvedName =
-          typeof result.name === "string" && result.name.trim().length > 0
-            ? result.name
-            : suggestedName
-              ? String(suggestedName)
-              : "Unidentified Item";
+          !isWeakExistingName
+            ? existingName
+            : scanName || "Unidentified Item";
 
         setEditableName(resolvedName);
         setState("confirmItem");
       } else {
+        const resolvedName =
+          suggestedName && String(suggestedName).trim().length > 0
+            ? String(suggestedName)
+            : "Unidentified Item";
+
         const id = await createDraftItem(code as string);
 
         setItem({
           id,
           barcode: code,
-          name: "Unidentified Item",
+          name: resolvedName,
         });
 
+        setEditableName(resolvedName);
         setState("confirmItem");
       }
 

@@ -97,19 +97,25 @@ export async function resolveBarcode(
     ]);
 
     const bestAmazon = amazon;
+    const amazonTitle = bestAmazon?.title ?? null;
+    const isAmazonSearchFallback =
+        !amazonTitle ||
+        amazonTitle.toLowerCase() === `item ${barcode}`.toLowerCase();
 
     const bestName =
-        bestAmazon?.title ||
-        food?.name ||
-        `Item ${barcode.slice(-4)}`;
+        !isAmazonSearchFallback && amazonTitle
+            ? amazonTitle
+            : food?.name ||
+            `Item ${barcode.slice(-4)}`;
 
     const found = Boolean(food || amazon);
 
-    const confidence: ScanResult["confidence"] = amazon
-        ? "high"
-        : food
-            ? "medium"
-            : "low";
+    const confidence: ScanResult["confidence"] =
+        !isAmazonSearchFallback && amazon
+            ? "high"
+            : food
+                ? "medium"
+                : "low";
 
     return {
         barcode,
