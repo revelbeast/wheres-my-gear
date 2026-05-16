@@ -1,8 +1,7 @@
 import * as Linking from "expo-linking";
-import { useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { Text, TextInput, View } from "react-native";
-
 
 import {
   addDoc,
@@ -14,7 +13,18 @@ import {
   where,
 } from "firebase/firestore";
 
-import { db } from "../lib/firebase";
+import {
+  addChecklistItem,
+  subscribeToChecklists,
+} from "../lib/checklistsService";
+import { auth, db } from "../lib/firebase";
+import {
+  createItem,
+  getCompartmentsByVehicle,
+  getStorageSpaces,
+  type Compartment,
+  type StorageSpace
+} from "../lib/gearService";
 
 type ScanState =
   | "autoCreate"
@@ -27,11 +37,13 @@ export default function ScanResultScreen() {
   const { code, suggestedName, found, affiliateLink } = useLocalSearchParams();
 
   const isFound = found === "true";
+  const uid = auth.currentUser?.uid;
 
   const amazonUrl = affiliateLink ? String(affiliateLink) : null;
 
   const [state, setState] = useState<ScanState>("confirmItem");
   const [loading, setLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const initialName =
     isFound && suggestedName
@@ -45,6 +57,9 @@ export default function ScanResultScreen() {
   const [selectedChecklist, setSelectedChecklist] = useState<string | null>(null);
 
   const [item, setItem] = useState<any>(null);
+  const [storageSpaces, setStorageSpaces] = useState<StorageSpace[]>([]);
+  const [compartmentSpaces, setCompartmentSpaces] = useState<Compartment[]>([]);
+  const [checklists, setChecklists] = useState<any[]>([]);
 
   const storages = [
     { id: "garage", name: "Garage" },
@@ -58,14 +73,13 @@ export default function ScanResultScreen() {
     { id: "bottom", name: "Bottom Shelf" },
   ];
 
-  const checklists = [
-    { id: "travel", name: "Travel Checklist" },
-    { id: "camping", name: "Camping Checklist" },
-    { id: "daily", name: "Daily Gear" },
-  ];
+  const lookupItemByBarcode = async (barcode: string): Promise<any | null> => {
+    if (!uid) return null;
 
-  const lookupItemByBarcode = async (barcode: string) => {
-    const q = query(collection(db, "items"), where("barcode", "==", barcode));
+    const q = query(
+      collection(db, "users", uid, "items"),
+      where("barcode", "==", barcode)
+    );
     const snapshot = await getDocs(q);
 
     if (!snapshot.empty) {
@@ -77,7 +91,11 @@ export default function ScanResultScreen() {
   };
 
   const createDraftItem = async (barcode: string) => {
-    const docRef = await addDoc(collection(db, "items"), {
+    if (!uid) {
+      throw new Error("Cannot create draft item without signed-in user.");
+    }
+
+    const docRef = await addDoc(collection(db, "users", uid, "items"), {
       barcode,
       name: "Unidentified Item",
       status: "draft",
@@ -90,7 +108,9 @@ export default function ScanResultScreen() {
   const saveItemLocation = async () => {
     if (!item?.id || !selectedStorage || !selectedCompartment) return;
 
-    const ref = doc(db, "items", item.id);
+    if (!uid) return;
+
+    const ref = doc(db, "users", uid, "items", item.id);
 
     await updateDoc(ref, {
       storageId: selectedStorage,
@@ -101,7 +121,9 @@ export default function ScanResultScreen() {
   const saveItemChecklist = async () => {
     if (!item?.id || !selectedChecklist) return;
 
-    const ref = doc(db, "items", item.id);
+    if (!uid) return;
+
+    const ref = doc(db, "users", uid, "items", item.id);
 
     await updateDoc(ref, {
       checklistId: selectedChecklist,
@@ -119,6 +141,14 @@ export default function ScanResultScreen() {
       setItem(result);
 
       if (result) {
+        const resolvedName =
+          typeof result.name === "string" && result.name.trim().length > 0
+            ? result.name
+            : suggestedName
+              ? String(suggestedName)
+              : "Unidentified Item";
+
+        setEditableName(resolvedName);
         setState("confirmItem");
       } else {
         const id = await createDraftItem(code as string);
@@ -136,16 +166,64 @@ export default function ScanResultScreen() {
     };
 
     run();
+
+    const loadStorageSpaces = async () => {
+      try {
+        const spaces = await getStorageSpaces();
+        console.log("SCAN STORAGE SPACES LOADED:", spaces.length);
+        setStorageSpaces(spaces);
+      } catch (error) {
+        console.log("SCAN STORAGE LOAD ERROR:", error);
+      }
+    };
+
+    loadStorageSpaces();
   }, [code]);
+
+  useEffect(() => {
+    if (!uid) return;
+
+    const unsubscribe = subscribeToChecklists(uid, (items) => {
+      const activeChecklists = items.filter(
+        (checklist) =>
+          checklist.status === "active" &&
+          !checklist.isArchived
+      );
+
+      setChecklists(activeChecklists);
+    });
+
+    return unsubscribe;
+  }, [uid]);
+
+  useEffect(() => {
+    const loadCompartments = async () => {
+      if (!selectedStorage) {
+        setCompartmentSpaces([]);
+        setSelectedCompartment(null);
+        return;
+      }
+
+      try {
+        const spaces = await getCompartmentsByVehicle(selectedStorage);
+        console.log("SCAN COMPARTMENTS LOADED:", spaces.length);
+        setCompartmentSpaces(spaces);
+        setSelectedCompartment(null);
+      } catch (error) {
+        console.log("SCAN COMPARTMENT LOAD ERROR:", error);
+        setCompartmentSpaces([]);
+        setSelectedCompartment(null);
+      }
+    };
+
+    loadCompartments();
+  }, [selectedStorage]);
 
   return (
     <View style={{ flex: 1, padding: 20, alignItems: "center", justifyContent: "center" }}>
-      <Text style={{ fontSize: 16, fontWeight: "600" }}>
-        Scan Pipeline Active
+      <Text style={{ fontSize: 22, fontWeight: "700" }}>
+        Scan Result
       </Text>
-
-      <Text style={{ marginTop: 20 }}>Code:</Text>
-      <Text style={{ fontSize: 18 }}>{code}</Text>
 
       <View style={{ marginTop: 40, width: "100%", alignItems: "center" }}>
         {loading ? (
@@ -170,6 +248,10 @@ export default function ScanResultScreen() {
               value={editableName}
               onChangeText={setEditableName}
               placeholder="Enter item name"
+              autoFocus
+              editable
+              returnKeyType="done"
+              blurOnSubmit
               style={{
                 marginTop: 8,
                 padding: 10,
@@ -184,44 +266,67 @@ export default function ScanResultScreen() {
             {/* STORAGE */}
             <Text style={{ marginTop: 25, fontWeight: "600" }}>Storage</Text>
 
-            {storages.map((s) => (
-              <Text
-                key={s.id}
-                onPress={() => setSelectedStorage(s.id)}
-                style={{
-                  padding: 10,
-                  marginTop: 6,
-                  backgroundColor: selectedStorage === s.id ? "#2563EB" : "#222",
-                  color: "#fff",
-                  width: "100%",
-                  textAlign: "center",
-                  borderRadius: 8,
-                }}
-              >
-                {s.name}
+            {storageSpaces.length === 0 ? (
+              <Text style={{ marginTop: 6, opacity: 0.6, textAlign: "center" }}>
+                No storage spaces created yet.
               </Text>
-            ))}
+            ) : (
+              storageSpaces.map((s) => (
+                <Text
+                  key={s.id}
+                  onPress={() => {
+                    setSelectedStorage((current) => (current === s.id ? null : s.id));
+                    setSelectedCompartment(null);
+                    setSelectedChecklist(null);
+                  }}
+                  style={{
+                    padding: 10,
+                    marginTop: 6,
+                    backgroundColor: selectedStorage === s.id ? "#2563EB" : "#222",
+                    color: "#fff",
+                    width: "100%",
+                    textAlign: "center",
+                    borderRadius: 8,
+                  }}
+                >
+                  {s.name}
+                </Text>
+              ))
+            )}
 
             {/* COMPARTMENT */}
             <Text style={{ marginTop: 20, fontWeight: "600" }}>Compartment</Text>
 
-            {compartments.map((c) => (
-              <Text
-                key={c.id}
-                onPress={() => setSelectedCompartment(c.id)}
-                style={{
-                  padding: 10,
-                  marginTop: 6,
-                  backgroundColor: selectedCompartment === c.id ? "#16A34A" : "#222",
-                  color: "#fff",
-                  width: "100%",
-                  textAlign: "center",
-                  borderRadius: 8,
-                }}
-              >
-                {c.name}
+            {!selectedStorage ? (
+              <Text style={{ marginTop: 6, opacity: 0.6, textAlign: "center" }}>
+                Select a storage space first.
               </Text>
-            ))}
+            ) : compartmentSpaces.length === 0 ? (
+              <Text style={{ marginTop: 6, opacity: 0.6, textAlign: "center" }}>
+                No compartments created for this storage.
+              </Text>
+            ) : (
+              compartmentSpaces.map((c) => (
+                <Text
+                  key={c.id}
+                  onPress={() => {
+                    setSelectedCompartment((current) => (current === c.id ? null : c.id));
+                    setSelectedChecklist(null);
+                  }}
+                  style={{
+                    padding: 10,
+                    marginTop: 6,
+                    backgroundColor: selectedCompartment === c.id ? "#16A34A" : "#222",
+                    color: "#fff",
+                    width: "100%",
+                    textAlign: "center",
+                    borderRadius: 8,
+                  }}
+                >
+                  {c.name}
+                </Text>
+              ))
+            )}
 
             {/* CHECKLIST */}
             <Text style={{ marginTop: 20, fontWeight: "600" }}>Checklist</Text>
@@ -229,7 +334,11 @@ export default function ScanResultScreen() {
             {checklists.map((c) => (
               <Text
                 key={c.id}
-                onPress={() => setSelectedChecklist(c.id)}
+                onPress={() => {
+                  setSelectedChecklist((current) => (current === c.id ? null : c.id));
+                  setSelectedStorage(null);
+                  setSelectedCompartment(null);
+                }}
                 style={{
                   padding: 10,
                   marginTop: 6,
@@ -282,28 +391,75 @@ export default function ScanResultScreen() {
             {/* CONTINUE */}
             <Text
               onPress={async () => {
-                await saveItemLocation();
-                await saveItemChecklist();
+                if (isSaving) return;
 
-                if (!item?.id) {
-                  const docRef = await addDoc(collection(db, "items"), {
-                    barcode: code,
+                try {
+                  setIsSaving(true);
+
+                  const hasStoragePath =
+                    !!selectedStorage && !!selectedCompartment;
+                  const hasChecklistPath = !!selectedChecklist;
+
+                  if (!hasStoragePath && !hasChecklistPath) {
+                    console.log(
+                      "SAVE BLOCKED: Select storage + compartment or checklist."
+                    );
+                    return;
+                  }
+
+                  if (!uid) {
+                    console.log("SAVE BLOCKED: Missing signed-in user.");
+                    return;
+                  }
+
+                  if (hasChecklistPath) {
+                    await addChecklistItem(
+                      uid,
+                      selectedChecklist,
+                      editableName
+                    );
+
+                    console.log(
+                      "CHECKLIST ITEM ADDED:",
+                      selectedChecklist
+                    );
+
+                    router.back();
+                    return;
+                  }
+
+                  const selectedStorageSpace =
+                    storageSpaces.find(
+                      (s) => s.id === selectedStorage
+                    ) ?? null;
+
+                  const selectedCompartmentSpace =
+                    compartmentSpaces.find(
+                      (c) => c.id === selectedCompartment
+                    ) ?? null;
+
+                  const payload = {
                     name: editableName,
-                    status: "active",
-                    createdAt: new Date().toISOString(),
-                  });
+                    status: "missing" as const,
+                    source: "scan",
+                    vehicleId: selectedStorage ?? "",
+                    vehicleName: selectedStorageSpace?.name ?? "",
+                    compartmentId: selectedCompartment ?? "",
+                    compartmentName:
+                      selectedCompartmentSpace?.name ?? "",
+                  };
 
-                  console.log("ITEM CREATED:", docRef.id);
-                } else {
-                  await updateDoc(doc(db, "items", item.id), {
-                    name: editableName,
-                    updatedAt: new Date().toISOString(),
-                  });
+                  const createdId = await createItem(payload);
 
-                  console.log("ITEM UPDATED:", item.id);
+                  console.log(
+                    "INVENTORY ITEM CREATED:",
+                    createdId
+                  );
+
+                  router.back();
+                } finally {
+                  setIsSaving(false);
                 }
-
-                setState("linkChecklist");
               }}
               style={{
                 marginTop: 30,
