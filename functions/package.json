@@ -15,6 +15,9 @@
   },
   "main": "lib/index.js",
   "dependencies": {
+    "@aws-crypto/sha256-js": "^5.2.0",
+    "@aws-sdk/protocol-http": "^3.370.0",
+    "@aws-sdk/signature-v4": "^3.370.0",
     "aws4": "^1.13.2",
     "axios": "^1.16.1",
     "firebase-admin": "^13.6.0",

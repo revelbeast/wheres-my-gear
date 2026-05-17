@@ -1,7 +1,7 @@
 import { setGlobalOptions } from "firebase-functions";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 
-setGlobalOptions({maxInstances: 10});
+setGlobalOptions({ maxInstances: 10 });
 
 export const lookupAmazonCatalogItem = onCall((request) => {
   const barcode = request.data?.barcode;
@@ -20,3 +20,4 @@ export const lookupAmazonCatalogItem = onCall((request) => {
     message: "Amazon catalog lookup function foundation is working.",
   };
 });
+export { amazonLookupItem } from "./amazonLookupItem";
