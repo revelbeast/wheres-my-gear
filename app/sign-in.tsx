@@ -1,6 +1,6 @@
 import * as AppleAuthentication from "expo-apple-authentication";
 import { router } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -16,8 +16,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../components/auth/AuthProvider";
 import HapticPressable from "../components/ui/HapticPressable";
+import KeyboardDismissAccessory from "../components/ui/KeyboardDismissAccessory";
 import ScreenBackground from "../components/ui/ScreenBackground";
 import { colors } from "../theme/tokens";
+
+const SIGN_IN_KEYBOARD_ACCESSORY_ID = "sign-in-keyboard-accessory";
 
 export default function SignInScreen() {
   const {
@@ -36,6 +39,8 @@ export default function SignInScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mode, setMode] = useState<"signIn" | "signUp">("signIn");
+  const [keyboardFocused, setKeyboardFocused] = useState(false);
+  const scrollViewRef = useRef<ScrollView | null>(null);
 
   useEffect(() => {
     if (!initializing && user) {
@@ -136,17 +141,30 @@ export default function SignInScreen() {
           style={styles.keyboardAvoiding}
         >
           <ScrollView
+            ref={scrollViewRef}
             contentContainerStyle={styles.container}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
             showsVerticalScrollIndicator={false}
           >
             <Image
               source={require("../assets/images/welcome-hero.png")}
-              style={styles.heroImage}
+              style={[
+                styles.heroImage,
+                keyboardFocused && styles.heroImageKeyboardFocused,
+              ]}
               resizeMode="contain"
             />
 
-            <Text style={styles.title}>Where’s My Gear</Text>
+            <Text
+              style={[
+                styles.title,
+                keyboardFocused && styles.titleKeyboardFocused,
+              ]}
+            >
+              Where’s My Gear
+            </Text>
             <Text style={styles.subtitle}>
               Organize your gear, track your storage, and never lose anything again.
             </Text>
@@ -158,6 +176,17 @@ export default function SignInScreen() {
               placeholderTextColor="#9ca3af"
               autoCapitalize="none"
               keyboardType="email-address"
+              inputAccessoryViewID={
+                Platform.OS === "ios" ? SIGN_IN_KEYBOARD_ACCESSORY_ID : undefined
+              }
+
+              onFocus={() => {
+                setKeyboardFocused(true);
+                setTimeout(() => {
+                  scrollViewRef.current?.scrollTo({ y: 220, animated: true });
+                }, 120);
+              }}
+
               style={styles.input}
             />
 
@@ -167,6 +196,17 @@ export default function SignInScreen() {
               placeholder="Password"
               placeholderTextColor="#9ca3af"
               secureTextEntry
+              textContentType="none"
+              autoComplete="off"
+              importantForAutofill="no"
+              inputAccessoryViewID={
+                Platform.OS === "ios" ? SIGN_IN_KEYBOARD_ACCESSORY_ID : undefined
+              }
+              onFocus={() => {
+                setTimeout(() => {
+                  scrollViewRef.current?.scrollTo({ y: 220, animated: true });
+                }, 120);
+              }}
               style={styles.input}
             />
 
@@ -216,6 +256,11 @@ export default function SignInScreen() {
 
             {signInError && <Text style={styles.errorText}>{signInError}</Text>}
           </ScrollView>
+
+          <KeyboardDismissAccessory
+            nativeID={SIGN_IN_KEYBOARD_ACCESSORY_ID}
+            onDismiss={() => setKeyboardFocused(false)}
+          />
         </KeyboardAvoidingView>
       </SafeAreaView>
     </ScreenBackground>
@@ -233,9 +278,10 @@ const styles = StyleSheet.create({
 
   container: {
     flexGrow: 1,
-    justifyContent: "center",
+    justifyContent: "flex-start",
     paddingHorizontal: 20,
-    paddingVertical: 28,
+    paddingTop: 28,
+    paddingBottom: 180,
   },
 
   heroImage: {
@@ -246,6 +292,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
 
+  heroImageKeyboardFocused: {
+    width: 150,
+    height: 150,
+    marginBottom: 8,
+  },
+
   title: {
     color: colors.text,
     fontSize: 30,
@@ -254,12 +306,19 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
+  titleKeyboardFocused: {
+    fontSize: 24,
+    marginBottom: 4,
+  },
+
   subtitle: {
-    color: colors.textSecondary,
-    fontSize: 14,
+    color: "#E5E7EB",
+    fontSize: 16,
+    fontWeight: "600",
     textAlign: "center",
-    lineHeight: 20,
+    lineHeight: 24,
     marginBottom: 20,
+    paddingHorizontal: 10,
   },
 
   input: {
@@ -284,14 +343,18 @@ const styles = StyleSheet.create({
   },
 
   link: {
-    color: "#60a5fa",
+    color: "#93c5fd",
     textAlign: "center",
     marginBottom: 10,
+    fontWeight: "700",
+    fontSize: 15,
   },
 
   smallLink: {
-    color: "#9ca3af",
+    color: "#d1d5db",
     textAlign: "center",
+    fontWeight: "700",
+    fontSize: 14,
   },
 
   or: {

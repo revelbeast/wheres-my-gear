@@ -11,10 +11,12 @@ import HapticPressable from "./HapticPressable";
 
 type KeyboardDismissAccessoryProps = {
   nativeID: string;
+  onDismiss?: () => void;
 };
 
 export default function KeyboardDismissAccessory({
   nativeID,
+  onDismiss,
 }: KeyboardDismissAccessoryProps) {
   if (Platform.OS !== "ios") {
     return null;
@@ -24,7 +26,10 @@ export default function KeyboardDismissAccessory({
     <InputAccessoryView nativeID={nativeID}>
       <View style={styles.keyboardAccessory}>
         <HapticPressable
-          onPress={Keyboard.dismiss}
+          onPress={() => {
+            Keyboard.dismiss();
+            onDismiss?.();
+          }}
           style={styles.keyboardDismissButton}
         >
           <ChevronDown size={22} color="#FFFFFF" />
