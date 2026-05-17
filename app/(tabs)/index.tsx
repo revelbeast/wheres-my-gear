@@ -1,4 +1,6 @@
+import { Document, Packer, Paragraph, TextRun } from "docx";
 import { BlurView } from "expo-blur";
+import * as FileSystem from "expo-file-system/legacy";
 import { router, useFocusEffect } from "expo-router";
 import { collection, getDocs } from "firebase/firestore";
 import {
@@ -21,6 +23,7 @@ import {
   Alert,
   Image,
   Modal,
+  Share as NativeShare,
   Platform,
   ScrollView,
   StyleSheet,
@@ -311,6 +314,104 @@ function getItemQuantity(item: Item) {
 
 function isPackedItem(item: Item) {
   return item.status === "packed";
+}
+
+function escapeCsvValue(value: string | number) {
+  const text = String(value ?? "");
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function buildDashboardStorageCsv(
+  selectedStorageSpaces: StorageSpace[],
+  compartments: Compartment[],
+  items: Item[]
+) {
+  const rows = [
+    [
+      "Storage Space",
+      "Compartment",
+      "Item Name",
+      "Quantity",
+      "Status",
+      "Notes",
+    ],
+  ];
+
+  selectedStorageSpaces.forEach((storage) => {
+    const storageCompartments = compartments.filter(
+      (compartment) => compartment.vehicleId === storage.id
+    );
+
+    storageCompartments.forEach((compartment) => {
+      const compartmentItems = items.filter(
+        (item) => item.compartmentId === compartment.id
+      );
+
+      if (compartmentItems.length === 0) {
+        rows.push([
+          storage.name,
+          compartment.name,
+          "",
+          "",
+          "",
+          "",
+        ]);
+        return;
+      }
+
+      compartmentItems.forEach((item) => {
+        rows.push([
+          storage.name,
+          compartment.name,
+          item.name,
+          String(getItemQuantity(item)),
+          item.status,
+          item.notes ?? "",
+        ]);
+      });
+    });
+  });
+
+  return rows
+    .map((row) => row.map((value) => escapeCsvValue(value)).join(","))
+    .join("\n");
+}
+
+function buildDashboardChecklistCsv(
+  selectedChecklists: Checklist[],
+  checklistItems: AssignedChecklistItemSummary[]
+) {
+  const rows = [
+    [
+      "Checklist",
+      "Item Name",
+      "Quantity",
+      "Packed",
+      "Assigned Compartment",
+      "Notes",
+    ],
+  ];
+
+  selectedChecklists.forEach((checklist) => {
+    const items = checklistItems.filter(
+      (item) => item.checklistId === checklist.id
+    );
+
+    items.forEach((item) => {
+      rows.push([
+        checklist.name,
+        item.name,
+        String(item.quantity),
+        item.packed ? "Yes" : "No",
+        item.compartmentName ?? "",
+        item.notes ?? "",
+      ]);
+    });
+  });
+
+  return rows
+    .map((row) => row.map((value) => escapeCsvValue(value)).join(","))
+    .join("\n");
 }
 
 function normalizeSearchValue(value: string) {
@@ -1390,6 +1491,207 @@ export default function DashboardScreen() {
     }
   }
 
+  async function handleExportDashboardCsv() {
+    await runWithLock(async () => {
+      try {
+        const selectedStorageSpaces = storageSpaces.filter((space) =>
+          selectedExportStorageIds.includes(space.id)
+        );
+
+        const selectedChecklists = allChecklists.filter((checklist) =>
+          selectedExportChecklistIds.includes(checklist.id)
+        );
+
+        const csv =
+          exportCategory === "storageSpaces"
+            ? buildDashboardStorageCsv(
+              selectedStorageSpaces,
+              allCompartments,
+              allItems
+            )
+            : buildDashboardChecklistCsv(
+              selectedChecklists,
+              allChecklistItems
+            );
+
+        const exportLabel =
+          exportCategory === "storageSpaces"
+            ? "storage_spaces"
+            : "checklists";
+
+        const fileName = `wheres_my_gear_${exportLabel}_export.csv`;
+        const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
+
+        await FileSystem.writeAsStringAsync(fileUri, csv, {
+          encoding: FileSystem.EncodingType.UTF8,
+        });
+
+        await NativeShare.share({
+          title: "Where's My Gear Export",
+          message: csv,
+          url: fileUri,
+        });
+
+        handleCloseDashboardExport();
+      } catch (error) {
+        console.error("Dashboard CSV export failed:", error);
+
+        Alert.alert(
+          "Export failed",
+          "Something went wrong while exporting your file."
+        );
+      }
+    });
+  }
+
+  async function handleExportDashboardDocx() {
+    await runWithLock(async () => {
+      try {
+        const selectedStorageSpaces = storageSpaces.filter((space) =>
+          selectedExportStorageIds.includes(space.id)
+        );
+
+        const selectedChecklists = allChecklists.filter((checklist) =>
+          selectedExportChecklistIds.includes(checklist.id)
+        );
+
+        const docChildren: Paragraph[] = [
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: "Where's My Gear Export",
+                bold: true,
+                size: 32,
+              }),
+            ],
+          }),
+          new Paragraph({ text: "" }),
+        ];
+
+        if (exportCategory === "storageSpaces") {
+          selectedStorageSpaces.forEach((storage) => {
+            docChildren.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: storage.name,
+                    bold: true,
+                    size: 28,
+                  }),
+                ],
+              })
+            );
+
+            const storageCompartments = allCompartments.filter(
+              (compartment) => compartment.vehicleId === storage.id
+            );
+
+            storageCompartments.forEach((compartment) => {
+              docChildren.push(
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: `Compartment: ${compartment.name}`,
+                      bold: true,
+                    }),
+                  ],
+                })
+              );
+
+              const compartmentItems = allItems.filter(
+                (item) => item.compartmentId === compartment.id
+              );
+
+              if (compartmentItems.length === 0) {
+                docChildren.push(new Paragraph({ text: "- No items" }));
+                return;
+              }
+
+              compartmentItems.forEach((item) => {
+                docChildren.push(
+                  new Paragraph({
+                    text: `- ${item.name} | Qty: ${getItemQuantity(item)} | Status: ${item.status}`,
+                  })
+                );
+              });
+            });
+
+            docChildren.push(new Paragraph({ text: "" }));
+          });
+        }
+
+        if (exportCategory === "checklists") {
+          selectedChecklists.forEach((checklist) => {
+            docChildren.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: checklist.name,
+                    bold: true,
+                    size: 28,
+                  }),
+                ],
+              })
+            );
+
+            const checklistItems = allChecklistItems.filter(
+              (item) => item.checklistId === checklist.id
+            );
+
+            if (checklistItems.length === 0) {
+              docChildren.push(new Paragraph({ text: "- No checklist items" }));
+              return;
+            }
+
+            checklistItems.forEach((item) => {
+              docChildren.push(
+                new Paragraph({
+                  text: `- ${item.name} | Qty: ${item.quantity} | Packed: ${item.packed ? "Yes" : "No"
+                    }`,
+                })
+              );
+            });
+
+            docChildren.push(new Paragraph({ text: "" }));
+          });
+        }
+
+        const doc = new Document({
+          sections: [
+            {
+              children: docChildren,
+            },
+          ],
+        });
+
+        const base64 = await Packer.toBase64String(doc);
+        const exportLabel =
+          exportCategory === "storageSpaces"
+            ? "storage_spaces"
+            : "checklists";
+        const fileName = `wheres_my_gear_${exportLabel}_export.docx`;
+        const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
+
+        await FileSystem.writeAsStringAsync(fileUri, base64, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+
+        await NativeShare.share({
+          title: "Where's My Gear Export",
+          url: fileUri,
+        });
+
+        handleCloseDashboardExport();
+      } catch (error) {
+        console.error("Dashboard Word export failed:", error);
+
+        Alert.alert(
+          "Export failed",
+          "Something went wrong while exporting your Word file."
+        );
+      }
+    });
+  }
 
   function handleAddStorageSpace() {
     pushWithNavigationLock(() => {
@@ -2241,6 +2543,12 @@ export default function DashboardScreen() {
                     Select one or more items to export.
                   </ThemedText>
 
+                  <ThemedText color="secondary">
+                    {exportCategory === "storageSpaces"
+                      ? `${selectedExportStorageIds.length} selected`
+                      : `${selectedExportChecklistIds.length} selected`}
+                  </ThemedText>
+
                   <View style={styles.exportModalOptions}>
                     {(exportCategory === "storageSpaces"
                       ? storageSpaces
@@ -2313,9 +2621,7 @@ export default function DashboardScreen() {
                           borderColor: theme.colors.border,
                         },
                       ]}
-                      onPress={() => {
-                        console.log("EXPORT WORD SELECTED");
-                      }}
+                      onPress={handleExportDashboardDocx}
                     >
                       <ThemedText>Word (.docx)</ThemedText>
                     </HapticPressable>
@@ -2328,9 +2634,7 @@ export default function DashboardScreen() {
                           borderColor: theme.colors.border,
                         },
                       ]}
-                      onPress={() => {
-                        console.log("EXPORT EXCEL CSV SELECTED");
-                      }}
+                      onPress={handleExportDashboardCsv}
                     >
                       <ThemedText>Excel/CSV</ThemedText>
                     </HapticPressable>
@@ -2340,8 +2644,20 @@ export default function DashboardScreen() {
 
               {exportStep === "selection" ? (
                 <HapticPressable
-                  style={styles.exportModalPrimaryButton}
+                  style={[
+                    styles.exportModalPrimaryButton,
+                    (
+                      exportCategory === "storageSpaces"
+                        ? selectedExportStorageIds.length === 0
+                        : selectedExportChecklistIds.length === 0
+                    ) && { opacity: 0.5 },
+                  ]}
                   onPress={() => setExportStep("format")}
+                  disabled={
+                    exportCategory === "storageSpaces"
+                      ? selectedExportStorageIds.length === 0
+                      : selectedExportChecklistIds.length === 0
+                  }
                 >
                   <ThemedText style={styles.exportModalPrimaryButtonText}>
                     Continue
