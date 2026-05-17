@@ -20,6 +20,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   Alert,
   Image,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -443,6 +444,20 @@ export default function DashboardScreen() {
     []
   );
   const [upcomingTrips, setUpcomingTrips] = useState<UpcomingTrip[]>([]);
+  const [exportModalVisible, setExportModalVisible] = useState(false);
+  const [exportStep, setExportStep] = useState<
+    "category" | "selection" | "format"
+  >("category");
+  const [exportCategory, setExportCategory] = useState<
+    "storageSpaces" | "checklists" | null
+  >(null);
+
+  const [selectedExportStorageIds, setSelectedExportStorageIds] = useState<
+    string[]
+  >([]);
+  const [selectedExportChecklistIds, setSelectedExportChecklistIds] = useState<
+    string[]
+  >([]);
 
   const [profilePhotoUri, setProfilePhotoUri] = useState("");
   const [profilePhotoFailed, setProfilePhotoFailed] = useState(false);
@@ -1336,6 +1351,46 @@ export default function DashboardScreen() {
     );
   }
 
+  function handleOpenDashboardExport() {
+    setExportCategory(null);
+    setExportStep("category");
+    setExportModalVisible(true);
+  }
+
+  function handleCloseDashboardExport() {
+    setExportModalVisible(false);
+    setExportCategory(null);
+    setExportStep("category");
+  }
+
+  function toggleExportStorageSelection(storageId: string) {
+    setSelectedExportStorageIds((current) =>
+      current.includes(storageId)
+        ? current.filter((id) => id !== storageId)
+        : [...current, storageId]
+    );
+  }
+
+  function toggleExportChecklistSelection(checklistId: string) {
+    setSelectedExportChecklistIds((current) =>
+      current.includes(checklistId)
+        ? current.filter((id) => id !== checklistId)
+        : [...current, checklistId]
+    );
+  }
+
+  function handleSelectAllExportItems() {
+    if (exportCategory === "storageSpaces") {
+      setSelectedExportStorageIds(storageSpaces.map((space) => space.id));
+      return;
+    }
+
+    if (exportCategory === "checklists") {
+      setSelectedExportChecklistIds(allChecklists.map((checklist) => checklist.id));
+    }
+  }
+
+
   function handleAddStorageSpace() {
     pushWithNavigationLock(() => {
       router.push({
@@ -2094,8 +2149,12 @@ export default function DashboardScreen() {
                               style={[
                                 styles.selectorButton,
                                 styles.tabletQuickActionButton,
-                                { borderWidth: 2, borderColor: quickActionColors.export }
+                                {
+                                  borderWidth: 2,
+                                  borderColor: quickActionColors.export,
+                                },
                               ]}
+                              onPress={handleOpenDashboardExport}
                             >
                               <Share size={18} color={quickActionColors.export} />
                               <ThemedText>Export To...</ThemedText>
@@ -2113,6 +2172,208 @@ export default function DashboardScreen() {
             </>
           )}
         </ScrollView>
+
+        <Modal
+          visible={exportModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={handleCloseDashboardExport}
+        >
+          <View style={styles.exportModalOverlay}>
+            <View
+              style={[
+                styles.exportModalCard,
+                {
+                  backgroundColor: theme.colors.cardStrong,
+                  borderColor: theme.colors.border,
+                },
+              ]}
+            >
+              {exportStep === "category" ? (
+                <>
+                  <ThemedText variant="title">Export To...</ThemedText>
+                  <ThemedText color="secondary">
+                    Choose what you want to export.
+                  </ThemedText>
+
+                  <View style={styles.exportModalOptions}>
+                    <HapticPressable
+                      style={[
+                        styles.exportModalOptionButton,
+                        {
+                          backgroundColor: theme.colors.iconSurface,
+                          borderColor: theme.colors.border,
+                        },
+                      ]}
+                      onPress={() => {
+                        setExportCategory("storageSpaces");
+                        setExportStep("selection");
+                      }}
+                    >
+                      <ThemedText>Storage Spaces</ThemedText>
+                    </HapticPressable>
+
+                    <HapticPressable
+                      style={[
+                        styles.exportModalOptionButton,
+                        {
+                          backgroundColor: theme.colors.iconSurface,
+                          borderColor: theme.colors.border,
+                        },
+                      ]}
+                      onPress={() => {
+                        setExportCategory("checklists");
+                        setExportStep("selection");
+                      }}
+                    >
+                      <ThemedText>Checklists</ThemedText>
+                    </HapticPressable>
+                  </View>
+                </>
+              ) : exportStep === "selection" ? (
+                <>
+                  <ThemedText variant="title">
+                    {exportCategory === "storageSpaces"
+                      ? "Select Storage Spaces"
+                      : "Select Checklists"}
+                  </ThemedText>
+                  <ThemedText color="secondary">
+                    Select one or more items to export.
+                  </ThemedText>
+
+                  <View style={styles.exportModalOptions}>
+                    {(exportCategory === "storageSpaces"
+                      ? storageSpaces
+                      : allChecklists
+                    ).map((item) => {
+                      const selected =
+                        exportCategory === "storageSpaces"
+                          ? selectedExportStorageIds.includes(item.id)
+                          : selectedExportChecklistIds.includes(item.id);
+
+                      return (
+                        <HapticPressable
+                          key={item.id}
+                          style={[
+                            styles.exportModalOptionButton,
+                            {
+                              backgroundColor: selected
+                                ? "rgba(55,130,245,0.22)"
+                                : theme.colors.iconSurface,
+                              borderColor: selected
+                                ? "rgba(55,130,245,0.95)"
+                                : theme.colors.border,
+                            },
+                          ]}
+                          onPress={() => {
+                            if (exportCategory === "storageSpaces") {
+                              toggleExportStorageSelection(item.id);
+                              return;
+                            }
+
+                            toggleExportChecklistSelection(item.id);
+                          }}
+                        >
+                          <ThemedText>{item.name}</ThemedText>
+                        </HapticPressable>
+                      );
+                    })}
+
+                    <HapticPressable
+                      style={[
+                        styles.exportModalOptionButton,
+                        {
+                          backgroundColor: theme.colors.iconSurface,
+                          borderColor: theme.colors.border,
+                        },
+                      ]}
+                      onPress={handleSelectAllExportItems}
+                    >
+                      <ThemedText>
+                        {exportCategory === "storageSpaces"
+                          ? "Select All Storage Spaces"
+                          : "Select All Checklists"}
+                      </ThemedText>
+                    </HapticPressable>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <ThemedText variant="title">Export Format</ThemedText>
+                  <ThemedText color="secondary">
+                    Choose a file format for this export.
+                  </ThemedText>
+
+                  <View style={styles.exportModalOptions}>
+                    <HapticPressable
+                      style={[
+                        styles.exportModalOptionButton,
+                        {
+                          backgroundColor: theme.colors.iconSurface,
+                          borderColor: theme.colors.border,
+                        },
+                      ]}
+                      onPress={() => {
+                        console.log("EXPORT WORD SELECTED");
+                      }}
+                    >
+                      <ThemedText>Word (.docx)</ThemedText>
+                    </HapticPressable>
+
+                    <HapticPressable
+                      style={[
+                        styles.exportModalOptionButton,
+                        {
+                          backgroundColor: theme.colors.iconSurface,
+                          borderColor: theme.colors.border,
+                        },
+                      ]}
+                      onPress={() => {
+                        console.log("EXPORT EXCEL CSV SELECTED");
+                      }}
+                    >
+                      <ThemedText>Excel/CSV</ThemedText>
+                    </HapticPressable>
+                  </View>
+                </>
+              )}
+
+              {exportStep === "selection" ? (
+                <HapticPressable
+                  style={styles.exportModalPrimaryButton}
+                  onPress={() => setExportStep("format")}
+                >
+                  <ThemedText style={styles.exportModalPrimaryButtonText}>
+                    Continue
+                  </ThemedText>
+                </HapticPressable>
+              ) : null}
+
+              {exportStep !== "category" ? (
+                <HapticPressable
+                  onPress={() => {
+                    if (exportStep === "format") {
+                      setExportStep("selection");
+                      return;
+                    }
+
+                    setExportStep("category");
+                  }}
+                >
+                  <ThemedText color="secondary" style={styles.exportModalCancelText}>
+                    Back
+                  </ThemedText>
+                </HapticPressable>
+              ) : null}
+
+              <HapticPressable onPress={handleCloseDashboardExport}>
+                <ThemedText color="secondary" style={styles.exportModalCancelText}>
+                  Cancel
+                </ThemedText>
+              </HapticPressable>
+            </View>
+          </View>
+        </Modal>
 
         <View style={styles.bottomAdWrap}>
           <SafeBannerAd
@@ -2760,6 +3021,51 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     flexWrap: "wrap",
     marginBottom: 10,
+  },
+
+  exportModalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.6)",
+    paddingHorizontal: 24,
+  },
+
+  exportModalCard: {
+    padding: 20,
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: 12,
+  },
+
+  exportModalOptions: {
+    gap: 10,
+    marginTop: 8,
+  },
+
+  exportModalOptionButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+
+  exportModalPrimaryButton: {
+    marginTop: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: "rgba(55,130,245,0.95)",
+    alignItems: "center",
+  },
+
+  exportModalPrimaryButtonText: {
+    color: "#fff",
+    fontWeight: "700",
+  },
+
+  exportModalCancelText: {
+    textAlign: "center",
+    marginTop: 8,
   },
 
 });
