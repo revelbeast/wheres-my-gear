@@ -18,6 +18,7 @@ import {
   Share,
   UserCircle2
 } from "lucide-react-native";
+import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
@@ -547,7 +548,7 @@ export default function DashboardScreen() {
   const [upcomingTrips, setUpcomingTrips] = useState<UpcomingTrip[]>([]);
   const [exportModalVisible, setExportModalVisible] = useState(false);
   const [exportStep, setExportStep] = useState<
-    "category" | "selection" | "format"
+    "category" | "selection" | "compartments" | "format"
   >("category");
   const [exportCategory, setExportCategory] = useState<
     "storageSpaces" | "checklists" | null
@@ -557,6 +558,9 @@ export default function DashboardScreen() {
     string[]
   >([]);
   const [selectedExportChecklistIds, setSelectedExportChecklistIds] = useState<
+    string[]
+  >([]);
+  const [selectedExportCompartmentIds, setSelectedExportCompartmentIds] = useState<
     string[]
   >([]);
 
@@ -1462,6 +1466,9 @@ export default function DashboardScreen() {
     setExportModalVisible(false);
     setExportCategory(null);
     setExportStep("category");
+    setSelectedExportStorageIds([]);
+    setSelectedExportChecklistIds([]);
+    setSelectedExportCompartmentIds([]);
   }
 
   function toggleExportStorageSelection(storageId: string) {
@@ -1480,14 +1487,37 @@ export default function DashboardScreen() {
     );
   }
 
+  function toggleExportCompartmentSelection(compartmentId: string) {
+    setSelectedExportCompartmentIds((current) =>
+      current.includes(compartmentId)
+        ? current.filter((id) => id !== compartmentId)
+        : [...current, compartmentId]
+    );
+  }
+
   function handleSelectAllExportItems() {
     if (exportCategory === "storageSpaces") {
-      setSelectedExportStorageIds(storageSpaces.map((space) => space.id));
+      const allStorageIds = storageSpaces.map((space) => space.id);
+      const allSelected =
+        selectedExportStorageIds.length === allStorageIds.length;
+
+      setSelectedExportStorageIds(
+        allSelected ? [] : allStorageIds
+      );
       return;
     }
 
     if (exportCategory === "checklists") {
-      setSelectedExportChecklistIds(allChecklists.map((checklist) => checklist.id));
+      const allChecklistIds = allChecklists.map(
+        (checklist) => checklist.id
+      );
+      const allSelected =
+        selectedExportChecklistIds.length ===
+        allChecklistIds.length;
+
+      setSelectedExportChecklistIds(
+        allSelected ? [] : allChecklistIds
+      );
     }
   }
 
@@ -1502,11 +1532,15 @@ export default function DashboardScreen() {
           selectedExportChecklistIds.includes(checklist.id)
         );
 
+        const selectedCompartmentsForExport = allCompartments.filter((compartment) =>
+          selectedExportCompartmentIds.includes(compartment.id)
+        );
+
         const csv =
           exportCategory === "storageSpaces"
             ? buildDashboardStorageCsv(
               selectedStorageSpaces,
-              allCompartments,
+              selectedCompartmentsForExport,
               allItems
             )
             : buildDashboardChecklistCsv(
@@ -1583,7 +1617,9 @@ export default function DashboardScreen() {
             );
 
             const storageCompartments = allCompartments.filter(
-              (compartment) => compartment.vehicleId === storage.id
+              (compartment) =>
+                compartment.vehicleId === storage.id &&
+                selectedExportCompartmentIds.includes(compartment.id)
             );
 
             storageCompartments.forEach((compartment) => {
@@ -1692,6 +1728,157 @@ export default function DashboardScreen() {
       }
     });
   }
+
+  async function handleExportDashboardPdf() {
+    await runWithLock(async () => {
+      try {
+        const selectedStorageSpaces = storageSpaces.filter((space) =>
+          selectedExportStorageIds.includes(space.id)
+        );
+
+        const selectedChecklists = allChecklists.filter((checklist) =>
+          selectedExportChecklistIds.includes(checklist.id)
+        );
+
+        const pdfDoc = await PDFDocument.create();
+        const regularFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+        const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+        let page = pdfDoc.addPage([612, 792]);
+        const margin = 48;
+        const lineHeight = 16;
+        let y = 744;
+
+        function addPageIfNeeded() {
+          if (y < 64) {
+            page = pdfDoc.addPage([612, 792]);
+            y = 744;
+          }
+        }
+
+        function drawLine(
+          text: string,
+          options?: {
+            bold?: boolean;
+            size?: number;
+            indent?: number;
+          }
+        ) {
+          addPageIfNeeded();
+
+          page.drawText(text, {
+            x: margin + (options?.indent ?? 0),
+            y,
+            size: options?.size ?? 11,
+            font: options?.bold ? boldFont : regularFont,
+            color: rgb(0, 0, 0),
+            maxWidth: 516 - (options?.indent ?? 0),
+          });
+
+          y -= lineHeight;
+        }
+
+        drawLine("Where's My Gear Export", { bold: true, size: 18 });
+        y -= 8;
+
+        if (exportCategory === "storageSpaces") {
+          selectedStorageSpaces.forEach((storage) => {
+            drawLine(storage.name, { bold: true, size: 15 });
+
+            const storageCompartments = allCompartments.filter(
+              (compartment) =>
+                compartment.vehicleId === storage.id &&
+                selectedExportCompartmentIds.includes(compartment.id)
+            );
+
+            if (storageCompartments.length === 0) {
+              drawLine("- No compartments", { indent: 16 });
+              y -= 6;
+              return;
+            }
+
+            storageCompartments.forEach((compartment) => {
+              drawLine(`Compartment: ${compartment.name}`, {
+                bold: true,
+                indent: 16,
+              });
+
+              const compartmentItems = allItems.filter(
+                (item) => item.compartmentId === compartment.id
+              );
+
+              if (compartmentItems.length === 0) {
+                drawLine("- No items", { indent: 32 });
+                return;
+              }
+
+              compartmentItems.forEach((item) => {
+                drawLine(
+                  `- ${item.name} | Qty: ${getItemQuantity(item)} | Status: ${item.status}`,
+                  { indent: 32 }
+                );
+              });
+            });
+
+            y -= 8;
+          });
+        }
+
+        if (exportCategory === "checklists") {
+          selectedChecklists.forEach((checklist) => {
+            drawLine(checklist.name, { bold: true, size: 15 });
+
+            const checklistItems = allChecklistItems.filter(
+              (item) => item.checklistId === checklist.id
+            );
+
+            if (checklistItems.length === 0) {
+              drawLine("- No checklist items", { indent: 16 });
+              y -= 6;
+              return;
+            }
+
+            checklistItems.forEach((item) => {
+              drawLine(
+                `- ${item.name} | Qty: ${item.quantity} | Packed: ${item.packed ? "Yes" : "No"
+                }`,
+                { indent: 16 }
+              );
+            });
+
+            y -= 8;
+          });
+        }
+
+        const base64 = await pdfDoc.saveAsBase64();
+        const exportLabel =
+          exportCategory === "storageSpaces"
+            ? "storage_spaces"
+            : "checklists";
+        const fileName = `wheres_my_gear_${exportLabel}_export.pdf`;
+        const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
+
+        await FileSystem.writeAsStringAsync(fileUri, base64, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+
+        await NativeShare.share({
+          title: "Where's My Gear Export",
+          url: fileUri,
+        });
+
+        handleCloseDashboardExport();
+      } catch (error) {
+        console.error("Dashboard PDF export failed:", error);
+
+        Alert.alert(
+          "Export failed",
+          "Something went wrong while exporting your PDF file."
+        );
+      }
+    });
+  }
+
 
   function handleAddStorageSpace() {
     pushWithNavigationLock(() => {
@@ -2599,8 +2786,95 @@ export default function DashboardScreen() {
                     >
                       <ThemedText>
                         {exportCategory === "storageSpaces"
-                          ? "Select All Storage Spaces"
-                          : "Select All Checklists"}
+                          ? selectedExportStorageIds.length === storageSpaces.length
+                            ? "Clear All Storage Spaces"
+                            : "Select All Storage Spaces"
+                          : selectedExportChecklistIds.length === allChecklists.length
+                            ? "Clear All Checklists"
+                            : "Select All Checklists"}
+                      </ThemedText>
+                    </HapticPressable>
+                  </View>
+                </>
+              ) : exportStep === "compartments" ? (
+                <>
+                  <ThemedText variant="title">Select Compartments</ThemedText>
+                  <ThemedText color="secondary">
+                    Select one or more compartments to export.
+                  </ThemedText>
+
+                  <ThemedText color="secondary">
+                    {`${selectedExportCompartmentIds.length} selected`}
+                  </ThemedText>
+
+                  <View style={styles.exportModalOptions}>
+                    {allCompartments
+                      .filter((compartment) =>
+                        selectedExportStorageIds.includes(compartment.vehicleId)
+                      )
+                      .map((compartment) => {
+                        const selected = selectedExportCompartmentIds.includes(
+                          compartment.id
+                        );
+
+                        return (
+                          <HapticPressable
+                            key={compartment.id}
+                            style={[
+                              styles.exportModalOptionButton,
+                              {
+                                backgroundColor: selected
+                                  ? "rgba(55,130,245,0.22)"
+                                  : theme.colors.iconSurface,
+                                borderColor: selected
+                                  ? "rgba(55,130,245,0.95)"
+                                  : theme.colors.border,
+                              },
+                            ]}
+                            onPress={() =>
+                              toggleExportCompartmentSelection(compartment.id)
+                            }
+                          >
+                            <ThemedText>{compartment.name}</ThemedText>
+                          </HapticPressable>
+                        );
+                      })}
+
+                    <HapticPressable
+                      style={[
+                        styles.exportModalOptionButton,
+                        {
+                          backgroundColor: theme.colors.iconSurface,
+                          borderColor: theme.colors.border,
+                        },
+                      ]}
+                      onPress={() => {
+                        const selectedStorageCompartments = allCompartments
+                          .filter((compartment) =>
+                            selectedExportStorageIds.includes(
+                              compartment.vehicleId
+                            )
+                          )
+                          .map((compartment) => compartment.id);
+
+                        const allSelected =
+                          selectedExportCompartmentIds.length ===
+                          selectedStorageCompartments.length;
+
+                        setSelectedExportCompartmentIds(
+                          allSelected ? [] : selectedStorageCompartments
+                        );
+                      }}
+                    >
+                      <ThemedText>
+                        {selectedExportCompartmentIds.length ===
+                          allCompartments.filter((compartment) =>
+                            selectedExportStorageIds.includes(
+                              compartment.vehicleId
+                            )
+                          ).length
+                          ? "Clear All Compartments"
+                          : "Select All Compartments"}
                       </ThemedText>
                     </HapticPressable>
                   </View>
@@ -2634,6 +2908,19 @@ export default function DashboardScreen() {
                           borderColor: theme.colors.border,
                         },
                       ]}
+                      onPress={handleExportDashboardPdf}
+                    >
+                      <ThemedText>PDF (.pdf)</ThemedText>
+                    </HapticPressable>
+
+                    <HapticPressable
+                      style={[
+                        styles.exportModalOptionButton,
+                        {
+                          backgroundColor: theme.colors.iconSurface,
+                          borderColor: theme.colors.border,
+                        },
+                      ]}
                       onPress={handleExportDashboardCsv}
                     >
                       <ThemedText>Excel/CSV</ThemedText>
@@ -2642,21 +2929,38 @@ export default function DashboardScreen() {
                 </>
               )}
 
-              {exportStep === "selection" ? (
+              {exportStep === "selection" ||
+                exportStep === "compartments" ? (
                 <HapticPressable
                   style={[
                     styles.exportModalPrimaryButton,
                     (
-                      exportCategory === "storageSpaces"
-                        ? selectedExportStorageIds.length === 0
-                        : selectedExportChecklistIds.length === 0
+                      exportStep === "compartments"
+                        ? selectedExportCompartmentIds.length === 0
+                        : exportCategory === "storageSpaces"
+                          ? selectedExportStorageIds.length === 0
+                          : selectedExportChecklistIds.length === 0
                     ) && { opacity: 0.5 },
                   ]}
-                  onPress={() => setExportStep("format")}
+                  onPress={() => {
+                    if (exportStep === "compartments") {
+                      setExportStep("format");
+                      return;
+                    }
+
+                    if (exportCategory === "storageSpaces") {
+                      setExportStep("compartments");
+                      return;
+                    }
+
+                    setExportStep("format");
+                  }}
                   disabled={
-                    exportCategory === "storageSpaces"
-                      ? selectedExportStorageIds.length === 0
-                      : selectedExportChecklistIds.length === 0
+                    exportStep === "compartments"
+                      ? selectedExportCompartmentIds.length === 0
+                      : exportCategory === "storageSpaces"
+                        ? selectedExportStorageIds.length === 0
+                        : selectedExportChecklistIds.length === 0
                   }
                 >
                   <ThemedText style={styles.exportModalPrimaryButtonText}>
@@ -2669,9 +2973,21 @@ export default function DashboardScreen() {
                 <HapticPressable
                   onPress={() => {
                     if (exportStep === "format") {
+                      if (exportCategory === "storageSpaces") {
+                        setExportStep("compartments");
+                        return;
+                      }
+
                       setExportStep("selection");
                       return;
                     }
+
+                    if (exportStep === "compartments") {
+                      setExportStep("selection");
+                      return;
+                    }
+
+                    setExportStep("category");
 
                     setExportStep("category");
                   }}
