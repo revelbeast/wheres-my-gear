@@ -388,7 +388,23 @@ export default function ScanResultScreen() {
               </View>
             ) : null}
 
-            {/* CONTINUE */}
+            {/* CANCEL */}
+            <Text
+              onPress={router.back}
+              style={{
+                marginTop: 18,
+                padding: 12,
+                backgroundColor: "transparent",
+                color: "#111",
+                borderRadius: 8,
+                width: "100%",
+                textAlign: "center",
+              }}
+            >
+              Cancel
+            </Text>
+
+            {/* SAVE */}
             <Text
               onPress={async () => {
                 if (isSaving) return;
@@ -462,7 +478,7 @@ export default function ScanResultScreen() {
                 }
               }}
               style={{
-                marginTop: 30,
+                marginTop: 12,
                 padding: 12,
                 backgroundColor: "#111",
                 color: "#fff",
@@ -471,7 +487,7 @@ export default function ScanResultScreen() {
                 textAlign: "center",
               }}
             >
-              Finish Setup
+              Save
             </Text>
           </View>
         )}
