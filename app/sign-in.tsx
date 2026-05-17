@@ -7,6 +7,7 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -132,83 +133,89 @@ export default function SignInScreen() {
       <SafeAreaView style={styles.safe}>
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={styles.container}
+          style={styles.keyboardAvoiding}
         >
-          <Image
-            source={require("../assets/images/welcome-hero.png")}
-            style={styles.heroImage}
-            resizeMode="contain"
-          />
+          <ScrollView
+            contentContainerStyle={styles.container}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <Image
+              source={require("../assets/images/welcome-hero.png")}
+              style={styles.heroImage}
+              resizeMode="contain"
+            />
 
-          <Text style={styles.title}>Where’s My Gear</Text>
-          <Text style={styles.subtitle}>
-            Organize your gear, track your storage, and never lose anything again.
-          </Text>
+            <Text style={styles.title}>Where’s My Gear</Text>
+            <Text style={styles.subtitle}>
+              Organize your gear, track your storage, and never lose anything again.
+            </Text>
 
-          <TextInput
-            value={email}
-            onChangeText={setEmail}
-            placeholder="Email"
-            placeholderTextColor="#9ca3af"
-            autoCapitalize="none"
-            keyboardType="email-address"
-            style={styles.input}
-          />
+            <TextInput
+              value={email}
+              onChangeText={setEmail}
+              placeholder="Email"
+              placeholderTextColor="#9ca3af"
+              autoCapitalize="none"
+              keyboardType="email-address"
+              style={styles.input}
+            />
 
-          <TextInput
-            value={password}
-            onChangeText={setPassword}
-            placeholder="Password"
-            placeholderTextColor="#9ca3af"
-            secureTextEntry
-            style={styles.input}
-          />
+            <TextInput
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Password"
+              placeholderTextColor="#9ca3af"
+              secureTextEntry
+              style={styles.input}
+            />
 
-          <HapticPressable style={styles.primaryBtn} onPress={handleEmailAuth}>
-            {signingIn ? (
-              <ActivityIndicator color="#fff" />
+            <HapticPressable style={styles.primaryBtn} onPress={handleEmailAuth}>
+              {signingIn ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.primaryBtnText}>
+                  {mode === "signIn" ? "Sign In" : "Create Account"}
+                </Text>
+              )}
+            </HapticPressable>
+
+            <HapticPressable
+              onPress={() => setMode(mode === "signIn" ? "signUp" : "signIn")}
+            >
+              <Text style={styles.link}>
+                {mode === "signIn"
+                  ? "Need an account? Sign up"
+                  : "Have an account? Sign in"}
+              </Text>
+            </HapticPressable>
+
+            <HapticPressable onPress={handleResetPassword}>
+              <Text style={styles.smallLink}>Forgot password?</Text>
+            </HapticPressable>
+
+            <Text style={styles.or}>OR</Text>
+
+            {isAppleAvailable ? (
+              <AppleAuthentication.AppleAuthenticationButton
+                buttonType={
+                  AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN
+                }
+                buttonStyle={
+                  AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
+                }
+                cornerRadius={14}
+                style={styles.appleButton}
+                onPress={handleAppleSignIn}
+              />
             ) : (
-              <Text style={styles.primaryBtnText}>
-                {mode === "signIn" ? "Sign In" : "Create Account"}
+              <Text style={styles.helperText}>
+                Apple Sign-In is only available on supported Apple devices.
               </Text>
             )}
-          </HapticPressable>
 
-          <HapticPressable
-            onPress={() => setMode(mode === "signIn" ? "signUp" : "signIn")}
-          >
-            <Text style={styles.link}>
-              {mode === "signIn"
-                ? "Need an account? Sign up"
-                : "Have an account? Sign in"}
-            </Text>
-          </HapticPressable>
-
-          <HapticPressable onPress={handleResetPassword}>
-            <Text style={styles.smallLink}>Forgot password?</Text>
-          </HapticPressable>
-
-          <Text style={styles.or}>OR</Text>
-
-          {isAppleAvailable ? (
-            <AppleAuthentication.AppleAuthenticationButton
-              buttonType={
-                AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN
-              }
-              buttonStyle={
-                AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
-              }
-              cornerRadius={14}
-              style={styles.appleButton}
-              onPress={handleAppleSignIn}
-            />
-          ) : (
-            <Text style={styles.helperText}>
-              Apple Sign-In is only available on supported Apple devices.
-            </Text>
-          )}
-
-          {signInError && <Text style={styles.errorText}>{signInError}</Text>}
+            {signInError && <Text style={styles.errorText}>{signInError}</Text>}
+          </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </ScreenBackground>
@@ -220,8 +227,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  container: {
+  keyboardAvoiding: {
     flex: 1,
+  },
+
+  container: {
+    flexGrow: 1,
     justifyContent: "center",
     paddingHorizontal: 20,
     paddingVertical: 28,

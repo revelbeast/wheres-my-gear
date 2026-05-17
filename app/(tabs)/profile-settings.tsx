@@ -1,6 +1,13 @@
 import { BlurView } from "expo-blur";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
+import {
+  deleteObject,
+  getDownloadURL,
+  listAll,
+  ref,
+  uploadBytes,
+} from "firebase/storage";
 import { Check, ImagePlus, LogOut, UserCircle2 } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -13,13 +20,6 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import {
-  deleteObject,
-  getDownloadURL,
-  listAll,
-  ref,
-  uploadBytes,
-} from "firebase/storage";
 
 import { useAuth } from "../../components/auth/AuthProvider";
 import AppHeader from "../../components/ui/AppHeader";
@@ -826,7 +826,7 @@ export default function ProfileSettingsScreen() {
 
             <View style={styles.heroSection}>
               <HapticPressable
-                onPress={handlePickBackgroundPhoto}
+                onPress={handlePickProfilePhoto}
                 disabled={interactionBusy}
                 style={[
                   styles.heroPhotoButton,
