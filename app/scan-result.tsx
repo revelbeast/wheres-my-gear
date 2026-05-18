@@ -1,5 +1,13 @@
 import * as Linking from "expo-linking";
 import { router, useLocalSearchParams } from "expo-router";
+import {
+  Barcode,
+  ExternalLink,
+  ScanSearch,
+  Search,
+  ShoppingCart,
+  Tag,
+} from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import { Text, TextInput, TouchableOpacity, View } from "react-native";
 
@@ -799,9 +807,15 @@ export default function ScanResultScreen() {
         <View
           style={{
             flex: 0.55,
-            borderRadius: 24,
-            padding: 24,
-            backgroundColor: "#F9FAFB",
+            borderRadius: 18,
+            padding: 20,
+            backgroundColor: "#FFFFFF",
+            borderWidth: 1,
+            borderColor: "#E5E7EB",
+            shadowColor: "#000",
+            shadowOpacity: 0.08,
+            shadowRadius: 18,
+            shadowOffset: { width: 0, height: 8 },
             justifyContent: "flex-start",
           }}
         >
@@ -827,27 +841,76 @@ export default function ScanResultScreen() {
           <View
             style={{
               marginTop: 16,
-              padding: 14,
-              borderRadius: 14,
+              padding: 16,
+              borderRadius: 16,
               borderWidth: 1,
-              borderColor: "#DBEAFE",
+              borderColor: "#BFDBFE",
               backgroundColor: "#EFF6FF",
+              flexDirection: "row",
+              alignItems: "flex-start",
+              gap: 12,
             }}
           >
-            <Text style={{ color: "#1F2937", fontSize: 14, lineHeight: 20 }}>
-              Amazon enrichment is pending production approval. Product details will appear here when available.
-            </Text>
-          </View>
-
-          <View style={{ flexDirection: "row", gap: 18, marginTop: 20 }}>
             <View
               style={{
-                width: 230,
-                height: 260,
-                borderRadius: 18,
-                backgroundColor: "#F3F4F6",
+                width: 34,
+                height: 34,
+                borderRadius: 999,
+                backgroundColor: "#DBEAFE",
                 alignItems: "center",
                 justifyContent: "center",
+              }}
+            >
+              <Text style={{ color: "#2563EB", fontSize: 18 }}>ℹ</Text>
+            </View>
+
+            <View style={{ flex: 1 }}>
+              <Text
+                style={{
+                  color: "#1E40AF",
+                  fontSize: 14,
+                  fontWeight: "700",
+                }}
+              >
+                Amazon enrichment pending
+              </Text>
+
+              <Text
+                style={{
+                  marginTop: 4,
+                  color: "#334155",
+                  fontSize: 14,
+                  lineHeight: 20,
+                }}
+              >
+                Product details, images, and confidence data will appear here once Amazon enrichment becomes available.
+              </Text>
+            </View>
+          </View>
+
+          <View
+            style={{
+              flexDirection: "row",
+              gap: 20,
+              marginTop: 20,
+              padding: 16,
+              borderRadius: 20,
+              borderWidth: 1,
+              borderColor: "#E5E7EB",
+              backgroundColor: "#FFFFFF",
+            }}
+          >
+            <View
+              style={{
+                width: 200,
+                height: 220,
+                borderRadius: 18,
+                backgroundColor: "#F8FAFC",
+                borderWidth: 1,
+                borderColor: "#E5E7EB",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
               }}
             >
               <Text style={{ color: "#9CA3AF", fontSize: 42 }}>□</Text>
@@ -864,7 +927,14 @@ export default function ScanResultScreen() {
             </View>
 
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 20, fontWeight: "800", color: "#111827" }}>
+              <Text
+                style={{
+                  fontSize: 22,
+                  fontWeight: "800",
+                  color: "#111827",
+                  marginTop: 0,
+                }}
+              >
                 {editableName || "Product Title"}
               </Text>
 
@@ -872,11 +942,24 @@ export default function ScanResultScreen() {
                 Brand
               </Text>
 
-              <Text style={{ marginTop: 22, color: "#374151", lineHeight: 20 }}>
+              <Text
+                style={{
+                  marginTop: 18,
+                  color: "#374151",
+                  lineHeight: 22,
+                  fontSize: 15,
+                }}
+              >
                 Product description will appear here once we receive catalog data from Amazon.
               </Text>
 
-              <Text style={{ marginTop: 18, color: "#111827", fontWeight: "700" }}>
+              <Text
+                style={{
+                  marginTop: 14,
+                  color: "#111827",
+                  fontWeight: "700",
+                }}
+              >
                 ASIN: <Text style={{ color: "#0284C7" }}>Pending</Text>
               </Text>
 
@@ -892,7 +975,7 @@ export default function ScanResultScreen() {
                 Confidence: <Text style={{ color: "#B45309" }}>Pending</Text>
               </Text>
 
-              <Text
+              <TouchableOpacity
                 onPress={() => {
                   if (amazonUrl) {
                     Linking.openURL(amazonUrl);
@@ -903,112 +986,157 @@ export default function ScanResultScreen() {
                   padding: 16,
                   borderRadius: 14,
                   backgroundColor: "#FBBF24",
-                  color: "#111827",
-                  textAlign: "center",
-                  fontWeight: "900",
-                  fontSize: 18,
+                  alignItems: "center",
+                  justifyContent: "center",
                 }}
               >
-                Buy again on Amazon
-              </Text>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 10,
+                  }}
+                >
+                  <ExternalLink size={20} color="#111827" />
+                  <Text
+                    style={{
+                      color: "#111827",
+                      fontWeight: "900",
+                      fontSize: 18,
+                    }}
+                  >
+                    Buy again on Amazon
+                  </Text>
+                </View>
+              </TouchableOpacity>
 
-              <View
+            </View>
+          </View>
+
+          <View
+            style={{
+              marginTop: 12,
+              padding: 14,
+              borderRadius: 16,
+              backgroundColor: "#FFFFFF",
+              borderWidth: 1,
+              borderColor: "#E5E7EB",
+            }}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                gap: 10,
+              }}
+            >
+              {/* Use Amazon Title */}
+              <TouchableOpacity
                 style={{
-                  marginTop: 12,
-                  flexDirection: "row",
-                  gap: 10,
-                }}
-              >
-                {/* Use Amazon Title */}
-                <TouchableOpacity
-                  style={{
-                    flex: 1,
-                    padding: 12,
-                    borderRadius: 12,
-                    backgroundColor: "#FFFFFF",
-                    borderWidth: 1,
-                    borderColor: "#E5E7EB",
-                    alignItems: "center",
-                  }}
-                >
-                  <Text style={{ fontSize: 12, fontWeight: "700", color: "#111827" }}>
-                    Use Amazon Title
-                  </Text>
-                </TouchableOpacity>
-
-                {/* Replace Item Name */}
-                <TouchableOpacity
-                  onPress={() => {
-                    nameInputRef.current?.focus();
-                  }}
-                  style={{
-                    flex: 1,
-                    padding: 12,
-                    borderRadius: 12,
-                    backgroundColor: "#FFFFFF",
-                    borderWidth: 1,
-                    borderColor: "#E5E7EB",
-                    alignItems: "center",
-                  }}
-                >
-                  <Text style={{ fontSize: 12, fontWeight: "700", color: "#111827" }}>
-                    Replace Item Name
-                  </Text>
-                </TouchableOpacity>
-
-                {/* View on Amazon */}
-                <TouchableOpacity
-                  onPress={() => {
-                    const cleanUrl = amazonUrl?.split("?")[0];
-                    if (cleanUrl) Linking.openURL(cleanUrl);
-                  }}
-                  style={{
-                    flex: 1,
-                    padding: 12,
-                    borderRadius: 12,
-                    backgroundColor: "#FFFFFF",
-                    borderWidth: 1,
-                    borderColor: "#E5E7EB",
-                    alignItems: "center",
-                  }}
-                >
-                  <Text style={{ fontSize: 12, fontWeight: "700", color: "#111827" }}>
-                    View on Amazon
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              <View
-                style={{
-                  marginTop: 12,
-                  padding: 16,
-                  borderRadius: 16,
+                  flex: 1,
+                  padding: 12,
+                  borderRadius: 12,
                   backgroundColor: "#FFFFFF",
                   borderWidth: 1,
                   borderColor: "#E5E7EB",
+                  alignItems: "center",
                 }}
               >
-                <Text style={{ fontSize: 16, fontWeight: "800", color: "#111827" }}>
-                  About this Scan
-                </Text>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <Tag size={18} color="#111827" />
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      fontWeight: "700",
+                      color: "#111827",
+                    }}
+                  >
+                    Use Amazon Title
+                  </Text>
+                </View>
+              </TouchableOpacity>
 
-                <Text style={{ marginTop: 12, color: "#6B7280", fontSize: 12 }}>
-                  Barcode / UPC
-                </Text>
+              {/* View on Amazon */}
+              <TouchableOpacity
+                onPress={() => {
+                  const cleanUrl = amazonUrl?.split("?")[0];
+                  if (cleanUrl) Linking.openURL(cleanUrl);
+                }}
+                style={{
+                  flex: 1,
+                  padding: 12,
+                  borderRadius: 12,
+                  backgroundColor: "#FFFFFF",
+                  borderWidth: 1,
+                  borderColor: "#E5E7EB",
+                  alignItems: "center",
+                }}
+              >
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <ShoppingCart size={18} color="#111827" />
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      fontWeight: "700",
+                      color: "#111827",
+                    }}
+                  >
+                    View on Amazon
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View
+            style={{
+              marginTop: 12,
+              padding: 16,
+              borderRadius: 16,
+              backgroundColor: "#FFFFFF",
+              borderWidth: 1,
+              borderColor: "#E5E7EB",
+            }}
+          >
+            <Text style={{ fontSize: 16, fontWeight: "800", color: "#111827" }}>
+              About this Scan
+            </Text>
+
+            <View style={{ marginTop: 14, flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <Barcode size={18} color="#6B7280" />
+              <View>
+                <Text style={{ color: "#6B7280", fontSize: 12 }}>Barcode / UPC</Text>
                 <Text style={{ marginTop: 2, color: "#111827", fontWeight: "700" }}>
                   {String(code ?? "Unknown")}
                 </Text>
+              </View>
+            </View>
 
-                <Text style={{ marginTop: 10, color: "#6B7280", fontSize: 12 }}>
-                  Scanned with
-                </Text>
+            <View style={{ marginTop: 12, flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <ScanSearch size={18} color="#6B7280" />
+              <View>
+                <Text style={{ color: "#6B7280", fontSize: 12 }}>Scanned with</Text>
                 <Text style={{ marginTop: 2, color: "#111827", fontWeight: "700" }}>
                   Where&apos;s My Gear
                 </Text>
+              </View>
+            </View>
 
-                <Text style={{ marginTop: 10, color: "#6B7280", fontSize: 12 }}>
-                  Source
-                </Text>
+            <View style={{ marginTop: 12, flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <Search size={18} color="#6B7280" />
+              <View>
+                <Text style={{ color: "#6B7280", fontSize: 12 }}>Source</Text>
                 <Text style={{ marginTop: 2, color: "#111827", fontWeight: "700" }}>
                   Amazon Search
                 </Text>
@@ -1016,7 +1144,8 @@ export default function ScanResultScreen() {
             </View>
           </View>
         </View>
-      ) : null}
-    </View>
+      ) : null
+      }
+    </View >
   );
 }
