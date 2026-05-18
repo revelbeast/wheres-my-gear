@@ -267,7 +267,45 @@ export default function ScanResultScreen() {
           ) : (
             <View style={{ width: "100%", alignItems: "center" }}>
               <Text style={{ fontWeight: "600" }}>
-                {isFound ? "Item Found" : "Item Not Found"}
+                {(
+                  isFound ? "Item Found" : "Item Not Found"
+                )}
+                {!isFound && (
+                  <View
+                    style={{
+                      marginTop: 14,
+                      width: "100%",
+                      padding: 14,
+                      borderRadius: 14,
+                      borderWidth: 1,
+                      borderColor: "#FED7AA",
+                      backgroundColor: "#FFF7ED",
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        fontWeight: "800",
+                        color: "#C2410C",
+                        textAlign: "center",
+                      }}
+                    >
+                      ITEM NOT FOUND
+                    </Text>
+
+                    <Text
+                      style={{
+                        marginTop: 6,
+                        fontSize: 12,
+                        color: "#9A3412",
+                        textAlign: "center",
+                        lineHeight: 16,
+                      }}
+                    >
+                      No matching inventory item was found. Review the scanned item details, then save it to storage or a checklist.
+                    </Text>
+                  </View>
+                )}
               </Text>
 
               {!isFound && (
