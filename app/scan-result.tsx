@@ -1,7 +1,7 @@
 import * as Linking from "expo-linking";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { Text, TextInput, View } from "react-native";
+import { Text, TextInput, TouchableOpacity, View } from "react-native";
 
 import {
   addDoc,
@@ -25,6 +25,7 @@ import {
   type Compartment,
   type StorageSpace
 } from "../lib/gearService";
+import { useResponsiveLayout } from "../lib/useResponsiveLayout";
 
 type ScanState =
   | "autoCreate"
@@ -34,7 +35,11 @@ type ScanState =
   | "linkChecklist";
 
 export default function ScanResultScreen() {
-  const { code, suggestedName, found, affiliateLink } = useLocalSearchParams();
+  const nameInputRef = React.useRef<TextInput>(null);
+  const { isTabletLandscape } = useResponsiveLayout();
+
+  const { code, suggestedName, found, affiliateLink } =
+    useLocalSearchParams();
 
   const isFound = found === "true";
   const uid = auth.currentUser?.uid;
@@ -55,6 +60,10 @@ export default function ScanResultScreen() {
   const [selectedStorage, setSelectedStorage] = useState<string | null>(null);
   const [selectedCompartment, setSelectedCompartment] = useState<string | null>(null);
   const [selectedChecklist, setSelectedChecklist] = useState<string | null>(null);
+
+  const [isStorageDropdownOpen, setIsStorageDropdownOpen] = useState(false);
+  const [isCompartmentDropdownOpen, setIsCompartmentDropdownOpen] = useState(false);
+  const [isChecklistDropdownOpen, setIsChecklistDropdownOpen] = useState(false);
 
   const [item, setItem] = useState<any>(null);
   const [storageSpaces, setStorageSpaces] = useState<StorageSpace[]>([]);
@@ -197,6 +206,8 @@ export default function ScanResultScreen() {
   }, [uid]);
 
   useEffect(() => {
+
+
     const loadCompartments = async () => {
       if (!selectedStorage) {
         setCompartmentSpaces([]);
@@ -220,278 +231,792 @@ export default function ScanResultScreen() {
   }, [selectedStorage]);
 
   return (
-    <View style={{ flex: 1, padding: 20, alignItems: "center", justifyContent: "center" }}>
-      <Text style={{ fontSize: 22, fontWeight: "700" }}>
-        Scan Result
-      </Text>
+    <View
+      style={{
+        flex: 1,
+        padding: 20,
+        flexDirection: isTabletLandscape ? "row" : "column",
+        alignItems: "stretch",
+        justifyContent: "flex-start",
+        gap: isTabletLandscape ? 20 : 0,
+      }}
+    >
+      <View
+        style={{
+          flex: isTabletLandscape ? 0.45 : undefined,
+          width: isTabletLandscape ? undefined : "100%",
+          alignItems: "center",
+          justifyContent: "flex-start",
+        }}
+      >
+        <Text style={{ fontSize: 22, fontWeight: "700" }}>
+          Scan Result
+        </Text>
 
-      <View style={{ marginTop: 40, width: "100%", alignItems: "center" }}>
-        {loading ? (
-          <Text>Checking inventory...</Text>
-        ) : (
-          <View style={{ width: "100%", alignItems: "center" }}>
-            <Text style={{ fontWeight: "600" }}>
-              {isFound ? "Item Found" : "Item Not Found"}
-            </Text>
-
-            {!isFound && (
-              <Text style={{ marginTop: 6, opacity: 0.6, textAlign: "center" }}>
-                No match found. Please name this item manually.
+        <View style={{ marginTop: 40, width: "100%", alignItems: "center" }}>
+          {loading ? (
+            <Text>Checking inventory...</Text>
+          ) : (
+            <View style={{ width: "100%", alignItems: "center" }}>
+              <Text style={{ fontWeight: "600" }}>
+                {isFound ? "Item Found" : "Item Not Found"}
               </Text>
-            )}
 
-            <Text style={{ marginTop: 12, fontWeight: "600" }}>
-              {isFound ? "Item Name" : "Unidentified Item Name"}
-            </Text>
-
-            <TextInput
-              value={editableName}
-              onChangeText={setEditableName}
-              placeholder="Enter item name"
-              autoFocus
-              editable
-              returnKeyType="done"
-              blurOnSubmit
-              style={{
-                marginTop: 8,
-                padding: 10,
-                borderRadius: 8,
-                backgroundColor: "#222",
-                color: "#fff",
-                width: "100%",
-                textAlign: "center",
-              }}
-            />
-
-            {/* STORAGE */}
-            <Text style={{ marginTop: 25, fontWeight: "600" }}>Storage</Text>
-
-            {storageSpaces.length === 0 ? (
-              <Text style={{ marginTop: 6, opacity: 0.6, textAlign: "center" }}>
-                No storage spaces created yet.
-              </Text>
-            ) : (
-              storageSpaces.map((s) => (
-                <Text
-                  key={s.id}
-                  onPress={() => {
-                    setSelectedStorage((current) => (current === s.id ? null : s.id));
-                    setSelectedCompartment(null);
-                    setSelectedChecklist(null);
-                  }}
-                  style={{
-                    padding: 10,
-                    marginTop: 6,
-                    backgroundColor: selectedStorage === s.id ? "#2563EB" : "#222",
-                    color: "#fff",
-                    width: "100%",
-                    textAlign: "center",
-                    borderRadius: 8,
-                  }}
-                >
-                  {s.name}
+              {!isFound && (
+                <Text style={{ marginTop: 6, opacity: 0.6, textAlign: "center" }}>
+                  No match found. Please name this item manually.
                 </Text>
-              ))
-            )}
+              )}
 
-            {/* COMPARTMENT */}
-            <Text style={{ marginTop: 20, fontWeight: "600" }}>Compartment</Text>
-
-            {!selectedStorage ? (
-              <Text style={{ marginTop: 6, opacity: 0.6, textAlign: "center" }}>
-                Select a storage space first.
+              <Text style={{ marginTop: 12, fontWeight: "600" }}>
+                {isFound ? "Item Name" : "Unidentified Item Name"}
               </Text>
-            ) : compartmentSpaces.length === 0 ? (
-              <Text style={{ marginTop: 6, opacity: 0.6, textAlign: "center" }}>
-                No compartments created for this storage.
-              </Text>
-            ) : (
-              compartmentSpaces.map((c) => (
-                <Text
-                  key={c.id}
-                  onPress={() => {
-                    setSelectedCompartment((current) => (current === c.id ? null : c.id));
-                    setSelectedChecklist(null);
-                  }}
-                  style={{
-                    padding: 10,
-                    marginTop: 6,
-                    backgroundColor: selectedCompartment === c.id ? "#16A34A" : "#222",
-                    color: "#fff",
-                    width: "100%",
-                    textAlign: "center",
-                    borderRadius: 8,
-                  }}
-                >
-                  {c.name}
-                </Text>
-              ))
-            )}
 
-            {/* CHECKLIST */}
-            <Text style={{ marginTop: 20, fontWeight: "600" }}>Checklist</Text>
-
-            {checklists.map((c) => (
-              <Text
-                key={c.id}
-                onPress={() => {
-                  setSelectedChecklist((current) => (current === c.id ? null : c.id));
-                  setSelectedStorage(null);
-                  setSelectedCompartment(null);
-                }}
+              <TextInput
+                value={editableName}
+                onChangeText={setEditableName}
+                placeholder="Enter item name"
+                ref={nameInputRef}
+                editable
+                returnKeyType="done"
+                blurOnSubmit
                 style={{
+                  marginTop: 8,
                   padding: 10,
-                  marginTop: 6,
-                  backgroundColor: selectedChecklist === c.id ? "#7C3AED" : "#222",
+                  borderRadius: 8,
+                  backgroundColor: "#222",
                   color: "#fff",
                   width: "100%",
                   textAlign: "center",
-                  borderRadius: 8,
                 }}
-              >
-                {c.name}
-              </Text>
-            ))}
+              />
 
-            {amazonUrl ? (
-              <View
+              {/* STORAGE */}
+              <Text
                 style={{
-                  marginTop: 20,
-                  width: "100%",
-                  padding: 12,
-                  borderRadius: 10,
-                  backgroundColor: "#111",
+                  marginTop: 25,
+                  marginBottom: 8,
+                  alignSelf: "flex-start",
+                  color: "#6B7280",
+                  fontSize: 12,
+                  fontWeight: "700",
+                  textTransform: "uppercase",
                 }}
               >
-                <Text style={{ color: "#fff", fontWeight: "600" }}>
-                  Suggested Product Match
-                </Text>
+                Storage Spaces
+              </Text>
 
-                <Text style={{ color: "#aaa", fontSize: 12, marginTop: 4 }}>
-                  Optional external link
+              {storageSpaces.length === 0 ? (
+                <Text style={{ marginTop: 6, opacity: 0.6, textAlign: "center" }}>
+                  No storage spaces created yet.
                 </Text>
+              ) : (
+                <View style={{ width: "100%", zIndex: 30, elevation: 30 }}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setIsStorageDropdownOpen((current) => !current);
+                    }}
+                    style={{
+                      minHeight: 48,
+                      paddingHorizontal: 14,
+                      borderRadius: 10,
+                      borderWidth: 1,
+                      borderColor: "#D1D5DB",
+                      backgroundColor: "#FFFFFF",
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: selectedStorage ? "#111827" : "#6B7280",
+                        fontSize: 16,
+                        fontWeight: "500",
+                      }}
+                    >
+                      {storageSpaces.find((s) => s.id === selectedStorage)?.name ??
+                        "Select a storage space first."}
+                    </Text>
 
-                <Text
-                  onPress={() => Linking.openURL(amazonUrl)}
+                    <Text style={{ color: "#6B7280", fontSize: 18 }}>⌄</Text>
+                  </TouchableOpacity>
+
+                  {isStorageDropdownOpen ? (
+                    <View
+                      style={{
+                        marginTop: 6,
+                        borderRadius: 10,
+                        borderWidth: 1,
+                        borderColor: "#E5E7EB",
+                        backgroundColor: "#FFFFFF",
+                        overflow: "hidden",
+                      }}
+                    >
+                      {storageSpaces.map((s, index) => (
+                        <TouchableOpacity
+                          key={s.id}
+                          onPress={() => {
+                            setSelectedStorage((current) => (current === s.id ? null : s.id));
+                            setSelectedCompartment(null);
+                            setSelectedChecklist(null);
+                            setIsStorageDropdownOpen(false);
+                          }}
+                          style={{
+                            paddingHorizontal: 14,
+                            paddingVertical: 12,
+                            borderTopWidth: index === 0 ? 0 : 1,
+                            borderTopColor: "#E5E7EB",
+                            backgroundColor: selectedStorage === s.id ? "#F3F4F6" : "#FFFFFF",
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color: "#111827",
+                              fontSize: 16,
+                              fontWeight: selectedStorage === s.id ? "700" : "500",
+                            }}
+                          >
+                            {s.name}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  ) : null}
+                </View>
+              )}
+
+              {/* COMPARTMENT */}
+              <Text
+                style={{
+                  marginTop: 25,
+                  marginBottom: 8,
+                  alignSelf: "flex-start",
+                  color: "#6B7280",
+                  fontSize: 12,
+                  fontWeight: "700",
+                  textTransform: "uppercase",
+                }}
+              >
+                Compartment
+              </Text>
+
+              <View style={{ width: "100%" }}>
+                {!selectedStorage ? (
+                  <Text
+                    style={{
+                      marginBottom: 8,
+                      color: "#6B7280",
+                      fontSize: 13,
+                      lineHeight: 18,
+                    }}
+                  >
+                    Select a Storage Space first to choose a Compartment.
+                  </Text>
+                ) : null}
+                <TouchableOpacity
+                  disabled={!selectedStorage}
+                  onPress={() => {
+                    if (!selectedStorage) return;
+                    setIsCompartmentDropdownOpen((current) => !current);
+                  }}
                   style={{
-                    marginTop: 10,
-                    padding: 10,
-                    backgroundColor: "#2563EB",
-                    color: "#fff",
-                    textAlign: "center",
-                    borderRadius: 8,
-                    fontWeight: "600",
+                    minHeight: 48,
+                    paddingHorizontal: 14,
+                    borderRadius: 10,
+                    borderWidth: 1,
+                    borderColor: "#D1D5DB",
+                    backgroundColor: "#FFFFFF",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    opacity: !selectedStorage ? 0.7 : 1,
                   }}
                 >
-                  View on Amazon
-                </Text>
+                  <Text
+                    numberOfLines={1}
+                    style={{
+                      flex: 1,
+                      color: selectedCompartment ? "#111827" : "#6B7280",
+                      fontSize: 16,
+                      fontWeight: "500",
+                    }}
+                  >
+                    {!selectedStorage
+                      ? "Select a storage space first."
+                      : compartmentSpaces.find(
+                        (c) => c.id === selectedCompartment
+                      )?.name ??
+                      "Select a compartment first."}
+                  </Text>
+
+                  <Text style={{ marginLeft: 10, color: "#6B7280", fontSize: 18 }}>
+                    ⌄
+                  </Text>
+                </TouchableOpacity>
+
+                {selectedStorage && isCompartmentDropdownOpen ? (
+                  <View
+                    style={{
+                      marginTop: 6,
+                      borderRadius: 10,
+                      borderWidth: 1,
+                      borderColor: "#E5E7EB",
+                      backgroundColor: "#FFFFFF",
+                      overflow: "hidden",
+                    }}
+                  >
+                    {compartmentSpaces.length === 0 ? (
+                      <View
+                        style={{
+                          paddingHorizontal: 14,
+                          paddingVertical: 12,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: "#6B7280",
+                            fontSize: 15,
+                            fontWeight: "500",
+                          }}
+                        >
+                          No compartments created for this storage.
+                        </Text>
+                      </View>
+                    ) : (
+                      compartmentSpaces.map((c, index) => (
+                        <TouchableOpacity
+                          key={c.id}
+                          onPress={() => {
+                            setSelectedCompartment((current) =>
+                              current === c.id ? null : c.id
+                            );
+                            setSelectedChecklist(null);
+                            setIsCompartmentDropdownOpen(false);
+                          }}
+                          style={{
+                            paddingHorizontal: 14,
+                            paddingVertical: 12,
+                            borderTopWidth: index === 0 ? 0 : 1,
+                            borderTopColor: "#E5E7EB",
+                            backgroundColor:
+                              selectedCompartment === c.id
+                                ? "#F3F4F6"
+                                : "#FFFFFF",
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color: "#111827",
+                              fontSize: 16,
+                              fontWeight:
+                                selectedCompartment === c.id
+                                  ? "700"
+                                  : "500",
+                            }}
+                          >
+                            {c.name}
+                          </Text>
+                        </TouchableOpacity>
+                      ))
+                    )}
+                  </View>
+                ) : null}
               </View>
-            ) : null}
 
-            {/* CANCEL */}
-            <Text
-              onPress={router.back}
-              style={{
-                marginTop: 18,
-                padding: 12,
-                backgroundColor: "transparent",
-                color: "#111",
-                borderRadius: 8,
-                width: "100%",
-                textAlign: "center",
-              }}
-            >
-              Cancel
-            </Text>
+              {/* CHECKLIST */}
+              <Text
+                style={{
+                  marginTop: 25,
+                  marginBottom: 8,
+                  alignSelf: "flex-start",
+                  color: "#6B7280",
+                  fontSize: 12,
+                  fontWeight: "700",
+                  textTransform: "uppercase",
+                }}
+              >
+                Checklist
+              </Text>
 
-            {/* SAVE */}
-            <Text
-              onPress={async () => {
-                if (isSaving) return;
-
-                try {
-                  setIsSaving(true);
-
-                  const hasStoragePath =
-                    !!selectedStorage && !!selectedCompartment;
-                  const hasChecklistPath = !!selectedChecklist;
-
-                  if (!hasStoragePath && !hasChecklistPath) {
-                    console.log(
-                      "SAVE BLOCKED: Select storage + compartment or checklist."
-                    );
-                    return;
+              <View style={{ width: "100%" }}>
+                <TouchableOpacity
+                  onPress={() =>
+                    setIsChecklistDropdownOpen((current) => !current)
                   }
+                  style={{
+                    minHeight: 48,
+                    paddingHorizontal: 14,
+                    borderRadius: 10,
+                    borderWidth: 1,
+                    borderColor: "#D1D5DB",
+                    backgroundColor: "#FFFFFF",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <Text
+                    numberOfLines={1}
+                    style={{
+                      flex: 1,
+                      color: selectedChecklist ? "#111827" : "#6B7280",
+                      fontSize: 16,
+                      fontWeight: "500",
+                    }}
+                  >
+                    {checklists.find(
+                      (c) => c.id === selectedChecklist
+                    )?.name ?? "Select a checklist (optional)"}
+                  </Text>
 
-                  if (!uid) {
-                    console.log("SAVE BLOCKED: Missing signed-in user.");
-                    return;
-                  }
+                  <Text
+                    style={{
+                      marginLeft: 10,
+                      color: "#6B7280",
+                      fontSize: 18,
+                    }}
+                  >
+                    ⌄
+                  </Text>
+                </TouchableOpacity>
 
-                  if (hasChecklistPath) {
-                    await addChecklistItem(
-                      uid,
-                      selectedChecklist,
-                      editableName
-                    );
+                {isChecklistDropdownOpen ? (
+                  <View
+                    style={{
+                      marginTop: 6,
+                      borderRadius: 10,
+                      borderWidth: 1,
+                      borderColor: "#E5E7EB",
+                      backgroundColor: "#FFFFFF",
+                      overflow: "hidden",
+                    }}
+                  >
+                    {checklists.length === 0 ? (
+                      <View
+                        style={{
+                          paddingHorizontal: 14,
+                          paddingVertical: 12,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: "#6B7280",
+                            fontSize: 15,
+                          }}
+                        >
+                          No checklists created yet.
+                        </Text>
+                      </View>
+                    ) : (
+                      checklists.map((c, index) => (
+                        <TouchableOpacity
+                          key={c.id}
+                          onPress={() => {
+                            setSelectedChecklist((current) =>
+                              current === c.id ? null : c.id
+                            );
+                            setSelectedStorage(null);
+                            setSelectedCompartment(null);
+                            setIsChecklistDropdownOpen(false);
+                          }}
+                          style={{
+                            paddingHorizontal: 14,
+                            paddingVertical: 12,
+                            borderTopWidth: index === 0 ? 0 : 1,
+                            borderTopColor: "#E5E7EB",
+                            backgroundColor:
+                              selectedChecklist === c.id
+                                ? "#F3F4F6"
+                                : "#FFFFFF",
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color: "#111827",
+                              fontSize: 16,
+                              fontWeight:
+                                selectedChecklist === c.id
+                                  ? "700"
+                                  : "500",
+                            }}
+                          >
+                            {c.name}
+                          </Text>
+                        </TouchableOpacity>
+                      ))
+                    )}
+                  </View>
+                ) : null}
+              </View>
+
+              {amazonUrl ? (
+                <View
+                  style={{
+                    marginTop: 20,
+                    width: "100%",
+                    padding: 12,
+                    borderRadius: 10,
+                    backgroundColor: "#111",
+                  }}
+                >
+                  <Text style={{ color: "#fff", fontWeight: "600" }}>
+                    Suggested Product Match
+                  </Text>
+
+                  <Text style={{ color: "#aaa", fontSize: 12, marginTop: 4 }}>
+                    Optional external link
+                  </Text>
+
+                  <Text
+                    onPress={() => Linking.openURL(amazonUrl)}
+                    style={{
+                      marginTop: 10,
+                      padding: 10,
+                      backgroundColor: "#2563EB",
+                      color: "#fff",
+                      textAlign: "center",
+                      borderRadius: 8,
+                      fontWeight: "600",
+                    }}
+                  >
+                    View on Amazon
+                  </Text>
+                </View>
+              ) : null}
+
+              {/* CANCEL */}
+              <Text
+                onPress={router.back}
+                style={{
+                  marginTop: 24,
+                  paddingVertical: 14,
+                  backgroundColor: "#DC2626",
+                  color: "#FFFFFF",
+                  borderRadius: 12,
+                  width: "100%",
+                  textAlign: "center",
+                  fontWeight: "700",
+                  fontSize: 16,
+                }}
+              >
+                Cancel
+              </Text>
+
+              {/* SAVE */}
+              <Text
+                onPress={async () => {
+                  if (isSaving) return;
+
+                  try {
+                    setIsSaving(true);
+
+                    const hasStoragePath =
+                      !!selectedStorage && !!selectedCompartment;
+                    const hasChecklistPath = !!selectedChecklist;
+
+                    if (!hasStoragePath && !hasChecklistPath) {
+                      console.log(
+                        "SAVE BLOCKED: Select storage + compartment or checklist."
+                      );
+                      return;
+                    }
+
+                    if (!uid) {
+                      console.log("SAVE BLOCKED: Missing signed-in user.");
+                      return;
+                    }
+
+                    if (hasChecklistPath) {
+                      await addChecklistItem(
+                        uid,
+                        selectedChecklist,
+                        editableName
+                      );
+
+                      console.log(
+                        "CHECKLIST ITEM ADDED:",
+                        selectedChecklist
+                      );
+
+                      router.back();
+                      return;
+                    }
+
+                    const selectedStorageSpace =
+                      storageSpaces.find(
+                        (s) => s.id === selectedStorage
+                      ) ?? null;
+
+                    const selectedCompartmentSpace =
+                      compartmentSpaces.find(
+                        (c) => c.id === selectedCompartment
+                      ) ?? null;
+
+                    const payload = {
+                      name: editableName,
+                      status: "missing" as const,
+                      source: "scan",
+                      vehicleId: selectedStorage ?? "",
+                      vehicleName: selectedStorageSpace?.name ?? "",
+                      compartmentId: selectedCompartment ?? "",
+                      compartmentName:
+                        selectedCompartmentSpace?.name ?? "",
+                    };
+
+                    const createdId = await createItem(payload);
 
                     console.log(
-                      "CHECKLIST ITEM ADDED:",
-                      selectedChecklist
+                      "INVENTORY ITEM CREATED:",
+                      createdId
                     );
 
                     router.back();
-                    return;
+                  } finally {
+                    setIsSaving(false);
                   }
+                }}
+                style={{
+                  marginTop: 28,
+                  paddingVertical: 14,
+                  backgroundColor: "#111",
+                  color: "#fff",
+                  borderRadius: 12,
+                  width: "100%",
+                  textAlign: "center",
+                  fontWeight: "700",
+                  fontSize: 16,
+                }}
+              >
+                Save
+              </Text>
+            </View>
+          )}
+        </View>
+      </View>
 
-                  const selectedStorageSpace =
-                    storageSpaces.find(
-                      (s) => s.id === selectedStorage
-                    ) ?? null;
+      {isTabletLandscape ? (
+        <View
+          style={{
+            flex: 0.55,
+            borderRadius: 24,
+            padding: 24,
+            backgroundColor: "#F9FAFB",
+            justifyContent: "flex-start",
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <Text style={{ fontSize: 22, fontWeight: "800", color: "#111827" }}>
+              Amazon Product Preview
+            </Text>
 
-                  const selectedCompartmentSpace =
-                    compartmentSpaces.find(
-                      (c) => c.id === selectedCompartment
-                    ) ?? null;
-
-                  const payload = {
-                    name: editableName,
-                    status: "missing" as const,
-                    source: "scan",
-                    vehicleId: selectedStorage ?? "",
-                    vehicleName: selectedStorageSpace?.name ?? "",
-                    compartmentId: selectedCompartment ?? "",
-                    compartmentName:
-                      selectedCompartmentSpace?.name ?? "",
-                  };
-
-                  const createdId = await createItem(payload);
-
-                  console.log(
-                    "INVENTORY ITEM CREATED:",
-                    createdId
-                  );
-
-                  router.back();
-                } finally {
-                  setIsSaving(false);
-                }
-              }}
+            <View
               style={{
-                marginTop: 12,
-                padding: 12,
-                backgroundColor: "#111",
-                color: "#fff",
-                borderRadius: 8,
-                width: "100%",
-                textAlign: "center",
+                paddingHorizontal: 10,
+                paddingVertical: 4,
+                borderRadius: 999,
+                backgroundColor: "#FEF3C7",
               }}
             >
-              Save
+              <Text style={{ color: "#B45309", fontWeight: "800", fontSize: 12 }}>
+                Pending
+              </Text>
+            </View>
+          </View>
+
+          <View
+            style={{
+              marginTop: 16,
+              padding: 14,
+              borderRadius: 14,
+              borderWidth: 1,
+              borderColor: "#DBEAFE",
+              backgroundColor: "#EFF6FF",
+            }}
+          >
+            <Text style={{ color: "#1F2937", fontSize: 14, lineHeight: 20 }}>
+              Amazon enrichment is pending production approval. Product details will appear here when available.
             </Text>
           </View>
-        )}
-      </View>
+
+          <View style={{ flexDirection: "row", gap: 18, marginTop: 20 }}>
+            <View
+              style={{
+                width: 230,
+                height: 260,
+                borderRadius: 18,
+                backgroundColor: "#F3F4F6",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Text style={{ color: "#9CA3AF", fontSize: 42 }}>□</Text>
+              <Text
+                style={{
+                  marginTop: 10,
+                  color: "#374151",
+                  fontWeight: "700",
+                  textAlign: "center",
+                }}
+              >
+                Product image{"\n"}coming soon
+              </Text>
+            </View>
+
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 20, fontWeight: "800", color: "#111827" }}>
+                {editableName || "Product Title"}
+              </Text>
+
+              <Text style={{ marginTop: 6, color: "#4B5563", fontWeight: "600" }}>
+                Brand
+              </Text>
+
+              <Text style={{ marginTop: 22, color: "#374151", lineHeight: 20 }}>
+                Product description will appear here once we receive catalog data from Amazon.
+              </Text>
+
+              <Text style={{ marginTop: 18, color: "#111827", fontWeight: "700" }}>
+                ASIN: <Text style={{ color: "#0284C7" }}>Pending</Text>
+              </Text>
+
+              <Text style={{ marginTop: 8, color: "#111827", fontWeight: "700" }}>
+                Barcode: <Text style={{ fontWeight: "600" }}>{String(code ?? "Unknown")}</Text>
+              </Text>
+
+              <Text style={{ marginTop: 8, color: "#111827", fontWeight: "700" }}>
+                Source: <Text style={{ fontWeight: "600" }}>Amazon</Text>
+              </Text>
+
+              <Text style={{ marginTop: 8, color: "#111827", fontWeight: "700" }}>
+                Confidence: <Text style={{ color: "#B45309" }}>Pending</Text>
+              </Text>
+
+              <Text
+                onPress={() => {
+                  if (amazonUrl) {
+                    Linking.openURL(amazonUrl);
+                  }
+                }}
+                style={{
+                  marginTop: 16,
+                  padding: 16,
+                  borderRadius: 14,
+                  backgroundColor: "#FBBF24",
+                  color: "#111827",
+                  textAlign: "center",
+                  fontWeight: "900",
+                  fontSize: 18,
+                }}
+              >
+                Buy again on Amazon
+              </Text>
+
+              <View
+                style={{
+                  marginTop: 12,
+                  flexDirection: "row",
+                  gap: 10,
+                }}
+              >
+                {/* Use Amazon Title */}
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    padding: 12,
+                    borderRadius: 12,
+                    backgroundColor: "#FFFFFF",
+                    borderWidth: 1,
+                    borderColor: "#E5E7EB",
+                    alignItems: "center",
+                  }}
+                >
+                  <Text style={{ fontSize: 12, fontWeight: "700", color: "#111827" }}>
+                    Use Amazon Title
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Replace Item Name */}
+                <TouchableOpacity
+                  onPress={() => {
+                    nameInputRef.current?.focus();
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: 12,
+                    borderRadius: 12,
+                    backgroundColor: "#FFFFFF",
+                    borderWidth: 1,
+                    borderColor: "#E5E7EB",
+                    alignItems: "center",
+                  }}
+                >
+                  <Text style={{ fontSize: 12, fontWeight: "700", color: "#111827" }}>
+                    Replace Item Name
+                  </Text>
+                </TouchableOpacity>
+
+                {/* View on Amazon */}
+                <TouchableOpacity
+                  onPress={() => {
+                    const cleanUrl = amazonUrl?.split("?")[0];
+                    if (cleanUrl) Linking.openURL(cleanUrl);
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: 12,
+                    borderRadius: 12,
+                    backgroundColor: "#FFFFFF",
+                    borderWidth: 1,
+                    borderColor: "#E5E7EB",
+                    alignItems: "center",
+                  }}
+                >
+                  <Text style={{ fontSize: 12, fontWeight: "700", color: "#111827" }}>
+                    View on Amazon
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <View
+                style={{
+                  marginTop: 12,
+                  padding: 16,
+                  borderRadius: 16,
+                  backgroundColor: "#FFFFFF",
+                  borderWidth: 1,
+                  borderColor: "#E5E7EB",
+                }}
+              >
+                <Text style={{ fontSize: 16, fontWeight: "800", color: "#111827" }}>
+                  About this Scan
+                </Text>
+
+                <Text style={{ marginTop: 12, color: "#6B7280", fontSize: 12 }}>
+                  Barcode / UPC
+                </Text>
+                <Text style={{ marginTop: 2, color: "#111827", fontWeight: "700" }}>
+                  {String(code ?? "Unknown")}
+                </Text>
+
+                <Text style={{ marginTop: 10, color: "#6B7280", fontSize: 12 }}>
+                  Scanned with
+                </Text>
+                <Text style={{ marginTop: 2, color: "#111827", fontWeight: "700" }}>
+                  Where&apos;s My Gear
+                </Text>
+
+                <Text style={{ marginTop: 10, color: "#6B7280", fontSize: 12 }}>
+                  Source
+                </Text>
+                <Text style={{ marginTop: 2, color: "#111827", fontWeight: "700" }}>
+                  Amazon Search
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      ) : null}
     </View>
   );
 }
