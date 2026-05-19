@@ -49,7 +49,6 @@ export default function ScanResultScreen() {
   const { code, suggestedName, found, affiliateLink } =
     useLocalSearchParams();
 
-  const isFound = found === "true";
   const uid = auth.currentUser?.uid;
 
   const amazonUrl = affiliateLink ? String(affiliateLink) : null;
@@ -59,11 +58,12 @@ export default function ScanResultScreen() {
   const [isSaving, setIsSaving] = useState(false);
 
   const initialName =
-    isFound && suggestedName
-      ? (suggestedName as string)
-      : "Unidentified Item";
+    suggestedName && found === "true"
+      ? String(suggestedName)
+      : "Product Not Named";
 
-  const [editableName, setEditableName] = useState<string>(initialName);
+  const [editableName, setEditableName] =
+    useState<string>(initialName);
 
   const [selectedStorage, setSelectedStorage] = useState<string | null>(null);
   const [selectedCompartment, setSelectedCompartment] = useState<string | null>(null);
@@ -77,6 +77,22 @@ export default function ScanResultScreen() {
   const [storageSpaces, setStorageSpaces] = useState<StorageSpace[]>([]);
   const [compartmentSpaces, setCompartmentSpaces] = useState<Compartment[]>([]);
   const [checklists, setChecklists] = useState<any[]>([]);
+
+  const isFoundScan =
+    Array.isArray(found)
+      ? found.some((value) => String(value).toLowerCase() === "true")
+      : String(found).toLowerCase() === "true";
+  const hasUsableName =
+    Boolean(editableName?.trim()) &&
+    editableName !== "Unidentified Item" &&
+    editableName !== "Product Not Named";
+
+  const scanState =
+    !isFoundScan
+      ? "NOT_FOUND"
+      : !hasUsableName
+        ? "NEEDS_NAMING"
+        : "FOUND";
 
   const storages = [
     { id: "garage", name: "Garage" },
@@ -158,24 +174,33 @@ export default function ScanResultScreen() {
       setItem(result);
 
       if (result) {
+        const storedName =
+          typeof result.name === "string" ? result.name.trim() : "";
+
         const resolvedName =
-          typeof result.name === "string" && result.name.trim().length > 0
-            ? result.name
-            : suggestedName
-              ? String(suggestedName)
+          isFoundScan && suggestedName
+            ? String(suggestedName)
+            : storedName.length > 0 && storedName !== "Unidentified Item"
+              ? storedName
               : "Unidentified Item";
 
         setEditableName(resolvedName);
         setState("confirmItem");
       } else {
+        const resolvedName =
+          suggestedName && isFoundScan
+            ? String(suggestedName)
+            : "Unidentified Item";
+
         const id = await createDraftItem(code as string);
 
         setItem({
           id,
           barcode: code,
-          name: "Unidentified Item",
+          name: resolvedName,
         });
 
+        setEditableName(resolvedName);
         setState("confirmItem");
       }
 
@@ -267,55 +292,54 @@ export default function ScanResultScreen() {
           ) : (
             <View style={{ width: "100%", alignItems: "center" }}>
               <Text style={{ fontWeight: "600" }}>
-                {(
-                  isFound ? "Item Found" : "Item Not Found"
-                )}
-                {!isFound && (
-                  <View
-                    style={{
-                      marginTop: 14,
-                      width: "100%",
-                      padding: 14,
-                      borderRadius: 14,
-                      borderWidth: 1,
-                      borderColor: "#FED7AA",
-                      backgroundColor: "#FFF7ED",
-                    }}
-                  >
-                    <Text
-                      style={{
-                        fontSize: 14,
-                        fontWeight: "800",
-                        color: "#C2410C",
-                        textAlign: "center",
-                      }}
-                    >
-                      ITEM NOT FOUND
-                    </Text>
-
-                    <Text
-                      style={{
-                        marginTop: 6,
-                        fontSize: 12,
-                        color: "#9A3412",
-                        textAlign: "center",
-                        lineHeight: 16,
-                      }}
-                    >
-                      No matching inventory item was found. Review the scanned item details, then save it to storage or a checklist.
-                    </Text>
-                  </View>
-                )}
+                {scanState === "FOUND" ? "Item Found" : "Item Not Found"}
               </Text>
 
-              {!isFound && (
+              {scanState === "NOT_FOUND" && (
+                <View
+                  style={{
+                    marginTop: 14,
+                    width: "100%",
+                    padding: 14,
+                    borderRadius: 14,
+                    borderWidth: 1,
+                    borderColor: "#FED7AA",
+                    backgroundColor: "#FFF7ED",
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      fontWeight: "800",
+                      color: "#C2410C",
+                      textAlign: "center",
+                    }}
+                  >
+                    ITEM NOT FOUND
+                  </Text>
+
+                  <Text
+                    style={{
+                      marginTop: 6,
+                      fontSize: 12,
+                      color: "#9A3412",
+                      textAlign: "center",
+                      lineHeight: 16,
+                    }}
+                  >
+                    No matching inventory item was found. Review the scanned item details, then save it to storage or a checklist.
+                  </Text>
+                </View>
+              )}
+
+              {scanState === "NEEDS_NAMING" && (
                 <Text style={{ marginTop: 6, opacity: 0.6, textAlign: "center" }}>
-                  No match found. Please name this item manually.
+                  Please name this item manually.
                 </Text>
               )}
 
               <Text style={{ marginTop: 12, fontWeight: "600" }}>
-                {isFound ? "Item Name" : "Unidentified Item Name"}
+                {scanState === "FOUND" ? "Item Name" : "Unidentified Item Name"}
               </Text>
 
               <TextInput
