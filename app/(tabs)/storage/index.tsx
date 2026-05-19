@@ -1054,64 +1054,13 @@ export default function StorageManagementScreen() {
                                             ? 0
                                             : getSafeQuantity(item.quantity)}
                                         </Text>
-                                      </View>
-
-                                      <View
-                                        style={{
-                                          alignItems: "flex-end",
-                                          gap: 10,
-                                          minWidth: 180,
-                                        }}
-                                      >
-                                        <View style={styles.itemActions}>
-                                          <HapticPressable
-                                            onPress={() => handleMoveItem(item)}
-                                            style={styles.iconButton}
-                                          >
-                                            <ChevronRight
-                                              size={16}
-                                              color={
-                                                theme.isLight
-                                                  ? "#000000"
-                                                  : colors.text
-                                              }
-                                            />
-                                          </HapticPressable>
-
-                                          <HapticPressable
-                                            onPress={() =>
-                                              startEditingItem(item)
-                                            }
-                                            style={styles.iconButton}
-                                          >
-                                            <Pencil
-                                              size={16}
-                                              color={
-                                                theme.isLight
-                                                  ? "#000000"
-                                                  : colors.text
-                                              }
-                                            />
-                                          </HapticPressable>
-
-                                          <HapticPressable
-                                            onPress={() =>
-                                              confirmDeleteItem(item)
-                                            }
-                                            style={styles.iconButton}
-                                          >
-                                            <Trash2
-                                              size={16}
-                                              color="#DC2626"
-                                            />
-                                          </HapticPressable>
-                                        </View>
 
                                         <View
                                           style={{
                                             flexDirection: "row",
                                             alignItems: "center",
                                             gap: 8,
+                                            marginTop: 12,
                                           }}
                                         >
                                           <HapticPressable
@@ -1166,7 +1115,59 @@ export default function StorageManagementScreen() {
                                             />
                                           </HapticPressable>
                                         </View>
+                                      </View>
 
+                                      <View
+                                        style={{
+                                          alignItems: "flex-end",
+                                          gap: 10,
+                                          minWidth: 180,
+                                        }}
+                                      >
+                                        <View style={styles.itemActions}>
+                                          <HapticPressable
+                                            onPress={() => handleMoveItem(item)}
+                                            style={styles.iconButton}
+                                          >
+                                            <ChevronRight
+                                              size={16}
+                                              color={
+                                                theme.isLight
+                                                  ? "#000000"
+                                                  : colors.text
+                                              }
+                                            />
+                                          </HapticPressable>
+
+                                          <HapticPressable
+                                            onPress={() =>
+                                              startEditingItem(item)
+                                            }
+                                            style={styles.iconButton}
+                                          >
+                                            <Pencil
+                                              size={16}
+                                              color={
+                                                theme.isLight
+                                                  ? "#000000"
+                                                  : colors.text
+                                              }
+                                            />
+                                          </HapticPressable>
+
+                                          <HapticPressable
+                                            onPress={() =>
+                                              confirmDeleteItem(item)
+                                            }
+                                            style={styles.iconButton}
+                                          >
+                                            <Trash2
+                                              size={16}
+                                              color="#DC2626"
+                                            />
+                                          </HapticPressable>
+                                        </View>
+                                        
                                         <HapticPressable
                                           onPress={() => handleTogglePacked(item)}
                                           style={[
