@@ -30,6 +30,7 @@ import { useThemedValues } from "../../../components/ui/Themed";
 import {
   deleteItem,
   deleteStorageSpace,
+  getAllCompartments,
   getCompartmentsByVehicle,
   getItemsByCompartment,
   getStorageSpaces,
@@ -503,15 +504,109 @@ export default function StorageManagementScreen() {
     );
   }
 
-  function handleMoveItem(item: Item) {
+  async function handleMoveItem(item: Item) {
     if (isBusy()) return;
 
     setSelectedItemId(item.id);
 
-    Alert.alert(
-      "Move item",
-      "Move item support will be added next."
-    );
+    await runWithLock(async () => {
+      try {
+        const [spaces, allCompartments] = await Promise.all([
+          getStorageSpaces(),
+          getAllCompartments(),
+        ]);
+
+        if (!isMountedRef.current) return;
+
+        const destinationOptions = spaces
+          .map((space) => {
+            const spaceCompartments = allCompartments.filter(
+              (candidate) => candidate.vehicleId === space.id
+            );
+
+            return {
+              space,
+              compartments: spaceCompartments,
+            };
+          })
+          .filter((option) => option.compartments.length > 0);
+
+        if (destinationOptions.length === 0) {
+          Alert.alert(
+            "No compartments available",
+            "Create another compartment before moving this item."
+          );
+          return;
+        }
+
+        Alert.alert(
+          "Move item",
+          `Choose where to move "${item.name}".`,
+          [
+            ...destinationOptions.map((option) => ({
+              text: option.space.name,
+              onPress: () => {
+                Alert.alert(
+                  option.space.name,
+                  "Choose a destination compartment.",
+                  [
+                    ...option.compartments.map((destination) => ({
+                      text: destination.name,
+                      onPress: async () => {
+                        if (
+                          destination.id === item.compartmentId &&
+                          option.space.id === item.vehicleId
+                        ) {
+                          Alert.alert(
+                            "Already there",
+                            `"${item.name}" is already in that compartment.`
+                          );
+                          return;
+                        }
+
+                        await runWithLock(async () => {
+                          try {
+                            await updateItem(item.id, {
+                              compartmentId: destination.id,
+                              compartmentName: destination.name,
+                              vehicleId: option.space.id,
+                              vehicleName: option.space.name,
+                            });
+
+                            if (!isMountedRef.current) return;
+
+                            await loadStorageSpaces();
+
+                            Alert.alert(
+                              "Item moved",
+                              `"${item.name}" was moved to ${destination.name}.`
+                            );
+                          } catch (error) {
+                            console.error("Failed to move item:", error);
+
+                            if (!isMountedRef.current) return;
+
+                            Alert.alert("Error", "Failed to move item.");
+                          }
+                        });
+                      },
+                    })),
+                    { text: "Cancel", style: "cancel" },
+                  ]
+                );
+              },
+            })),
+            { text: "Cancel", style: "cancel" },
+          ]
+        );
+      } catch (error) {
+        console.error("Failed to prepare move item:", error);
+
+        if (!isMountedRef.current) return;
+
+        Alert.alert("Error", "Failed to load move options.");
+      }
+    });
   }
 
   function handleItemPhotoAction(item: Item) {
