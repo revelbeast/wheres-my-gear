@@ -68,6 +68,7 @@ export default function InventoryScreen() {
   const params = useLocalSearchParams<{ status?: string | string[] }>();
   const theme = useTheme();
   const { isTablet, isLandscape } = useDeviceLayout();
+  const isTabletLandscape = isTablet && isLandscape;
 
   const isScreenMountedRef = useRef(true);
   const inventoryLoadVersionRef = useRef(0);
@@ -688,260 +689,279 @@ export default function InventoryScreen() {
             nativeID={INVENTORY_SEARCH_KEYBOARD_ACCESSORY_ID}
           />
 
-          <View style={styles.summaryRow}>
-            {renderFilterChip(
-              "all",
-              "All",
-              allCount,
-              <Boxes size={18} color={theme.colors.text} />
-            )}
-
-            {renderFilterChip(
-              "packed",
-              "Packed",
-              packedCount,
-              <CheckCircle2 size={18} color={theme.colors.text} />
-            )}
-
-            {renderFilterChip(
-              "toPack",
-              "To Pack",
-              toPackCount,
-              <ListChecks size={18} color={theme.colors.text} />
-            )}
-          </View>
-
-          <View style={styles.storageSelectorWrap}>
-            <HapticPressable
-              style={[
-                styles.storageSelectorPressable,
-                (interactionLocked || navigationTransitionLockedRef.current) &&
-                styles.disabledInteraction,
-              ]}
-              onPress={handleToggleStorageDropdown}
-              disabled={
-                interactionLocked ||
-                navigationTransitionLockedRef.current ||
-                storageSpaces.length === 0
-              }
-            >
-              <BlurView
-                intensity={theme.isLight ? 18 : 22}
-                tint={theme.isLight ? "light" : "dark"}
-                style={[
-                  styles.storageSelectorCard,
-                  {
-                    backgroundColor: theme.colors.card,
-                    borderColor: theme.colors.border,
-                  },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.storageSelectorIconWrap,
-                    {
-                      backgroundColor: theme.isLight
-                        ? "rgba(0,0,0,0.10)"
-                        : "rgba(255,255,255,0.10)",
-                      borderWidth: 1,
-                      borderColor: theme.isLight
-                        ? "rgba(0,0,0,0.08)"
-                        : "rgba(255,255,255,0.12)",
-                    },
-                  ]}
-                >
-                  <Boxes
-                    size={18}
-                    color={theme.isLight ? "#000000" : "#FFFFFF"}
-                  />
-                </View>
-
-                <View style={styles.storageSelectorTextWrap}>
-                  <ThemedText
-                    variant="bodyStrong"
-                    style={styles.storageSelectorTitle}
-                  >
-                    Select Storage Space
-                  </ThemedText>
-
-                  <ThemedText
-                    style={styles.storageSelectorSelectedText}
-                    numberOfLines={1}
-                  >
-                    {selectedStorage?.name ?? "No storage spaces found"}
-                  </ThemedText>
-                </View>
-
-                <ChevronDown size={18} color={theme.colors.primary} />
-              </BlurView>
-            </HapticPressable>
-
-            {showStorageDropdown && (
-              <BlurView
-                intensity={theme.isLight ? 18 : 22}
-                tint={theme.isLight ? "light" : "dark"}
-                style={[
-                  styles.storageDropdownCard,
-                  {
-                    backgroundColor: theme.colors.card,
-                    borderColor: theme.colors.border,
-                  },
-                ]}
-              >
-                <ScrollView
-                  showsVerticalScrollIndicator
-                  nestedScrollEnabled
-                  keyboardShouldPersistTaps="handled"
-                >
-                  {sortedStorageSpaces.map((space, index) => (
-                    <HapticPressable
-                      key={space.id}
-                      style={[
-                        styles.storageDropdownRow,
-                        { borderBottomColor: theme.colors.border },
-                        index === sortedStorageSpaces.length - 1 &&
-                        styles.storageDropdownRowLast,
-                      ]}
-                      onPress={() => handleSelectStorageSpace(space.id)}
-                      disabled={
-                        interactionLocked || navigationTransitionLockedRef.current
-                      }
-                    >
-                      <View style={styles.storageDropdownRowTextWrap}>
-                        <ThemedText variant="bodyStrong">{space.name}</ThemedText>
-
-                        <ThemedText
-                          color="secondary"
-                          style={styles.storageDropdownMeta}
-                        >
-                          {space.category === "vehicle" ? "Vehicle" : "Storage"}
-                          {space.subtype ? ` • ${space.subtype}` : ""}
-                        </ThemedText>
-                      </View>
-
-                      {space.id === selectedStorageId && (
-                        <CheckCircle2 size={18} color={theme.colors.primary} />
-                      )}
-                    </HapticPressable>
-                  ))}
-                </ScrollView>
-              </BlurView>
-            )}
-          </View>
-
-          <HapticPressable
+          <View
             style={[
-              styles.manageStoragePressable,
-              (interactionLocked || navigationTransitionLockedRef.current) &&
-              styles.disabledInteraction,
+              styles.inventoryMainLayout,
+              isTabletLandscape && styles.inventoryTabletLandscapeLayout,
             ]}
-            onPress={handleManageStorageSpaces}
-            disabled={interactionLocked || navigationTransitionLockedRef.current}
           >
-            <BlurView
-              intensity={theme.isLight ? 18 : 22}
-              tint={theme.isLight ? "light" : "dark"}
-              style={[
-                styles.manageStorageCard,
-                {
-                  backgroundColor: theme.colors.card,
-                  borderColor: theme.colors.border,
-                },
-              ]}
+            <View
+              style={isTabletLandscape ? styles.inventoryTabletLeftColumn : undefined}
             >
-              <View style={styles.manageStorageIconWrap}>
-                <FolderCog
-                  size={22}
-                  color={theme.isLight ? "#000000" : "#FFFFFF"}
-                />
+              <View style={styles.summaryRow}>
+                {renderFilterChip(
+                  "all",
+                  "All",
+                  allCount,
+                  <Boxes size={18} color={theme.colors.text} />
+                )}
+
+                {renderFilterChip(
+                  "packed",
+                  "Packed",
+                  packedCount,
+                  <CheckCircle2 size={18} color={theme.colors.text} />
+                )}
+
+                {renderFilterChip(
+                  "toPack",
+                  "To Pack",
+                  toPackCount,
+                  <ListChecks size={18} color={theme.colors.text} />
+                )}
               </View>
 
-              <View style={styles.manageStorageTextWrap}>
-                <ThemedText
-                  variant="bodyStrong"
-                  style={styles.manageStorageTitle}
-                >
-                  Manage Storage Spaces
-                </ThemedText>
-
-                <ThemedText color="secondary" style={styles.manageStorageText}>
-                  Edit names, update subtypes, or remove storage spaces.
-                </ThemedText>
-              </View>
-
-              <ChevronRight size={18} color={theme.colors.primary} />
-            </BlurView>
-          </HapticPressable>
-
-          <ThemedText
-            variant="title"
-            style={{ color: "#FFFFFF", marginBottom: 8 }}
-          >
-            {getListHeaderTitle()}
-          </ThemedText>
-
-          <FlatList
-            data={filteredItems}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.listContent}
-            ListEmptyComponent={renderEmptyState}
-            renderItem={({ item }) => {
-              const canOpenItem = !!item.vehicleId && !!item.compartmentId;
-
-              const itemDisabled =
-                !canOpenItem ||
-                interactionLocked ||
-                navigationTransitionLockedRef.current;
-
-              return (
+              <View style={styles.storageSelectorWrap}>
                 <HapticPressable
-                  onPress={() => handleOpenItem(item)}
-                  disabled={itemDisabled}
-                  style={itemDisabled && styles.disabledInteraction}
+                  style={[
+                    styles.storageSelectorPressable,
+                    (interactionLocked || navigationTransitionLockedRef.current) &&
+                    styles.disabledInteraction,
+                  ]}
+                  onPress={handleToggleStorageDropdown}
+                  disabled={
+                    interactionLocked ||
+                    navigationTransitionLockedRef.current ||
+                    storageSpaces.length === 0
+                  }
                 >
                   <BlurView
-                    intensity={theme.isLight ? 18 : 18}
+                    intensity={theme.isLight ? 18 : 22}
                     tint={theme.isLight ? "light" : "dark"}
                     style={[
-                      styles.itemCard,
+                      styles.storageSelectorCard,
                       {
                         backgroundColor: theme.colors.card,
                         borderColor: theme.colors.border,
                       },
                     ]}
                   >
-                    <View style={styles.itemRow}>
-                      <View style={{ flex: 1 }}>
-                        <ThemedText variant="bodyStrong">
-                          {item.name}
-                        </ThemedText>
-
-                        <ThemedText color="secondary">
-                          {item.resolvedCompartmentName} •{" "}
-                          {item.resolvedVehicleName}
-                        </ThemedText>
-
-                        <ThemedText
-                          color={isPackedItem(item) ? "secondary" : "danger"}
-                          style={styles.statusText}
-                        >
-                          {isPackedItem(item) ? "Packed" : "To Pack"} • Qty{" "}
-                          {getItemQuantity(item)}
-                        </ThemedText>
-                      </View>
-
-                      {canOpenItem && (
-                        <ChevronRight
-                          size={16}
-                          color={theme.colors.textSecondary}
-                        />
-                      )}
+                    <View
+                      style={[
+                        styles.storageSelectorIconWrap,
+                        {
+                          backgroundColor: theme.isLight
+                            ? "rgba(0,0,0,0.10)"
+                            : "rgba(255,255,255,0.10)",
+                          borderWidth: 1,
+                          borderColor: theme.isLight
+                            ? "rgba(0,0,0,0.08)"
+                            : "rgba(255,255,255,0.12)",
+                        },
+                      ]}
+                    >
+                      <Boxes
+                        size={18}
+                        color={theme.isLight ? "#000000" : "#FFFFFF"}
+                      />
                     </View>
+
+                    <View style={styles.storageSelectorTextWrap}>
+                      <ThemedText
+                        variant="bodyStrong"
+                        style={styles.storageSelectorTitle}
+                      >
+                        Select Storage Space
+                      </ThemedText>
+
+                      <ThemedText
+                        style={styles.storageSelectorSelectedText}
+                        numberOfLines={1}
+                      >
+                        {selectedStorage?.name ?? "No storage spaces found"}
+                      </ThemedText>
+                    </View>
+
+                    <ChevronDown size={18} color={theme.colors.primary} />
                   </BlurView>
                 </HapticPressable>
-              );
-            }}
-          />
+
+                {showStorageDropdown && (
+                  <BlurView
+                    intensity={theme.isLight ? 18 : 22}
+                    tint={theme.isLight ? "light" : "dark"}
+                    style={[
+                      styles.storageDropdownCard,
+                      {
+                        backgroundColor: theme.colors.card,
+                        borderColor: theme.colors.border,
+                      },
+                    ]}
+                  >
+                    <ScrollView
+                      showsVerticalScrollIndicator
+                      nestedScrollEnabled
+                      keyboardShouldPersistTaps="handled"
+                    >
+                      {sortedStorageSpaces.map((space, index) => (
+                        <HapticPressable
+                          key={space.id}
+                          style={[
+                            styles.storageDropdownRow,
+                            { borderBottomColor: theme.colors.border },
+                            index === sortedStorageSpaces.length - 1 &&
+                            styles.storageDropdownRowLast,
+                          ]}
+                          onPress={() => handleSelectStorageSpace(space.id)}
+                          disabled={
+                            interactionLocked || navigationTransitionLockedRef.current
+                          }
+                        >
+                          <View style={styles.storageDropdownRowTextWrap}>
+                            <ThemedText variant="bodyStrong">{space.name}</ThemedText>
+
+                            <ThemedText
+                              color="secondary"
+                              style={styles.storageDropdownMeta}
+                            >
+                              {space.category === "vehicle" ? "Vehicle" : "Storage"}
+                              {space.subtype ? ` • ${space.subtype}` : ""}
+                            </ThemedText>
+                          </View>
+
+                          {space.id === selectedStorageId && (
+                            <CheckCircle2 size={18} color={theme.colors.primary} />
+                          )}
+                        </HapticPressable>
+                      ))}
+                    </ScrollView>
+                  </BlurView>
+                )}
+              </View>
+
+              <HapticPressable
+                style={[
+                  styles.manageStoragePressable,
+                  (interactionLocked || navigationTransitionLockedRef.current) &&
+                  styles.disabledInteraction,
+                ]}
+                onPress={handleManageStorageSpaces}
+                disabled={interactionLocked || navigationTransitionLockedRef.current}
+              >
+                <BlurView
+                  intensity={theme.isLight ? 18 : 22}
+                  tint={theme.isLight ? "light" : "dark"}
+                  style={[
+                    styles.manageStorageCard,
+                    {
+                      backgroundColor: theme.colors.card,
+                      borderColor: theme.colors.border,
+                    },
+                  ]}
+                >
+                  <View style={styles.manageStorageIconWrap}>
+                    <FolderCog
+                      size={22}
+                      color={theme.isLight ? "#000000" : "#FFFFFF"}
+                    />
+                  </View>
+
+                  <View style={styles.manageStorageTextWrap}>
+                    <ThemedText
+                      variant="bodyStrong"
+                      style={styles.manageStorageTitle}
+                    >
+                      Manage Storage Spaces
+                    </ThemedText>
+
+                    <ThemedText color="secondary" style={styles.manageStorageText}>
+                      Edit names, update subtypes, or remove storage spaces.
+                    </ThemedText>
+                  </View>
+
+                  <ChevronRight size={18} color={theme.colors.primary} />
+                </BlurView>
+              </HapticPressable>
+
+            </View>
+
+            <View
+              style={[
+                styles.inventoryListColumn,
+                isTabletLandscape && styles.inventoryTabletRightColumn,
+              ]}
+            >
+              <ThemedText
+                variant="title"
+                style={{ color: "#FFFFFF", marginBottom: 8 }}
+              >
+                {getListHeaderTitle()}
+              </ThemedText>
+
+              <FlatList
+                data={filteredItems}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.listContent}
+                ListEmptyComponent={renderEmptyState}
+                renderItem={({ item }) => {
+                  const canOpenItem = !!item.vehicleId && !!item.compartmentId;
+
+                  const itemDisabled =
+                    !canOpenItem ||
+                    interactionLocked ||
+                    navigationTransitionLockedRef.current;
+
+                  return (
+                    <HapticPressable
+                      onPress={() => handleOpenItem(item)}
+                      disabled={itemDisabled}
+                      style={itemDisabled && styles.disabledInteraction}
+                    >
+                      <BlurView
+                        intensity={theme.isLight ? 18 : 18}
+                        tint={theme.isLight ? "light" : "dark"}
+                        style={[
+                          styles.itemCard,
+                          {
+                            backgroundColor: theme.colors.card,
+                            borderColor: theme.colors.border,
+                          },
+                        ]}
+                      >
+                        <View style={styles.itemRow}>
+                          <View style={{ flex: 1 }}>
+                            <ThemedText variant="bodyStrong">
+                              {item.name}
+                            </ThemedText>
+
+                            <ThemedText color="secondary">
+                              {item.resolvedCompartmentName} •{" "}
+                              {item.resolvedVehicleName}
+                            </ThemedText>
+
+                            <ThemedText
+                              color={isPackedItem(item) ? "secondary" : "danger"}
+                              style={styles.statusText}
+                            >
+                              {isPackedItem(item) ? "Packed" : "To Pack"} • Qty{" "}
+                              {getItemQuantity(item)}
+                            </ThemedText>
+                          </View>
+
+                          {canOpenItem && (
+                            <ChevronRight
+                              size={16}
+                              color={theme.colors.textSecondary}
+                            />
+                          )}
+                        </View>
+                      </BlurView>
+                    </HapticPressable>
+                  );
+                }}
+              />
+            </View>
+          </View>
         </View>
       </SafeAreaView>
     </ScreenBackground>
@@ -957,6 +977,31 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 16,
+  },
+
+  inventoryMainLayout: {
+    flex: 1,
+  },
+
+  inventoryTabletLandscapeLayout: {
+    flexDirection: "row",
+    gap: 16,
+    alignItems: "flex-start",
+  },
+
+  inventoryTabletLeftColumn: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  inventoryListColumn: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  inventoryTabletRightColumn: {
+    flex: 1,
+    minWidth: 0,
   },
 
   headerSubtitleRow: {
