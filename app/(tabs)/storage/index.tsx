@@ -1,4 +1,5 @@
 import { BlurView } from "expo-blur";
+import * as ImagePicker from "expo-image-picker";
 import { router, useFocusEffect } from "expo-router";
 import {
   Camera,
@@ -14,6 +15,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   Alert,
   FlatList,
+  Image,
   StyleSheet,
   Text,
   TextInput,
@@ -32,6 +34,7 @@ import {
   getItemsByCompartment,
   getStorageSpaces,
   updateItem,
+  updateItemPhoto,
   type Compartment,
   type Item,
   type StorageSpace
@@ -79,6 +82,7 @@ export default function StorageManagementScreen() {
   const [savingItemEdit, setSavingItemEdit] = useState(false);
   const [updatingQuantityId, setUpdatingQuantityId] = useState<string | null>(null);
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
+  const [updatingPhotoId, setUpdatingPhotoId] = useState<string | null>(null);
   const [showCompartmentDropdown, setShowCompartmentDropdown] = useState(false);
   const [deletingStorageId, setDeletingStorageId] = useState<string | null>(null);
 
@@ -508,6 +512,142 @@ export default function StorageManagementScreen() {
       "Move item",
       "Move item support will be added next."
     );
+  }
+
+  function handleItemPhotoAction(item: Item) {
+    if (isBusy() || updatingPhotoId === item.id) return;
+
+    void runWithLock(() => {
+      Alert.alert("Item Photo", item.name, [
+        {
+          text: "Take Photo",
+          onPress: () => handleTakeItemPhoto(item),
+        },
+        {
+          text: "Choose Photo",
+          onPress: () => handlePickItemPhoto(item),
+        },
+        ...(item.itemPhotoUri
+          ? [
+            {
+              text: "Remove Photo",
+              style: "destructive" as const,
+              onPress: () => handleRemoveItemPhoto(item),
+            },
+          ]
+          : []),
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+      ]);
+    });
+  }
+
+  async function handleTakeItemPhoto(item: Item) {
+    if (isBusy() || updatingPhotoId === item.id) return;
+
+    await runWithLock(async () => {
+      try {
+        const permission = await ImagePicker.requestCameraPermissionsAsync();
+
+        if (!permission.granted) {
+          Alert.alert(
+            "Camera access needed",
+            "Please allow camera access first."
+          );
+          return;
+        }
+
+        setUpdatingPhotoId(item.id);
+
+        const result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ["images"],
+          allowsEditing: true,
+          quality: 0.8,
+        });
+
+        if (result.canceled) return;
+
+        const asset = result.assets?.[0];
+
+        if (!asset?.uri) {
+          Alert.alert(
+            "Photo not captured",
+            "No valid image was returned."
+          );
+          return;
+        }
+
+        await updateItemPhoto(item.id, asset.uri);
+        await loadStorageSpaces();
+      } catch (error) {
+        console.error("Failed to take item photo:", error);
+        Alert.alert("Error", "Failed to save item photo.");
+      } finally {
+        if (isMountedRef.current) {
+          setUpdatingPhotoId(null);
+        }
+      }
+    });
+  }
+
+  async function handlePickItemPhoto(item: Item) {
+    if (isBusy() || updatingPhotoId === item.id) return;
+
+    await runWithLock(async () => {
+      try {
+        setUpdatingPhotoId(item.id);
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ["images"],
+          allowsEditing: true,
+          quality: 0.8,
+        });
+
+        if (result.canceled) return;
+
+        const asset = result.assets?.[0];
+
+        if (!asset?.uri) {
+          Alert.alert(
+            "Photo not selected",
+            "No valid image was returned."
+          );
+          return;
+        }
+
+        await updateItemPhoto(item.id, asset.uri);
+        await loadStorageSpaces();
+      } catch (error) {
+        console.error("Failed to choose item photo:", error);
+        Alert.alert("Error", "Failed to save item photo.");
+      } finally {
+        if (isMountedRef.current) {
+          setUpdatingPhotoId(null);
+        }
+      }
+    });
+  }
+
+  async function handleRemoveItemPhoto(item: Item) {
+    if (isBusy() || updatingPhotoId === item.id) return;
+
+    await runWithLock(async () => {
+      try {
+        setUpdatingPhotoId(item.id);
+
+        await updateItemPhoto(item.id, "");
+        await loadStorageSpaces();
+      } catch (error) {
+        console.error("Failed to remove item photo:", error);
+        Alert.alert("Error", "Failed to remove item photo.");
+      } finally {
+        if (isMountedRef.current) {
+          setUpdatingPhotoId(null);
+        }
+      }
+    });
   }
 
   function handleEditStorage(space: StorageSpace) {
@@ -1015,25 +1155,40 @@ export default function StorageManagementScreen() {
                                       }}
                                     >
                                       <View>
-                                        <View
-                                          style={[
-                                            styles.itemPhotoPlaceholder,
-                                            {
-                                              backgroundColor: theme.colors.iconSurface,
-                                              borderColor: theme.colors.border,
-                                            },
-                                          ]}
+                                        <HapticPressable
+                                          onPress={() => handleItemPhotoAction(item)}
                                         >
-                                          <Camera size={18} color={theme.colors.textSecondary} />
-                                          <Text
-                                            style={[
-                                              styles.itemPhotoPlaceholderText,
-                                              { color: theme.colors.textSecondary },
-                                            ]}
-                                          >
-                                            Photo
-                                          </Text>
-                                        </View>
+                                          {item.itemPhotoUri ? (
+                                            <Image
+                                              source={{ uri: item.itemPhotoUri }}
+                                              style={styles.itemPhotoPlaceholder}
+                                              resizeMode="cover"
+                                            />
+                                          ) : (
+                                            <View
+                                              style={[
+                                                styles.itemPhotoPlaceholder,
+                                                {
+                                                  backgroundColor: theme.colors.iconSurface,
+                                                  borderColor: theme.colors.border,
+                                                },
+                                              ]}
+                                            >
+                                              <Camera
+                                                size={18}
+                                                color={theme.colors.textSecondary}
+                                              />
+                                              <Text
+                                                style={[
+                                                  styles.itemPhotoPlaceholderText,
+                                                  { color: theme.colors.textSecondary },
+                                                ]}
+                                              >
+                                                Photo
+                                              </Text>
+                                            </View>
+                                          )}
+                                        </HapticPressable>
                                       </View>
 
                                       <View style={{
