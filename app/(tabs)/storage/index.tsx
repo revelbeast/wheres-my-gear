@@ -1214,7 +1214,11 @@ export default function StorageManagementScreen() {
                       <FlatList
                         data={compartmentItems}
                         keyExtractor={(item) => item.id}
-                        scrollEnabled={false}
+                        scrollEnabled
+                        nestedScrollEnabled
+                        showsVerticalScrollIndicator
+                        style={{ maxHeight: "100%" }}
+                        contentContainerStyle={{ paddingBottom: 24 }}
                         renderItem={({ item }) => {
                           const isSelectedItem = selectedItemId === item.id;
 
