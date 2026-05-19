@@ -23,14 +23,19 @@ import ScreenBackground from "../../../components/ui/ScreenBackground";
 import { useThemedValues } from "../../../components/ui/Themed";
 import {
   deleteStorageSpace,
+  getCompartmentsByVehicle,
   getStorageSpaces,
-  StorageSpace,
+  type Compartment,
+  type StorageSpace,
 } from "../../../lib/gearService";
+import { useDeviceLayout } from "../../../lib/useDeviceLayout";
 import { useInteractionLock } from "../../../lib/useInteractionLock";
 import { colors } from "../../../theme/tokens";
 
 export default function StorageManagementScreen() {
   const theme = useThemedValues();
+  const { isTablet, isLandscape } = useDeviceLayout();
+  const isTabletLandscape = isTablet && isLandscape;
 
   const {
     isLocked: interactionLocked,
@@ -47,6 +52,8 @@ export default function StorageManagementScreen() {
   );
 
   const [storageSpaces, setStorageSpaces] = useState<StorageSpace[]>([]);
+  const [selectedStorageId, setSelectedStorageId] = useState<string | null>(null);
+  const [compartments, setCompartments] = useState<Compartment[]>([]);
   const [deletingStorageId, setDeletingStorageId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -89,6 +96,32 @@ export default function StorageManagementScreen() {
       }
 
       setStorageSpaces(spaces);
+
+      const sortedSpaces = [...spaces].sort((a, b) =>
+        String(a.name ?? "").localeCompare(String(b.name ?? ""))
+      );
+
+      const nextSelectedStorageId =
+        selectedStorageId && sortedSpaces.some((space) => space.id === selectedStorageId)
+          ? selectedStorageId
+          : sortedSpaces[0]?.id ?? null;
+
+      setSelectedStorageId(nextSelectedStorageId);
+
+      if (nextSelectedStorageId) {
+        const nextCompartments = await getCompartmentsByVehicle(nextSelectedStorageId);
+
+        if (
+          !isMountedRef.current ||
+          loadRequestVersionRef.current !== requestVersion
+        ) {
+          return;
+        }
+
+        setCompartments(nextCompartments);
+      } else {
+        setCompartments([]);
+      }
     } catch (error) {
       console.error("Failed to load storage spaces:", error);
 
@@ -101,7 +134,7 @@ export default function StorageManagementScreen() {
 
       setStorageSpaces([]);
     }
-  }, []);
+  }, [selectedStorageId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -202,6 +235,17 @@ export default function StorageManagementScreen() {
     });
   }
 
+  function handleSelectStorage(space: StorageSpace) {
+    if (!space.id || isBusy()) return;
+
+    if (isTabletLandscape) {
+      setSelectedStorageId(String(space.id));
+      return;
+    }
+
+    handleOpenCompartments(space);
+  }
+
   function handleEditStorage(space: StorageSpace) {
     if (!space.id || isBusy()) return;
 
@@ -288,6 +332,7 @@ export default function StorageManagementScreen() {
 
   function renderStorageCard(space: StorageSpace) {
     const isDeleting = deletingStorageId === space.id;
+    const isSelected = isTabletLandscape && selectedStorageId === space.id;
     const interactionDisabled = isDeleting || isBusy();
 
     return (
@@ -305,9 +350,11 @@ export default function StorageManagementScreen() {
               backgroundColor: theme.isLight
                 ? "#FFFFFF"
                 : "rgba(15,23,42,0.20)",
-              borderColor: theme.isLight
-                ? "rgba(15,23,42,0.10)"
-                : "rgba(255,255,255,0.12)",
+              borderColor: isSelected
+                ? "rgba(59,130,246,0.95)"
+                : theme.isLight
+                  ? "rgba(15,23,42,0.10)"
+                  : "rgba(255,255,255,0.12)",
             },
           ]}
         >
@@ -316,7 +363,7 @@ export default function StorageManagementScreen() {
               styles.storageCardMainPressable,
               interactionDisabled && styles.disabledInteraction,
             ]}
-            onPress={() => handleOpenCompartments(space)}
+            onPress={() => handleSelectStorage(space)}
             disabled={interactionDisabled}
           >
             <View style={styles.storageCardLeft}>
@@ -420,21 +467,90 @@ export default function StorageManagementScreen() {
             Tap a storage space to view compartments. Use the pencil to edit, or swipe left to delete.
           </Text>
 
-          <FlatList
-            data={sortedStorageSpaces}
-            keyExtractor={(item) => item.id}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.listContent}
-            renderItem={({ item }) => renderStorageCard(item)}
-            ListEmptyComponent={
-              <BlurView intensity={18} tint="dark" style={styles.emptyCard}>
-                <Text style={styles.emptyTitle}>No storage spaces found</Text>
-                <Text style={styles.emptyText}>
-                  Tap the plus button to add your first storage space.
-                </Text>
-              </BlurView>
-            }
-          />
+          {isTabletLandscape ? (
+            <View style={styles.splitLayout}>
+              <View style={styles.splitColumn}>
+                <FlatList
+                  data={sortedStorageSpaces}
+                  keyExtractor={(item) => item.id}
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={styles.listContent}
+                  renderItem={({ item }) => renderStorageCard(item)}
+                  ListEmptyComponent={
+                    <BlurView intensity={18} tint="dark" style={styles.emptyCard}>
+                      <Text style={styles.emptyTitle}>
+                        Start by adding a storage space
+                      </Text>
+                      <Text style={styles.emptyText}>
+                        Add a storage space to begin organizing your gear.
+                      </Text>
+                    </BlurView>
+                  }
+                />
+              </View>
+
+              <View style={styles.splitColumn}>
+                <Text style={styles.panelTitle}>Compartments</Text>
+
+                <FlatList
+                  data={compartments}
+                  keyExtractor={(item) => item.id}
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={styles.listContent}
+                  renderItem={({ item }) => (
+                    <BlurView
+                      intensity={theme.isLight ? 0 : 18}
+                      tint={theme.isLight ? "light" : "dark"}
+                      style={[
+                        styles.compartmentCard,
+                        {
+                          backgroundColor: theme.isLight
+                            ? "#FFFFFF"
+                            : "rgba(15,23,42,0.20)",
+                          borderColor: theme.isLight
+                            ? "rgba(15,23,42,0.10)"
+                            : "rgba(255,255,255,0.12)",
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.storageTitle,
+                          { color: theme.isLight ? "#000000" : colors.text },
+                        ]}
+                      >
+                        {item.name}
+                      </Text>
+                    </BlurView>
+                  )}
+                  ListEmptyComponent={
+                    <BlurView intensity={18} tint="dark" style={styles.emptyCard}>
+                      <Text style={styles.emptyTitle}>No compartments yet</Text>
+                      <Text style={styles.emptyText}>
+                        Tap + to create your first compartment.
+                      </Text>
+                    </BlurView>
+                  }
+                />
+              </View>
+            </View>
+          ) : (
+            <FlatList
+              data={sortedStorageSpaces}
+              keyExtractor={(item) => item.id}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.listContent}
+              renderItem={({ item }) => renderStorageCard(item)}
+              ListEmptyComponent={
+                <BlurView intensity={18} tint="dark" style={styles.emptyCard}>
+                  <Text style={styles.emptyTitle}>No storage spaces found</Text>
+                  <Text style={styles.emptyText}>
+                    Tap the plus button to add your first storage space.
+                  </Text>
+                </BlurView>
+              }
+            />
+          )}
         </View>
       </SafeAreaView>
     </ScreenBackground>
@@ -504,6 +620,33 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 13,
     marginBottom: 14,
+  },
+
+  splitLayout: {
+    flex: 1,
+    flexDirection: "row",
+    gap: 16,
+  },
+
+  splitColumn: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  panelTitle: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: "800",
+    marginBottom: 10,
+  },
+
+  compartmentCard: {
+    borderRadius: 16,
+    overflow: "hidden",
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    marginBottom: 8,
   },
 
   listContent: {
