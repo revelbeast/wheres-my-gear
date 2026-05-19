@@ -28,6 +28,7 @@ import HapticPressable from "../../../components/ui/HapticPressable";
 import ScreenBackground from "../../../components/ui/ScreenBackground";
 import { useThemedValues } from "../../../components/ui/Themed";
 import {
+  createItem,
   deleteItem,
   deleteStorageSpace,
   getAllCompartments,
@@ -288,6 +289,57 @@ export default function StorageManagementScreen() {
       params: {
         vehicleId: selectedStorageId,
       },
+    });
+  }
+
+  async function handleCreateItem() {
+    if (!selectedStorageId || !selectedCompartmentId || isBusy()) return;
+
+    const selectedStorage = storageSpaces.find(
+      (space) => space.id === selectedStorageId
+    );
+    const selectedCompartment = compartments.find(
+      (compartment) => compartment.id === selectedCompartmentId
+    );
+
+    if (!selectedStorage || !selectedCompartment) {
+      Alert.alert(
+        "Select a compartment",
+        "Choose a storage space and compartment before adding an item."
+      );
+      return;
+    }
+
+    await runWithLock(async () => {
+      try {
+        const newItemId = await createItem({
+          name: "New Item",
+          quantity: 1,
+          status: "missing",
+          compartmentId: selectedCompartment.id,
+          compartmentName: selectedCompartment.name,
+          vehicleId: selectedStorage.id,
+          vehicleName: selectedStorage.name,
+          source: "manual",
+        });
+
+        if (!isMountedRef.current) return;
+
+        const nextItems = await getItemsByCompartment(selectedCompartment.id);
+
+        if (!isMountedRef.current) return;
+
+        setCompartmentItems(nextItems);
+        setSelectedItemId(newItemId);
+        setEditingItemId(newItemId);
+        setEditingItemName("New Item");
+      } catch (error) {
+        console.error("Failed to create item:", error);
+
+        if (!isMountedRef.current) return;
+
+        Alert.alert("Error", "Failed to create item.");
+      }
     });
   }
 
@@ -1003,15 +1055,18 @@ export default function StorageManagementScreen() {
                     onPress={handleCreateCompartment}
                     disabled={!selectedStorageId || isBusy()}
                     style={[
-                      styles.iconButton,
+                      styles.addButton,
                       (!selectedStorageId || isBusy()) &&
                       styles.disabledInteraction,
                     ]}
                   >
-                    <Plus
-                      size={18}
-                      color={theme.isLight ? "#000000" : colors.text}
-                    />
+                    <BlurView
+                      intensity={20}
+                      tint="dark"
+                      style={styles.addButtonInner}
+                    >
+                      <Plus size={18} color="#111827" />
+                    </BlurView>
                   </HapticPressable>
                 </View>
 
@@ -1122,7 +1177,34 @@ export default function StorageManagementScreen() {
 
                 {selectedCompartmentId ? (
                   <View style={{ marginTop: 16 }}>
-                    <Text style={styles.panelTitle}>Items</Text>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: 10,
+                      }}
+                    >
+                      <Text style={styles.panelTitle}>Items</Text>
+
+                      <HapticPressable
+                        onPress={handleCreateItem}
+                        disabled={!selectedCompartmentId || isBusy()}
+                        style={[
+                          styles.addButton,
+                          (!selectedCompartmentId || isBusy()) &&
+                          styles.disabledInteraction,
+                        ]}
+                      >
+                        <BlurView
+                          intensity={20}
+                          tint="dark"
+                          style={styles.addButtonInner}
+                        >
+                          <Plus size={18} color="#111827" />
+                        </BlurView>
+                      </HapticPressable>
+                    </View>
 
                     {compartmentItems.length === 0 ? (
                       <Text style={styles.storageMeta}>
