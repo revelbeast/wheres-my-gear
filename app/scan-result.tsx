@@ -282,18 +282,50 @@ export default function ScanResultScreen() {
           justifyContent: "flex-start",
         }}
       >
-        <Text style={{ fontSize: 22, fontWeight: "700" }}>
-          Scan Result
+        <Text
+          style={{
+            marginTop: 18,
+            fontSize: 28,
+            fontWeight: "800",
+            color: "#1D4ED8",
+            textAlign: "center",
+          }}
+        >
+          Where's My Gear - Scan Result
         </Text>
 
-        <View style={{ marginTop: 40, width: "100%", alignItems: "center" }}>
+        <View style={{ marginTop: 24, width: "100%", alignItems: "center" }}>
           {loading ? (
             <Text>Checking inventory...</Text>
           ) : (
             <View style={{ width: "100%", alignItems: "center" }}>
-              <Text style={{ fontWeight: "600" }}>
-                {scanState === "FOUND" ? "Item Found" : "Item Not Found"}
-              </Text>
+              {scanState === "FOUND" ? (
+                <View
+                  style={{
+                    paddingHorizontal: 16,
+                    paddingVertical: 8,
+                    borderRadius: 999,
+                    backgroundColor: "#DCFCE7",
+                    borderWidth: 1,
+                    borderColor: "#86EFAC",
+                    marginBottom: 18,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 16,
+                      fontWeight: "800",
+                      color: "#15803D",
+                    }}
+                  >
+                    ✓ Item Found
+                  </Text>
+                </View>
+              ) : (
+                <Text style={{ fontWeight: "700" }}>
+                  Item Not Found
+                </Text>
+              )}
 
               {scanState === "NOT_FOUND" && (
                 <View
