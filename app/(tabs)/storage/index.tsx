@@ -1,13 +1,14 @@
 import { BlurView } from "expo-blur";
 import { router, useFocusEffect } from "expo-router";
 import {
+  Camera,
   CheckCircle2,
   ChevronLeft,
   Minus,
   MoveRight,
   Pencil,
   Plus,
-  Trash2,
+  Trash2
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -1009,17 +1010,30 @@ export default function StorageManagementScreen() {
                                       style={{
                                         flexDirection: "row",
                                         justifyContent: "space-between",
-                                        alignItems: "flex-start",
-                                        gap: 12,
+                                        alignItems: "stretch",
+                                        gap: 16,
                                       }}
                                     >
-                                      <View style={{ flex: 1 }}>
+                                      <View style={styles.itemPhotoPlaceholder}>
+                                        <Camera
+                                          size={18}
+                                          color={colors.textSecondary}
+                                        />
+                                        <Text style={styles.itemPhotoPlaceholderText}>
+                                          Photo
+                                        </Text>
+                                      </View>
+
+                                      <View style={{
+                                        flex: 1,
+                                        justifyContent: "space-between",
+                                      }}>
                                         <View
                                           style={{
                                             flexDirection: "row",
                                             alignItems: "center",
                                             gap: 8,
-                                            marginBottom: 6,
+                                            marginBottom: 2,
                                           }}
                                         >
                                           <Text style={styles.storageTitle}>
@@ -1029,16 +1043,26 @@ export default function StorageManagementScreen() {
                                         </View>
 
                                         {isPackedItem(item) ? (
-                                          <View style={styles.packedPill}>
+                                          <View style={[styles.packedPill, { marginBottom: 6 }]}>
                                             <Text style={styles.packedPillText}>Packed</Text>
                                           </View>
                                         ) : null}
 
-                                        <Text style={styles.storageMeta}>
+                                        <Text
+                                          style={[
+                                            styles.storageMeta,
+                                            { marginBottom: 4 },
+                                          ]}
+                                        >
                                           Needed: {getSafeQuantity(item.quantity)}
                                         </Text>
 
-                                        <Text style={styles.storageMeta}>
+                                        <Text
+                                          style={[
+                                            styles.storageMeta,
+                                            { marginBottom: 4 },
+                                          ]}
+                                        >
                                           Packed:{" "}
                                           {isPackedItem(item)
                                             ? getSafeQuantity(item.quantity)
@@ -1052,6 +1076,7 @@ export default function StorageManagementScreen() {
                                               color: isPackedItem(item)
                                                 ? colors.textSecondary
                                                 : "#DC2626",
+                                              marginBottom: 4,
                                             },
                                           ]}
                                         >
@@ -1066,7 +1091,7 @@ export default function StorageManagementScreen() {
                                             flexDirection: "row",
                                             alignItems: "center",
                                             gap: 8,
-                                            marginTop: 12,
+                                            marginTop: 14,
                                           }}
                                         >
                                           <HapticPressable
@@ -1125,8 +1150,9 @@ export default function StorageManagementScreen() {
 
                                       <View
                                         style={{
+                                          flex: 1,
+                                          justifyContent: "space-between",
                                           alignItems: "flex-end",
-                                          gap: 10,
                                           minWidth: 180,
                                         }}
                                       >
@@ -1436,6 +1462,25 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
 
+  itemPhotoPlaceholder: {
+    width: 82,
+    height: 82,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    paddingHorizontal: 6,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderColor: "rgba(255,255,255,0.12)",
+  },
+
+  itemPhotoPlaceholderText: {
+    color: colors.textSecondary,
+    fontSize: 11,
+    fontWeight: "700",
+    marginTop: 6,
+  },
+
   itemActions: {
     flexDirection: "row",
     alignItems: "center",
@@ -1469,14 +1514,16 @@ const styles = StyleSheet.create({
 
   packedPill: {
     alignSelf: "flex-start",
-    backgroundColor: "#16A34A",
+    backgroundColor: "rgba(22,163,74,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(22,163,74,0.25)",
     borderRadius: 999,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
 
   packedPillText: {
-    color: "#FFFFFF",
+    color: "#16A34A",
     fontSize: 12,
     fontWeight: "700",
   },
