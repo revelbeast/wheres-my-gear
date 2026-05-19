@@ -3,8 +3,8 @@ import { router, useFocusEffect } from "expo-router";
 import {
   CheckCircle2,
   ChevronLeft,
-  ChevronRight,
   Minus,
+  MoveRight,
   Pencil,
   Plus,
   Trash2,
@@ -686,7 +686,7 @@ export default function StorageManagementScreen() {
               </HapticPressable>
 
               <View style={styles.chevronWrap}>
-                <ChevronRight
+                <MoveRight
                   size={18}
                   color={theme.isLight ? "#000000" : colors.textSecondary}
                 />
@@ -1028,6 +1028,12 @@ export default function StorageManagementScreen() {
 
                                         </View>
 
+                                        {isPackedItem(item) ? (
+                                          <View style={styles.packedPill}>
+                                            <Text style={styles.packedPillText}>Packed</Text>
+                                          </View>
+                                        ) : null}
+
                                         <Text style={styles.storageMeta}>
                                           Needed: {getSafeQuantity(item.quantity)}
                                         </Text>
@@ -1129,7 +1135,7 @@ export default function StorageManagementScreen() {
                                             onPress={() => handleMoveItem(item)}
                                             style={styles.iconButton}
                                           >
-                                            <ChevronRight
+                                            <MoveRight
                                               size={16}
                                               color={
                                                 theme.isLight
@@ -1167,7 +1173,7 @@ export default function StorageManagementScreen() {
                                             />
                                           </HapticPressable>
                                         </View>
-                                        
+
                                         <HapticPressable
                                           onPress={() => handleTogglePacked(item)}
                                           style={[
@@ -1459,6 +1465,20 @@ const styles = StyleSheet.create({
 
   packToggleTextOn: {
     color: "#fff",
+  },
+
+  packedPill: {
+    alignSelf: "flex-start",
+    backgroundColor: "#16A34A",
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+
+  packedPillText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "700",
   },
 
   disabledInteraction: {
