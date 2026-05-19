@@ -1014,14 +1014,26 @@ export default function StorageManagementScreen() {
                                         gap: 16,
                                       }}
                                     >
-                                      <View style={styles.itemPhotoPlaceholder}>
-                                        <Camera
-                                          size={18}
-                                          color={colors.textSecondary}
-                                        />
-                                        <Text style={styles.itemPhotoPlaceholderText}>
-                                          Photo
-                                        </Text>
+                                      <View>
+                                        <View
+                                          style={[
+                                            styles.itemPhotoPlaceholder,
+                                            {
+                                              backgroundColor: theme.colors.iconSurface,
+                                              borderColor: theme.colors.border,
+                                            },
+                                          ]}
+                                        >
+                                          <Camera size={18} color={theme.colors.textSecondary} />
+                                          <Text
+                                            style={[
+                                              styles.itemPhotoPlaceholderText,
+                                              { color: theme.colors.textSecondary },
+                                            ]}
+                                          >
+                                            Photo
+                                          </Text>
+                                        </View>
                                       </View>
 
                                       <View style={{
