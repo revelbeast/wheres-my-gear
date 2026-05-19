@@ -13,6 +13,7 @@ import {
   FlatList,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
@@ -26,6 +27,7 @@ import {
   getCompartmentsByVehicle,
   getItemsByCompartment,
   getStorageSpaces,
+  updateItem,
   type Compartment,
   type Item,
   type StorageSpace
@@ -58,6 +60,11 @@ export default function StorageManagementScreen() {
   const [compartments, setCompartments] = useState<Compartment[]>([]);
   const [selectedCompartmentId, setSelectedCompartmentId] = useState<string | null>(null);
   const [compartmentItems, setCompartmentItems] = useState<Item[]>([]);
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editingItemName, setEditingItemName] = useState("");
+  const [savingItemEdit, setSavingItemEdit] = useState(false);
+  const [showCompartmentDropdown, setShowCompartmentDropdown] = useState(false);
   const [deletingStorageId, setDeletingStorageId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -264,23 +271,6 @@ export default function StorageManagementScreen() {
     });
   }
 
-  function handleOpenItem(item: Item) {
-    if (!isTabletLandscape || !item.vehicleId || !item.compartmentId || isBusy()) {
-      return;
-    }
-
-    const lockAcquired = lockNavigationTransition();
-    if (!lockAcquired) return;
-
-    router.push({
-      pathname: "/vehicles/[vehicleId]/compartments/[compartmentId]",
-      params: {
-        vehicleId: item.vehicleId,
-        compartmentId: item.compartmentId,
-      },
-    });
-  }
-
   function handleOpenCompartments(space: StorageSpace) {
     if (!space.id || isBusy()) return;
 
@@ -310,6 +300,7 @@ export default function StorageManagementScreen() {
     if (isBusy()) return;
 
     setSelectedCompartmentId(compartmentId);
+    setShowCompartmentDropdown(false);
 
     try {
       const nextItems = await getItemsByCompartment(compartmentId);
@@ -323,6 +314,53 @@ export default function StorageManagementScreen() {
       if (!isMountedRef.current) return;
 
       setCompartmentItems([]);
+    }
+  }
+
+  function startEditingItem(item: Item) {
+    if (isBusy()) return;
+
+    setSelectedItemId(item.id);
+    setEditingItemId(item.id);
+    setEditingItemName(String(item.name ?? ""));
+  }
+
+  function cancelEditingItem() {
+    setEditingItemId(null);
+    setEditingItemName("");
+    setSavingItemEdit(false);
+  }
+
+  async function saveEditingItem(item: Item) {
+    const nextName = editingItemName.trim();
+
+    if (!item.id || !nextName || savingItemEdit || isBusy()) return;
+
+    try {
+      setSavingItemEdit(true);
+      await updateItem(item.id, { name: nextName });
+
+      if (!isMountedRef.current) return;
+
+      setCompartmentItems((currentItems) =>
+        currentItems.map((currentItem) =>
+          currentItem.id === item.id
+            ? { ...currentItem, name: nextName }
+            : currentItem
+        )
+      );
+
+      cancelEditingItem();
+    } catch (error) {
+      console.error("Failed to edit item:", error);
+
+      if (!isMountedRef.current) return;
+
+      Alert.alert("Edit Failed", "Unable to update this item. Please try again.");
+    } finally {
+      if (isMountedRef.current) {
+        setSavingItemEdit(false);
+      }
     }
   }
 
@@ -596,14 +634,19 @@ export default function StorageManagementScreen() {
                   </HapticPressable>
                 </View>
 
-                <FlatList
-                  data={compartments}
-                  keyExtractor={(item) => item.id}
-                  showsVerticalScrollIndicator={false}
-                  contentContainerStyle={styles.listContent}
-                  renderItem={({ item }) => (
+                {compartments.length === 0 ? (
+                  <BlurView intensity={18} tint="dark" style={styles.emptyCard}>
+                    <Text style={styles.emptyTitle}>No compartments yet</Text>
+                    <Text style={styles.emptyText}>
+                      Tap + to create your first compartment.
+                    </Text>
+                  </BlurView>
+                ) : (
+                  <View>
                     <HapticPressable
-                      onPress={() => handleSelectCompartment(item.id)}
+                      onPress={() =>
+                        setShowCompartmentDropdown((currentValue) => !currentValue)
+                      }
                       style={{ width: "100%" }}
                     >
                       <BlurView
@@ -612,20 +655,10 @@ export default function StorageManagementScreen() {
                         style={[
                           styles.compartmentCard,
                           {
-                            backgroundColor:
-                              selectedCompartmentId === item.id
-                                ? theme.isLight
-                                  ? "#E5F0FF"
-                                  : "rgba(59,130,246,0.15)"
-                                : theme.isLight
-                                  ? "#FFFFFF"
-                                  : "rgba(15,23,42,0.20)",
-                            borderColor:
-                              selectedCompartmentId === item.id
-                                ? "#3B82F6"
-                                : theme.isLight
-                                  ? "rgba(15,23,42,0.10)"
-                                  : "rgba(255,255,255,0.12)",
+                            backgroundColor: theme.isLight
+                              ? "#FFFFFF"
+                              : "rgba(15,23,42,0.20)",
+                            borderColor: "#3B82F6",
                           },
                         ]}
                       >
@@ -633,29 +666,78 @@ export default function StorageManagementScreen() {
                           style={[
                             styles.storageTitle,
                             {
-                              color:
-                                selectedCompartmentId === item.id
-                                  ? "#3B82F6"
-                                  : theme.isLight
-                                    ? "#000000"
-                                    : colors.text,
+                              color: theme.isLight ? "#000000" : colors.text,
                             },
                           ]}
                         >
-                          {item.name}
+                          {compartments.find(
+                            (compartment) =>
+                              compartment.id === selectedCompartmentId
+                          )?.name ?? "Select compartment"}
+                        </Text>
+
+                        <Text style={styles.storageMeta}>
+                          Tap to choose a compartment
                         </Text>
                       </BlurView>
                     </HapticPressable>
-                  )}
-                  ListEmptyComponent={
-                    <BlurView intensity={18} tint="dark" style={styles.emptyCard}>
-                      <Text style={styles.emptyTitle}>No compartments yet</Text>
-                      <Text style={styles.emptyText}>
-                        Tap + to create your first compartment.
-                      </Text>
-                    </BlurView>
-                  }
-                />
+
+                    {showCompartmentDropdown ? (
+                      <FlatList
+                        data={compartments}
+                        keyExtractor={(item) => item.id}
+                        showsVerticalScrollIndicator={true}
+                        style={{ maxHeight: 220 }}
+                        renderItem={({ item }) => (
+                          <HapticPressable
+                            onPress={() => handleSelectCompartment(item.id)}
+                            style={{ width: "100%" }}
+                          >
+                            <BlurView
+                              intensity={theme.isLight ? 0 : 18}
+                              tint={theme.isLight ? "light" : "dark"}
+                              style={[
+                                styles.compartmentCard,
+                                {
+                                  backgroundColor:
+                                    selectedCompartmentId === item.id
+                                      ? theme.isLight
+                                        ? "#E5F0FF"
+                                        : "rgba(59,130,246,0.15)"
+                                      : theme.isLight
+                                        ? "#FFFFFF"
+                                        : "rgba(15,23,42,0.20)",
+                                  borderColor:
+                                    selectedCompartmentId === item.id
+                                      ? "#3B82F6"
+                                      : theme.isLight
+                                        ? "rgba(15,23,42,0.10)"
+                                        : "rgba(255,255,255,0.12)",
+                                },
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.storageTitle,
+                                  {
+                                    color:
+                                      selectedCompartmentId === item.id
+                                        ? "#3B82F6"
+                                        : theme.isLight
+                                          ? "#000000"
+                                          : colors.text,
+                                  },
+                                ]}
+                              >
+                                {item.name}
+                              </Text>
+                            </BlurView>
+                          </HapticPressable>
+                        )}
+                      />
+                    ) : null}
+                  </View>
+                )}
 
                 {selectedCompartmentId ? (
                   <View style={{ marginTop: 16 }}>
@@ -670,37 +752,158 @@ export default function StorageManagementScreen() {
                         data={compartmentItems}
                         keyExtractor={(item) => item.id}
                         scrollEnabled={false}
-                        renderItem={({ item }) => (
-                          <HapticPressable
-                            onPress={() => handleOpenItem(item)}
-                            style={{ width: "100%" }}
-                            disabled={isBusy()}
-                          >
-                            <BlurView
-                              intensity={theme.isLight ? 0 : 18}
-                              tint={theme.isLight ? "light" : "dark"}
-                              style={[
-                                styles.compartmentCard,
-                                {
-                                  backgroundColor: theme.isLight
-                                    ? "#FFFFFF"
-                                    : "rgba(15,23,42,0.20)",
-                                  borderColor: theme.isLight
-                                    ? "rgba(15,23,42,0.10)"
-                                    : "rgba(255,255,255,0.12)",
-                                },
-                              ]}
-                            >
-                              <Text style={styles.storageTitle}>
-                                {item.name}
-                              </Text>
+                        renderItem={({ item }) => {
+                          const isSelectedItem = selectedItemId === item.id;
 
-                              <Text style={styles.storageMeta}>
-                                Qty: {item.quantity} • {item.status}
-                              </Text>
-                            </BlurView>
-                          </HapticPressable>
-                        )}
+                          return (
+                            <HapticPressable
+                              onPress={() => setSelectedItemId(item.id)}
+                              style={{ width: "100%" }}
+                              disabled={isBusy()}
+                            >
+                              <BlurView
+                                intensity={theme.isLight ? 0 : 18}
+                                tint={theme.isLight ? "light" : "dark"}
+                                style={[
+                                  styles.compartmentCard,
+                                  {
+                                    backgroundColor: isSelectedItem
+                                      ? theme.isLight
+                                        ? "#E5F0FF"
+                                        : "rgba(59,130,246,0.15)"
+                                      : theme.isLight
+                                        ? "#FFFFFF"
+                                        : "rgba(15,23,42,0.20)",
+                                    borderColor: isSelectedItem
+                                      ? "#3B82F6"
+                                      : theme.isLight
+                                        ? "rgba(15,23,42,0.10)"
+                                        : "rgba(255,255,255,0.12)",
+                                  },
+                                ]}
+                              >
+                                {editingItemId === item.id ? (
+                                  <View>
+                                    <TextInput
+                                      value={editingItemName}
+                                      onChangeText={setEditingItemName}
+                                      placeholder="Item name"
+                                      placeholderTextColor={
+                                        theme.isLight
+                                          ? "rgba(0,0,0,0.45)"
+                                          : colors.textSecondary
+                                      }
+                                      style={{
+                                        borderWidth: 1,
+                                        borderRadius: 12,
+                                        paddingHorizontal: 12,
+                                        paddingVertical: 10,
+                                        color: theme.isLight
+                                          ? "#000000"
+                                          : colors.text,
+                                        borderColor: theme.isLight
+                                          ? "rgba(15,23,42,0.12)"
+                                          : "rgba(255,255,255,0.12)",
+                                        backgroundColor: theme.isLight
+                                          ? "#FFFFFF"
+                                          : "rgba(255,255,255,0.04)",
+                                      }}
+                                    />
+
+                                    <View
+                                      style={{
+                                        flexDirection: "row",
+                                        gap: 8,
+                                        marginTop: 10,
+                                      }}
+                                    >
+                                      <HapticPressable
+                                        onPress={() => saveEditingItem(item)}
+                                        disabled={savingItemEdit}
+                                        style={{
+                                          backgroundColor: "#2563EB",
+                                          borderRadius: 10,
+                                          paddingHorizontal: 14,
+                                          paddingVertical: 10,
+                                        }}
+                                      >
+                                        <Text style={{ color: "#FFFFFF" }}>
+                                          Save
+                                        </Text>
+                                      </HapticPressable>
+
+                                      <HapticPressable
+                                        onPress={cancelEditingItem}
+                                        style={{
+                                          borderRadius: 10,
+                                          paddingHorizontal: 14,
+                                          paddingVertical: 10,
+                                          borderWidth: 1,
+                                          borderColor: theme.isLight
+                                            ? "rgba(15,23,42,0.12)"
+                                            : "rgba(255,255,255,0.12)",
+                                        }}
+                                      >
+                                        <Text
+                                          style={{
+                                            color: theme.isLight
+                                              ? "#000000"
+                                              : colors.text,
+                                          }}
+                                        >
+                                          Cancel
+                                        </Text>
+                                      </HapticPressable>
+                                    </View>
+                                  </View>
+                                ) : (
+                                  <>
+                                    <View
+                                      style={{
+                                        flexDirection: "row",
+                                        justifyContent: "space-between",
+                                        alignItems: "center",
+                                      }}
+                                    >
+                                      <Text style={styles.storageTitle}>
+                                        {item.name}
+                                      </Text>
+
+                                      {isSelectedItem ? (
+                                        <HapticPressable
+                                          onPress={() => startEditingItem(item)}
+                                          style={{
+                                            width: 34,
+                                            height: 34,
+                                            borderRadius: 10,
+                                            justifyContent: "center",
+                                            alignItems: "center",
+                                            backgroundColor: theme.isLight
+                                              ? "rgba(15,23,42,0.05)"
+                                              : "rgba(255,255,255,0.08)",
+                                          }}
+                                        >
+                                          <Pencil
+                                            size={16}
+                                            color={
+                                              theme.isLight
+                                                ? "#000000"
+                                                : colors.text
+                                            }
+                                          />
+                                        </HapticPressable>
+                                      ) : null}
+                                    </View>
+
+                                    <Text style={styles.storageMeta}>
+                                      Qty: {item.quantity} • {item.status}
+                                    </Text>
+                                  </>
+                                )}
+                              </BlurView>
+                            </HapticPressable>
+                          );
+                        }}
                       />
                     )}
                   </View>
