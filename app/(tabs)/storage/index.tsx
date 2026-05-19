@@ -1253,6 +1253,19 @@ export default function StorageManagementScreen() {
                                             : getSafeQuantity(item.quantity)}
                                         </Text>
 
+                                        <Text
+                                          style={[
+                                            styles.storageMeta,
+                                            {
+                                              color: theme.colors.text,
+                                              marginBottom: 4,
+                                            },
+                                          ]}
+                                        >
+                                          Storage:{" "}
+                                          {item.compartmentName ?? "Unknown"}
+                                        </Text>
+
                                         <View
                                           style={{
                                             flexDirection: "row",
