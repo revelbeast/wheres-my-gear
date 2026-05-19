@@ -459,6 +459,56 @@ export default function StorageManagementScreen() {
     });
   }
 
+  function confirmDeleteItem(item: Item) {
+    if (isBusy()) return;
+
+    Alert.alert(
+      "Delete item?",
+      `Delete "${item.name}"? This cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            await runWithLock(async () => {
+              try {
+                await deleteItem(item.id);
+
+                if (!isMountedRef.current) return;
+
+                setCompartmentItems((currentItems) =>
+                  currentItems.filter((currentItem) => currentItem.id !== item.id)
+                );
+
+                if (selectedItemId === item.id) {
+                  setSelectedItemId(null);
+                }
+              } catch (error) {
+                console.error("Failed to delete item:", error);
+
+                if (!isMountedRef.current) return;
+
+                Alert.alert("Delete Failed", "Unable to delete this item.");
+              }
+            });
+          },
+        },
+      ]
+    );
+  }
+
+  function handleMoveItem(item: Item) {
+    if (isBusy()) return;
+
+    setSelectedItemId(item.id);
+
+    Alert.alert(
+      "Move item",
+      "Move item support will be added next."
+    );
+  }
+
   function handleEditStorage(space: StorageSpace) {
     if (!space.id || isBusy()) return;
 
@@ -1008,96 +1058,26 @@ export default function StorageManagementScreen() {
 
                                       <View
                                         style={{
-                                          flexDirection: "row",
-                                          flexWrap: "wrap",
-                                          justifyContent: "flex-end",
-                                          gap: 8,
-                                          maxWidth: 180,
+                                          alignItems: "flex-end",
+                                          gap: 10,
+                                          minWidth: 180,
                                         }}
                                       >
-                                        <HapticPressable
-                                          onPress={() =>
-                                            handleChangeQuantity(item, -1)
-                                          }
-                                          style={styles.iconButton}
-                                        >
-                                          <Minus
-                                            size={16}
-                                            color={
-                                              theme.isLight
-                                                ? "#000000"
-                                                : colors.text
-                                            }
-                                          />
-                                        </HapticPressable>
-
-                                        <View
-                                          style={{
-                                            minWidth: 34,
-                                            height: 34,
-                                            alignItems: "center",
-                                            justifyContent: "center",
-                                          }}
-                                        >
-                                          <Text
-                                            style={{
-                                              color: theme.isLight
-                                                ? "#000000"
-                                                : colors.text,
-                                              fontWeight: "700",
-                                            }}
+                                        <View style={styles.itemActions}>
+                                          <HapticPressable
+                                            onPress={() => handleMoveItem(item)}
+                                            style={styles.iconButton}
                                           >
-                                            {getSafeQuantity(item.quantity)}
-                                          </Text>
-                                        </View>
+                                            <ChevronRight
+                                              size={16}
+                                              color={
+                                                theme.isLight
+                                                  ? "#000000"
+                                                  : colors.text
+                                              }
+                                            />
+                                          </HapticPressable>
 
-                                        <HapticPressable
-                                          onPress={() =>
-                                            handleChangeQuantity(item, 1)
-                                          }
-                                          style={styles.iconButton}
-                                        >
-                                          <Plus
-                                            size={16}
-                                            color={
-                                              theme.isLight
-                                                ? "#000000"
-                                                : colors.text
-                                            }
-                                          />
-                                        </HapticPressable>
-
-                                        <HapticPressable
-                                          onPress={() => handleTogglePacked(item)}
-                                          style={[
-                                            styles.packToggleButton,
-                                            isPackedItem(item) ? styles.packToggleOn : styles.packToggleOff,
-                                            !isPackedItem(item) && {
-                                              backgroundColor: theme.isLight
-                                                ? "rgba(15,23,42,0.05)"
-                                                : "rgba(255,255,255,0.08)",
-                                              borderColor: theme.isLight
-                                                ? "rgba(15,23,42,0.12)"
-                                                : "rgba(255,255,255,0.12)",
-                                            },
-                                          ]}
-                                        >
-                                          <CheckCircle2
-                                            size={16}
-                                            color={isPackedItem(item) ? "#FFFFFF" : theme.isLight ? "#000000" : colors.text}
-                                          />
-                                          <Text
-                                            style={[
-                                              styles.packToggleText,
-                                              { color: theme.isLight ? "#000000" : colors.text },
-                                              isPackedItem(item) && styles.packToggleTextOn,
-                                            ]}
-                                          >
-                                            {isPackedItem(item) ? "Packed" : "Mark Packed"}
-                                          </Text>
-                                        </HapticPressable>
-
-                                        {isSelectedItem ? (
                                           <HapticPressable
                                             onPress={() =>
                                               startEditingItem(item)
@@ -1113,7 +1093,124 @@ export default function StorageManagementScreen() {
                                               }
                                             />
                                           </HapticPressable>
-                                        ) : null}
+
+                                          <HapticPressable
+                                            onPress={() =>
+                                              confirmDeleteItem(item)
+                                            }
+                                            style={styles.iconButton}
+                                          >
+                                            <Trash2
+                                              size={16}
+                                              color="#DC2626"
+                                            />
+                                          </HapticPressable>
+                                        </View>
+
+                                        <View
+                                          style={{
+                                            flexDirection: "row",
+                                            alignItems: "center",
+                                            gap: 8,
+                                          }}
+                                        >
+                                          <HapticPressable
+                                            onPress={() =>
+                                              handleChangeQuantity(item, -1)
+                                            }
+                                            style={styles.iconButton}
+                                          >
+                                            <Minus
+                                              size={16}
+                                              color={
+                                                theme.isLight
+                                                  ? "#000000"
+                                                  : colors.text
+                                              }
+                                            />
+                                          </HapticPressable>
+
+                                          <View
+                                            style={{
+                                              minWidth: 34,
+                                              height: 34,
+                                              alignItems: "center",
+                                              justifyContent: "center",
+                                            }}
+                                          >
+                                            <Text
+                                              style={{
+                                                color: theme.isLight
+                                                  ? "#000000"
+                                                  : colors.text,
+                                                fontWeight: "700",
+                                              }}
+                                            >
+                                              {getSafeQuantity(item.quantity)}
+                                            </Text>
+                                          </View>
+
+                                          <HapticPressable
+                                            onPress={() =>
+                                              handleChangeQuantity(item, 1)
+                                            }
+                                            style={styles.iconButton}
+                                          >
+                                            <Plus
+                                              size={16}
+                                              color={
+                                                theme.isLight
+                                                  ? "#000000"
+                                                  : colors.text
+                                              }
+                                            />
+                                          </HapticPressable>
+                                        </View>
+
+                                        <HapticPressable
+                                          onPress={() => handleTogglePacked(item)}
+                                          style={[
+                                            styles.packToggleButton,
+                                            isPackedItem(item)
+                                              ? styles.packToggleOn
+                                              : styles.packToggleOff,
+                                            !isPackedItem(item) && {
+                                              backgroundColor: theme.isLight
+                                                ? "rgba(15,23,42,0.05)"
+                                                : "rgba(255,255,255,0.08)",
+                                              borderColor: theme.isLight
+                                                ? "rgba(15,23,42,0.12)"
+                                                : "rgba(255,255,255,0.12)",
+                                            },
+                                          ]}
+                                        >
+                                          <CheckCircle2
+                                            size={16}
+                                            color={
+                                              isPackedItem(item)
+                                                ? "#FFFFFF"
+                                                : theme.isLight
+                                                  ? "#000000"
+                                                  : colors.text
+                                            }
+                                          />
+                                          <Text
+                                            style={[
+                                              styles.packToggleText,
+                                              {
+                                                color: theme.isLight
+                                                  ? "#000000"
+                                                  : colors.text,
+                                              },
+                                              isPackedItem(item) &&
+                                              styles.packToggleTextOn,
+                                            ]}
+                                          >
+                                            {isPackedItem(item)
+                                              ? "Packed"
+                                              : "Mark Packed"}
+                                          </Text>
+                                        </HapticPressable>
                                       </View>
                                     </View>
                                   </View>
@@ -1330,6 +1427,12 @@ const styles = StyleSheet.create({
   emptyText: {
     color: colors.textSecondary,
     fontSize: 13,
+  },
+
+  itemActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
 
   packToggleButton: {
