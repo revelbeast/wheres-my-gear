@@ -30,6 +30,7 @@ import {
   getChecklistTemplates,
   subscribeToChecklists,
 } from "../../../lib/checklistsService";
+import { useDeviceLayout } from "../../../lib/useDeviceLayout";
 import { useInteractionLock } from "../../../lib/useInteractionLock";
 import type { Checklist, ChecklistCategory } from "../../../types/checklists";
 
@@ -92,7 +93,7 @@ function StatCard({
 
   const content = (
     <View
-  style={[
+      style={[
         styles.statCard,
         {
           borderColor: selected ? tone.borderColor : theme.colors.border,
@@ -299,6 +300,7 @@ export default function ChecklistsTabScreen() {
   const { user, initializing } = useAuth();
   const userId = user?.uid ?? "";
   const theme = useThemedValues();
+  const { isTablet, isLandscape } = useDeviceLayout();
   const {
     isLocked: interactionLocked,
     lock: lockInteraction,
@@ -582,7 +584,14 @@ export default function ChecklistsTabScreen() {
     <ScreenBackground>
       <SafeAreaView style={styles.safe}>
         <ScrollView
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[
+            styles.content,
+            isTablet && {
+              maxWidth: isLandscape ? 1100 : 900,
+              width: "100%",
+              alignSelf: "center",
+            },
+          ]}
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.headerWrap}>
