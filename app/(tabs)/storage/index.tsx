@@ -1,8 +1,10 @@
 import { BlurView } from "expo-blur";
 import { router, useFocusEffect } from "expo-router";
 import {
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Minus,
   Pencil,
   Plus,
   Trash2,
@@ -23,6 +25,7 @@ import HapticPressable from "../../../components/ui/HapticPressable";
 import ScreenBackground from "../../../components/ui/ScreenBackground";
 import { useThemedValues } from "../../../components/ui/Themed";
 import {
+  deleteItem,
   deleteStorageSpace,
   getCompartmentsByVehicle,
   getItemsByCompartment,
@@ -35,6 +38,15 @@ import {
 import { useDeviceLayout } from "../../../lib/useDeviceLayout";
 import { useInteractionLock } from "../../../lib/useInteractionLock";
 import { colors } from "../../../theme/tokens";
+
+function getSafeQuantity(value?: number) {
+  const qty = Number(value ?? 1);
+  return Number.isFinite(qty) && qty > 0 ? qty : 1;
+}
+
+function isPackedItem(item: Item) {
+  return item.status === "packed";
+}
 
 export default function StorageManagementScreen() {
   const theme = useThemedValues();
@@ -64,6 +76,8 @@ export default function StorageManagementScreen() {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editingItemName, setEditingItemName] = useState("");
   const [savingItemEdit, setSavingItemEdit] = useState(false);
+  const [updatingQuantityId, setUpdatingQuantityId] = useState<string | null>(null);
+  const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
   const [showCompartmentDropdown, setShowCompartmentDropdown] = useState(false);
   const [deletingStorageId, setDeletingStorageId] = useState<string | null>(null);
 
@@ -362,6 +376,87 @@ export default function StorageManagementScreen() {
         setSavingItemEdit(false);
       }
     }
+  }
+
+  async function handleChangeQuantity(item: Item, delta: number) {
+    if (updatingQuantityId === item.id || isBusy()) return;
+
+    const currentQuantity = getSafeQuantity(item.quantity);
+    const nextQuantity = currentQuantity + delta;
+
+    await runWithLock(async () => {
+      try {
+        setUpdatingQuantityId(item.id);
+
+        if (nextQuantity <= 0) {
+          await deleteItem(item.id);
+          setCompartmentItems((currentItems) =>
+            currentItems.filter((currentItem) => currentItem.id !== item.id)
+          );
+
+          if (selectedItemId === item.id) {
+            setSelectedItemId(null);
+          }
+
+          return;
+        }
+
+        await updateItem(item.id, { quantity: nextQuantity });
+
+        if (!isMountedRef.current) return;
+
+        setCompartmentItems((currentItems) =>
+          currentItems.map((currentItem) =>
+            currentItem.id === item.id
+              ? { ...currentItem, quantity: nextQuantity }
+              : currentItem
+          )
+        );
+      } catch (error) {
+        console.error("Failed to update item quantity:", error);
+
+        if (!isMountedRef.current) return;
+
+        Alert.alert("Update Failed", "Unable to update item quantity.");
+      } finally {
+        if (isMountedRef.current) {
+          setUpdatingQuantityId(null);
+        }
+      }
+    });
+  }
+
+  async function handleTogglePacked(item: Item) {
+    if (updatingStatusId === item.id || isBusy()) return;
+
+    const nextStatus = isPackedItem(item) ? "missing" : "packed";
+
+    await runWithLock(async () => {
+      try {
+        setUpdatingStatusId(item.id);
+        await updateItem(item.id, { status: nextStatus });
+
+        if (!isMountedRef.current) return;
+
+        setCompartmentItems((currentItems) =>
+          currentItems.map((currentItem) =>
+            currentItem.id === item.id
+              ? { ...currentItem, status: nextStatus }
+              : currentItem
+          )
+        );
+      } catch (error) {
+        console.error("Failed to update item status:", error);
+
+        if (!isMountedRef.current) return;
+
+        Alert.alert("Update Failed", "Unable to update packed status.");
+      } finally {
+        if (isMountedRef.current) {
+          setUpdatingStatusId(null);
+        }
+      }
+    });
   }
 
   function handleEditStorage(space: StorageSpace) {
@@ -774,11 +869,13 @@ export default function StorageManagementScreen() {
                                       : theme.isLight
                                         ? "#FFFFFF"
                                         : "rgba(15,23,42,0.20)",
-                                    borderColor: isSelectedItem
-                                      ? "#3B82F6"
-                                      : theme.isLight
-                                        ? "rgba(15,23,42,0.10)"
-                                        : "rgba(255,255,255,0.12)",
+                                    borderColor: isPackedItem(item)
+                                      ? theme.colors.success
+                                      : isSelectedItem
+                                        ? "#3B82F6"
+                                        : theme.isLight
+                                          ? "rgba(15,23,42,0.10)"
+                                          : "rgba(255,255,255,0.12)",
                                   },
                                 ]}
                               >
@@ -857,33 +954,74 @@ export default function StorageManagementScreen() {
                                     </View>
                                   </View>
                                 ) : (
-                                  <>
+                                  <View>
                                     <View
                                       style={{
                                         flexDirection: "row",
                                         justifyContent: "space-between",
-                                        alignItems: "center",
+                                        alignItems: "flex-start",
+                                        gap: 12,
                                       }}
                                     >
-                                      <Text style={styles.storageTitle}>
-                                        {item.name}
-                                      </Text>
-
-                                      {isSelectedItem ? (
-                                        <HapticPressable
-                                          onPress={() => startEditingItem(item)}
+                                      <View style={{ flex: 1 }}>
+                                        <View
                                           style={{
-                                            width: 34,
-                                            height: 34,
-                                            borderRadius: 10,
-                                            justifyContent: "center",
+                                            flexDirection: "row",
                                             alignItems: "center",
-                                            backgroundColor: theme.isLight
-                                              ? "rgba(15,23,42,0.05)"
-                                              : "rgba(255,255,255,0.08)",
+                                            gap: 8,
+                                            marginBottom: 6,
                                           }}
                                         >
-                                          <Pencil
+                                          <Text style={styles.storageTitle}>
+                                            {item.name}
+                                          </Text>
+
+                                        </View>
+
+                                        <Text style={styles.storageMeta}>
+                                          Needed: {getSafeQuantity(item.quantity)}
+                                        </Text>
+
+                                        <Text style={styles.storageMeta}>
+                                          Packed:{" "}
+                                          {isPackedItem(item)
+                                            ? getSafeQuantity(item.quantity)
+                                            : 0}
+                                        </Text>
+
+                                        <Text
+                                          style={[
+                                            styles.storageMeta,
+                                            {
+                                              color: isPackedItem(item)
+                                                ? colors.textSecondary
+                                                : "#DC2626",
+                                            },
+                                          ]}
+                                        >
+                                          Still To Pack:{" "}
+                                          {isPackedItem(item)
+                                            ? 0
+                                            : getSafeQuantity(item.quantity)}
+                                        </Text>
+                                      </View>
+
+                                      <View
+                                        style={{
+                                          flexDirection: "row",
+                                          flexWrap: "wrap",
+                                          justifyContent: "flex-end",
+                                          gap: 8,
+                                          maxWidth: 180,
+                                        }}
+                                      >
+                                        <HapticPressable
+                                          onPress={() =>
+                                            handleChangeQuantity(item, -1)
+                                          }
+                                          style={styles.iconButton}
+                                        >
+                                          <Minus
                                             size={16}
                                             color={
                                               theme.isLight
@@ -892,13 +1030,93 @@ export default function StorageManagementScreen() {
                                             }
                                           />
                                         </HapticPressable>
-                                      ) : null}
-                                    </View>
 
-                                    <Text style={styles.storageMeta}>
-                                      Qty: {item.quantity} • {item.status}
-                                    </Text>
-                                  </>
+                                        <View
+                                          style={{
+                                            minWidth: 34,
+                                            height: 34,
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                          }}
+                                        >
+                                          <Text
+                                            style={{
+                                              color: theme.isLight
+                                                ? "#000000"
+                                                : colors.text,
+                                              fontWeight: "700",
+                                            }}
+                                          >
+                                            {getSafeQuantity(item.quantity)}
+                                          </Text>
+                                        </View>
+
+                                        <HapticPressable
+                                          onPress={() =>
+                                            handleChangeQuantity(item, 1)
+                                          }
+                                          style={styles.iconButton}
+                                        >
+                                          <Plus
+                                            size={16}
+                                            color={
+                                              theme.isLight
+                                                ? "#000000"
+                                                : colors.text
+                                            }
+                                          />
+                                        </HapticPressable>
+
+                                        <HapticPressable
+                                          onPress={() => handleTogglePacked(item)}
+                                          style={[
+                                            styles.packToggleButton,
+                                            isPackedItem(item) ? styles.packToggleOn : styles.packToggleOff,
+                                            !isPackedItem(item) && {
+                                              backgroundColor: theme.isLight
+                                                ? "rgba(15,23,42,0.05)"
+                                                : "rgba(255,255,255,0.08)",
+                                              borderColor: theme.isLight
+                                                ? "rgba(15,23,42,0.12)"
+                                                : "rgba(255,255,255,0.12)",
+                                            },
+                                          ]}
+                                        >
+                                          <CheckCircle2
+                                            size={16}
+                                            color={isPackedItem(item) ? "#FFFFFF" : theme.isLight ? "#000000" : colors.text}
+                                          />
+                                          <Text
+                                            style={[
+                                              styles.packToggleText,
+                                              { color: theme.isLight ? "#000000" : colors.text },
+                                              isPackedItem(item) && styles.packToggleTextOn,
+                                            ]}
+                                          >
+                                            {isPackedItem(item) ? "Packed" : "Mark Packed"}
+                                          </Text>
+                                        </HapticPressable>
+
+                                        {isSelectedItem ? (
+                                          <HapticPressable
+                                            onPress={() =>
+                                              startEditingItem(item)
+                                            }
+                                            style={styles.iconButton}
+                                          >
+                                            <Pencil
+                                              size={16}
+                                              color={
+                                                theme.isLight
+                                                  ? "#000000"
+                                                  : colors.text
+                                              }
+                                            />
+                                          </HapticPressable>
+                                        ) : null}
+                                      </View>
+                                    </View>
+                                  </View>
                                 )}
                               </BlurView>
                             </HapticPressable>
@@ -1112,6 +1330,31 @@ const styles = StyleSheet.create({
   emptyText: {
     color: colors.textSecondary,
     fontSize: 13,
+  },
+
+  packToggleButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+
+  packToggleOn: {
+    backgroundColor: "rgba(55,130,245,0.95)",
+    borderColor: "rgba(55,130,245,0.95)",
+  },
+
+  packToggleOff: {},
+
+  packToggleText: {
+    fontWeight: "700",
+    marginLeft: 6,
+  },
+
+  packToggleTextOn: {
+    color: "#fff",
   },
 
   disabledInteraction: {
