@@ -4,6 +4,7 @@ import { router, useFocusEffect } from "expo-router";
 import {
   Camera,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   Minus,
   MoveRight,
@@ -1098,23 +1099,42 @@ export default function StorageManagementScreen() {
                           },
                         ]}
                       >
-                        <Text
-                          style={[
-                            styles.storageTitle,
-                            {
-                              color: theme.isLight ? "#000000" : colors.text,
-                            },
-                          ]}
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                          }}
                         >
-                          {compartments.find(
-                            (compartment) =>
-                              compartment.id === selectedCompartmentId
-                          )?.name ?? "Select compartment"}
-                        </Text>
+                          <View style={{ flex: 1, paddingRight: 10 }}>
+                            <Text
+                              style={[
+                                styles.storageTitle,
+                                {
+                                  color: theme.isLight ? "#000000" : colors.text,
+                                },
+                              ]}
+                            >
+                              {selectedCompartmentId
+                                ? `Currently viewing: ${
+                                    compartments.find(
+                                      (compartment) =>
+                                        compartment.id === selectedCompartmentId
+                                    )?.name ?? "Selected compartment"
+                                  }`
+                                : "Select compartment"}
+                            </Text>
 
-                        <Text style={styles.storageMeta}>
-                          Tap to choose a compartment
-                        </Text>
+                            <Text style={styles.storageMeta}>
+                              Tap to choose a compartment
+                            </Text>
+                          </View>
+
+                          <ChevronDown
+                            size={20}
+                            color={theme.isLight ? "#000000" : colors.text}
+                          />
+                        </View>
                       </BlurView>
                     </HapticPressable>
 
