@@ -6,10 +6,10 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
-  X,
   FolderCog,
   ListChecks,
   Search,
+  X,
 } from "lucide-react-native";
 import React, {
   useCallback,
@@ -23,9 +23,9 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
+  Text,
   TextInput,
   View,
-  Text,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -44,6 +44,7 @@ import {
   StorageSpace,
 } from "../../lib/gearService";
 import { triggerSuccessHaptic } from "../../lib/haptics";
+import { useDeviceLayout } from "../../lib/useDeviceLayout";
 import { useInteractionLock } from "../../lib/useInteractionLock";
 import { useTheme } from "../../lib/useTheme";
 
@@ -66,6 +67,7 @@ export default function InventoryScreen() {
   const { user, initializing } = useAuth();
   const params = useLocalSearchParams<{ status?: string | string[] }>();
   const theme = useTheme();
+  const { isTablet, isLandscape } = useDeviceLayout();
 
   const isScreenMountedRef = useRef(true);
   const inventoryLoadVersionRef = useRef(0);
@@ -538,20 +540,20 @@ export default function InventoryScreen() {
 
     return (
       < BlurView
-  intensity = { theme.isLight ? 18 : 18 }
-    tint = { theme.isLight ? "light" : "dark" }
-    style = {
-      [
-      styles.manageStorageCard,
-      {
-        backgroundColor: theme.isLight
-          ? theme.colors.card
-          : "rgba(255,255,255,0.20)",
-        borderColor: theme.isLight
-          ? theme.colors.border
-          : "rgba(255,255,255,0.12)",
-      },
-  ]}
+        intensity={theme.isLight ? 18 : 18}
+        tint={theme.isLight ? "light" : "dark"}
+        style={
+          [
+            styles.manageStorageCard,
+            {
+              backgroundColor: theme.isLight
+                ? theme.colors.card
+                : "rgba(255,255,255,0.20)",
+              borderColor: theme.isLight
+                ? theme.colors.border
+                : "rgba(255,255,255,0.12)",
+            },
+          ]}
       >
         <View
           style={[
@@ -579,19 +581,19 @@ export default function InventoryScreen() {
           {getEmptyText()}
         </ThemedText>
 
-    {
-      showAddStorageAction && (
-        <ThemedButton
-          style={styles.emptyButton}
-          onPress={handleAddStorageSpace}
-          disabled={interactionLocked || navigationTransitionLockedRef.current}
-        >
-          <ThemedText style={styles.emptyButtonText}>
-            Add Storage Space
-          </ThemedText>
-        </ThemedButton>
-      )
-    }
+        {
+          showAddStorageAction && (
+            <ThemedButton
+              style={styles.emptyButton}
+              onPress={handleAddStorageSpace}
+              disabled={interactionLocked || navigationTransitionLockedRef.current}
+            >
+              <ThemedText style={styles.emptyButtonText}>
+                Add Storage Space
+              </ThemedText>
+            </ThemedButton>
+          )
+        }
       </BlurView >
     );
   }
@@ -599,7 +601,16 @@ export default function InventoryScreen() {
   return (
     <ScreenBackground>
       <SafeAreaView style={styles.safe}>
-        <View style={styles.container}>
+        <View
+          style={[
+            styles.container,
+            isTablet && {
+              maxWidth: isLandscape ? 1100 : 900,
+              width: "100%",
+              alignSelf: "center",
+            },
+          ]}
+        >
           <ThemedText
             variant="header"
             style={{ color: "#FFFFFF", marginBottom: 4 }}
