@@ -1,5 +1,6 @@
 import Constants from "expo-constants";
 import { router } from "expo-router";
+import { collection, getDocs, writeBatch } from "firebase/firestore";
 import {
   ChevronRight,
   CircleHelp,
@@ -17,11 +18,10 @@ import {
 import React, { useEffect, useRef, useState } from "react";
 import { Alert, Linking, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { collection, getDocs, writeBatch } from "firebase/firestore";
 
-import ScreenBackground from "../../components/ui/ScreenBackground";
 import { useAuth } from "../../components/auth/AuthProvider";
 import HapticPressable from "../../components/ui/HapticPressable";
+import ScreenBackground from "../../components/ui/ScreenBackground";
 import {
   ThemedCard,
   ThemedText,
@@ -31,9 +31,9 @@ import { db } from "../../firebaseConfig";
 import {
   getCustomerInfo,
   hasActivePremiumEntitlement,
-  isPremiumUser,
-  restorePurchases,
+  restorePurchases
 } from "../../lib/revenuecat";
+import { useDeviceLayout } from "../../lib/useDeviceLayout";
 import { useInteractionLock } from "../../lib/useInteractionLock";
 
 const USER_AGREEMENT_URL =
@@ -124,6 +124,7 @@ function ProfileRow({
 export default function ProfileScreen() {
   const { user, initializing, signOutUser } = useAuth();
   const theme = useThemedValues();
+  const { isTablet, isLandscape } = useDeviceLayout();
 
   const {
     isLocked: interactionLocked,
@@ -762,7 +763,14 @@ export default function ProfileScreen() {
     <ScreenBackground>
       <SafeAreaView style={styles.safe}>
         <ScrollView
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[
+            styles.content,
+            isTablet && {
+              maxWidth: isLandscape ? 1100 : 900,
+              width: "100%",
+              alignSelf: "center",
+            },
+          ]}
           showsVerticalScrollIndicator={false}
         >
           <ThemedText
