@@ -24,9 +24,11 @@ import { useThemedValues } from "../../../components/ui/Themed";
 import {
   deleteStorageSpace,
   getCompartmentsByVehicle,
+  getItemsByCompartment,
   getStorageSpaces,
   type Compartment,
-  type StorageSpace,
+  type Item,
+  type StorageSpace
 } from "../../../lib/gearService";
 import { useDeviceLayout } from "../../../lib/useDeviceLayout";
 import { useInteractionLock } from "../../../lib/useInteractionLock";
@@ -54,6 +56,8 @@ export default function StorageManagementScreen() {
   const [storageSpaces, setStorageSpaces] = useState<StorageSpace[]>([]);
   const [selectedStorageId, setSelectedStorageId] = useState<string | null>(null);
   const [compartments, setCompartments] = useState<Compartment[]>([]);
+  const [selectedCompartmentId, setSelectedCompartmentId] = useState<string | null>(null);
+  const [compartmentItems, setCompartmentItems] = useState<Item[]>([]);
   const [deletingStorageId, setDeletingStorageId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -119,8 +123,33 @@ export default function StorageManagementScreen() {
         }
 
         setCompartments(nextCompartments);
+
+        const nextSelectedCompartmentId =
+          selectedCompartmentId &&
+            nextCompartments.some((compartment) => compartment.id === selectedCompartmentId)
+            ? selectedCompartmentId
+            : nextCompartments[0]?.id ?? null;
+
+        setSelectedCompartmentId(nextSelectedCompartmentId);
+
+        if (nextSelectedCompartmentId) {
+          const nextItems = await getItemsByCompartment(nextSelectedCompartmentId);
+
+          if (
+            !isMountedRef.current ||
+            loadRequestVersionRef.current !== requestVersion
+          ) {
+            return;
+          }
+
+          setCompartmentItems(nextItems);
+        } else {
+          setCompartmentItems([]);
+        }
       } else {
         setCompartments([]);
+        setSelectedCompartmentId(null);
+        setCompartmentItems([]);
       }
     } catch (error) {
       console.error("Failed to load storage spaces:", error);
@@ -134,7 +163,7 @@ export default function StorageManagementScreen() {
 
       setStorageSpaces([]);
     }
-  }, [selectedStorageId]);
+  }, [selectedStorageId, selectedCompartmentId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -221,6 +250,37 @@ export default function StorageManagementScreen() {
     });
   }
 
+  function handleCreateCompartment() {
+    if (!isTabletLandscape || !selectedStorageId || isBusy()) return;
+
+    const lockAcquired = lockNavigationTransition();
+    if (!lockAcquired) return;
+
+    router.push({
+      pathname: "/(tabs)/vehicles/[vehicleId]/compartments/create",
+      params: {
+        vehicleId: selectedStorageId,
+      },
+    });
+  }
+
+  function handleOpenItem(item: Item) {
+    if (!isTabletLandscape || !item.vehicleId || !item.compartmentId || isBusy()) {
+      return;
+    }
+
+    const lockAcquired = lockNavigationTransition();
+    if (!lockAcquired) return;
+
+    router.push({
+      pathname: "/vehicles/[vehicleId]/compartments/[compartmentId]",
+      params: {
+        vehicleId: item.vehicleId,
+        compartmentId: item.compartmentId,
+      },
+    });
+  }
+
   function handleOpenCompartments(space: StorageSpace) {
     if (!space.id || isBusy()) return;
 
@@ -244,6 +304,26 @@ export default function StorageManagementScreen() {
     }
 
     handleOpenCompartments(space);
+  }
+
+  async function handleSelectCompartment(compartmentId: string) {
+    if (isBusy()) return;
+
+    setSelectedCompartmentId(compartmentId);
+
+    try {
+      const nextItems = await getItemsByCompartment(compartmentId);
+
+      if (!isMountedRef.current) return;
+
+      setCompartmentItems(nextItems);
+    } catch (error) {
+      console.error("Failed to load compartment items:", error);
+
+      if (!isMountedRef.current) return;
+
+      setCompartmentItems([]);
+    }
   }
 
   function handleEditStorage(space: StorageSpace) {
@@ -490,7 +570,31 @@ export default function StorageManagementScreen() {
               </View>
 
               <View style={styles.splitColumn}>
-                <Text style={styles.panelTitle}>Compartments</Text>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: 10,
+                  }}
+                >
+                  <Text style={styles.panelTitle}>Compartments</Text>
+
+                  <HapticPressable
+                    onPress={handleCreateCompartment}
+                    disabled={!selectedStorageId || isBusy()}
+                    style={[
+                      styles.iconButton,
+                      (!selectedStorageId || isBusy()) &&
+                      styles.disabledInteraction,
+                    ]}
+                  >
+                    <Plus
+                      size={18}
+                      color={theme.isLight ? "#000000" : colors.text}
+                    />
+                  </HapticPressable>
+                </View>
 
                 <FlatList
                   data={compartments}
@@ -498,30 +602,50 @@ export default function StorageManagementScreen() {
                   showsVerticalScrollIndicator={false}
                   contentContainerStyle={styles.listContent}
                   renderItem={({ item }) => (
-                    <BlurView
-                      intensity={theme.isLight ? 0 : 18}
-                      tint={theme.isLight ? "light" : "dark"}
-                      style={[
-                        styles.compartmentCard,
-                        {
-                          backgroundColor: theme.isLight
-                            ? "#FFFFFF"
-                            : "rgba(15,23,42,0.20)",
-                          borderColor: theme.isLight
-                            ? "rgba(15,23,42,0.10)"
-                            : "rgba(255,255,255,0.12)",
-                        },
-                      ]}
+                    <HapticPressable
+                      onPress={() => handleSelectCompartment(item.id)}
+                      style={{ width: "100%" }}
                     >
-                      <Text
+                      <BlurView
+                        intensity={theme.isLight ? 0 : 18}
+                        tint={theme.isLight ? "light" : "dark"}
                         style={[
-                          styles.storageTitle,
-                          { color: theme.isLight ? "#000000" : colors.text },
+                          styles.compartmentCard,
+                          {
+                            backgroundColor:
+                              selectedCompartmentId === item.id
+                                ? theme.isLight
+                                  ? "#E5F0FF"
+                                  : "rgba(59,130,246,0.15)"
+                                : theme.isLight
+                                  ? "#FFFFFF"
+                                  : "rgba(15,23,42,0.20)",
+                            borderColor:
+                              selectedCompartmentId === item.id
+                                ? "#3B82F6"
+                                : theme.isLight
+                                  ? "rgba(15,23,42,0.10)"
+                                  : "rgba(255,255,255,0.12)",
+                          },
                         ]}
                       >
-                        {item.name}
-                      </Text>
-                    </BlurView>
+                        <Text
+                          style={[
+                            styles.storageTitle,
+                            {
+                              color:
+                                selectedCompartmentId === item.id
+                                  ? "#3B82F6"
+                                  : theme.isLight
+                                    ? "#000000"
+                                    : colors.text,
+                            },
+                          ]}
+                        >
+                          {item.name}
+                        </Text>
+                      </BlurView>
+                    </HapticPressable>
                   )}
                   ListEmptyComponent={
                     <BlurView intensity={18} tint="dark" style={styles.emptyCard}>
@@ -532,6 +656,55 @@ export default function StorageManagementScreen() {
                     </BlurView>
                   }
                 />
+
+                {selectedCompartmentId ? (
+                  <View style={{ marginTop: 16 }}>
+                    <Text style={styles.panelTitle}>Items</Text>
+
+                    {compartmentItems.length === 0 ? (
+                      <Text style={styles.storageMeta}>
+                        No items in this compartment
+                      </Text>
+                    ) : (
+                      <FlatList
+                        data={compartmentItems}
+                        keyExtractor={(item) => item.id}
+                        scrollEnabled={false}
+                        renderItem={({ item }) => (
+                          <HapticPressable
+                            onPress={() => handleOpenItem(item)}
+                            style={{ width: "100%" }}
+                            disabled={isBusy()}
+                          >
+                            <BlurView
+                              intensity={theme.isLight ? 0 : 18}
+                              tint={theme.isLight ? "light" : "dark"}
+                              style={[
+                                styles.compartmentCard,
+                                {
+                                  backgroundColor: theme.isLight
+                                    ? "#FFFFFF"
+                                    : "rgba(15,23,42,0.20)",
+                                  borderColor: theme.isLight
+                                    ? "rgba(15,23,42,0.10)"
+                                    : "rgba(255,255,255,0.12)",
+                                },
+                              ]}
+                            >
+                              <Text style={styles.storageTitle}>
+                                {item.name}
+                              </Text>
+
+                              <Text style={styles.storageMeta}>
+                                Qty: {item.quantity} • {item.status}
+                              </Text>
+                            </BlurView>
+                          </HapticPressable>
+                        )}
+                      />
+                    )}
+                  </View>
+                ) : null}
               </View>
             </View>
           ) : (
