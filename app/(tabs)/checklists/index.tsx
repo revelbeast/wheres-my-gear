@@ -490,6 +490,15 @@ export default function ChecklistsTabScreen() {
 
   const sortedChecklists = useMemo(() => {
     return [...combinedChecklists].sort((a, b) => {
+      const aIsPacked =
+        (a.totalCount ?? 0) > 0 && (a.missingCount ?? 0) === 0;
+      const bIsPacked =
+        (b.totalCount ?? 0) > 0 && (b.missingCount ?? 0) === 0;
+
+      if (aIsPacked !== bIsPacked) {
+        return aIsPacked ? 1 : -1;
+      }
+
       const aName = String(a.name ?? "").trim().toLowerCase();
       const bName = String(b.name ?? "").trim().toLowerCase();
 
@@ -728,7 +737,16 @@ export default function ChecklistsTabScreen() {
                   />
                 ) : (
                   displayedChecklists.map((checklist) => (
-                    <ThemedCard key={checklist.id} style={styles.checklistCard}>
+                    <ThemedCard
+                      key={checklist.id}
+                      style={[
+                        styles.checklistCard,
+                        ...((checklist.totalCount ?? 0) > 0 &&
+                          (checklist.missingCount ?? 0) === 0
+                          ? [styles.packedChecklistCard]
+                          : []),
+                      ]}
+                    >
                       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                         <HapticPressable
                           style={[
@@ -763,7 +781,11 @@ export default function ChecklistsTabScreen() {
                                 {checklist.packedCount ?? 0} / {checklist.totalCount ?? 0} packed
                               </ThemedText>
 
-                              {selectedChecklistStatus !== "packed" && (
+                              {(checklist.missingCount ?? 0) === 0 ? (
+                                <ThemedText style={styles.packedBadge}>
+                                  Packed
+                                </ThemedText>
+                              ) : (
                                 <ThemedText color="danger" style={styles.toPackBadge}>
                                   {checklist.missingCount ?? 0} to pack
                                 </ThemedText>
@@ -994,11 +1016,15 @@ export default function ChecklistsTabScreen() {
                           {checklist.packedCount ?? 0} / {checklist.totalCount ?? 0} packed
                         </ThemedText>
 
-                        {selectedChecklistStatus !== "packed" && (
-                          <ThemedText color="danger" style={styles.toPackBadge}>
-                            {checklist.missingCount ?? 0} to pack
-                          </ThemedText>
-                        )}
+                        {(checklist.missingCount ?? 0) === 0 ? (
+                                <ThemedText style={styles.packedBadge}>
+                                  Packed
+                                </ThemedText>
+                              ) : (
+                                <ThemedText color="danger" style={styles.toPackBadge}>
+                                  {checklist.missingCount ?? 0} to pack
+                                </ThemedText>
+                              )}
                       </View>
                     </View>
 
@@ -1299,9 +1325,19 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
+  packedBadge: {
+    color: "rgb(34,197,94)",
+    fontWeight: "800",
+  },
+
   packedProgressText: {
     color: "rgb(34,197,94)",
     fontWeight: "800",
+  },
+
+  packedChecklistCard: {
+    borderColor: "rgba(34,197,94,0.95)",
+    borderWidth: 1.5,
   },
 
   emptyStateCard: {
