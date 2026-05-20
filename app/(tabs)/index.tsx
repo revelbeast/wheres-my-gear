@@ -2570,6 +2570,46 @@ export default function DashboardScreen() {
                         </HapticPressable>
                       )}
                     </View>
+
+                    {!isTabletLandscape && (
+                      <ThemedCard style={styles.stackedQuickActionsCard}>
+                        <ThemedText variant="bodyStrong" style={styles.emptyTitle}>
+                          Quick Actions
+                        </ThemedText>
+
+                        <View style={styles.stackedQuickActionsGrid}>
+                          <HapticPressable style={[styles.selectorButton, styles.stackedQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.scan }]} onPress={handleOpenScanQuickAction}>
+                            <Camera size={18} color={quickActionColors.scan} />
+                            <ThemedText>QR / Barcode Scanner</ThemedText>
+                          </HapticPressable>
+
+                          <HapticPressable style={[styles.selectorButton, styles.stackedQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.addItem }]}>
+                            <PackagePlus size={18} color={quickActionColors.addItem} />
+                            <ThemedText>Scan Item w/ AI</ThemedText>
+                          </HapticPressable>
+
+                          <HapticPressable style={[styles.selectorButton, styles.stackedQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.compartment }]} onPress={handleAddCompartment}>
+                            <FolderPlus size={18} color={quickActionColors.compartment} />
+                            <ThemedText>Add Compartment</ThemedText>
+                          </HapticPressable>
+
+                          <HapticPressable style={[styles.selectorButton, styles.stackedQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.storage }]} onPress={handleAddStorageSpace}>
+                            <Plus size={18} color={quickActionColors.storage} />
+                            <ThemedText>Add Storage Space</ThemedText>
+                          </HapticPressable>
+
+                          <HapticPressable style={[styles.selectorButton, styles.stackedQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.trip }]} onPress={handleAddTrip}>
+                            <CalendarDays size={18} color={quickActionColors.trip} />
+                            <ThemedText>Create Trip</ThemedText>
+                          </HapticPressable>
+
+                          <HapticPressable style={[styles.selectorButton, styles.stackedQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.export }]} onPress={handleOpenDashboardExport}>
+                            <Share size={18} color={quickActionColors.export} />
+                            <ThemedText>Export To...</ThemedText>
+                          </HapticPressable>
+                        </View>
+                      </ThemedCard>
+                    )}
                   </View>
 
                   {isTabletLandscape && (
@@ -3585,6 +3625,26 @@ const styles = StyleSheet.create({
     width: "48%",
     minHeight: 72,
     marginBottom: 10,
+    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 6,
+  },
+
+  stackedQuickActionsCard: {
+    marginBottom: 16,
+  },
+
+  stackedQuickActionsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginTop: 12,
+  },
+
+  stackedQuickActionButton: {
+    width: "48%",
+    minHeight: 64,
     borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
