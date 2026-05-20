@@ -231,6 +231,11 @@ export default function ScanItemScreen() {
               code: result.barcode,
               found: String(result.found),
               suggestedName: result.bestName ?? "",
+              source: result.sources.upcitemdb ? "UPCitemDB" : result.sources.openFoodFacts ? "OpenFoodFacts" : "Unknown",
+              brand: result.sources.upcitemdb?.brand ?? "",
+              image: result.sources.upcitemdb?.image ?? "",
+              description: result.sources.upcitemdb?.description ?? "",
+              matchConfidence: result.sources.upcitemdb?.confidence != null ? String(result.sources.upcitemdb.confidence) : "",
             },
           });
 

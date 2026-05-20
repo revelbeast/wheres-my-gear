@@ -9,7 +9,7 @@ import {
   Tag,
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
-import { Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Image, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 import {
   addDoc,
@@ -46,12 +46,34 @@ export default function ScanResultScreen() {
   const nameInputRef = React.useRef<TextInput>(null);
   const { isTabletLandscape } = useResponsiveLayout();
 
-  const { code, suggestedName, found, affiliateLink } =
-    useLocalSearchParams();
+  const {
+    code,
+    suggestedName,
+    found,
+    affiliateLink,
+    source,
+    brand,
+    image,
+    description,
+    matchConfidence,
+  } = useLocalSearchParams();
 
   const uid = auth.currentUser?.uid;
 
   const amazonUrl = affiliateLink ? String(affiliateLink) : null;
+  const catalogSource = source ? String(source) : "Catalog Lookup";
+  const catalogBrand = brand ? String(brand) : "Brand unavailable";
+  const catalogImage = image ? String(image) : null;
+  const catalogDescription = description ? String(description) : null;
+  const catalogConfidence =
+    matchConfidence && !Number.isNaN(Number(matchConfidence))
+      ? `${Math.round(Number(matchConfidence) * 100)}%`
+      : "Pending";
+  const catalogDescriptionPreview = catalogDescription
+    ? catalogDescription
+        .split(/(?<=[.!?])\s+/)
+        .filter(Boolean)[0] ?? null
+    : null;
 
   const [state, setState] = useState<ScanState>("confirmItem");
   const [loading, setLoading] = useState(false);
@@ -782,7 +804,7 @@ export default function ScanResultScreen() {
                       fontWeight: "600",
                     }}
                   >
-                    View on Amazon
+                    View Product
                   </Text>
                 </View>
               ) : null}
@@ -915,7 +937,7 @@ export default function ScanResultScreen() {
         >
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
             <Text style={{ fontSize: 22, fontWeight: "800", color: "#111827" }}>
-              Amazon Product Preview
+              Product Match Preview
             </Text>
 
             <View
@@ -966,7 +988,7 @@ export default function ScanResultScreen() {
                   fontWeight: "700",
                 }}
               >
-                Amazon enrichment pending
+                Catalog enrichment active
               </Text>
 
               <Text
@@ -977,7 +999,7 @@ export default function ScanResultScreen() {
                   lineHeight: 20,
                 }}
               >
-                Product details, images, and confidence data will appear here once Amazon enrichment becomes available.
+                Product details, images, and confidence data will appear here when catalog enrichment is available.
               </Text>
             </View>
           </View>
@@ -1005,19 +1027,33 @@ export default function ScanResultScreen() {
                 alignItems: "center",
                 justifyContent: "center",
                 flexShrink: 0,
+                overflow: "hidden",
               }}
             >
-              <Text style={{ color: "#9CA3AF", fontSize: 42 }}>□</Text>
-              <Text
-                style={{
-                  marginTop: 10,
-                  color: "#374151",
-                  fontWeight: "700",
-                  textAlign: "center",
-                }}
-              >
-                Product image{"\n"}coming soon
-              </Text>
+              {catalogImage ? (
+                <Image
+                  source={{ uri: catalogImage }}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                  }}
+                  resizeMode="contain"
+                />
+              ) : (
+                <>
+                  <Text style={{ color: "#9CA3AF", fontSize: 42 }}>□</Text>
+                  <Text
+                    style={{
+                      marginTop: 10,
+                      color: "#374151",
+                      fontWeight: "700",
+                      textAlign: "center",
+                    }}
+                  >
+                    Product image{"\n"}coming soon
+                  </Text>
+                </>
+              )}
             </View>
 
             <View style={{ flex: 1 }}>
@@ -1033,7 +1069,7 @@ export default function ScanResultScreen() {
               </Text>
 
               <Text style={{ marginTop: 6, color: "#4B5563", fontWeight: "600" }}>
-                Brand
+                {catalogBrand}
               </Text>
 
               <Text
@@ -1044,7 +1080,7 @@ export default function ScanResultScreen() {
                   fontSize: 15,
                 }}
               >
-                Product description will appear here once we receive catalog data from Amazon.
+                {catalogDescriptionPreview || "Product description will appear here once we receive catalog data."}
               </Text>
 
               <Text
@@ -1054,7 +1090,7 @@ export default function ScanResultScreen() {
                   fontWeight: "700",
                 }}
               >
-                ASIN: <Text style={{ color: "#0284C7" }}>Pending</Text>
+                Catalog ID: <Text style={{ color: "#0284C7" }}>Pending</Text>
               </Text>
 
               <Text style={{ marginTop: 8, color: "#111827", fontWeight: "700" }}>
@@ -1062,11 +1098,11 @@ export default function ScanResultScreen() {
               </Text>
 
               <Text style={{ marginTop: 8, color: "#111827", fontWeight: "700" }}>
-                Source: <Text style={{ fontWeight: "600" }}>Amazon</Text>
+                Source: <Text style={{ fontWeight: "600" }}>{catalogSource}</Text>
               </Text>
 
               <Text style={{ marginTop: 8, color: "#111827", fontWeight: "700" }}>
-                Confidence: <Text style={{ color: "#B45309" }}>Pending</Text>
+                Confidence: <Text style={{ color: "#B45309" }}>{catalogConfidence}</Text>
               </Text>
 
               <TouchableOpacity
@@ -1099,7 +1135,7 @@ export default function ScanResultScreen() {
                       fontSize: 18,
                     }}
                   >
-                    Buy again on Amazon
+                    Find product online
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -1123,7 +1159,7 @@ export default function ScanResultScreen() {
                 gap: 10,
               }}
             >
-              {/* Use Amazon Title */}
+              {/* Use Suggested Title */}
               <TouchableOpacity
                 style={{
                   flex: 1,
@@ -1150,12 +1186,12 @@ export default function ScanResultScreen() {
                       color: "#111827",
                     }}
                   >
-                    Use Amazon Title
+                    Use Suggested Title
                   </Text>
                 </View>
               </TouchableOpacity>
 
-              {/* View on Amazon */}
+              {/* View Product */}
               <TouchableOpacity
                 onPress={() => {
                   const cleanUrl = amazonUrl?.split("?")[0];
@@ -1186,7 +1222,7 @@ export default function ScanResultScreen() {
                       color: "#111827",
                     }}
                   >
-                    View on Amazon
+                    View Product
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -1232,7 +1268,7 @@ export default function ScanResultScreen() {
               <View>
                 <Text style={{ color: "#6B7280", fontSize: 12 }}>Source</Text>
                 <Text style={{ marginTop: 2, color: "#111827", fontWeight: "700" }}>
-                  Amazon Search
+                  Catalog Lookup
                 </Text>
               </View>
             </View>

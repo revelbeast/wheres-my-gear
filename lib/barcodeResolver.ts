@@ -2,11 +2,13 @@ type OpenFoodProduct = {
     name?: string | null;
 };
 
-type AmazonProduct = {
-    title: string;
-    asin: string;
-    image?: string;
-    url: string;
+type UPCItemDBProduct = {
+    title: string | null;
+    brand: string | null;
+    image: string | null;
+    description: string | null;
+    upc: string;
+    confidence: number;
 };
 
 export type ScanResult = {
@@ -17,7 +19,7 @@ export type ScanResult = {
     requiresManualEntry: boolean;
     sources: {
         openFoodFacts?: OpenFoodProduct | null;
-        amazon?: AmazonProduct | null;
+        upcitemdb?: UPCItemDBProduct | null;
     };
     affiliateLink?: string | null;
 };
@@ -38,7 +40,6 @@ async function fetchOpenFoodFacts(
 
         const text = await res.text();
 
-        // guard: HTML response (API error / redirect / block)
         if (!text || text.trim().startsWith("<")) {
             console.log("OPEN FOOD FACTS: Non-JSON response received");
             return null;
@@ -62,28 +63,40 @@ async function fetchOpenFoodFacts(
     }
 }
 
-/**
- * Amazon resolver (Step 5C placeholder)
- * Will be replaced with PA-API in Step 5D
- */
-import { buildAmazonAffiliateLink } from "./amazonAffiliate";
-
-async function fetchAmazonProduct(
+async function fetchUPCItemDB(
     barcode: string
-): Promise<AmazonProduct | null> {
+): Promise<UPCItemDBProduct | null> {
     try {
-        // We now use Amazon SEARCH instead of PA-API lookup
-        const fallbackQuery = `item ${barcode}`;
+        const res = await fetch(
+            "http://192.168.7.147:5001/wheres-my-gear-ab7a7/us-central1/lookupUPCItemDB",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ upc: barcode }),
+            }
+        );
 
-        const url = buildAmazonAffiliateLink(fallbackQuery);
+        const data = await res.json();
+
+        if (!res.ok || data?.found !== true) {
+            return null;
+        }
 
         return {
-            title: fallbackQuery,
-            asin: "search",
-            url,
+            title: data?.title ?? null,
+            brand: data?.brand ?? null,
+            image: data?.image ?? null,
+            description: data?.description ?? null,
+            upc: data?.upc ?? barcode,
+            confidence:
+                typeof data?.confidence === "number"
+                    ? data.confidence
+                    : 0.75,
         };
     } catch (err) {
-        console.log("AMAZON AFFILIATE LINK ERROR:", err);
+        console.log("UPCITEMDB LOOKUP ERROR:", err);
         return null;
     }
 }
@@ -91,21 +104,19 @@ async function fetchAmazonProduct(
 export async function resolveBarcode(
     barcode: string
 ): Promise<ScanResult> {
-    const [food, amazon] = await Promise.all([
+    const [food, upcitemdb] = await Promise.all([
         fetchOpenFoodFacts(barcode),
-        fetchAmazonProduct(barcode),
+        fetchUPCItemDB(barcode),
     ]);
 
-    const bestAmazon = amazon;
-
     const bestName =
-        bestAmazon?.title ||
+        upcitemdb?.title ||
         food?.name ||
         `Item ${barcode.slice(-4)}`;
 
-    const found = Boolean(food || amazon);
+    const found = Boolean(food || upcitemdb);
 
-    const confidence: ScanResult["confidence"] = amazon
+    const confidence: ScanResult["confidence"] = upcitemdb
         ? "high"
         : food
             ? "medium"
@@ -119,8 +130,8 @@ export async function resolveBarcode(
         requiresManualEntry: !found,
         sources: {
             openFoodFacts: food,
-            amazon: amazon ?? null,
+            upcitemdb: upcitemdb ?? null,
         },
-        affiliateLink: bestAmazon?.url ?? null,
+        affiliateLink: null,
     };
 }
