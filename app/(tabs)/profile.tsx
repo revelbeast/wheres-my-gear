@@ -783,9 +783,17 @@ export default function ProfileScreen() {
           showsVerticalScrollIndicator={false}
         >
           {isTablet && isLandscape ? (
-            <View style={styles.tabletLandscapeLayout}>
-              <View style={styles.tabletIdentityColumn}>
-                <ThemedCard contentStyle={styles.identityCardContent}>
+            <>
+              <ThemedText
+                variant="header"
+                style={[styles.header, styles.headerCentered, styles.headerWhite]}
+              >
+                Profile
+              </ThemedText>
+
+              <View style={styles.tabletLandscapeLayout}>
+                <View style={styles.tabletIdentityColumn}>
+                  <ThemedCard contentStyle={styles.identityCardContent}>
                   <Image source={APP_ICON} style={styles.appIcon} />
 
                   <ThemedText
@@ -872,15 +880,8 @@ export default function ProfileScreen() {
                 </ThemedCard>
               </View>
 
-              <View style={styles.tabletCardsColumn}>
-                <ThemedText
-                  variant="header"
-                  style={[styles.header, styles.headerWhite]}
-                >
-                  Profile
-                </ThemedText>
-
-                <ThemedCard contentStyle={styles.profileCardContent}>
+                <View style={styles.tabletCardsColumn}>
+                  <ThemedCard contentStyle={styles.profileCardContent}>
                   <ProfileRow
                     icon={<Crown size={20} color="#FACC15" />}
                     iconBackgroundColor="#000000"
@@ -1032,7 +1033,8 @@ export default function ProfileScreen() {
                   />
                 </ThemedCard>
               </View>
-            </View>
+              </View>
+            </>
           ) : (
             <>
               <ThemedText
@@ -1316,6 +1318,10 @@ const styles = StyleSheet.create({
 
   header: {
     marginBottom: 16,
+  },
+
+  headerCentered: {
+    textAlign: "center",
   },
 
   headerWhite: {
