@@ -1112,6 +1112,30 @@ export async function saveChecklistAsTemplate(
   return templateRef.id;
 }
 
+export async function archiveChecklistTemplate(
+  userId: string,
+  templateId: string
+) {
+  const safeTemplateId = requireDocumentId(templateId, "Template ID");
+
+  await updateDoc(templateDoc(userId, safeTemplateId), {
+    isArchived: true,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function restoreChecklistTemplate(
+  userId: string,
+  templateId: string
+) {
+  const safeTemplateId = requireDocumentId(templateId, "Template ID");
+
+  await updateDoc(templateDoc(userId, safeTemplateId), {
+    isArchived: false,
+    updatedAt: serverTimestamp(),
+  });
+}
+
 export async function deleteChecklistTemplate(
   userId: string,
   templateId: string
