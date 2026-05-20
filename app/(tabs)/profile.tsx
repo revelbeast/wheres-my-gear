@@ -836,14 +836,6 @@ export default function ProfileScreen() {
                     {userDisplayName}
                   </ThemedText>
 
-                  <ThemedText
-                    color="secondary"
-                    style={styles.identityEmail}
-                    numberOfLines={1}
-                  >
-                    {userEmail}
-                  </ThemedText>
-
                   <View
                     style={[
                       styles.statusPill,
@@ -881,326 +873,326 @@ export default function ProfileScreen() {
               </View>
 
               <View style={styles.tabletCardsColumn}>
-          <ThemedText
-            variant="header"
-            style={[styles.header, styles.headerWhite]}
-          >
-            Profile
-          </ThemedText>
+                <ThemedText
+                  variant="header"
+                  style={[styles.header, styles.headerWhite]}
+                >
+                  Profile
+                </ThemedText>
 
-          <ThemedCard contentStyle={styles.profileCardContent}>
-            <ProfileRow
-              icon={<Crown size={20} color="#FACC15" />}
-              iconBackgroundColor="#000000"
-              title={isPremium ? "Premium Active" : "Upgrade to Premium"}
-              subtitle={
-                isPremium
-                  ? premiumSubtitle
-                  : "Remove ads and unlock premium features"
-              }
-              onPress={
-                isPremium ? handleOpenSubscriptionDetails : handleOpenPaywall
-              }
-              showChevron={false}
-              disabled={rowActionsDisabled}
-            />
+                <ThemedCard contentStyle={styles.profileCardContent}>
+                  <ProfileRow
+                    icon={<Crown size={20} color="#FACC15" />}
+                    iconBackgroundColor="#000000"
+                    title={isPremium ? "Premium Active" : "Upgrade to Premium"}
+                    subtitle={
+                      isPremium
+                        ? premiumSubtitle
+                        : "Remove ads and unlock premium features"
+                    }
+                    onPress={
+                      isPremium ? handleOpenSubscriptionDetails : handleOpenPaywall
+                    }
+                    showChevron={false}
+                    disabled={rowActionsDisabled}
+                  />
 
-            <View
-              style={[
-                styles.divider,
-                { backgroundColor: theme.colors.border },
-              ]}
-            />
+                  <View
+                    style={[
+                      styles.divider,
+                      { backgroundColor: theme.colors.border },
+                    ]}
+                  />
 
-            <ProfileRow
-              icon={<RotateCcw size={20} color={iconColor} />}
-              title={
-                isRestoringPurchases
-                  ? "Restoring Purchases..."
-                  : "Restore Purchases"
-              }
-              subtitle="Recover a previous Premium purchase"
-              onPress={handleRestorePurchases}
-              showChevron={false}
-              disabled={rowActionsDisabled}
-            />
-          </ThemedCard>
+                  <ProfileRow
+                    icon={<RotateCcw size={20} color={iconColor} />}
+                    title={
+                      isRestoringPurchases
+                        ? "Restoring Purchases..."
+                        : "Restore Purchases"
+                    }
+                    subtitle="Recover a previous Premium purchase"
+                    onPress={handleRestorePurchases}
+                    showChevron={false}
+                    disabled={rowActionsDisabled}
+                  />
+                </ThemedCard>
 
-          <ThemedCard contentStyle={styles.profileCardContent}>
-            <ProfileRow
-              icon={<User size={20} color={iconColor} />}
-              title="My Account"
-              subtitle="Update your name, email, phone, photo, and background"
-              onPress={handleOpenProfileSettings}
-              disabled={rowActionsDisabled}
-            />
+                <ThemedCard contentStyle={styles.profileCardContent}>
+                  <ProfileRow
+                    icon={<User size={20} color={iconColor} />}
+                    title="My Account"
+                    subtitle="Update your name, email, phone, photo, and background"
+                    onPress={handleOpenProfileSettings}
+                    disabled={rowActionsDisabled}
+                  />
 
-          </ThemedCard>
+                </ThemedCard>
 
-          <ThemedCard contentStyle={styles.profileCardContent}>
-            <ProfileRow
-              icon={<Star size={20} color={iconColor} />}
-              title="Rate the App"
-              subtitle="Leave a rating or review in the App Store"
-              onPress={handleRateApp}
-              disabled={rowActionsDisabled}
-            />
+                <ThemedCard contentStyle={styles.profileCardContent}>
+                  <ProfileRow
+                    icon={<Star size={20} color={iconColor} />}
+                    title="Rate the App"
+                    subtitle="Leave a rating or review in the App Store"
+                    onPress={handleRateApp}
+                    disabled={rowActionsDisabled}
+                  />
 
-            <View
-              style={[
-                styles.divider,
-                { backgroundColor: theme.colors.border },
-              ]}
-            />
+                  <View
+                    style={[
+                      styles.divider,
+                      { backgroundColor: theme.colors.border },
+                    ]}
+                  />
 
-            <ProfileRow
-              icon={<FileText size={20} color={iconColor} />}
-              title="User Agreement"
-              subtitle="View app terms and conditions"
-              onPress={handleOpenUserAgreement}
-              disabled={rowActionsDisabled}
-            />
+                  <ProfileRow
+                    icon={<FileText size={20} color={iconColor} />}
+                    title="User Agreement"
+                    subtitle="View app terms and conditions"
+                    onPress={handleOpenUserAgreement}
+                    disabled={rowActionsDisabled}
+                  />
 
-            <View
-              style={[
-                styles.divider,
-                { backgroundColor: theme.colors.border },
-              ]}
-            />
+                  <View
+                    style={[
+                      styles.divider,
+                      { backgroundColor: theme.colors.border },
+                    ]}
+                  />
 
-            <ProfileRow
-              icon={<ShieldCheck size={20} color={iconColor} />}
-              title="Privacy Policy"
-              subtitle="View how your data is handled"
-              onPress={handleOpenPrivacyPolicy}
-              disabled={rowActionsDisabled}
-            />
+                  <ProfileRow
+                    icon={<ShieldCheck size={20} color={iconColor} />}
+                    title="Privacy Policy"
+                    subtitle="View how your data is handled"
+                    onPress={handleOpenPrivacyPolicy}
+                    disabled={rowActionsDisabled}
+                  />
 
-            <View
-              style={[
-                styles.divider,
-                { backgroundColor: theme.colors.border },
-              ]}
-            />
+                  <View
+                    style={[
+                      styles.divider,
+                      { backgroundColor: theme.colors.border },
+                    ]}
+                  />
 
-            <ProfileRow
-              icon={<CircleHelp size={20} color={iconColor} />}
-              title="FAQ"
-              subtitle="Get answers to common questions"
-              onPress={handleOpenFaq}
-              disabled={rowActionsDisabled}
-            />
+                  <ProfileRow
+                    icon={<CircleHelp size={20} color={iconColor} />}
+                    title="FAQ"
+                    subtitle="Get answers to common questions"
+                    onPress={handleOpenFaq}
+                    disabled={rowActionsDisabled}
+                  />
 
-            <View
-              style={[
-                styles.divider,
-                { backgroundColor: theme.colors.border },
-              ]}
-            />
+                  <View
+                    style={[
+                      styles.divider,
+                      { backgroundColor: theme.colors.border },
+                    ]}
+                  />
 
-            <ProfileRow
-              icon={<Moon size={20} color={iconColor} />}
-              title="General Settings"
-              subtitle="Edit theme and display preferences"
-              onPress={handleOpenGeneralSettings}
-              disabled={rowActionsDisabled}
-            />
-          </ThemedCard>
+                  <ProfileRow
+                    icon={<Moon size={20} color={iconColor} />}
+                    title="General Settings"
+                    subtitle="Edit theme and display preferences"
+                    onPress={handleOpenGeneralSettings}
+                    disabled={rowActionsDisabled}
+                  />
+                </ThemedCard>
 
-          <ThemedCard contentStyle={styles.profileCardContent}>
-            <ProfileRow
-              icon={<Info size={20} color={iconColor} />}
-              title="Version"
-              subtitle={`Where's My Gear v${version}`}
-              showChevron={false}
-            />
-          </ThemedCard>
+                <ThemedCard contentStyle={styles.profileCardContent}>
+                  <ProfileRow
+                    icon={<Info size={20} color={iconColor} />}
+                    title="Version"
+                    subtitle={`Where's My Gear v${version}`}
+                    showChevron={false}
+                  />
+                </ThemedCard>
 
-          <ThemedCard contentStyle={styles.profileCardContent}>
-            <ProfileRow
-              icon={<Trash2 size={20} color={dangerIconColor} />}
-              title={isDeletingAllData ? "Deleting Data..." : "Delete All Data"}
-              subtitle="Delete all Storage Spaces, Compartments, Inventory Items, and Checklists"
-              destructive
-              onPress={handleDeleteAllData}
-              showChevron={false}
-              disabled={rowActionsDisabled}
-            />
-          </ThemedCard>
+                <ThemedCard contentStyle={styles.profileCardContent}>
+                  <ProfileRow
+                    icon={<Trash2 size={20} color={dangerIconColor} />}
+                    title={isDeletingAllData ? "Deleting Data..." : "Delete All Data"}
+                    subtitle="Delete all Storage Spaces, Compartments, Inventory Items, and Checklists"
+                    destructive
+                    onPress={handleDeleteAllData}
+                    showChevron={false}
+                    disabled={rowActionsDisabled}
+                  />
+                </ThemedCard>
 
-          <ThemedCard contentStyle={styles.profileCardContent}>
-            <ProfileRow
-              icon={<LogOut size={20} color={dangerIconColor} />}
-              title="Sign Out"
-              subtitle="Sign out of your account"
-              destructive
-              onPress={handleSignOut}
-              showChevron={false}
-              disabled={rowActionsDisabled}
-            />
-          </ThemedCard>
+                <ThemedCard contentStyle={styles.profileCardContent}>
+                  <ProfileRow
+                    icon={<LogOut size={20} color={dangerIconColor} />}
+                    title="Sign Out"
+                    subtitle="Sign out of your account"
+                    destructive
+                    onPress={handleSignOut}
+                    showChevron={false}
+                    disabled={rowActionsDisabled}
+                  />
+                </ThemedCard>
               </View>
             </View>
           ) : (
             <>
-          <ThemedText
-            variant="header"
-            style={[styles.header, styles.headerWhite]}
-          >
-            Profile
-          </ThemedText>
+              <ThemedText
+                variant="header"
+                style={[styles.header, styles.headerWhite]}
+              >
+                Profile
+              </ThemedText>
 
-          <ThemedCard contentStyle={styles.profileCardContent}>
-            <ProfileRow
-              icon={<Crown size={20} color="#FACC15" />}
-              iconBackgroundColor="#000000"
-              title={isPremium ? "Premium Active" : "Upgrade to Premium"}
-              subtitle={
-                isPremium
-                  ? premiumSubtitle
-                  : "Remove ads and unlock premium features"
-              }
-              onPress={
-                isPremium ? handleOpenSubscriptionDetails : handleOpenPaywall
-              }
-              showChevron={false}
-              disabled={rowActionsDisabled}
-            />
+              <ThemedCard contentStyle={styles.profileCardContent}>
+                <ProfileRow
+                  icon={<Crown size={20} color="#FACC15" />}
+                  iconBackgroundColor="#000000"
+                  title={isPremium ? "Premium Active" : "Upgrade to Premium"}
+                  subtitle={
+                    isPremium
+                      ? premiumSubtitle
+                      : "Remove ads and unlock premium features"
+                  }
+                  onPress={
+                    isPremium ? handleOpenSubscriptionDetails : handleOpenPaywall
+                  }
+                  showChevron={false}
+                  disabled={rowActionsDisabled}
+                />
 
-            <View
-              style={[
-                styles.divider,
-                { backgroundColor: theme.colors.border },
-              ]}
-            />
+                <View
+                  style={[
+                    styles.divider,
+                    { backgroundColor: theme.colors.border },
+                  ]}
+                />
 
-            <ProfileRow
-              icon={<RotateCcw size={20} color={iconColor} />}
-              title={
-                isRestoringPurchases
-                  ? "Restoring Purchases..."
-                  : "Restore Purchases"
-              }
-              subtitle="Recover a previous Premium purchase"
-              onPress={handleRestorePurchases}
-              showChevron={false}
-              disabled={rowActionsDisabled}
-            />
-          </ThemedCard>
+                <ProfileRow
+                  icon={<RotateCcw size={20} color={iconColor} />}
+                  title={
+                    isRestoringPurchases
+                      ? "Restoring Purchases..."
+                      : "Restore Purchases"
+                  }
+                  subtitle="Recover a previous Premium purchase"
+                  onPress={handleRestorePurchases}
+                  showChevron={false}
+                  disabled={rowActionsDisabled}
+                />
+              </ThemedCard>
 
-          <ThemedCard contentStyle={styles.profileCardContent}>
-            <ProfileRow
-              icon={<User size={20} color={iconColor} />}
-              title="My Account"
-              subtitle="Update your name, email, phone, photo, and background"
-              onPress={handleOpenProfileSettings}
-              disabled={rowActionsDisabled}
-            />
+              <ThemedCard contentStyle={styles.profileCardContent}>
+                <ProfileRow
+                  icon={<User size={20} color={iconColor} />}
+                  title="My Account"
+                  subtitle="Update your name, email, phone, photo, and background"
+                  onPress={handleOpenProfileSettings}
+                  disabled={rowActionsDisabled}
+                />
 
-          </ThemedCard>
+              </ThemedCard>
 
-          <ThemedCard contentStyle={styles.profileCardContent}>
-            <ProfileRow
-              icon={<Star size={20} color={iconColor} />}
-              title="Rate the App"
-              subtitle="Leave a rating or review in the App Store"
-              onPress={handleRateApp}
-              disabled={rowActionsDisabled}
-            />
+              <ThemedCard contentStyle={styles.profileCardContent}>
+                <ProfileRow
+                  icon={<Star size={20} color={iconColor} />}
+                  title="Rate the App"
+                  subtitle="Leave a rating or review in the App Store"
+                  onPress={handleRateApp}
+                  disabled={rowActionsDisabled}
+                />
 
-            <View
-              style={[
-                styles.divider,
-                { backgroundColor: theme.colors.border },
-              ]}
-            />
+                <View
+                  style={[
+                    styles.divider,
+                    { backgroundColor: theme.colors.border },
+                  ]}
+                />
 
-            <ProfileRow
-              icon={<FileText size={20} color={iconColor} />}
-              title="User Agreement"
-              subtitle="View app terms and conditions"
-              onPress={handleOpenUserAgreement}
-              disabled={rowActionsDisabled}
-            />
+                <ProfileRow
+                  icon={<FileText size={20} color={iconColor} />}
+                  title="User Agreement"
+                  subtitle="View app terms and conditions"
+                  onPress={handleOpenUserAgreement}
+                  disabled={rowActionsDisabled}
+                />
 
-            <View
-              style={[
-                styles.divider,
-                { backgroundColor: theme.colors.border },
-              ]}
-            />
+                <View
+                  style={[
+                    styles.divider,
+                    { backgroundColor: theme.colors.border },
+                  ]}
+                />
 
-            <ProfileRow
-              icon={<ShieldCheck size={20} color={iconColor} />}
-              title="Privacy Policy"
-              subtitle="View how your data is handled"
-              onPress={handleOpenPrivacyPolicy}
-              disabled={rowActionsDisabled}
-            />
+                <ProfileRow
+                  icon={<ShieldCheck size={20} color={iconColor} />}
+                  title="Privacy Policy"
+                  subtitle="View how your data is handled"
+                  onPress={handleOpenPrivacyPolicy}
+                  disabled={rowActionsDisabled}
+                />
 
-            <View
-              style={[
-                styles.divider,
-                { backgroundColor: theme.colors.border },
-              ]}
-            />
+                <View
+                  style={[
+                    styles.divider,
+                    { backgroundColor: theme.colors.border },
+                  ]}
+                />
 
-            <ProfileRow
-              icon={<CircleHelp size={20} color={iconColor} />}
-              title="FAQ"
-              subtitle="Get answers to common questions"
-              onPress={handleOpenFaq}
-              disabled={rowActionsDisabled}
-            />
+                <ProfileRow
+                  icon={<CircleHelp size={20} color={iconColor} />}
+                  title="FAQ"
+                  subtitle="Get answers to common questions"
+                  onPress={handleOpenFaq}
+                  disabled={rowActionsDisabled}
+                />
 
-            <View
-              style={[
-                styles.divider,
-                { backgroundColor: theme.colors.border },
-              ]}
-            />
+                <View
+                  style={[
+                    styles.divider,
+                    { backgroundColor: theme.colors.border },
+                  ]}
+                />
 
-            <ProfileRow
-              icon={<Moon size={20} color={iconColor} />}
-              title="General Settings"
-              subtitle="Edit theme and display preferences"
-              onPress={handleOpenGeneralSettings}
-              disabled={rowActionsDisabled}
-            />
-          </ThemedCard>
+                <ProfileRow
+                  icon={<Moon size={20} color={iconColor} />}
+                  title="General Settings"
+                  subtitle="Edit theme and display preferences"
+                  onPress={handleOpenGeneralSettings}
+                  disabled={rowActionsDisabled}
+                />
+              </ThemedCard>
 
-          <ThemedCard contentStyle={styles.profileCardContent}>
-            <ProfileRow
-              icon={<Info size={20} color={iconColor} />}
-              title="Version"
-              subtitle={`Where's My Gear v${version}`}
-              showChevron={false}
-            />
-          </ThemedCard>
+              <ThemedCard contentStyle={styles.profileCardContent}>
+                <ProfileRow
+                  icon={<Info size={20} color={iconColor} />}
+                  title="Version"
+                  subtitle={`Where's My Gear v${version}`}
+                  showChevron={false}
+                />
+              </ThemedCard>
 
-          <ThemedCard contentStyle={styles.profileCardContent}>
-            <ProfileRow
-              icon={<Trash2 size={20} color={dangerIconColor} />}
-              title={isDeletingAllData ? "Deleting Data..." : "Delete All Data"}
-              subtitle="Delete all Storage Spaces, Compartments, Inventory Items, and Checklists"
-              destructive
-              onPress={handleDeleteAllData}
-              showChevron={false}
-              disabled={rowActionsDisabled}
-            />
-          </ThemedCard>
+              <ThemedCard contentStyle={styles.profileCardContent}>
+                <ProfileRow
+                  icon={<Trash2 size={20} color={dangerIconColor} />}
+                  title={isDeletingAllData ? "Deleting Data..." : "Delete All Data"}
+                  subtitle="Delete all Storage Spaces, Compartments, Inventory Items, and Checklists"
+                  destructive
+                  onPress={handleDeleteAllData}
+                  showChevron={false}
+                  disabled={rowActionsDisabled}
+                />
+              </ThemedCard>
 
-          <ThemedCard contentStyle={styles.profileCardContent}>
-            <ProfileRow
-              icon={<LogOut size={20} color={dangerIconColor} />}
-              title="Sign Out"
-              subtitle="Sign out of your account"
-              destructive
-              onPress={handleSignOut}
-              showChevron={false}
-              disabled={rowActionsDisabled}
-            />
-          </ThemedCard>
+              <ThemedCard contentStyle={styles.profileCardContent}>
+                <ProfileRow
+                  icon={<LogOut size={20} color={dangerIconColor} />}
+                  title="Sign Out"
+                  subtitle="Sign out of your account"
+                  destructive
+                  onPress={handleSignOut}
+                  showChevron={false}
+                  disabled={rowActionsDisabled}
+                />
+              </ThemedCard>
             </>
           )}
         </ScrollView>
@@ -1224,11 +1216,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 18,
     alignItems: "flex-start",
+    paddingTop: 12,
   },
 
   tabletIdentityColumn: {
     flex: 0.38,
     minWidth: 0,
+    marginTop: 0,
   },
 
   tabletCardsColumn: {
@@ -1237,16 +1231,17 @@ const styles = StyleSheet.create({
   },
 
   identityCardContent: {
-    paddingHorizontal: 20,
-    paddingVertical: 22,
+    paddingHorizontal: 15,
+    paddingVertical: 16,
     alignItems: "center",
+    justifyContent: "flex-start",
   },
 
   appIcon: {
-    width: 86,
-    height: 86,
-    borderRadius: 22,
-    marginBottom: 14,
+    width: 124,
+    height: 124,
+    borderRadius: 30,
+    marginBottom: 18,
   },
 
   identityTitle: {
