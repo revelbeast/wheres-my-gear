@@ -1,5 +1,5 @@
 import Constants from "expo-constants";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { collection, getDocs, writeBatch } from "firebase/firestore";
 import {
   ChevronRight,
@@ -33,6 +33,8 @@ import {
   hasActivePremiumEntitlement,
   restorePurchases
 } from "../../lib/revenuecat";
+import { getProfileSettings } from "../../lib/settingsService";
+import type { AppProfile } from "../../lib/settingsService";
 import { useDeviceLayout } from "../../lib/useDeviceLayout";
 import { useInteractionLock } from "../../lib/useInteractionLock";
 
@@ -136,6 +138,7 @@ export default function ProfileScreen() {
 
   const isScreenMountedRef = useRef(true);
   const premiumCheckVersionRef = useRef(0);
+  const profileSettingsLoadVersionRef = useRef(0);
   const restorePurchasesVersionRef = useRef(0);
   const deleteAllDataVersionRef = useRef(0);
   const navigationTransitionLockedRef = useRef(false);
@@ -144,6 +147,7 @@ export default function ProfileScreen() {
   );
 
   const [isDeletingAllData, setIsDeletingAllData] = useState(false);
+  const [appProfile, setAppProfile] = useState<AppProfile | null>(null);
   const [isPremium, setIsPremium] = useState(false);
   const [premiumSubtitle, setPremiumSubtitle] = useState(
     "Your Premium subscription is active"
@@ -161,6 +165,7 @@ export default function ProfileScreen() {
     return () => {
       isScreenMountedRef.current = false;
       premiumCheckVersionRef.current += 1;
+      profileSettingsLoadVersionRef.current += 1;
       restorePurchasesVersionRef.current += 1;
       deleteAllDataVersionRef.current += 1;
 
@@ -176,6 +181,46 @@ export default function ProfileScreen() {
       router.replace("/");
     }
   }, [user, initializing]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const userId = user?.uid ?? "";
+      const loadVersion = profileSettingsLoadVersionRef.current + 1;
+      profileSettingsLoadVersionRef.current = loadVersion;
+
+      if (!userId) {
+        setAppProfile(null);
+        return;
+      }
+
+      let isActive = true;
+
+      async function loadAppProfile() {
+        try {
+          const profileSettings = await getProfileSettings(userId);
+
+          if (
+            !isActive ||
+            !isScreenMountedRef.current ||
+            profileSettingsLoadVersionRef.current !== loadVersion
+          ) {
+            return;
+          }
+
+          setAppProfile(profileSettings);
+        } catch (err) {
+          console.error("Failed to load profile settings:", err);
+        }
+      }
+
+      void loadAppProfile();
+
+      return () => {
+        isActive = false;
+        profileSettingsLoadVersionRef.current += 1;
+      };
+    }, [user?.uid])
+  );
 
   useEffect(() => {
     const checkVersion = premiumCheckVersionRef.current + 1;
@@ -732,12 +777,15 @@ export default function ProfileScreen() {
   const rowActionsDisabled =
     interactionLocked || isDeletingAllData || isRestoringPurchases;
 
+  const appProfileDisplayName = `${appProfile?.firstName || ""} ${appProfile?.lastName || ""}`.trim();
+
   const userDisplayName =
+    appProfileDisplayName ||
     user?.displayName?.trim() ||
     user?.email?.split("@")[0] ||
     "Where's My Gear User";
   const userEmail = user?.email ?? "No email available";
-  const userPhotoUrl = user?.photoURL ?? "";
+  const userPhotoUrl = appProfile?.profilePhotoUri?.trim() || user?.photoURL || "";
 
   if (initializing) {
     return (
@@ -843,31 +891,6 @@ export default function ProfileScreen() {
                   >
                     {userDisplayName}
                   </ThemedText>
-
-                  <View
-                    style={[
-                      styles.statusPill,
-                      {
-                        borderColor: isPremium
-                          ? "rgba(34,197,94,0.55)"
-                          : theme.colors.border,
-                        backgroundColor: isPremium
-                          ? "rgba(34,197,94,0.16)"
-                          : theme.colors.iconSurface,
-                      },
-                    ]}
-                  >
-                    <ThemedText
-                      style={[
-                        styles.statusPillText,
-                        {
-                          color: isPremium ? "#22C55E" : theme.colors.textSecondary,
-                        },
-                      ]}
-                    >
-                      {isPremium ? "Premium Active" : "Free Plan"}
-                    </ThemedText>
-                  </View>
 
                   <View style={styles.identityFooter}>
                     <ThemedText
