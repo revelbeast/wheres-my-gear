@@ -16,7 +16,7 @@ import {
   User,
 } from "lucide-react-native";
 import React, { useEffect, useRef, useState } from "react";
-import { Alert, Linking, ScrollView, StyleSheet, View } from "react-native";
+import { Alert, Image, Linking, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../components/auth/AuthProvider";
@@ -47,6 +47,8 @@ const APP_STORE_REVIEW_URL =
 
 const APP_STORE_FALLBACK_URL =
   "https://apps.apple.com/app/id6762979732";
+
+const APP_ICON = require("../../assets/images/app-icon.png");
 
 function ProfileRow({
   icon,
@@ -730,6 +732,13 @@ export default function ProfileScreen() {
   const rowActionsDisabled =
     interactionLocked || isDeletingAllData || isRestoringPurchases;
 
+  const userDisplayName =
+    user?.displayName?.trim() ||
+    user?.email?.split("@")[0] ||
+    "Where's My Gear User";
+  const userEmail = user?.email ?? "No email available";
+  const userPhotoUrl = user?.photoURL ?? "";
+
   if (initializing) {
     return (
       <ScreenBackground>
@@ -773,6 +782,105 @@ export default function ProfileScreen() {
           ]}
           showsVerticalScrollIndicator={false}
         >
+          {isTablet && isLandscape ? (
+            <View style={styles.tabletLandscapeLayout}>
+              <View style={styles.tabletIdentityColumn}>
+                <ThemedCard contentStyle={styles.identityCardContent}>
+                  <Image source={APP_ICON} style={styles.appIcon} />
+
+                  <ThemedText
+                    variant="title"
+                    style={[styles.identityTitle, styles.headerWhite]}
+                  >
+                    Where&apos;s My Gear
+                  </ThemedText>
+
+                  <ThemedText
+                    color="secondary"
+                    style={styles.identitySubtitle}
+                  >
+                    Your gear, checklists, and storage spaces in one place.
+                  </ThemedText>
+
+                  <View
+                    style={[
+                      styles.profilePhotoWrap,
+                      {
+                        borderColor: theme.colors.border,
+                        backgroundColor: theme.colors.iconSurface,
+                      },
+                    ]}
+                  >
+                    {userPhotoUrl ? (
+                      <Image
+                        source={{ uri: userPhotoUrl }}
+                        style={styles.profilePhoto}
+                      />
+                    ) : (
+                      <View
+                        style={[
+                          styles.profilePhotoFallback,
+                          { backgroundColor: theme.colors.iconSurface },
+                        ]}
+                      >
+                        <User size={48} color={theme.colors.textSecondary} />
+                      </View>
+                    )}
+                  </View>
+
+                  <ThemedText
+                    variant="title"
+                    style={styles.identityName}
+                    numberOfLines={1}
+                  >
+                    {userDisplayName}
+                  </ThemedText>
+
+                  <ThemedText
+                    color="secondary"
+                    style={styles.identityEmail}
+                    numberOfLines={1}
+                  >
+                    {userEmail}
+                  </ThemedText>
+
+                  <View
+                    style={[
+                      styles.statusPill,
+                      {
+                        borderColor: isPremium
+                          ? "rgba(34,197,94,0.55)"
+                          : theme.colors.border,
+                        backgroundColor: isPremium
+                          ? "rgba(34,197,94,0.16)"
+                          : theme.colors.iconSurface,
+                      },
+                    ]}
+                  >
+                    <ThemedText
+                      style={[
+                        styles.statusPillText,
+                        {
+                          color: isPremium ? "#22C55E" : theme.colors.textSecondary,
+                        },
+                      ]}
+                    >
+                      {isPremium ? "Premium Active" : "Free Plan"}
+                    </ThemedText>
+                  </View>
+
+                  <View style={styles.identityFooter}>
+                    <ThemedText
+                      color="secondary"
+                      style={styles.identityFooterText}
+                    >
+                      Version {version}
+                    </ThemedText>
+                  </View>
+                </ThemedCard>
+              </View>
+
+              <View style={styles.tabletCardsColumn}>
           <ThemedText
             variant="header"
             style={[styles.header, styles.headerWhite]}
@@ -931,6 +1039,170 @@ export default function ProfileScreen() {
               disabled={rowActionsDisabled}
             />
           </ThemedCard>
+              </View>
+            </View>
+          ) : (
+            <>
+          <ThemedText
+            variant="header"
+            style={[styles.header, styles.headerWhite]}
+          >
+            Profile
+          </ThemedText>
+
+          <ThemedCard contentStyle={styles.profileCardContent}>
+            <ProfileRow
+              icon={<Crown size={20} color="#FACC15" />}
+              iconBackgroundColor="#000000"
+              title={isPremium ? "Premium Active" : "Upgrade to Premium"}
+              subtitle={
+                isPremium
+                  ? premiumSubtitle
+                  : "Remove ads and unlock premium features"
+              }
+              onPress={
+                isPremium ? handleOpenSubscriptionDetails : handleOpenPaywall
+              }
+              showChevron={false}
+              disabled={rowActionsDisabled}
+            />
+
+            <View
+              style={[
+                styles.divider,
+                { backgroundColor: theme.colors.border },
+              ]}
+            />
+
+            <ProfileRow
+              icon={<RotateCcw size={20} color={iconColor} />}
+              title={
+                isRestoringPurchases
+                  ? "Restoring Purchases..."
+                  : "Restore Purchases"
+              }
+              subtitle="Recover a previous Premium purchase"
+              onPress={handleRestorePurchases}
+              showChevron={false}
+              disabled={rowActionsDisabled}
+            />
+          </ThemedCard>
+
+          <ThemedCard contentStyle={styles.profileCardContent}>
+            <ProfileRow
+              icon={<User size={20} color={iconColor} />}
+              title="My Account"
+              subtitle="Update your name, email, phone, photo, and background"
+              onPress={handleOpenProfileSettings}
+              disabled={rowActionsDisabled}
+            />
+
+          </ThemedCard>
+
+          <ThemedCard contentStyle={styles.profileCardContent}>
+            <ProfileRow
+              icon={<Star size={20} color={iconColor} />}
+              title="Rate the App"
+              subtitle="Leave a rating or review in the App Store"
+              onPress={handleRateApp}
+              disabled={rowActionsDisabled}
+            />
+
+            <View
+              style={[
+                styles.divider,
+                { backgroundColor: theme.colors.border },
+              ]}
+            />
+
+            <ProfileRow
+              icon={<FileText size={20} color={iconColor} />}
+              title="User Agreement"
+              subtitle="View app terms and conditions"
+              onPress={handleOpenUserAgreement}
+              disabled={rowActionsDisabled}
+            />
+
+            <View
+              style={[
+                styles.divider,
+                { backgroundColor: theme.colors.border },
+              ]}
+            />
+
+            <ProfileRow
+              icon={<ShieldCheck size={20} color={iconColor} />}
+              title="Privacy Policy"
+              subtitle="View how your data is handled"
+              onPress={handleOpenPrivacyPolicy}
+              disabled={rowActionsDisabled}
+            />
+
+            <View
+              style={[
+                styles.divider,
+                { backgroundColor: theme.colors.border },
+              ]}
+            />
+
+            <ProfileRow
+              icon={<CircleHelp size={20} color={iconColor} />}
+              title="FAQ"
+              subtitle="Get answers to common questions"
+              onPress={handleOpenFaq}
+              disabled={rowActionsDisabled}
+            />
+
+            <View
+              style={[
+                styles.divider,
+                { backgroundColor: theme.colors.border },
+              ]}
+            />
+
+            <ProfileRow
+              icon={<Moon size={20} color={iconColor} />}
+              title="General Settings"
+              subtitle="Edit theme and display preferences"
+              onPress={handleOpenGeneralSettings}
+              disabled={rowActionsDisabled}
+            />
+          </ThemedCard>
+
+          <ThemedCard contentStyle={styles.profileCardContent}>
+            <ProfileRow
+              icon={<Info size={20} color={iconColor} />}
+              title="Version"
+              subtitle={`Where's My Gear v${version}`}
+              showChevron={false}
+            />
+          </ThemedCard>
+
+          <ThemedCard contentStyle={styles.profileCardContent}>
+            <ProfileRow
+              icon={<Trash2 size={20} color={dangerIconColor} />}
+              title={isDeletingAllData ? "Deleting Data..." : "Delete All Data"}
+              subtitle="Delete all Storage Spaces, Compartments, Inventory Items, and Checklists"
+              destructive
+              onPress={handleDeleteAllData}
+              showChevron={false}
+              disabled={rowActionsDisabled}
+            />
+          </ThemedCard>
+
+          <ThemedCard contentStyle={styles.profileCardContent}>
+            <ProfileRow
+              icon={<LogOut size={20} color={dangerIconColor} />}
+              title="Sign Out"
+              subtitle="Sign out of your account"
+              destructive
+              onPress={handleSignOut}
+              showChevron={false}
+              disabled={rowActionsDisabled}
+            />
+          </ThemedCard>
+            </>
+          )}
         </ScrollView>
       </SafeAreaView>
     </ScreenBackground>
@@ -946,6 +1218,105 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
     paddingBottom: 120,
+  },
+
+  tabletLandscapeLayout: {
+    flexDirection: "row",
+    gap: 18,
+    alignItems: "flex-start",
+  },
+
+  tabletIdentityColumn: {
+    flex: 0.38,
+    minWidth: 0,
+  },
+
+  tabletCardsColumn: {
+    flex: 0.62,
+    minWidth: 0,
+  },
+
+  identityCardContent: {
+    paddingHorizontal: 20,
+    paddingVertical: 22,
+    alignItems: "center",
+  },
+
+  appIcon: {
+    width: 86,
+    height: 86,
+    borderRadius: 22,
+    marginBottom: 14,
+  },
+
+  identityTitle: {
+    textAlign: "center",
+    marginBottom: 4,
+  },
+
+  identitySubtitle: {
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: 22,
+  },
+
+  profilePhotoWrap: {
+    width: 124,
+    height: 124,
+    borderRadius: 62,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    marginBottom: 16,
+    overflow: "hidden",
+  },
+
+  profilePhoto: {
+    width: 124,
+    height: 124,
+    borderRadius: 62,
+  },
+
+  profilePhotoFallback: {
+    width: 124,
+    height: 124,
+    borderRadius: 62,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  identityName: {
+    textAlign: "center",
+    marginBottom: 4,
+  },
+
+  identityEmail: {
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+
+  statusPill: {
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderWidth: 1,
+    marginBottom: 18,
+  },
+
+  statusPillText: {
+    fontWeight: "800",
+    fontSize: 13,
+  },
+
+  identityFooter: {
+    alignItems: "center",
+    marginTop: 8,
+  },
+
+  identityFooterText: {
+    textAlign: "center",
+    lineHeight: 18,
   },
 
   header: {
