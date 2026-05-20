@@ -40,7 +40,10 @@ function FrostedCard({
 }
 
 export default function CreateCompartmentScreen() {
-  const { vehicleId } = useLocalSearchParams<{ vehicleId: string }>();
+  const { vehicleId, returnTo } = useLocalSearchParams<{
+    vehicleId: string;
+    returnTo?: string;
+  }>();
   const theme = useThemedValues();
 
   const [name, setName] = useState("");
@@ -61,6 +64,12 @@ export default function CreateCompartmentScreen() {
     try {
       setSaving(true);
       await createCompartment(name.trim(), vehicleId);
+
+      if (typeof returnTo === "string" && returnTo.length > 0) {
+        router.replace(returnTo as any);
+        return;
+      }
+
       router.back();
     } catch (error: any) {
       console.error("Failed to create compartment:", error);

@@ -296,6 +296,7 @@ export default function StorageManagementScreen() {
       pathname: "/(tabs)/vehicles/[vehicleId]/compartments/create",
       params: {
         vehicleId: selectedStorageId,
+        returnTo: "/(tabs)/storage",
       },
     });
   }
