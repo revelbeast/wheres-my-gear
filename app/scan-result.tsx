@@ -5,8 +5,6 @@ import {
   ExternalLink,
   ScanSearch,
   Search,
-  ShoppingCart,
-  Tag,
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import { Image, Text, TextInput, TouchableOpacity, View } from "react-native";
@@ -25,6 +23,7 @@ import {
   addChecklistItem,
   subscribeToChecklists,
 } from "../lib/checklistsService";
+import { buildAmazonAffiliateLink } from "../lib/amazonAffiliate";
 import { auth, db } from "../lib/firebase";
 import {
   createItem,
@@ -61,6 +60,9 @@ export default function ScanResultScreen() {
   const uid = auth.currentUser?.uid;
 
   const amazonUrl = affiliateLink ? String(affiliateLink) : null;
+  const affiliateSearchUrl = buildAmazonAffiliateLink(
+    suggestedName ? String(suggestedName) : String(code ?? "")
+  );
   const catalogSource = source ? String(source) : "Catalog Lookup";
   const catalogBrand = brand ? String(brand) : "Brand unavailable";
   const catalogImage = image ? String(image) : null;
@@ -69,11 +71,15 @@ export default function ScanResultScreen() {
     matchConfidence && !Number.isNaN(Number(matchConfidence))
       ? `${Math.round(Number(matchConfidence) * 100)}%`
       : "Pending";
-  const catalogDescriptionPreview = catalogDescription
+  const firstCatalogSentence = catalogDescription
     ? catalogDescription
         .split(/(?<=[.!?])\s+/)
         .filter(Boolean)[0] ?? null
     : null;
+  const catalogDescriptionPreview =
+    firstCatalogSentence && firstCatalogSentence.length > 120
+      ? `${firstCatalogSentence.slice(0, 117).trim()}...`
+      : firstCatalogSentence;
 
   const [state, setState] = useState<ScanState>("confirmItem");
   const [loading, setLoading] = useState(false);
@@ -406,12 +412,15 @@ export default function ScanResultScreen() {
                 blurOnSubmit
                 style={{
                   marginTop: 8,
-                  padding: 10,
-                  borderRadius: 8,
+                  paddingVertical: 14,
+                  paddingHorizontal: 16,
+                  minHeight: 56,
+                  borderRadius: 12,
                   backgroundColor: "#222",
                   color: "#fff",
                   width: "100%",
                   textAlign: "center",
+                  fontSize: 12,
                 }}
               />
 
@@ -940,68 +949,6 @@ export default function ScanResultScreen() {
               Product Match Preview
             </Text>
 
-            <View
-              style={{
-                paddingHorizontal: 10,
-                paddingVertical: 4,
-                borderRadius: 999,
-                backgroundColor: "#FEF3C7",
-              }}
-            >
-              <Text style={{ color: "#B45309", fontWeight: "800", fontSize: 12 }}>
-                Pending
-              </Text>
-            </View>
-          </View>
-
-          <View
-            style={{
-              marginTop: 16,
-              padding: 16,
-              borderRadius: 16,
-              borderWidth: 1,
-              borderColor: "#BFDBFE",
-              backgroundColor: "#EFF6FF",
-              flexDirection: "row",
-              alignItems: "flex-start",
-              gap: 12,
-            }}
-          >
-            <View
-              style={{
-                width: 34,
-                height: 34,
-                borderRadius: 999,
-                backgroundColor: "#DBEAFE",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Text style={{ color: "#2563EB", fontSize: 18 }}>ℹ</Text>
-            </View>
-
-            <View style={{ flex: 1 }}>
-              <Text
-                style={{
-                  color: "#1E40AF",
-                  fontSize: 14,
-                  fontWeight: "700",
-                }}
-              >
-                Catalog enrichment active
-              </Text>
-
-              <Text
-                style={{
-                  marginTop: 4,
-                  color: "#334155",
-                  fontSize: 14,
-                  lineHeight: 20,
-                }}
-              >
-                Product details, images, and confidence data will appear here when catalog enrichment is available.
-              </Text>
-            </View>
           </View>
 
           <View
@@ -1058,8 +1005,10 @@ export default function ScanResultScreen() {
 
             <View style={{ flex: 1 }}>
               <Text
+                numberOfLines={3}
+                ellipsizeMode="tail"
                 style={{
-                  fontSize: 22,
+                  fontSize: 20,
                   fontWeight: "800",
                   color: "#111827",
                   marginTop: 0,
@@ -1068,13 +1017,21 @@ export default function ScanResultScreen() {
                 {editableName || "Product Title"}
               </Text>
 
-              <Text style={{ marginTop: 6, color: "#4B5563", fontWeight: "600" }}>
+              <Text
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                style={{ marginTop: 6, color: "#4B5563", fontWeight: "600" }}
+              >
                 {catalogBrand}
+              </Text>
+
+              <Text style={{ marginTop: 18, color: "#111827", fontWeight: "800" }}>
+                Description:
               </Text>
 
               <Text
                 style={{
-                  marginTop: 18,
+                  marginTop: 6,
                   color: "#374151",
                   lineHeight: 22,
                   fontSize: 15,
@@ -1083,33 +1040,13 @@ export default function ScanResultScreen() {
                 {catalogDescriptionPreview || "Product description will appear here once we receive catalog data."}
               </Text>
 
-              <Text
-                style={{
-                  marginTop: 14,
-                  color: "#111827",
-                  fontWeight: "700",
-                }}
-              >
-                Catalog ID: <Text style={{ color: "#0284C7" }}>Pending</Text>
-              </Text>
-
-              <Text style={{ marginTop: 8, color: "#111827", fontWeight: "700" }}>
-                Barcode: <Text style={{ fontWeight: "600" }}>{String(code ?? "Unknown")}</Text>
-              </Text>
-
-              <Text style={{ marginTop: 8, color: "#111827", fontWeight: "700" }}>
-                Source: <Text style={{ fontWeight: "600" }}>{catalogSource}</Text>
-              </Text>
-
               <Text style={{ marginTop: 8, color: "#111827", fontWeight: "700" }}>
                 Confidence: <Text style={{ color: "#B45309" }}>{catalogConfidence}</Text>
               </Text>
 
               <TouchableOpacity
                 onPress={() => {
-                  if (amazonUrl) {
-                    Linking.openURL(amazonUrl);
-                  }
+                  Linking.openURL(affiliateSearchUrl);
                 }}
                 style={{
                   marginTop: 16,
@@ -1146,92 +1083,6 @@ export default function ScanResultScreen() {
           <View
             style={{
               marginTop: 12,
-              padding: 14,
-              borderRadius: 16,
-              backgroundColor: "#FFFFFF",
-              borderWidth: 1,
-              borderColor: "#E5E7EB",
-            }}
-          >
-            <View
-              style={{
-                flexDirection: "row",
-                gap: 10,
-              }}
-            >
-              {/* Use Suggested Title */}
-              <TouchableOpacity
-                style={{
-                  flex: 1,
-                  padding: 12,
-                  borderRadius: 12,
-                  backgroundColor: "#FFFFFF",
-                  borderWidth: 1,
-                  borderColor: "#E5E7EB",
-                  alignItems: "center",
-                }}
-              >
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 8,
-                  }}
-                >
-                  <Tag size={18} color="#111827" />
-                  <Text
-                    style={{
-                      fontSize: 12,
-                      fontWeight: "700",
-                      color: "#111827",
-                    }}
-                  >
-                    Use Suggested Title
-                  </Text>
-                </View>
-              </TouchableOpacity>
-
-              {/* View Product */}
-              <TouchableOpacity
-                onPress={() => {
-                  const cleanUrl = amazonUrl?.split("?")[0];
-                  if (cleanUrl) Linking.openURL(cleanUrl);
-                }}
-                style={{
-                  flex: 1,
-                  padding: 12,
-                  borderRadius: 12,
-                  backgroundColor: "#FFFFFF",
-                  borderWidth: 1,
-                  borderColor: "#E5E7EB",
-                  alignItems: "center",
-                }}
-              >
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 8,
-                  }}
-                >
-                  <ShoppingCart size={18} color="#111827" />
-                  <Text
-                    style={{
-                      fontSize: 12,
-                      fontWeight: "700",
-                      color: "#111827",
-                    }}
-                  >
-                    View Product
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <View
-            style={{
-              marginTop: 12,
               padding: 16,
               borderRadius: 16,
               backgroundColor: "#FFFFFF",
@@ -1243,9 +1094,20 @@ export default function ScanResultScreen() {
               About this Scan
             </Text>
 
-            <View style={{ marginTop: 14, flexDirection: "row", alignItems: "center", gap: 10 }}>
-              <Barcode size={18} color="#6B7280" />
-              <View>
+            <View style={{ marginTop: 14, flexDirection: "row", alignItems: "center", gap: 22 }}>
+              <Image
+                source={require("../assets/images/app-icon.png")}
+                style={{
+                  width: 112,
+                  height: 112,
+                  borderRadius: 24,
+                }}
+              />
+
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                  <Barcode size={18} color="#6B7280" />
+                  <View>
                 <Text style={{ color: "#6B7280", fontSize: 12 }}>Barcode / UPC</Text>
                 <Text style={{ marginTop: 2, color: "#111827", fontWeight: "700" }}>
                   {String(code ?? "Unknown")}
@@ -1263,13 +1125,15 @@ export default function ScanResultScreen() {
               </View>
             </View>
 
-            <View style={{ marginTop: 12, flexDirection: "row", alignItems: "center", gap: 10 }}>
-              <Search size={18} color="#6B7280" />
-              <View>
-                <Text style={{ color: "#6B7280", fontSize: 12 }}>Source</Text>
-                <Text style={{ marginTop: 2, color: "#111827", fontWeight: "700" }}>
-                  Catalog Lookup
-                </Text>
+                <View style={{ marginTop: 12, flexDirection: "row", alignItems: "center", gap: 10 }}>
+                  <Search size={18} color="#6B7280" />
+                  <View>
+                    <Text style={{ color: "#6B7280", fontSize: 12 }}>Source</Text>
+                    <Text style={{ marginTop: 2, color: "#111827", fontWeight: "700" }}>
+                      {catalogSource}
+                    </Text>
+                  </View>
+                </View>
               </View>
             </View>
           </View>

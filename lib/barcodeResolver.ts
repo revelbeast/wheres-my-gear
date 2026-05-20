@@ -110,6 +110,7 @@ export async function resolveBarcode(
     ]);
 
     const bestName =
+        upcitemdb?.brand ||
         upcitemdb?.title ||
         food?.name ||
         `Item ${barcode.slice(-4)}`;
