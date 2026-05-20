@@ -595,25 +595,26 @@ export default function ChecklistsTabScreen() {
           showsVerticalScrollIndicator={false}
         >
           {isTablet && isLandscape ? (
-            <View style={styles.tabletLandscapeLayout}>
-              <View style={styles.tabletLeftColumn}>
-                <View style={styles.headerWrap}>
-                  <ThemedText
-                    variant="header"
-                    style={[styles.headerTitle, styles.whiteLabel]}
-                  >
-                    Checklists
-                  </ThemedText>
-                </View>
+            <>
+              <View style={styles.headerWrapCentered}>
+                <ThemedText
+                  variant="header"
+                  style={[styles.headerTitle, styles.whiteLabel]}
+                >
+                  Checklists
+                </ThemedText>
+              </View>
 
-                <View style={styles.heroSection}>
+              <View style={styles.tabletLandscapeLayout}>
+                <View style={styles.tabletLeftColumn}>
+                  <View style={styles.heroSection}>
                   <ThemedText style={[styles.heroSubtitle, styles.whiteLabelMuted]}>
                     Start from a blank checklist or template, track progress, and
                     keep your gear organized.
                   </ThemedText>
                 </View>
 
-                <View style={styles.statsRow}>
+                <View style={[styles.statsRow, styles.tabletStatsRow]}>
                   <StatCard
                     icon={<ClipboardList size={18} color={theme.colors.text} />}
                     value={activeChecklistCount}
@@ -824,7 +825,8 @@ export default function ChecklistsTabScreen() {
                   ))
                 )}
               </View>
-            </View>
+              </View>
+            </>
           ) : (
             <>
           <View style={styles.headerWrap}>
@@ -1107,7 +1109,14 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
 
-  headerTitle: {},
+  headerWrapCentered: {
+    alignItems: "center",
+    marginBottom: 18,
+  },
+
+  headerTitle: {
+    textAlign: "center",
+  },
 
   heroSection: {
     marginBottom: 14,
@@ -1133,6 +1142,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
     marginBottom: 20,
+  },
+
+  tabletStatsRow: {
+    maxWidth: 520,
   },
 
   statCardWrap: {
