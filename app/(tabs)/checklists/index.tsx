@@ -520,7 +520,8 @@ export default function ChecklistsTabScreen() {
 
   const toPackCount = useMemo(() => {
     return combinedChecklists.filter(
-      (checklist) => (checklist.missingCount ?? 0) > 0
+      (checklist) =>
+        (checklist.totalCount ?? 0) === 0 || (checklist.missingCount ?? 0) > 0
     ).length;
   }, [combinedChecklists]);
 
@@ -567,7 +568,10 @@ export default function ChecklistsTabScreen() {
     }
 
     if (selectedChecklistStatus === "toPack") {
-      return sortedChecklists.filter((checklist) => (checklist.missingCount ?? 0) > 0);
+      return sortedChecklists.filter(
+        (checklist) =>
+          (checklist.totalCount ?? 0) === 0 || (checklist.missingCount ?? 0) > 0
+      );
     }
 
     return sortedChecklists;
@@ -781,7 +785,7 @@ export default function ChecklistsTabScreen() {
                                 {checklist.packedCount ?? 0} / {checklist.totalCount ?? 0} packed
                               </ThemedText>
 
-                              {(checklist.missingCount ?? 0) === 0 ? (
+                              {(checklist.totalCount ?? 0) > 0 && (checklist.missingCount ?? 0) === 0 ? (
                                 <ThemedText style={styles.packedBadge}>
                                   Packed
                                 </ThemedText>
@@ -979,7 +983,16 @@ export default function ChecklistsTabScreen() {
             />
           ) : (
             displayedChecklists.map((checklist) => (
-              <ThemedCard key={checklist.id} style={styles.checklistCard}>
+              <ThemedCard
+                key={checklist.id}
+                style={[
+                  styles.checklistCard,
+                  ...((checklist.totalCount ?? 0) > 0 &&
+                    (checklist.missingCount ?? 0) === 0
+                    ? [styles.packedChecklistCard]
+                    : []),
+                ]}
+              >
                 <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
 
                   {/* LEFT CONTENT */}
@@ -1016,7 +1029,7 @@ export default function ChecklistsTabScreen() {
                           {checklist.packedCount ?? 0} / {checklist.totalCount ?? 0} packed
                         </ThemedText>
 
-                        {(checklist.missingCount ?? 0) === 0 ? (
+                        {(checklist.totalCount ?? 0) > 0 && (checklist.missingCount ?? 0) === 0 ? (
                                 <ThemedText style={styles.packedBadge}>
                                   Packed
                                 </ThemedText>
