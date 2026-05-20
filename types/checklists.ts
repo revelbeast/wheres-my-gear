@@ -21,6 +21,8 @@ export type ChecklistTemplate = {
   customCategoryLabel?: string;
   isDefault: boolean;
   itemCount: number;
+  isArchived?: boolean;
+  archivedAt?: any;
   createdAt?: any;
   updatedAt?: any;
 };

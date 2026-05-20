@@ -403,7 +403,9 @@ export default function ChecklistsTabScreen() {
       const templates = await getChecklistTemplates(uid);
 
       const rows = await Promise.all(
-        templates.map(async (template) => {
+        templates
+          .filter((template) => !template.isArchived)
+          .map(async (template) => {
           const items = await getChecklistTemplateItems(uid, template.id);
           const totalCount = items.length;
           const packedCount = items.filter((item) => item.packed).length;
@@ -421,7 +423,7 @@ export default function ChecklistsTabScreen() {
             missingCount,
             vehicleId: null,
             tripId: null,
-            isArchived: false,
+            isArchived: Boolean(template.isArchived ?? false),
             createdAt: template.createdAt,
             updatedAt: template.updatedAt,
           };

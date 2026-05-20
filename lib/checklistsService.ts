@@ -219,6 +219,14 @@ export async function getChecklistTemplates(
   })) as ChecklistTemplate[];
 }
 
+export async function getArchivedChecklistTemplates(
+  userId: string
+): Promise<ChecklistTemplate[]> {
+  const templates = await getChecklistTemplates(userId);
+
+  return templates.filter((template) => Boolean(template.isArchived));
+}
+
 export async function getChecklistTemplate(
   userId: string,
   templateId: string
@@ -647,6 +655,16 @@ export async function addChecklistItem(
   await recomputeChecklistCounts(userId, checklistId);
 }
 
+export async function getArchivedChecklists(userId: string): Promise<Checklist[]> {
+  const safeUserId = requireUserId(userId);
+  const q = query(checklistsCol(safeUserId), orderBy("createdAt", "desc"));
+  const snapshot = await getDocs(q);
+
+  return snapshot.docs
+    .map((d) => normalizeChecklist(d.id, d.data()))
+    .filter((checklist) => Boolean(checklist.isArchived));
+}
+
 export function subscribeToChecklists(
   userId: string,
   callback: (items: Checklist[]) => void
@@ -897,6 +915,13 @@ export async function updateChecklistName(
 export async function archiveChecklist(userId: string, checklistId: string) {
   await updateDoc(checklistDoc(userId, checklistId), {
     isArchived: true,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function restoreChecklist(userId: string, checklistId: string) {
+  await updateDoc(checklistDoc(userId, checklistId), {
+    isArchived: false,
     updatedAt: serverTimestamp(),
   });
 }

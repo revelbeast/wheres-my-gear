@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Alert, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useAuth } from "../../components/auth/AuthProvider";
 import AppHeader from "../../components/ui/AppHeader";
 import HapticPressable from "../../components/ui/HapticPressable";
 import ScreenBackground from "../../components/ui/ScreenBackground";
@@ -13,12 +14,26 @@ import {
   restoreStorageSpace,
   type StorageSpace,
 } from "../../lib/gearService";
+import {
+  deleteChecklist,
+  deleteChecklistTemplate,
+  getArchivedChecklists,
+  getArchivedChecklistTemplates,
+  restoreChecklist,
+  restoreChecklistTemplate,
+} from "../../lib/checklistsService";
+import type { Checklist, ChecklistTemplate } from "../../types/checklists";
 
 export default function ArchiveScreen() {
   const theme = useThemedValues();
+  const { user } = useAuth();
+  const userId = user?.uid ?? "";
   const isMountedRef = useRef(true);
   const [archivedStorageSpaces, setArchivedStorageSpaces] = useState<StorageSpace[]>([]);
+  const [archivedChecklists, setArchivedChecklists] = useState<Checklist[]>([]);
+  const [archivedTemplates, setArchivedTemplates] = useState<ChecklistTemplate[]>([]);
   const [loadingStorageSpaces, setLoadingStorageSpaces] = useState(true);
+  const [loadingChecklists, setLoadingChecklists] = useState(true);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -44,12 +59,47 @@ export default function ArchiveScreen() {
       }
     }
 
+    async function loadArchivedChecklists() {
+      if (!userId) {
+        setArchivedChecklists([]);
+        setArchivedTemplates([]);
+        setLoadingChecklists(false);
+        return;
+      }
+
+      try {
+        setLoadingChecklists(true);
+
+        const [checklists, templates] = await Promise.all([
+          getArchivedChecklists(userId),
+          getArchivedChecklistTemplates(userId),
+        ]);
+
+        if (!isMountedRef.current) return;
+
+        setArchivedChecklists(checklists);
+        setArchivedTemplates(templates);
+      } catch (error) {
+        console.error("Failed to load archived checklists:", error);
+
+        if (!isMountedRef.current) return;
+
+        setArchivedChecklists([]);
+        setArchivedTemplates([]);
+      } finally {
+        if (isMountedRef.current) {
+          setLoadingChecklists(false);
+        }
+      }
+    }
+
     void loadArchivedStorageSpaces();
+    void loadArchivedChecklists();
 
     return () => {
       isMountedRef.current = false;
     };
-  }, []);
+  }, [userId]);
 
   async function handleRestoreStorageSpace(storageId: string) {
     await restoreStorageSpace(storageId);
@@ -188,9 +238,70 @@ export default function ArchiveScreen() {
               </ThemedText>
             </View>
 
-            <ThemedText color="secondary" style={styles.emptyText}>
-              No archived checklists yet.
-            </ThemedText>
+            {loadingChecklists ? (
+              <ThemedText color="secondary" style={styles.emptyText}>
+                Loading archived checklists...
+              </ThemedText>
+            ) : archivedChecklists.length === 0 &&
+              archivedTemplates.length === 0 ? (
+              <ThemedText color="secondary" style={styles.emptyText}>
+                No archived checklists yet.
+              </ThemedText>
+            ) : (
+              <View style={styles.archiveList}>
+                {archivedChecklists.map((checklist) => (
+                  <View
+                    key={`checklist-${checklist.id}`}
+                    style={[
+                      styles.archiveRow,
+                      { borderColor: theme.colors.border },
+                    ]}
+                  >
+                    <View style={styles.archiveRowText}>
+                      <ThemedText
+                        variant="bodyStrong"
+                        style={styles.archiveRowTitle}
+                      >
+                        {checklist.name}
+                      </ThemedText>
+
+                      <ThemedText
+                        color="secondary"
+                        style={styles.archiveRowSubtitle}
+                      >
+                        Checklist
+                      </ThemedText>
+                    </View>
+                  </View>
+                ))}
+
+                {archivedTemplates.map((template) => (
+                  <View
+                    key={`template-${template.id}`}
+                    style={[
+                      styles.archiveRow,
+                      { borderColor: theme.colors.border },
+                    ]}
+                  >
+                    <View style={styles.archiveRowText}>
+                      <ThemedText
+                        variant="bodyStrong"
+                        style={styles.archiveRowTitle}
+                      >
+                        {template.name}
+                      </ThemedText>
+
+                      <ThemedText
+                        color="secondary"
+                        style={styles.archiveRowSubtitle}
+                      >
+                        Template
+                      </ThemedText>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
           </ThemedCard>
         </ScrollView>
       </SafeAreaView>
