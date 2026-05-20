@@ -338,7 +338,12 @@ export default function StorageManagementScreen() {
 
         if (!isMountedRef.current) return;
 
-        setCompartmentItems(nextItems);
+        const reorderedItems = [
+          ...nextItems.filter((item) => item.id === newItemId),
+          ...nextItems.filter((item) => item.id !== newItemId),
+        ];
+
+        setCompartmentItems(reorderedItems);
         setSelectedItemId(newItemId);
         setEditingItemId(newItemId);
         setEditingItemName("New Item");
@@ -534,7 +539,7 @@ export default function StorageManagementScreen() {
   async function saveEditingItem(item: Item) {
     const nextName = editingItemName.trim();
 
-    if (!item.id || !nextName || savingItemEdit || isBusy()) return;
+    if (!item.id || !nextName || savingItemEdit) return;
 
     try {
       setSavingItemEdit(true);
