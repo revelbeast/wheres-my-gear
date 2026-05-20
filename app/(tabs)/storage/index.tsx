@@ -17,6 +17,7 @@ import {
   Alert,
   FlatList,
   Image,
+  Modal,
   StyleSheet,
   Text,
   TextInput,
@@ -30,12 +31,14 @@ import ScreenBackground from "../../../components/ui/ScreenBackground";
 import { useThemedValues } from "../../../components/ui/Themed";
 import {
   createItem,
+  deleteCompartment,
   deleteItem,
   deleteStorageSpace,
   getAllCompartments,
   getCompartmentsByVehicle,
   getItemsByCompartment,
   getStorageSpaces,
+  updateCompartment,
   updateItem,
   updateItemPhoto,
   type Compartment,
@@ -88,6 +91,10 @@ export default function StorageManagementScreen() {
   const [updatingPhotoId, setUpdatingPhotoId] = useState<string | null>(null);
   const [showCompartmentDropdown, setShowCompartmentDropdown] = useState(false);
   const [deletingStorageId, setDeletingStorageId] = useState<string | null>(null);
+  const [deletingCompartmentId, setDeletingCompartmentId] = useState<string | null>(null);
+  const [editingCompartment, setEditingCompartment] = useState<Compartment | null>(null);
+  const [editingCompartmentName, setEditingCompartmentName] = useState("");
+  const [savingCompartmentEdit, setSavingCompartmentEdit] = useState(false);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -388,6 +395,125 @@ export default function StorageManagementScreen() {
 
       setCompartmentItems([]);
     }
+  }
+
+  function handleEditCompartment(compartment: Compartment) {
+    if (!compartment.id || isBusy()) return;
+
+    setEditingCompartment(compartment);
+    setEditingCompartmentName(compartment.name ?? "");
+  }
+
+  function cancelEditingCompartment() {
+    setEditingCompartment(null);
+    setEditingCompartmentName("");
+    setSavingCompartmentEdit(false);
+  }
+
+  async function saveEditingCompartment() {
+    const nextName = editingCompartmentName.trim();
+
+    if (
+      !editingCompartment?.id ||
+      !nextName ||
+      savingCompartmentEdit ||
+      isBusy()
+    ) {
+      return;
+    }
+
+    try {
+      setSavingCompartmentEdit(true);
+
+      await updateCompartment(editingCompartment.id, {
+        name: nextName,
+      });
+
+      if (!isMountedRef.current) return;
+
+      setCompartments((currentCompartments) =>
+        currentCompartments.map((currentCompartment) =>
+          currentCompartment.id === editingCompartment.id
+            ? { ...currentCompartment, name: nextName }
+            : currentCompartment
+        )
+      );
+
+      cancelEditingCompartment();
+    } catch (error) {
+      console.error("Failed to edit compartment:", error);
+
+      if (!isMountedRef.current) return;
+
+      Alert.alert("Edit Failed", "Unable to update this compartment.");
+    } finally {
+      if (isMountedRef.current) {
+        setSavingCompartmentEdit(false);
+      }
+    }
+  }
+
+  function handleConfirmDeleteCompartment(compartment: Compartment) {
+    if (!compartment.id || isBusy()) return;
+
+    Alert.alert(
+      "Delete Compartment?",
+      `This will permanently delete "${compartment.name}" and all inventory items stored inside it. This cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => handleDeleteCompartment(compartment),
+        },
+      ]
+    );
+  }
+
+  async function handleDeleteCompartment(compartment: Compartment) {
+    if (!compartment.id || isBusy()) return;
+
+    const compartmentId = String(compartment.id);
+
+    if (isMountedRef.current) {
+      setDeletingCompartmentId(compartmentId);
+    }
+
+    await runWithLock(async () => {
+      try {
+        await deleteCompartment(compartmentId);
+
+        if (!isMountedRef.current) {
+          return;
+        }
+
+        setCompartments((currentCompartments) =>
+          currentCompartments.filter(
+            (currentCompartment) => currentCompartment.id !== compartmentId
+          )
+        );
+
+        if (selectedCompartmentId === compartmentId) {
+          setSelectedCompartmentId(null);
+          setCompartmentItems([]);
+        }
+      } catch (error) {
+        console.error("Failed to delete compartment:", error);
+
+        if (!isMountedRef.current) {
+          return;
+        }
+
+        Alert.alert(
+          "Delete Failed",
+          "Unable to delete this compartment. Please try again."
+        );
+      } finally {
+        if (isMountedRef.current) {
+          setDeletingCompartmentId(null);
+        }
+      }
+    });
   }
 
   function startEditingItem(item: Item) {
@@ -989,6 +1115,101 @@ export default function StorageManagementScreen() {
 
   return (
     <ScreenBackground>
+      <Modal
+        visible={Boolean(editingCompartment)}
+        transparent
+        animationType="fade"
+        onRequestClose={cancelEditingCompartment}
+      >
+        <View style={styles.modalOverlay}>
+          <BlurView
+            intensity={theme.isLight ? 24 : 38}
+            tint={theme.isLight ? "light" : "dark"}
+            style={[
+              styles.editModalCard,
+              {
+                backgroundColor: theme.isLight
+                  ? "rgba(255,255,255,0.96)"
+                  : "rgba(15,23,42,0.92)",
+                borderColor: theme.isLight
+                  ? "rgba(15,23,42,0.12)"
+                  : "rgba(255,255,255,0.14)",
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.editModalTitle,
+                { color: theme.isLight ? "#111827" : colors.text },
+              ]}
+            >
+              Edit Compartment
+            </Text>
+
+            <Text
+              style={[
+                styles.editModalLabel,
+                { color: theme.isLight ? "#374151" : colors.textSecondary },
+              ]}
+            >
+              Compartment name
+            </Text>
+
+            <TextInput
+              value={editingCompartmentName}
+              onChangeText={setEditingCompartmentName}
+              placeholder="Compartment name"
+              placeholderTextColor={
+                theme.isLight ? "rgba(17,24,39,0.45)" : "rgba(255,255,255,0.45)"
+              }
+              autoFocus
+              style={[
+                styles.editModalInput,
+                {
+                  color: theme.isLight ? "#111827" : colors.text,
+                  borderColor: theme.isLight
+                    ? "rgba(15,23,42,0.14)"
+                    : "rgba(255,255,255,0.16)",
+                  backgroundColor: theme.isLight
+                    ? "rgba(255,255,255,0.92)"
+                    : "rgba(255,255,255,0.08)",
+                },
+              ]}
+            />
+
+            <View style={styles.editModalActions}>
+              <HapticPressable
+                onPress={cancelEditingCompartment}
+                disabled={savingCompartmentEdit}
+                style={[
+                  styles.editModalSecondaryButton,
+                  savingCompartmentEdit && styles.disabledInteraction,
+                ]}
+              >
+                <Text style={styles.editModalSecondaryText}>Cancel</Text>
+              </HapticPressable>
+
+              <HapticPressable
+                onPress={saveEditingCompartment}
+                disabled={
+                  savingCompartmentEdit || editingCompartmentName.trim().length === 0
+                }
+                style={[
+                  styles.editModalPrimaryButton,
+                  (savingCompartmentEdit ||
+                    editingCompartmentName.trim().length === 0) &&
+                    styles.disabledInteraction,
+                ]}
+              >
+                <Text style={styles.editModalPrimaryText}>
+                  {savingCompartmentEdit ? "Saving..." : "Save"}
+                </Text>
+              </HapticPressable>
+            </View>
+          </BlurView>
+        </View>
+      </Modal>
+
       <SafeAreaView style={styles.safe}>
         <View style={styles.container}>
           <View style={styles.headerRow}>
@@ -1172,21 +1393,75 @@ export default function StorageManagementScreen() {
                                 },
                               ]}
                             >
-                              <Text
-                                style={[
-                                  styles.storageTitle,
-                                  {
-                                    color:
-                                      selectedCompartmentId === item.id
-                                        ? "#3B82F6"
-                                        : theme.isLight
-                                          ? "#000000"
-                                          : colors.text,
-                                  },
-                                ]}
+                              <View
+                                style={{
+                                  flexDirection: "row",
+                                  alignItems: "center",
+                                  justifyContent: "space-between",
+                                  gap: 10,
+                                }}
                               >
-                                {item.name}
-                              </Text>
+                                <Text
+                                  style={[
+                                    styles.storageTitle,
+                                    {
+                                      flex: 1,
+                                      color:
+                                        selectedCompartmentId === item.id
+                                          ? "#3B82F6"
+                                          : theme.isLight
+                                            ? "#000000"
+                                            : colors.text,
+                                    },
+                                  ]}
+                                  numberOfLines={1}
+                                >
+                                  {item.name}
+                                </Text>
+
+                                <View
+                                  style={{
+                                    flexDirection: "row",
+                                    alignItems: "center",
+                                    gap: 8,
+                                  }}
+                                >
+                                  <HapticPressable
+                                    onPress={(event) => {
+                                      event.stopPropagation();
+                                      handleEditCompartment(item);
+                                    }}
+                                    disabled={isBusy()}
+                                    style={styles.iconActionButton}
+                                  >
+                                    <Pencil
+                                      size={17}
+                                      color={theme.isLight ? "#111827" : colors.text}
+                                    />
+                                  </HapticPressable>
+
+                                  <HapticPressable
+                                    onPress={(event) => {
+                                      event.stopPropagation();
+                                      handleConfirmDeleteCompartment(item);
+                                    }}
+                                    disabled={
+                                      deletingCompartmentId === item.id || isBusy()
+                                    }
+                                    style={[
+                                      styles.iconActionButton,
+                                      (deletingCompartmentId === item.id ||
+                                        isBusy()) &&
+                                        styles.disabledInteraction,
+                                    ]}
+                                  >
+                                    <Trash2
+                                      size={17}
+                                      color={theme.isLight ? "#DC2626" : "#FCA5A5"}
+                                    />
+                                  </HapticPressable>
+                                </View>
+                              </View>
                             </BlurView>
                           </HapticPressable>
                         )}
@@ -1907,6 +2182,85 @@ const styles = StyleSheet.create({
     color: "#16A34A",
     fontSize: 12,
     fontWeight: "700",
+  },
+
+  iconActionButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(15,23,42,0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+  },
+
+  editModalCard: {
+    width: "100%",
+    maxWidth: 420,
+    borderRadius: 24,
+    borderWidth: 1,
+    padding: 20,
+    overflow: "hidden",
+  },
+
+  editModalTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    marginBottom: 14,
+  },
+
+  editModalLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+
+  editModalInput: {
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
+    fontWeight: "600",
+  },
+
+  editModalActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 18,
+  },
+
+  editModalSecondaryButton: {
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+
+  editModalSecondaryText: {
+    color: "#6B7280",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+
+  editModalPrimaryButton: {
+    backgroundColor: "#3B82F6",
+    borderRadius: 999,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+  },
+
+  editModalPrimaryText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "800",
   },
 
   disabledInteraction: {
