@@ -1281,9 +1281,9 @@ const styles = StyleSheet.create({
   },
 
   profilePhotoWrap: {
-    width: 124,
-    height: 124,
-    borderRadius: 62,
+    width: 176,
+    height: 176,
+    borderRadius: 88,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
@@ -1292,15 +1292,15 @@ const styles = StyleSheet.create({
   },
 
   profilePhoto: {
-    width: 124,
-    height: 124,
-    borderRadius: 62,
+    width: 176,
+    height: 176,
+    borderRadius: 88,
   },
 
   profilePhotoFallback: {
-    width: 124,
-    height: 124,
-    borderRadius: 62,
+    width: 176,
+    height: 176,
+    borderRadius: 88,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1331,7 +1331,7 @@ const styles = StyleSheet.create({
 
   identityFooter: {
     alignItems: "center",
-    marginTop: 8,
+    marginTop: 28,
   },
 
   identityFooterText: {
