@@ -1429,7 +1429,7 @@ export default function DashboardScreen() {
 
   function handleOpenArchive() {
     pushWithNavigationLock(() => {
-      router.push("/archive");
+      router.push("/(tabs)/archive");
     });
   }
 

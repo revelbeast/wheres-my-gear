@@ -132,6 +132,80 @@ export default function ArchiveScreen() {
     );
   }
 
+  async function handleRestoreChecklist(checklistId: string) {
+    if (!userId) return;
+
+    await restoreChecklist(userId, checklistId);
+    setArchivedChecklists((current) =>
+      current.filter((checklist) => checklist.id !== checklistId)
+    );
+  }
+
+  async function handleRestoreTemplate(templateId: string) {
+    if (!userId) return;
+
+    await restoreChecklistTemplate(userId, templateId);
+    setArchivedTemplates((current) =>
+      current.filter((template) => template.id !== templateId)
+    );
+  }
+
+  function handleConfirmDeleteChecklist(checklist: Checklist) {
+    if (!userId) return;
+
+    Alert.alert(
+      "Delete Permanently?",
+      `This will permanently delete "${checklist.name}". This cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete Permanently",
+          style: "destructive",
+          onPress: () => {
+            void handleDeleteChecklist(checklist.id);
+          },
+        },
+      ]
+    );
+  }
+
+  async function handleDeleteChecklist(checklistId: string) {
+    if (!userId) return;
+
+    await deleteChecklist(userId, checklistId);
+    setArchivedChecklists((current) =>
+      current.filter((checklist) => checklist.id !== checklistId)
+    );
+  }
+
+  function handleConfirmDeleteTemplate(template: ChecklistTemplate) {
+    if (!userId) return;
+
+    Alert.alert(
+      "Delete Permanently?",
+      `This will permanently delete "${template.name}" and its template items. This cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete Permanently",
+          style: "destructive",
+          onPress: () => {
+            void handleDeleteTemplate(template.id);
+          },
+        },
+      ]
+    );
+  }
+
+  async function handleDeleteTemplate(templateId: string) {
+    if (!userId) return;
+
+    await deleteChecklistTemplate(userId, templateId);
+    setArchivedTemplates((current) =>
+      current.filter((template) => template.id !== templateId)
+    );
+  }
+
   return (
     <ScreenBackground>
       <SafeAreaView style={styles.safe}>
@@ -272,6 +346,36 @@ export default function ArchiveScreen() {
                         Checklist
                       </ThemedText>
                     </View>
+
+                    <View style={styles.archiveRowActions}>
+                      <HapticPressable
+                        style={[
+                          styles.archiveActionButton,
+                          styles.restoreActionButton,
+                        ]}
+                        onPress={() => {
+                          void handleRestoreChecklist(checklist.id);
+                        }}
+                      >
+                        <RotateCcw size={16} color="#22C55E" />
+                        <ThemedText style={styles.restoreButtonText}>
+                          Restore
+                        </ThemedText>
+                      </HapticPressable>
+
+                      <HapticPressable
+                        style={[
+                          styles.archiveActionButton,
+                          styles.deleteActionButton,
+                        ]}
+                        onPress={() => handleConfirmDeleteChecklist(checklist)}
+                      >
+                        <Trash2 size={16} color="#EF4444" />
+                        <ThemedText style={styles.deleteButtonText}>
+                          Delete
+                        </ThemedText>
+                      </HapticPressable>
+                    </View>
                   </View>
                 ))}
 
@@ -297,6 +401,36 @@ export default function ArchiveScreen() {
                       >
                         Template
                       </ThemedText>
+                    </View>
+
+                    <View style={styles.archiveRowActions}>
+                      <HapticPressable
+                        style={[
+                          styles.archiveActionButton,
+                          styles.restoreActionButton,
+                        ]}
+                        onPress={() => {
+                          void handleRestoreTemplate(template.id);
+                        }}
+                      >
+                        <RotateCcw size={16} color="#22C55E" />
+                        <ThemedText style={styles.restoreButtonText}>
+                          Restore
+                        </ThemedText>
+                      </HapticPressable>
+
+                      <HapticPressable
+                        style={[
+                          styles.archiveActionButton,
+                          styles.deleteActionButton,
+                        ]}
+                        onPress={() => handleConfirmDeleteTemplate(template)}
+                      >
+                        <Trash2 size={16} color="#EF4444" />
+                        <ThemedText style={styles.deleteButtonText}>
+                          Delete
+                        </ThemedText>
+                      </HapticPressable>
                     </View>
                   </View>
                 ))}
