@@ -654,6 +654,7 @@ export default function InventoryScreen() {
                 onChangeText={setSearchQuery}
                 placeholder="Search inventory..."
                 placeholderTextColor={theme.colors.textMuted}
+                selectionColor={theme.isLight ? "#2563EB" : "#93C5FD"}
                 style={[styles.searchInput, { color: theme.colors.text }]}
                 editable={
                   !initializing &&
