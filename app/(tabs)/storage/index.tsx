@@ -10,6 +10,7 @@ import {
   MoveRight,
   Pencil,
   Plus,
+  Archive,
   Trash2
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -33,6 +34,7 @@ import {
   createItem,
   deleteCompartment,
   deleteItem,
+  archiveStorageSpace,
   deleteStorageSpace,
   getAllCompartments,
   getCompartmentsByVehicle,
@@ -91,6 +93,7 @@ export default function StorageManagementScreen() {
   const [updatingPhotoId, setUpdatingPhotoId] = useState<string | null>(null);
   const [showCompartmentDropdown, setShowCompartmentDropdown] = useState(false);
   const [deletingStorageId, setDeletingStorageId] = useState<string | null>(null);
+  const [archivingStorageId, setArchivingStorageId] = useState<string | null>(null);
   const [deletingCompartmentId, setDeletingCompartmentId] = useState<string | null>(null);
   const [editingCompartment, setEditingCompartment] = useState<Compartment | null>(null);
   const [editingCompartmentName, setEditingCompartmentName] = useState("");
@@ -959,6 +962,56 @@ export default function StorageManagementScreen() {
     );
   }
 
+
+  function handleConfirmArchiveStorage(space: StorageSpace) {
+    if (!space.id || isBusy()) return;
+
+    Alert.alert(
+      "Archive Storage Space?",
+      `Archive "${space.name}"? It will be removed from active storage and can be restored later from Archive.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Archive",
+          onPress: () => handleArchiveStorage(space),
+        },
+      ]
+    );
+  }
+
+  async function handleArchiveStorage(space: StorageSpace) {
+    if (!space.id || isBusy()) return;
+
+    const storageId = String(space.id);
+
+    if (isMountedRef.current) {
+      setArchivingStorageId(storageId);
+    }
+
+    await runWithLock(async () => {
+      try {
+        await archiveStorageSpace(storageId);
+
+        if (!isMountedRef.current) return;
+
+        await loadStorageSpaces();
+      } catch (error) {
+        console.error("Failed to archive storage space:", error);
+
+        if (!isMountedRef.current) return;
+
+        Alert.alert(
+          "Archive Failed",
+          "Unable to archive this storage space. Please try again."
+        );
+      } finally {
+        if (isMountedRef.current) {
+          setArchivingStorageId(null);
+        }
+      }
+    });
+  }
+
   async function handleDeleteStorage(space: StorageSpace) {
     if (!space.id || isBusy()) return;
 
@@ -998,19 +1051,33 @@ export default function StorageManagementScreen() {
 
   function renderRightActions(space: StorageSpace) {
     const isDeleting = deletingStorageId === space.id;
-    const disabled = isDeleting || isBusy();
+    const isArchiving = archivingStorageId === space.id;
+    const disabled = isDeleting || isArchiving || isBusy();
 
     return (
-      <HapticPressable
-        style={[styles.deleteAction, disabled && styles.disabledInteraction]}
-        onPress={() => handleConfirmDeleteStorage(space)}
-        disabled={disabled}
-      >
-        <Trash2 size={20} color={colors.text} />
-        <Text style={styles.deleteActionText}>
-          {isDeleting ? "Deleting" : "Delete"}
-        </Text>
-      </HapticPressable>
+      <View style={styles.rightActions}>
+        <HapticPressable
+          style={[styles.archiveAction, disabled && styles.disabledInteraction]}
+          onPress={() => handleConfirmArchiveStorage(space)}
+          disabled={disabled}
+        >
+          <Archive size={20} color={colors.text} />
+          <Text style={styles.deleteActionText}>
+            {isArchiving ? "Archiving" : "Archive"}
+          </Text>
+        </HapticPressable>
+
+        <HapticPressable
+          style={[styles.deleteAction, disabled && styles.disabledInteraction]}
+          onPress={() => handleConfirmDeleteStorage(space)}
+          disabled={disabled}
+        >
+          <Trash2 size={20} color={colors.text} />
+          <Text style={styles.deleteActionText}>
+            {isDeleting ? "Deleting" : "Delete"}
+          </Text>
+        </HapticPressable>
+      </View>
     );
   }
 
@@ -2089,6 +2156,23 @@ const styles = StyleSheet.create({
   chevronWrap: {
     width: 24,
     alignItems: "flex-end",
+  },
+
+  rightActions: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    gap: 8,
+    marginLeft: 8,
+  },
+
+  archiveAction: {
+    width: 92,
+    minHeight: 58,
+    marginBottom: 8,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F59E0B",
   },
 
   deleteAction: {

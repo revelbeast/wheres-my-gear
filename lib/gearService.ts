@@ -22,6 +22,8 @@ export type StorageSpace = {
   category?: StorageSpaceCategory;
   subtype?: string;
   notes?: string;
+  isArchived?: boolean;
+  archivedAt?: unknown;
   createdAt?: unknown;
   updatedAt?: unknown;
 };
@@ -91,10 +93,12 @@ function normalizeName(value: string) {
 export async function getStorageSpaces(): Promise<StorageSpace[]> {
   const snapshot = await getDocs(storageSpacesCol());
 
-  return snapshot.docs.map((d) => ({
-    id: d.id,
-    ...d.data(),
-  })) as StorageSpace[];
+  return snapshot.docs
+    .map((d) => ({
+      id: d.id,
+      ...d.data(),
+    }) as StorageSpace)
+    .filter((space) => !space.isArchived);
 }
 
 export async function getStorageSpaceById(
@@ -132,6 +136,8 @@ export async function createStorageSpace(input: {
     category: input.category ?? "vehicle",
     subtype: trimmedSubtype,
     notes: input.notes ?? "",
+    isArchived: false,
+    archivedAt: null,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };
@@ -179,6 +185,45 @@ export async function updateStorageSpaceNotes(
     notes: notes ?? "",
     updatedAt: serverTimestamp(),
   });
+}
+
+export async function archiveStorageSpace(storageId: string) {
+  const trimmedStorageId = storageId.trim();
+
+  if (!trimmedStorageId) {
+    throw new Error("Storage space ID is required.");
+  }
+
+  await updateDoc(storageSpaceDoc(trimmedStorageId), {
+    isArchived: true,
+    archivedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function restoreStorageSpace(storageId: string) {
+  const trimmedStorageId = storageId.trim();
+
+  if (!trimmedStorageId) {
+    throw new Error("Storage space ID is required.");
+  }
+
+  await updateDoc(storageSpaceDoc(trimmedStorageId), {
+    isArchived: false,
+    archivedAt: null,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function getArchivedStorageSpaces(): Promise<StorageSpace[]> {
+  const snapshot = await getDocs(storageSpacesCol());
+
+  return snapshot.docs
+    .map((d) => ({
+      id: d.id,
+      ...d.data(),
+    }) as StorageSpace)
+    .filter((space) => Boolean(space.isArchived));
 }
 
 export async function deleteStorageSpace(storageId: string) {
