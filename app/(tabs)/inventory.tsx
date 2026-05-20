@@ -274,7 +274,10 @@ export default function InventoryScreen() {
   }, [inventoryItems, selectedStorageId]);
 
   const allDisplayItems = useMemo(() => {
-    return scopedInventoryItems
+    const baseItems =
+      searchQuery.trim().length > 0 ? inventoryItems : scopedInventoryItems;
+
+    return baseItems
       .filter((item) => {
         if (statusFilter === "packed") return isPackedItem(item);
         if (statusFilter === "toPack") return !isPackedItem(item);
@@ -294,7 +297,7 @@ export default function InventoryScreen() {
 
         return aName.localeCompare(bName);
       });
-  }, [scopedInventoryItems, statusFilter, vehicleNameById]);
+  }, [inventoryItems, scopedInventoryItems, searchQuery, statusFilter, vehicleNameById]);
 
   const filteredItems = useMemo(() => {
     const q = normalizeSearchValue(searchQuery);
@@ -661,11 +664,7 @@ export default function InventoryScreen() {
                 autoCapitalize="none"
                 autoCorrect={false}
                 returnKeyType="search"
-                inputAccessoryViewID={
-                  Platform.OS === "ios"
-                    ? INVENTORY_SEARCH_KEYBOARD_ACCESSORY_ID
-                    : undefined
-                }
+                inputAccessoryViewID={undefined}
               />
 
               {searchQuery.length > 0 && (
@@ -685,9 +684,6 @@ export default function InventoryScreen() {
             </View>
           </BlurView>
 
-          <KeyboardDismissAccessory
-            nativeID={INVENTORY_SEARCH_KEYBOARD_ACCESSORY_ID}
-          />
 
           <View
             style={[

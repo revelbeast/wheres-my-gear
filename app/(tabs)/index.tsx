@@ -2066,11 +2066,7 @@ export default function DashboardScreen() {
                 autoCapitalize="none"
                 autoCorrect={false}
                 returnKeyType="search"
-                inputAccessoryViewID={
-                  Platform.OS === "ios"
-                    ? DASHBOARD_SEARCH_KEYBOARD_ACCESSORY_ID
-                    : undefined
-                }
+                inputAccessoryViewID={undefined}
                 editable={
                   !initializing &&
                   !!user &&
@@ -2093,10 +2089,6 @@ export default function DashboardScreen() {
               )}
             </View>
           </FrostedCard>
-
-          <KeyboardDismissAccessory
-            nativeID={DASHBOARD_SEARCH_KEYBOARD_ACCESSORY_ID}
-          />
 
           {initializing ? (
             <ThemedCard style={styles.emptyCard}>
