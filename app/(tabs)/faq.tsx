@@ -72,7 +72,7 @@ const FAQ_ITEMS: FAQItem[] = [
   {
     question: "What happens if I delete all data?",
     answer:
-      "Delete All Data permanently removes your Storage Spaces, Compartments, Inventory Items, Checklists, Checklist Items, and Checklist Templates. Notes saved to Storage Spaces are also removed. This action cannot be undone.",
+      "Delete All Data permanently removes all app data, including active and archived Storage Spaces, Compartments, Inventory Items, Checklists, Checklist Items, Checklist Templates, and saved notes. This action cannot be undone.",
   },
   {
     question: "What is a Compartment?",

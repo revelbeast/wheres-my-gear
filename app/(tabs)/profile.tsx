@@ -555,7 +555,7 @@ export default function ProfileScreen() {
 
     Alert.alert(
       "Delete All Data?",
-      "This will permanently delete all Storage Spaces, Compartments, Inventory Items, Checklists, Checklist Items, and Checklist Templates. This cannot be undone.",
+      "This will permanently delete all app data, including active and archived Storage Spaces, Compartments, Inventory Items, Checklists, Checklist Items, Checklist Templates, and saved notes. This cannot be undone.",
       [
         {
           text: "Cancel",
