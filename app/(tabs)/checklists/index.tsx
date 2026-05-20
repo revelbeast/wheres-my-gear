@@ -594,6 +594,239 @@ export default function ChecklistsTabScreen() {
           ]}
           showsVerticalScrollIndicator={false}
         >
+          {isTablet && isLandscape ? (
+            <View style={styles.tabletLandscapeLayout}>
+              <View style={styles.tabletLeftColumn}>
+                <View style={styles.headerWrap}>
+                  <ThemedText
+                    variant="header"
+                    style={[styles.headerTitle, styles.whiteLabel]}
+                  >
+                    Checklists
+                  </ThemedText>
+                </View>
+
+                <View style={styles.heroSection}>
+                  <ThemedText style={[styles.heroSubtitle, styles.whiteLabelMuted]}>
+                    Start from a blank checklist or template, track progress, and
+                    keep your gear organized.
+                  </ThemedText>
+                </View>
+
+                <View style={styles.statsRow}>
+                  <StatCard
+                    icon={<ClipboardList size={18} color={theme.colors.text} />}
+                    value={activeChecklistCount}
+                    label="Active"
+                    tone={{
+                      borderColor: "rgba(59,130,246,0.95)",
+                      backgroundColor: "rgba(37,99,235,0.28)",
+                      textColor: "rgb(59,130,246)",
+                    }}
+                    selected={selectedChecklistStatus === "active"}
+                    onPress={() => handleSelectChecklistStatus("active")}
+                    disabled={false}
+                  />
+
+                  <StatCard
+                    icon={<CheckCircle2 size={18} color={theme.colors.text} />}
+                    value={packedCount}
+                    label="Packed"
+                    tone={{
+                      borderColor: "rgba(34,197,94,0.95)",
+                      backgroundColor: "rgba(34,197,94,0.24)",
+                      textColor: "rgb(34,197,94)",
+                    }}
+                    selected={selectedChecklistStatus === "packed"}
+                    onPress={() => handleSelectChecklistStatus("packed")}
+                    disabled={false}
+                  />
+
+                  <StatCard
+                    icon={<ListChecks size={18} color={theme.colors.text} />}
+                    value={toPackCount}
+                    label="To Pack"
+                    tone={{
+                      borderColor: "rgba(255,76,76,0.98)",
+                      backgroundColor: "rgba(120,20,32,0.34)",
+                      textColor: "rgb(255,110,110)",
+                    }}
+                    selected={selectedChecklistStatus === "toPack"}
+                    onPress={() => handleSelectChecklistStatus("toPack")}
+                    disabled={false}
+                  />
+                </View>
+
+                <View style={styles.sectionWrap}>
+                  <ThemedText
+                    variant="title"
+                    style={[styles.sectionTitle, styles.whiteLabel]}
+                  >
+                    Start a Checklist
+                  </ThemedText>
+
+                  <ThemedText style={[styles.sectionSubtitle, styles.whiteLabelMuted]}>
+                    Create a blank checklist or start from one of your saved templates.
+                  </ThemedText>
+                </View>
+
+                <View style={styles.createGroup}>
+                  <ActionCard
+                    icon={<FilePlus2 size={22} color={theme.colors.text} />}
+                    title="New Blank Checklist"
+                    subtitle="Start from scratch and add your own items"
+                    onPress={handleCreateBlankChecklist}
+                    disabled={navigationDisabled}
+                  />
+
+                  <ActionCard
+                    icon={<SquarePen size={22} color={theme.colors.text} />}
+                    title="Create Template"
+                    subtitle="Build reusable checklist templates"
+                    onPress={handleCreateTemplate}
+                    disabled={navigationDisabled}
+                  />
+
+                  <ActionCard
+                    icon={<FolderCog size={22} color={theme.colors.text} />}
+                    title="Manage Templates"
+                    subtitle="Rename and delete your saved checklist templates"
+                    onPress={handleManageTemplates}
+                    disabled={navigationDisabled}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.tabletRightColumn}>
+                <View style={styles.sectionWrap}>
+                  <ThemedText
+                    variant="title"
+                    style={[styles.sectionTitle, styles.whiteLabel]}
+                  >
+                    {selectedChecklistTitle} ({displayedChecklists.length})
+                  </ThemedText>
+                </View>
+
+                {initializing ? (
+                  <EmptyChecklistCard
+                    title="Loading checklists"
+                    text="Restoring your saved checklist data."
+                  />
+                ) : !user ? (
+                  <EmptyChecklistCard
+                    title="Sign in required"
+                    text="Sign in to create, manage, and track your packing checklists."
+                  />
+                ) : displayedChecklists.length === 0 ? (
+                  <EmptyChecklistCard
+                    title="No checklists yet"
+                    text="Create your first checklist to track what is packed and what still needs to be packed."
+                    showAction
+                    onPress={handleCreateBlankChecklist}
+                    disabled={navigationDisabled}
+                  />
+                ) : (
+                  displayedChecklists.map((checklist) => (
+                    <ThemedCard key={checklist.id} style={styles.checklistCard}>
+                      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                        <HapticPressable
+                          style={[
+                            styles.row,
+                            { flex: 1, minWidth: 0 },
+                            navigationDisabled && styles.disabledInteraction,
+                          ]}
+                          onPress={() => handleOpenChecklist(checklist.id)}
+                          disabled={navigationDisabled}
+                        >
+                          <View style={styles.left}>
+                            <ThemedText variant="title" style={styles.title}>
+                              {checklist.name}
+                            </ThemedText>
+
+                            <ThemedText variant="small" style={styles.categoryText}>
+                              {getCategoryLabel(
+                                checklist.category,
+                                checklist.customCategoryLabel
+                              )}
+                            </ThemedText>
+
+                            <View style={styles.progressRow}>
+                              <ThemedText
+                                color="secondary"
+                                style={[
+                                  styles.meta,
+                                  selectedChecklistStatus === "packed" &&
+                                  styles.packedProgressText,
+                                ]}
+                              >
+                                {checklist.packedCount ?? 0} / {checklist.totalCount ?? 0} packed
+                              </ThemedText>
+
+                              {selectedChecklistStatus !== "packed" && (
+                                <ThemedText color="danger" style={styles.toPackBadge}>
+                                  {checklist.missingCount ?? 0} to pack
+                                </ThemedText>
+                              )}
+                            </View>
+                          </View>
+
+                          <ChevronRight size={18} color={theme.colors.textSecondary} />
+                        </HapticPressable>
+
+                        <HapticPressable
+                          onPress={() => {
+                            Alert.alert(
+                              "Delete Checklist",
+                              `Delete "${checklist.name}"?`,
+                              [
+                                { text: "Cancel", style: "cancel" },
+                                {
+                                  text: "Delete",
+                                  style: "destructive",
+                                  onPress: async () => {
+                                    console.log("DELETE CLICKED:", checklist.id);
+
+                                    if (checklist._type === "template") {
+                                      const templateId = checklist.id.replace("template:", "");
+
+                                      await deleteChecklistTemplate(userId, templateId);
+
+                                      setTemplateRows((prev) =>
+                                        prev.filter((t) => t.id !== checklist.id)
+                                      );
+                                    } else {
+                                      await deleteChecklist(userId, checklist.id);
+
+                                      setChecklists((prev) =>
+                                        prev.filter((c) => c.id !== checklist.id)
+                                      );
+                                    }
+
+                                    console.log("DELETE COMPLETE:", checklist.id);
+                                  }
+                                },
+                              ]
+                            );
+                          }}
+                          style={{
+                            width: 44,
+                            height: 44,
+                            justifyContent: "center",
+                            alignItems: "center",
+                            flexShrink: 0,
+                          }}
+                          disabled={navigationDisabled}
+                        >
+                          <Trash2 size={18} color="#ff3b30" />
+                        </HapticPressable>
+                      </View>
+                    </ThemedCard>
+                  ))
+                )}
+              </View>
+            </View>
+          ) : (
+            <>
           <View style={styles.headerWrap}>
             <ThemedText
               variant="header"
@@ -822,6 +1055,8 @@ export default function ChecklistsTabScreen() {
               </ThemedCard>
             ))
           )}
+            </>
+          )}
         </ScrollView>
       </SafeAreaView>
     </ScreenBackground>
@@ -838,6 +1073,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 120,
+  },
+
+  tabletLandscapeLayout: {
+    flexDirection: "row",
+    gap: 16,
+    alignItems: "flex-start",
+  },
+
+  tabletLeftColumn: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  tabletRightColumn: {
+    flex: 1,
+    minWidth: 0,
   },
 
   whiteLabel: {
