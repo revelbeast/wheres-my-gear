@@ -1429,7 +1429,7 @@ export default function DashboardScreen() {
 
   function handleOpenScanQuickAction() {
     const developerScannerAccess =
-      user?.uid === "wOBRjx6fgdZJ7Yj0z7I1msf8iCT2";
+      Boolean(user?.uid);
 
     if (developerScannerAccess) {
       pushWithNavigationLock(() => {
