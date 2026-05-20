@@ -12,7 +12,7 @@ import {
   FileText,
   FolderPlus,
   ListChecks,
-  PackagePlus,
+  Archive,
   Plus,
   Search,
   Share,
@@ -1427,6 +1427,12 @@ export default function DashboardScreen() {
     });
   }
 
+  function handleOpenArchive() {
+    pushWithNavigationLock(() => {
+      router.push("/archive");
+    });
+  }
+
   function handleOpenScanQuickAction() {
     const developerScannerAccess =
       Boolean(user?.uid);
@@ -2583,9 +2589,16 @@ export default function DashboardScreen() {
                             <ThemedText>QR / Barcode Scanner</ThemedText>
                           </HapticPressable>
 
-                          <HapticPressable style={[styles.selectorButton, styles.stackedQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.addItem }]}>
-                            <PackagePlus size={18} color={quickActionColors.addItem} />
-                            <ThemedText>Scan Item w/ AI</ThemedText>
+                          <HapticPressable
+                            style={[
+                              styles.selectorButton,
+                              styles.stackedQuickActionButton,
+                              { borderWidth: 2, borderColor: quickActionColors.addItem },
+                            ]}
+                            onPress={handleOpenArchive}
+                          >
+                            <Archive size={18} color={quickActionColors.addItem} />
+                            <ThemedText>Archive</ThemedText>
                           </HapticPressable>
 
                           <HapticPressable style={[styles.selectorButton, styles.stackedQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.compartment }]} onPress={handleAddCompartment}>
@@ -2643,9 +2656,10 @@ export default function DashboardScreen() {
                                 styles.tabletQuickActionButton,
                                 { borderWidth: 2, borderColor: quickActionColors.addItem }
                               ]}
+                              onPress={handleOpenArchive}
                             >
-                              <PackagePlus size={18} color={quickActionColors.addItem} />
-                              <ThemedText>Scan Item w/ AI</ThemedText>
+                              <Archive size={18} color={quickActionColors.addItem} />
+                              <ThemedText>Archive</ThemedText>
                             </HapticPressable>
                           </View>
 
