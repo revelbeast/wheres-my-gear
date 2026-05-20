@@ -310,17 +310,19 @@ export default function ScanResultScreen() {
           justifyContent: "flex-start",
         }}
       >
-        <Text
-          style={{
-            marginTop: 18,
-            fontSize: 28,
-            fontWeight: "800",
-            color: "#1D4ED8",
-            textAlign: "center",
-          }}
-        >
-          Where's My Gear - Scan Result
-        </Text>
+        {isTabletLandscape ? (
+          <Text
+            style={{
+              marginTop: 18,
+              fontSize: 28,
+              fontWeight: "800",
+              color: "#1D4ED8",
+              textAlign: "center",
+            }}
+          >
+            Where&apos;s My Gear - Scan Result
+          </Text>
+        ) : null}
 
         <View style={{ marginTop: 24, width: "100%", alignItems: "center" }}>
           {loading ? (
@@ -707,7 +709,7 @@ export default function ScanResultScreen() {
                     style={{
                       marginLeft: 10,
                       color: "#6B7280",
-                      fontSize: 18,
+                      fontSize: isTabletLandscape ? 18 : 14,
                     }}
                   >
                     ⌄
@@ -928,12 +930,13 @@ export default function ScanResultScreen() {
         </View>
       </View>
 
-      {isTabletLandscape ? (
-        <View
-          style={{
-            flex: 0.55,
-            borderRadius: 18,
-            padding: 20,
+      <View
+        style={{
+          flex: isTabletLandscape ? 0.55 : undefined,
+          width: isTabletLandscape ? undefined : "100%",
+          marginTop: isTabletLandscape ? 0 : 20,
+          borderRadius: 18,
+          padding: 20,
             backgroundColor: "#FFFFFF",
             borderWidth: 1,
             borderColor: "#E5E7EB",
@@ -954,9 +957,9 @@ export default function ScanResultScreen() {
           <View
             style={{
               flexDirection: "row",
-              gap: 20,
-              marginTop: 20,
-              padding: 16,
+              gap: isTabletLandscape ? 20 : 18,
+              marginTop: isTabletLandscape ? 20 : 10,
+              padding: isTabletLandscape ? 16 : 12,
               borderRadius: 20,
               borderWidth: 1,
               borderColor: "#E5E7EB",
@@ -965,8 +968,8 @@ export default function ScanResultScreen() {
           >
             <View
               style={{
-                width: 200,
-                height: 220,
+                width: isTabletLandscape ? 200 : 104,
+                height: isTabletLandscape ? 220 : 124,
                 borderRadius: 18,
                 backgroundColor: "#F8FAFC",
                 borderWidth: 1,
@@ -1008,7 +1011,7 @@ export default function ScanResultScreen() {
                 numberOfLines={3}
                 ellipsizeMode="tail"
                 style={{
-                  fontSize: 20,
+                  fontSize: isTabletLandscape ? 20 : 15,
                   fontWeight: "800",
                   color: "#111827",
                   marginTop: 0,
@@ -1025,7 +1028,7 @@ export default function ScanResultScreen() {
                 {catalogBrand}
               </Text>
 
-              <Text style={{ marginTop: 18, color: "#111827", fontWeight: "800" }}>
+              <Text style={{ marginTop: isTabletLandscape ? 18 : 10, color: "#111827", fontWeight: "800" }}>
                 Description:
               </Text>
 
@@ -1033,8 +1036,8 @@ export default function ScanResultScreen() {
                 style={{
                   marginTop: 6,
                   color: "#374151",
-                  lineHeight: 22,
-                  fontSize: 15,
+                  lineHeight: isTabletLandscape ? 22 : 18,
+                  fontSize: isTabletLandscape ? 15 : 13,
                 }}
               >
                 {catalogDescriptionPreview || "Product description will appear here once we receive catalog data."}
@@ -1049,8 +1052,8 @@ export default function ScanResultScreen() {
                   Linking.openURL(affiliateSearchUrl);
                 }}
                 style={{
-                  marginTop: 16,
-                  padding: 16,
+                  marginTop: isTabletLandscape ? 16 : 10,
+                  padding: isTabletLandscape ? 16 : 12,
                   borderRadius: 14,
                   backgroundColor: "#FBBF24",
                   alignItems: "center",
@@ -1138,8 +1141,6 @@ export default function ScanResultScreen() {
             </View>
           </View>
         </View>
-      ) : null
-      }
     </View >
   );
 }
