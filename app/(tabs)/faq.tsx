@@ -25,6 +25,11 @@ const FAQ_ITEMS: FAQItem[] = [
       "Where's My Gear helps you track gear by storage space, compartment, and checklist so you know where items are located and what still needs to be packed.",
   },
   {
+    question: "What is new for iPad landscape?",
+    answer:
+      "Where's My Gear now includes optimized iPad landscape layouts for key areas of the app. Inventory, Manage Storage Spaces, Checklists, and Profile are designed to make better use of the wider screen with split layouts, easier navigation, improved search behavior, and cleaner hardware keyboard support.",
+  },
+  {
     question: "Can I add photos to items?",
     answer:
       "Yes. You can take a photo or choose one from your device library. Item photos help you identify gear faster.",
@@ -57,7 +62,7 @@ const FAQ_ITEMS: FAQItem[] = [
   {
     question: "What can I search for?",
     answer:
-      "Dashboard search can find Items, Storage Spaces, Compartments, Checklists, and Templates. You can search by names, storage types, packed status, or To Pack status.",
+      "Dashboard search can find Items, Storage Spaces, Compartments, Checklists, and Templates. Inventory search can now find items across all Storage Spaces and Compartments, making it easier to locate gear no matter where it is stored. You can search by names, storage spaces, compartments, packed status, or To Pack status.",
   },
   {
     question: "What does Packed mean?",
