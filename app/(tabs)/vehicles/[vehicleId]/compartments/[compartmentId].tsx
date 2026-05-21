@@ -391,7 +391,7 @@ export default function CompartmentDetailScreen() {
         await createItem({
           name: trimmedName,
           quantity: parsedQty,
-          status: "packed",
+          status: "missing",
           compartmentId: String(compartmentId),
           compartmentName: compartment?.name ?? "",
           vehicleId: String(vehicleId),

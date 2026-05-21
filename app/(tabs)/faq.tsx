@@ -25,6 +25,21 @@ const FAQ_ITEMS: FAQItem[] = [
       "Where's My Gear helps you track gear by storage space, compartment, and checklist so you know where items are located and what still needs to be packed.",
   },
   {
+    question: "What is Premium?",
+    answer:
+      "Premium removes ads and unlocks the core premium experience for organizing your gear, storage spaces, compartments, checklists, trips, notes, and photos.",
+  },
+  {
+    question: "What is Premium+?",
+    answer:
+      "Premium+ includes Premium access and adds QR & Barcode Scanner support plus Archive access for hidden, completed, or inactive gear records.",
+  },
+  {
+    question: "Why can't I access Scanner or Archive?",
+    answer:
+      "QR & Barcode Scanner and Archive are Premium+ features. If you have Premium, you can continue using Premium features and upgrade to Premium+ from Profile when you want access to these add-ons.",
+  },
+  {
     question: "Can I add photos to items?",
     answer:
       "Yes. You can take a photo or choose one from your device library. Item photos help you identify gear faster.",
