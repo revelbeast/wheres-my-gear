@@ -932,7 +932,7 @@ export default function ScanResultScreen() {
                   }
                 }}
                 style={{
-                  marginTop: 28,
+                  marginTop: isPhone ? 10 : 28,
                   paddingVertical: 14,
                   backgroundColor: "#111",
                   color: "#fff",
