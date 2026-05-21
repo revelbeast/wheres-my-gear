@@ -1989,6 +1989,7 @@ export default function DashboardScreen() {
     <ScreenBackground>
       <SafeAreaView style={styles.safe}>
         <ScrollView
+          key={`dashboard-${isLandscape ? "landscape" : "portrait"}`}
           contentContainerStyle={[
             styles.content,
             isTablet && {

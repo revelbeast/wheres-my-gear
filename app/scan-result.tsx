@@ -7,7 +7,7 @@ import {
   Search,
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
-import { Image, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Image, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 import {
   addDoc,
@@ -299,10 +299,10 @@ export default function ScanResultScreen() {
     loadCompartments();
   }, [selectedStorage]);
 
-  return (
+  const content = (
     <View
       style={{
-        flex: 1,
+        flex: isTabletLandscape ? 1 : undefined,
         padding: 20,
         flexDirection: isTabletLandscape ? "row" : "column",
         alignItems: "stretch",
@@ -318,19 +318,18 @@ export default function ScanResultScreen() {
           justifyContent: "flex-start",
         }}
       >
-        {isTabletLandscape ? (
-          <Text
-            style={{
-              marginTop: 18,
-              fontSize: 28,
-              fontWeight: "800",
-              color: "#1D4ED8",
-              textAlign: "center",
-            }}
-          >
-            Where&apos;s My Gear - Scan Result
-          </Text>
-        ) : null}
+        <Text
+          style={{
+            marginTop: isTabletLandscape ? 18 : 36,
+            marginBottom: isTabletLandscape ? 0 : 8,
+            fontSize: isTabletLandscape ? 28 : 22,
+            fontWeight: "800",
+            color: "#1D4ED8",
+            textAlign: "center",
+          }}
+        >
+          Where&apos;s My Gear - Scan Result
+        </Text>
 
         <View style={{ marginTop: 8, width: "100%", alignItems: "center" }}>
           {!isTabletLandscape && scanState === "FOUND" && (
@@ -398,7 +397,7 @@ export default function ScanResultScreen() {
                   <Text
                     style={{
                       marginTop: 6,
-                      fontSize: 12,
+                      fontSize: isTabletLandscape ? 18 : 16,
                       color: "#9A3412",
                       textAlign: "center",
                       lineHeight: 16,
@@ -917,6 +916,7 @@ export default function ScanResultScreen() {
                       compartmentId: selectedCompartment ?? "",
                       compartmentName:
                         selectedCompartmentSpace?.name ?? "",
+                      itemPhotoUri: catalogImage ?? "",
                     };
 
                     const createdId = await createItem(payload);
@@ -1163,4 +1163,18 @@ export default function ScanResultScreen() {
       </View>
     </View >
   );
+
+  if (!isTabletLandscape) {
+    return (
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: 32 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {content}
+      </ScrollView>
+    );
+  }
+
+  return content;
 }
