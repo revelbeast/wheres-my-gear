@@ -314,18 +314,13 @@ export default function InventoryScreen() {
     });
   }, [allDisplayItems, searchQuery]);
 
-  const allCount = scopedInventoryItems.reduce(
-    (total, item) => total + getItemQuantity(item),
-    0
-  );
+  const allCount = scopedInventoryItems.length;
 
-  const packedCount = scopedInventoryItems
-    .filter(isPackedItem)
-    .reduce((total, item) => total + getItemQuantity(item), 0);
+  const packedCount = scopedInventoryItems.filter(isPackedItem).length;
 
-  const toPackCount = scopedInventoryItems
-    .filter((item) => !isPackedItem(item))
-    .reduce((total, item) => total + getItemQuantity(item), 0);
+  const toPackCount = scopedInventoryItems.filter(
+    (item) => !isPackedItem(item)
+  ).length;
 
   function getHeaderTitle() {
     if (statusFilter === "packed") return "Packed Items";
@@ -931,17 +926,16 @@ export default function InventoryScreen() {
                               {item.name}
                             </ThemedText>
 
-                            <ThemedText color="secondary">
-                              {item.resolvedCompartmentName} •{" "}
-                              {item.resolvedVehicleName}
-                            </ThemedText>
-
                             <ThemedText
                               color={isPackedItem(item) ? "secondary" : "danger"}
                               style={styles.statusText}
                             >
                               {isPackedItem(item) ? "Packed" : "To Pack"} • Qty{" "}
                               {getItemQuantity(item)}
+                            </ThemedText>
+
+                            <ThemedText color="secondary">
+                              Storage: {item.resolvedCompartmentName}
                             </ThemedText>
                           </View>
 
