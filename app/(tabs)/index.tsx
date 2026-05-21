@@ -63,7 +63,7 @@ import {
   StorageSpace,
 } from "../../lib/gearService";
 import { triggerSuccessHaptic } from "../../lib/haptics";
-import { isPremiumUser } from "../../lib/revenuecat";
+import { isPremiumPlusUser, isPremiumUser } from "../../lib/revenuecat";
 import { getProfileSettings } from "../../lib/settingsService";
 import { useDeviceLayout } from "../../lib/useDeviceLayout";
 import { useInteractionLock } from "../../lib/useInteractionLock";
@@ -523,6 +523,7 @@ export default function DashboardScreen() {
   const [searchResults, setSearchResults] = useState<SearchResultItem[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
+  const [isPremiumPlus, setIsPremiumPlus] = useState(false);
   const [isPremiumLoading, setIsPremiumLoading] = useState(true);
 
   const [storageSpaces, setStorageSpaces] = useState<StorageSpace[]>([]);
@@ -646,6 +647,7 @@ export default function DashboardScreen() {
 
         if (!user) {
           setIsPremium(false);
+          setIsPremiumPlus(false);
           setIsPremiumLoading(false);
           return;
         }
@@ -653,13 +655,17 @@ export default function DashboardScreen() {
         try {
           setIsPremiumLoading(true);
 
-          const premium = await isPremiumUser();
+          const [premium, premiumPlus] = await Promise.all([
+            isPremiumUser(),
+            isPremiumPlusUser(),
+          ]);
 
           if (!isActive) {
             return;
           }
 
           setIsPremium(premium);
+          setIsPremiumPlus(premiumPlus);
 
           if (!premium) {
             router.replace("/paywall");
@@ -672,6 +678,7 @@ export default function DashboardScreen() {
           }
 
           setIsPremium(false);
+          setIsPremiumPlus(false);
           router.replace("/paywall");
         } finally {
           if (isActive) {
@@ -1428,16 +1435,33 @@ export default function DashboardScreen() {
   }
 
   function handleOpenArchive() {
-    pushWithNavigationLock(() => {
-      router.push("/(tabs)/archive");
-    });
+    if (isPremiumPlus) {
+      pushWithNavigationLock(() => {
+        router.push("/(tabs)/archive");
+      });
+      return;
+    }
+
+    Alert.alert(
+      "Unlock Premium +",
+      "Archive is a Premium + add-on feature for organizing hidden or completed gear records.",
+      [
+        {
+          text: "Maybe Later",
+          style: "cancel",
+        },
+        {
+          text: "Upgrade to Premium +",
+          onPress: () => {
+            console.log("PREMIUM PLUS UPGRADE SELECTED");
+          },
+        },
+      ]
+    );
   }
 
   function handleOpenScanQuickAction() {
-    const developerScannerAccess =
-      Boolean(user?.uid);
-
-    if (developerScannerAccess) {
+    if (isPremiumPlus) {
       pushWithNavigationLock(() => {
         router.push("/scan-item");
       });

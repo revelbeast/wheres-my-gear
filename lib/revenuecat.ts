@@ -7,6 +7,7 @@ import Purchases, {
 } from "react-native-purchases";
 
 const PREMIUM_ENTITLEMENT_ID = "premium";
+const PREMIUM_PLUS_ENTITLEMENT_ID = "premium_plus";
 
 let configurePromise: Promise<boolean> | null = null;
 let isConfigured = false;
@@ -175,6 +176,31 @@ export function hasActivePremiumEntitlement(customerInfo: CustomerInfo | null) {
   }
 
   return Boolean(customerInfo.entitlements.active[PREMIUM_ENTITLEMENT_ID]);
+}
+
+export function hasActivePremiumPlusEntitlement(customerInfo: CustomerInfo | null) {
+  if (!customerInfo) {
+    return false;
+  }
+
+  return Boolean(customerInfo.entitlements.active[PREMIUM_PLUS_ENTITLEMENT_ID]);
+}
+
+export function hasPremiumPlusAccess(customerInfo: CustomerInfo | null) {
+  return (
+    hasActivePremiumEntitlement(customerInfo) &&
+    hasActivePremiumPlusEntitlement(customerInfo)
+  );
+}
+
+export async function isPremiumPlusUser() {
+  try {
+    const customerInfo = await getCustomerInfo();
+    return hasPremiumPlusAccess(customerInfo);
+  } catch (e) {
+    console.log("RevenueCat premium plus check unavailable:", e);
+    return false;
+  }
 }
 
 export async function isPremiumUser() {
