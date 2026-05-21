@@ -948,8 +948,8 @@ export default function ProfileScreen() {
                   />
 
                   <ProfileRow
-                    icon={<Crown size={20} color="#F59E0B" />}
-                    iconBackgroundColor="#111827"
+                    icon={<Crown size={20} color="#FFFFFF" />}
+                    iconBackgroundColor="#2563EB"
                     title="Upgrade to Premium +"
                     subtitle="Add QR / Barcode Scanner and Archive access"
                     onPress={handleOpenPremiumPlusUpgrade}
@@ -1128,8 +1128,8 @@ export default function ProfileScreen() {
                 />
 
                 <ProfileRow
-                  icon={<Crown size={20} color="#F59E0B" />}
-                  iconBackgroundColor="#111827"
+                  icon={<Crown size={20} color="#FFFFFF" />}
+                  iconBackgroundColor="#2563EB"
                   title="Upgrade to Premium +"
                   subtitle="Add QR / Barcode Scanner and Archive access"
                   onPress={handleOpenPremiumPlusUpgrade}
