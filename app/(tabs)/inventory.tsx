@@ -69,6 +69,7 @@ export default function InventoryScreen() {
   const theme = useTheme();
   const { isTablet, isLandscape } = useDeviceLayout();
   const isTabletLandscape = isTablet && isLandscape;
+  const shouldUseInventorySearchAccessory = Platform.OS === "ios" && !isTablet;
 
   const isScreenMountedRef = useRef(true);
   const inventoryLoadVersionRef = useRef(0);
@@ -660,7 +661,11 @@ export default function InventoryScreen() {
                 autoCapitalize="none"
                 autoCorrect={false}
                 returnKeyType="search"
-                inputAccessoryViewID={undefined}
+                inputAccessoryViewID={
+                  shouldUseInventorySearchAccessory
+                    ? INVENTORY_SEARCH_KEYBOARD_ACCESSORY_ID
+                    : undefined
+                }
               />
 
               {searchQuery.length > 0 && (
@@ -955,6 +960,12 @@ export default function InventoryScreen() {
           </View>
         </View>
       </SafeAreaView>
+
+      {shouldUseInventorySearchAccessory ? (
+        <KeyboardDismissAccessory
+          nativeID={INVENTORY_SEARCH_KEYBOARD_ACCESSORY_ID}
+        />
+      ) : null}
     </ScreenBackground>
   );
 }

@@ -490,11 +490,7 @@ export default function DashboardScreen() {
   const { user, initializing } = useAuth();
   const theme = useThemedValues();
   const { isTablet, isLandscape } = useDeviceLayout();
-  console.log("LAYOUT DEBUG", {
-    isTablet,
-    isLandscape,
-    isTabletLandscape: isTablet && isLandscape,
-  });
+  const shouldUseDashboardSearchAccessory = Platform.OS === "ios" && !isTablet;
   const isTabletLandscape = isTablet && isLandscape;
   const {
     isLocked: interactionLocked,
@@ -2098,7 +2094,11 @@ export default function DashboardScreen() {
                 autoCapitalize="none"
                 autoCorrect={false}
                 returnKeyType="search"
-                inputAccessoryViewID={undefined}
+                inputAccessoryViewID={
+                  shouldUseDashboardSearchAccessory
+                    ? DASHBOARD_SEARCH_KEYBOARD_ACCESSORY_ID
+                    : undefined
+                }
                 editable={
                   !initializing &&
                   !!user &&
@@ -3085,6 +3085,12 @@ export default function DashboardScreen() {
           />
         </View>
       </SafeAreaView>
+
+      {shouldUseDashboardSearchAccessory ? (
+        <KeyboardDismissAccessory
+          nativeID={DASHBOARD_SEARCH_KEYBOARD_ACCESSORY_ID}
+        />
+      ) : null}
     </ScreenBackground >
   );
 }
