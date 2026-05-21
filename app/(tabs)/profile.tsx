@@ -42,7 +42,7 @@ const USER_AGREEMENT_URL =
   "https://sites.google.com/view/wheresmygearapp/home";
 
 const PRIVACY_POLICY_URL =
-  "https://revelbeast.github.io/wheres-my-gear-legal/";
+  "https://revelbeast.github.io/wheres-my-gear/";
 
 const APP_STORE_REVIEW_URL =
   "https://apps.apple.com/app/id6762979732?action=write-review";
