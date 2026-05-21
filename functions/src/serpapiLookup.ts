@@ -18,15 +18,35 @@ export async function searchSerpApi(query: string) {
 
   const result = response.data?.shopping_results?.[0];
 
+  const hasImage = !!result?.thumbnail;
+  const hasPrice = !!result?.price;
+  const hasLink = !!result?.link || !!result?.product_link;
+  const hasTitle = !!result?.title;
+
+  // REAL confidence model (this is what matters for conversion)
+  let confidence = 0.2;
+
+  if (hasTitle) confidence += 0.2;
+  if (hasImage) confidence += 0.2;
+  if (hasPrice) confidence += 0.3;
+  if (hasLink) confidence += 0.2;
+
+  // clamp
+  confidence = Math.min(0.95, confidence);
+
   return {
     found: !!result,
-    confidence: result ? 0.7 : 0,
+    source: "serpapi",
+    confidence,
+
     title: result?.title ?? null,
     image: result?.thumbnail ?? null,
     price: result?.price ?? null,
-    brand: result?.source ?? null,
+
+    brand: result?.source ?? result?.merchant ?? null,
     description: result?.snippet ?? null,
     link: result?.link ?? result?.product_link ?? null,
+
     raw: result,
   };
 }

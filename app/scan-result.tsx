@@ -19,11 +19,11 @@ import {
   where,
 } from "firebase/firestore";
 
+import { buildAmazonAffiliateLink } from "../lib/amazonAffiliate";
 import {
   addChecklistItem,
   subscribeToChecklists,
 } from "../lib/checklistsService";
-import { buildAmazonAffiliateLink } from "../lib/amazonAffiliate";
 import { auth, db } from "../lib/firebase";
 import {
   createItem,
@@ -44,6 +44,10 @@ type ScanState =
 export default function ScanResultScreen() {
   const nameInputRef = React.useRef<TextInput>(null);
   const { isTabletLandscape } = useResponsiveLayout();
+  const isPhonePortrait = !isTabletLandscape;
+  const isPhone = !isTabletLandscape;
+  const isPortrait = true; // safe default for now (we refine later if needed)
+
 
   const {
     code,
@@ -77,8 +81,8 @@ export default function ScanResultScreen() {
     String(matchStatus ?? "").toLowerCase() === "possible";
   const firstCatalogSentence = catalogDescription
     ? catalogDescription
-        .split(/(?<=[.!?])\s+/)
-        .filter(Boolean)[0] ?? null
+      .split(/(?<=[.!?])\s+/)
+      .filter(Boolean)[0] ?? null
     : null;
   const catalogDescriptionPreview =
     firstCatalogSentence && firstCatalogSentence.length > 120
@@ -328,7 +332,14 @@ export default function ScanResultScreen() {
           </Text>
         ) : null}
 
-        <View style={{ marginTop: 24, width: "100%", alignItems: "center" }}>
+        <View style={{ marginTop: 8, width: "100%", alignItems: "center" }}>
+          {!isTabletLandscape && scanState === "FOUND" && (
+            <View style={{ marginBottom: 12 }}>
+              <Text style={{ fontSize: 14, fontWeight: "600", color: "#15803D" }}>
+                Scan result ready
+              </Text>
+            </View>
+          )}
           {loading ? (
             <Text>Checking inventory...</Text>
           ) : (
@@ -404,7 +415,12 @@ export default function ScanResultScreen() {
                 </Text>
               )}
 
-              <Text style={{ marginTop: 12, fontWeight: "600" }}>
+              <Text
+                style={{
+                  marginTop: 4,
+                  fontWeight: "600",
+                }}
+              >
                 {scanState === "FOUND" ? "Item Name" : "Unidentified Item Name"}
               </Text>
 
@@ -528,8 +544,8 @@ export default function ScanResultScreen() {
               {/* COMPARTMENT */}
               <Text
                 style={{
-                  marginTop: 25,
-                  marginBottom: 8,
+                  marginTop: isPhone ? 10 : 25,
+                  marginBottom: isPhone ? 4 : 8,
                   alignSelf: "flex-start",
                   color: "#6B7280",
                   fontSize: 12,
@@ -666,8 +682,8 @@ export default function ScanResultScreen() {
               {/* CHECKLIST */}
               <Text
                 style={{
-                  marginTop: 25,
-                  marginBottom: 8,
+                  marginTop: isPhone ? 10 : 25,
+                  marginBottom: isPhone ? 4 : 8,
                   alignSelf: "flex-start",
                   color: "#6B7280",
                   fontSize: 12,
@@ -828,7 +844,7 @@ export default function ScanResultScreen() {
               <Text
                 onPress={router.back}
                 style={{
-                  marginTop: 24,
+                  marginTop: isPhone ? 10 : 24,
                   paddingVertical: 14,
                   backgroundColor: "#DC2626",
                   color: "#FFFFFF",
@@ -941,210 +957,210 @@ export default function ScanResultScreen() {
           marginTop: isTabletLandscape ? 0 : 20,
           borderRadius: 18,
           padding: 20,
+          backgroundColor: "#FFFFFF",
+          borderWidth: 1,
+          borderColor: "#E5E7EB",
+          shadowColor: "#000",
+          shadowOpacity: 0.08,
+          shadowRadius: 18,
+          shadowOffset: { width: 0, height: 8 },
+          justifyContent: "flex-start",
+        }}
+      >
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <Text style={{ fontSize: 22, fontWeight: "800", color: "#111827" }}>
+            Product Match Preview
+          </Text>
+
+        </View>
+
+        <View
+          style={{
+            flexDirection: "row",
+            gap: isTabletLandscape ? 20 : 18,
+            marginTop: isTabletLandscape ? 20 : 10,
+            padding: isTabletLandscape ? 16 : 12,
+            borderRadius: 20,
+            borderWidth: 1,
+            borderColor: "#E5E7EB",
+            backgroundColor: "#FFFFFF",
+          }}
+        >
+          <View
+            style={{
+              width: isTabletLandscape ? 200 : 104,
+              height: isTabletLandscape ? 220 : 124,
+              borderRadius: 18,
+              backgroundColor: "#F8FAFC",
+              borderWidth: 1,
+              borderColor: "#E5E7EB",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              overflow: "hidden",
+            }}
+          >
+            {catalogImage ? (
+              <Image
+                source={{ uri: catalogImage }}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                }}
+                resizeMode="contain"
+              />
+            ) : (
+              <>
+                <Text style={{ color: "#9CA3AF", fontSize: 42 }}>□</Text>
+                <Text
+                  style={{
+                    marginTop: 10,
+                    color: "#374151",
+                    fontWeight: "700",
+                    textAlign: "center",
+                  }}
+                >
+                  Product image{"\n"}coming soon
+                </Text>
+              </>
+            )}
+          </View>
+
+          <View style={{ flex: 1 }}>
+            <Text
+              numberOfLines={3}
+              ellipsizeMode="tail"
+              style={{
+                fontSize: isTabletLandscape ? 20 : 15,
+                fontWeight: "800",
+                color: "#111827",
+                marginTop: 0,
+              }}
+            >
+              {editableName || "Product Title"}
+            </Text>
+
+            <Text
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              style={{ marginTop: 6, color: "#4B5563", fontWeight: "600" }}
+            >
+              {catalogBrand}
+            </Text>
+
+            <Text style={{ marginTop: isTabletLandscape ? 18 : 10, color: "#111827", fontWeight: "800" }}>
+              Description:
+            </Text>
+
+            <Text
+              style={{
+                marginTop: 6,
+                color: "#374151",
+                lineHeight: isTabletLandscape ? 22 : 18,
+                fontSize: isTabletLandscape ? 15 : 13,
+              }}
+            >
+              {catalogDescriptionPreview || "Product description will appear here once we receive catalog data."}
+            </Text>
+
+            <Text style={{ marginTop: 8, color: "#111827", fontWeight: "700" }}>
+              Confidence: <Text style={{ color: "#B45309" }}>{catalogConfidence}</Text>
+            </Text>
+
+            <TouchableOpacity
+              onPress={() => {
+                Linking.openURL(affiliateSearchUrl);
+              }}
+              style={{
+                marginTop: isTabletLandscape ? 16 : 10,
+                padding: isTabletLandscape ? 16 : 12,
+                borderRadius: 14,
+                backgroundColor: "#FBBF24",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 10,
+                }}
+              >
+                <ExternalLink size={20} color="#111827" />
+                <Text
+                  style={{
+                    color: "#111827",
+                    fontWeight: "900",
+                    fontSize: 18,
+                  }}
+                >
+                  Find product online
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+          </View>
+        </View>
+
+        <View
+          style={{
+            marginTop: 12,
+            padding: 16,
+            borderRadius: 16,
             backgroundColor: "#FFFFFF",
             borderWidth: 1,
             borderColor: "#E5E7EB",
-            shadowColor: "#000",
-            shadowOpacity: 0.08,
-            shadowRadius: 18,
-            shadowOffset: { width: 0, height: 8 },
-            justifyContent: "flex-start",
           }}
         >
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-            <Text style={{ fontSize: 22, fontWeight: "800", color: "#111827" }}>
-              Product Match Preview
-            </Text>
+          <Text style={{ fontSize: 16, fontWeight: "800", color: "#111827" }}>
+            About this Scan
+          </Text>
 
-          </View>
-
-          <View
-            style={{
-              flexDirection: "row",
-              gap: isTabletLandscape ? 20 : 18,
-              marginTop: isTabletLandscape ? 20 : 10,
-              padding: isTabletLandscape ? 16 : 12,
-              borderRadius: 20,
-              borderWidth: 1,
-              borderColor: "#E5E7EB",
-              backgroundColor: "#FFFFFF",
-            }}
-          >
-            <View
+          <View style={{ marginTop: 14, flexDirection: "row", alignItems: "center", gap: 22 }}>
+            <Image
+              source={require("../assets/images/app-icon.png")}
               style={{
-                width: isTabletLandscape ? 200 : 104,
-                height: isTabletLandscape ? 220 : 124,
-                borderRadius: 18,
-                backgroundColor: "#F8FAFC",
-                borderWidth: 1,
-                borderColor: "#E5E7EB",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-                overflow: "hidden",
+                width: 112,
+                height: 112,
+                borderRadius: 24,
               }}
-            >
-              {catalogImage ? (
-                <Image
-                  source={{ uri: catalogImage }}
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                  }}
-                  resizeMode="contain"
-                />
-              ) : (
-                <>
-                  <Text style={{ color: "#9CA3AF", fontSize: 42 }}>□</Text>
-                  <Text
-                    style={{
-                      marginTop: 10,
-                      color: "#374151",
-                      fontWeight: "700",
-                      textAlign: "center",
-                    }}
-                  >
-                    Product image{"\n"}coming soon
-                  </Text>
-                </>
-              )}
-            </View>
+            />
 
             <View style={{ flex: 1 }}>
-              <Text
-                numberOfLines={3}
-                ellipsizeMode="tail"
-                style={{
-                  fontSize: isTabletLandscape ? 20 : 15,
-                  fontWeight: "800",
-                  color: "#111827",
-                  marginTop: 0,
-                }}
-              >
-                {editableName || "Product Title"}
-              </Text>
-
-              <Text
-                numberOfLines={1}
-                ellipsizeMode="tail"
-                style={{ marginTop: 6, color: "#4B5563", fontWeight: "600" }}
-              >
-                {catalogBrand}
-              </Text>
-
-              <Text style={{ marginTop: isTabletLandscape ? 18 : 10, color: "#111827", fontWeight: "800" }}>
-                Description:
-              </Text>
-
-              <Text
-                style={{
-                  marginTop: 6,
-                  color: "#374151",
-                  lineHeight: isTabletLandscape ? 22 : 18,
-                  fontSize: isTabletLandscape ? 15 : 13,
-                }}
-              >
-                {catalogDescriptionPreview || "Product description will appear here once we receive catalog data."}
-              </Text>
-
-              <Text style={{ marginTop: 8, color: "#111827", fontWeight: "700" }}>
-                Confidence: <Text style={{ color: "#B45309" }}>{catalogConfidence}</Text>
-              </Text>
-
-              <TouchableOpacity
-                onPress={() => {
-                  Linking.openURL(affiliateSearchUrl);
-                }}
-                style={{
-                  marginTop: isTabletLandscape ? 16 : 10,
-                  padding: isTabletLandscape ? 16 : 12,
-                  borderRadius: 14,
-                  backgroundColor: "#FBBF24",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 10,
-                  }}
-                >
-                  <ExternalLink size={20} color="#111827" />
-                  <Text
-                    style={{
-                      color: "#111827",
-                      fontWeight: "900",
-                      fontSize: 18,
-                    }}
-                  >
-                    Find product online
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                <Barcode size={18} color="#6B7280" />
+                <View>
+                  <Text style={{ color: "#6B7280", fontSize: 12 }}>Barcode / UPC</Text>
+                  <Text style={{ marginTop: 2, color: "#111827", fontWeight: "700" }}>
+                    {String(code ?? "Unknown")}
                   </Text>
                 </View>
-              </TouchableOpacity>
-
-            </View>
-          </View>
-
-          <View
-            style={{
-              marginTop: 12,
-              padding: 16,
-              borderRadius: 16,
-              backgroundColor: "#FFFFFF",
-              borderWidth: 1,
-              borderColor: "#E5E7EB",
-            }}
-          >
-            <Text style={{ fontSize: 16, fontWeight: "800", color: "#111827" }}>
-              About this Scan
-            </Text>
-
-            <View style={{ marginTop: 14, flexDirection: "row", alignItems: "center", gap: 22 }}>
-              <Image
-                source={require("../assets/images/app-icon.png")}
-                style={{
-                  width: 112,
-                  height: 112,
-                  borderRadius: 24,
-                }}
-              />
-
-              <View style={{ flex: 1 }}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                  <Barcode size={18} color="#6B7280" />
-                  <View>
-                <Text style={{ color: "#6B7280", fontSize: 12 }}>Barcode / UPC</Text>
-                <Text style={{ marginTop: 2, color: "#111827", fontWeight: "700" }}>
-                  {String(code ?? "Unknown")}
-                </Text>
               </View>
-            </View>
 
-            <View style={{ marginTop: 12, flexDirection: "row", alignItems: "center", gap: 10 }}>
-              <ScanSearch size={18} color="#6B7280" />
-              <View>
-                <Text style={{ color: "#6B7280", fontSize: 12 }}>Scanned with</Text>
-                <Text style={{ marginTop: 2, color: "#111827", fontWeight: "700" }}>
-                  Where&apos;s My Gear
-                </Text>
+              <View style={{ marginTop: 12, flexDirection: "row", alignItems: "center", gap: 10 }}>
+                <ScanSearch size={18} color="#6B7280" />
+                <View>
+                  <Text style={{ color: "#6B7280", fontSize: 12 }}>Scanned with</Text>
+                  <Text style={{ marginTop: 2, color: "#111827", fontWeight: "700" }}>
+                    Where&apos;s My Gear
+                  </Text>
+                </View>
               </View>
-            </View>
 
-                <View style={{ marginTop: 12, flexDirection: "row", alignItems: "center", gap: 10 }}>
-                  <Search size={18} color="#6B7280" />
-                  <View>
-                    <Text style={{ color: "#6B7280", fontSize: 12 }}>Source</Text>
-                    <Text style={{ marginTop: 2, color: "#111827", fontWeight: "700" }}>
-                      {catalogSource}
-                    </Text>
-                  </View>
+              <View style={{ marginTop: 12, flexDirection: "row", alignItems: "center", gap: 10 }}>
+                <Search size={18} color="#6B7280" />
+                <View>
+                  <Text style={{ color: "#6B7280", fontSize: 12 }}>Source</Text>
+                  <Text style={{ marginTop: 2, color: "#111827", fontWeight: "700" }}>
+                    {catalogSource}
+                  </Text>
                 </View>
               </View>
             </View>
           </View>
         </View>
+      </View>
     </View >
   );
 }
