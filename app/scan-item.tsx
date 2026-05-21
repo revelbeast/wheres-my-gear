@@ -231,11 +231,12 @@ export default function ScanItemScreen() {
               code: result.barcode,
               found: String(result.found),
               suggestedName: result.bestName ?? "",
-              source: result.sources.upcitemdb ? "UPCitemDB" : result.sources.openFoodFacts ? "OpenFoodFacts" : "Unknown",
-              brand: result.sources.upcitemdb?.brand ?? "",
-              image: result.sources.upcitemdb?.image ?? "",
-              description: result.sources.upcitemdb?.description ?? "",
-              matchConfidence: result.sources.upcitemdb?.confidence != null ? String(result.sources.upcitemdb.confidence) : "",
+              source: result.sources.upcitemdb ? "UPCitemDB" : result.sources.serpapi ? "SerpAPI" : result.sources.openFoodFacts ? "OpenFoodFacts" : "Unknown",
+              brand: result.sources.upcitemdb?.brand ?? result.sources.serpapi?.brand ?? "",
+              image: result.sources.upcitemdb?.image ?? result.sources.serpapi?.image ?? "",
+              description: result.sources.upcitemdb?.description ?? result.sources.serpapi?.description ?? "",
+              matchConfidence: result.sources.upcitemdb?.confidence != null ? String(result.sources.upcitemdb.confidence) : result.sources.serpapi?.confidence != null ? String(result.sources.serpapi.confidence) : "",
+              matchStatus: /[A-Za-z]/.test(result.barcode) && result.sources.serpapi ? "possible" : "found",
             },
           });
 

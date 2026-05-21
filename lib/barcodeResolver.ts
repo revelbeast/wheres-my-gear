@@ -11,6 +11,17 @@ type UPCItemDBProduct = {
     confidence: number;
 };
 
+type SerpApiProduct = {
+    title: string | null;
+    brand: string | null;
+    image: string | null;
+    description: string | null;
+    link: string | null;
+    price: string | null;
+    query: string;
+    confidence: number;
+};
+
 export type ScanResult = {
     barcode: string;
     found: boolean;
@@ -20,6 +31,7 @@ export type ScanResult = {
     sources: {
         openFoodFacts?: OpenFoodProduct | null;
         upcitemdb?: UPCItemDBProduct | null;
+        serpapi?: SerpApiProduct | null;
     };
     affiliateLink?: string | null;
 };
@@ -68,7 +80,7 @@ async function fetchUPCItemDB(
 ): Promise<UPCItemDBProduct | null> {
     try {
         const res = await fetch(
-            "http://192.168.7.147:5001/wheres-my-gear-ab7a7/us-central1/lookupUPCItemDB",
+            "https://us-central1-wheres-my-gear-ab7a7.cloudfunctions.net/lookupUPCItemDB",
             {
                 method: "POST",
                 headers: {
@@ -101,27 +113,102 @@ async function fetchUPCItemDB(
     }
 }
 
+async function fetchSerpApiProduct(
+    query: string
+): Promise<SerpApiProduct | null> {
+    try {
+        const res = await fetch(
+            "https://us-central1-wheres-my-gear-ab7a7.cloudfunctions.net/lookupSerpApiProduct",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ query }),
+            }
+        );
+
+        const data = await res.json();
+
+        if (!res.ok || data?.found !== true) {
+            return null;
+        }
+
+        return {
+            title: data?.title ?? null,
+            brand: data?.brand ?? null,
+            image: data?.image ?? null,
+            description: data?.description ?? null,
+            link: data?.link ?? null,
+            price: data?.price ?? null,
+            query: data?.query ?? query,
+            confidence:
+                typeof data?.confidence === "number"
+                    ? data.confidence
+                    : 0.7,
+        };
+    } catch (err) {
+        console.log("SERPAPI LOOKUP ERROR:", err);
+        return null;
+    }
+}
+
+function hasStrongProductData(product: SerpApiProduct | UPCItemDBProduct | null) {
+    if (!product) {
+        return false;
+    }
+
+    const title = product.title?.trim() ?? "";
+    const hasUsefulTitle = title.length >= 12;
+    const hasImage = Boolean(product.image);
+
+    return hasUsefulTitle && hasImage;
+}
+
 export async function resolveBarcode(
     barcode: string
 ): Promise<ScanResult> {
-    const [food, upcitemdb] = await Promise.all([
-        fetchOpenFoodFacts(barcode),
-        fetchUPCItemDB(barcode),
-    ]);
+    const serpapiByBarcode = await fetchSerpApiProduct(barcode);
+
+    const shouldTryFallbackSources = !hasStrongProductData(serpapiByBarcode);
+
+    const [food, upcitemdb] = shouldTryFallbackSources
+        ? await Promise.all([
+            fetchOpenFoodFacts(barcode),
+            fetchUPCItemDB(barcode),
+        ])
+        : [null, null];
+
+    const serpapiByFallbackName =
+        !hasStrongProductData(serpapiByBarcode) && (upcitemdb?.title || food?.name)
+            ? await fetchSerpApiProduct(upcitemdb?.title || food?.name || barcode)
+            : null;
+
+    const serpapi = hasStrongProductData(serpapiByBarcode)
+        ? serpapiByBarcode
+        : serpapiByFallbackName ?? serpapiByBarcode;
 
     const bestName =
-        upcitemdb?.brand ||
+        serpapi?.title ||
         upcitemdb?.title ||
+        upcitemdb?.brand ||
         food?.name ||
         `Item ${barcode.slice(-4)}`;
 
-    const found = Boolean(food || upcitemdb);
+    const found = Boolean(serpapi || upcitemdb || food);
 
-    const confidence: ScanResult["confidence"] = upcitemdb
-        ? "high"
-        : food
+    const isAlphanumericBarcode = /[A-Za-z]/.test(barcode);
+
+    const confidence: ScanResult["confidence"] =
+        isAlphanumericBarcode && serpapi && !upcitemdb && !food
             ? "medium"
-            : "low";
+            : hasStrongProductData(serpapi)
+                ? "high"
+                : hasStrongProductData(upcitemdb)
+                    ? "high"
+                    : serpapi || upcitemdb || food
+                        ? "medium"
+                        : "low";
 
     return {
         barcode,
@@ -132,7 +219,8 @@ export async function resolveBarcode(
         sources: {
             openFoodFacts: food,
             upcitemdb: upcitemdb ?? null,
+            serpapi: serpapi ?? null,
         },
-        affiliateLink: null,
+        affiliateLink: serpapi?.link ?? null,
     };
 }

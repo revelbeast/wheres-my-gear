@@ -22,6 +22,10 @@ export const lookupUPCItemDB = onRequest(async (req, res) => {
         params: {
           upc: cleanedUPC,
         },
+        headers: {
+          Accept: "application/json",
+          "User-Agent": "wheres-my-gear-firebase-function",
+        },
         timeout: 8000,
       }
     );
@@ -55,8 +59,17 @@ export const lookupUPCItemDB = onRequest(async (req, res) => {
       upc: cleanedUPC,
     });
   } catch (err) {
-    // 5. Error fallback
-    res.status(500).json({
+    const status =
+      axios.isAxiosError(err) && err.response?.status
+        ? err.response.status
+        : 500;
+
+    const details =
+      axios.isAxiosError(err)
+        ? err.response?.data ?? err.message
+        : "Unknown UPCitemDB error";
+
+    res.status(status).json({
       found: false,
       source: "upcitemdb",
       confidence: 0,
@@ -66,6 +79,7 @@ export const lookupUPCItemDB = onRequest(async (req, res) => {
       description: null,
       upc: cleanedUPC,
       error: "UPCitemDB request failed",
+      details,
     });
   }
 });

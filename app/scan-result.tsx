@@ -55,6 +55,7 @@ export default function ScanResultScreen() {
     image,
     description,
     matchConfidence,
+    matchStatus,
   } = useLocalSearchParams();
 
   const uid = auth.currentUser?.uid;
@@ -71,6 +72,9 @@ export default function ScanResultScreen() {
     matchConfidence && !Number.isNaN(Number(matchConfidence))
       ? `${Math.round(Number(matchConfidence) * 100)}%`
       : "Pending";
+
+  const isPossibleMatch =
+    String(matchStatus ?? "").toLowerCase() === "possible";
   const firstCatalogSentence = catalogDescription
     ? catalogDescription
         .split(/(?<=[.!?])\s+/)
@@ -345,10 +349,10 @@ export default function ScanResultScreen() {
                     style={{
                       fontSize: 16,
                       fontWeight: "800",
-                      color: "#15803D",
+                      color: isPossibleMatch ? "#B45309" : "#15803D",
                     }}
                   >
-                    ✓ Item Found
+                    {isPossibleMatch ? "⚠ Possible Match" : "✓ Item Found"}
                   </Text>
                 </View>
               ) : (
