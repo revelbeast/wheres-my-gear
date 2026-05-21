@@ -374,6 +374,25 @@ export default function ProfileScreen() {
     });
   }
 
+  function handleOpenPremiumPlusUpgrade() {
+    Alert.alert(
+      "Unlock Premium +",
+      "Premium + adds QR / Barcode Scanner and Archive access as an add-on upgrade to your Premium subscription.",
+      [
+        {
+          text: "Maybe Later",
+          style: "cancel",
+        },
+        {
+          text: "Upgrade to Premium +",
+          onPress: () => {
+            console.log("PROFILE PREMIUM PLUS UPGRADE SELECTED");
+          },
+        },
+      ]
+    );
+  }
+
   async function handleOpenSubscriptionDetails() {
     if (interactionLocked) return;
 
@@ -929,6 +948,23 @@ export default function ProfileScreen() {
                   />
 
                   <ProfileRow
+                    icon={<Crown size={20} color="#F59E0B" />}
+                    iconBackgroundColor="#111827"
+                    title="Upgrade to Premium +"
+                    subtitle="Add QR / Barcode Scanner and Archive access"
+                    onPress={handleOpenPremiumPlusUpgrade}
+                    showChevron={false}
+                    disabled={rowActionsDisabled}
+                  />
+
+                  <View
+                    style={[
+                      styles.divider,
+                      { backgroundColor: theme.colors.border },
+                    ]}
+                  />
+
+                  <ProfileRow
                     icon={<RotateCcw size={20} color={iconColor} />}
                     title={
                       isRestoringPurchases
@@ -1080,6 +1116,23 @@ export default function ProfileScreen() {
                   onPress={
                     isPremium ? handleOpenSubscriptionDetails : handleOpenPaywall
                   }
+                  showChevron={false}
+                  disabled={rowActionsDisabled}
+                />
+
+                <View
+                  style={[
+                    styles.divider,
+                    { backgroundColor: theme.colors.border },
+                  ]}
+                />
+
+                <ProfileRow
+                  icon={<Crown size={20} color="#F59E0B" />}
+                  iconBackgroundColor="#111827"
+                  title="Upgrade to Premium +"
+                  subtitle="Add QR / Barcode Scanner and Archive access"
+                  onPress={handleOpenPremiumPlusUpgrade}
                   showChevron={false}
                   disabled={rowActionsDisabled}
                 />
