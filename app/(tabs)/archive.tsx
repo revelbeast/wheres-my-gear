@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import { Archive, ClipboardList, RotateCcw, Trash2, Warehouse } from "lucide-react-native";
 import React, { useEffect, useRef, useState } from "react";
 import { Alert, ScrollView, StyleSheet, View } from "react-native";
@@ -22,6 +23,7 @@ import {
   restoreChecklist,
   restoreChecklistTemplate,
 } from "../../lib/checklistsService";
+import { isPremiumPlusUser } from "../../lib/revenuecat";
 import type { Checklist, ChecklistTemplate } from "../../types/checklists";
 
 export default function ArchiveScreen() {
@@ -29,6 +31,8 @@ export default function ArchiveScreen() {
   const { user } = useAuth();
   const userId = user?.uid ?? "";
   const isMountedRef = useRef(true);
+  const [hasPremiumPlusAccess, setHasPremiumPlusAccess] = useState(false);
+  const [checkingPremiumPlusAccess, setCheckingPremiumPlusAccess] = useState(true);
   const [archivedStorageSpaces, setArchivedStorageSpaces] = useState<StorageSpace[]>([]);
   const [archivedChecklists, setArchivedChecklists] = useState<Checklist[]>([]);
   const [archivedTemplates, setArchivedTemplates] = useState<ChecklistTemplate[]>([]);
@@ -36,7 +40,67 @@ export default function ArchiveScreen() {
   const [loadingChecklists, setLoadingChecklists] = useState(true);
 
   useEffect(() => {
+    let active = true;
+
+    async function validatePremiumPlusAccess() {
+      try {
+        if (!user) {
+          router.replace("/sign-in");
+          return;
+        }
+
+        const hasAccess = await isPremiumPlusUser();
+
+        if (!active) return;
+
+        setHasPremiumPlusAccess(hasAccess);
+
+        if (!hasAccess) {
+          Alert.alert(
+            "Unlock Premium +",
+            "Archive is a Premium + add-on feature for organizing hidden or completed gear records.",
+            [
+              {
+                text: "Not Now",
+                style: "cancel",
+                onPress: () => router.back(),
+              },
+              {
+                text: "Upgrade to Premium +",
+                onPress: () =>
+                  router.push({
+                    pathname: "/paywall",
+                    params: { plan: "premium_plus" },
+                  }),
+              },
+            ]
+          );
+        }
+      } catch (error) {
+        console.error("Premium+ archive access check failed:", error);
+        router.back();
+      } finally {
+        if (active) {
+          setCheckingPremiumPlusAccess(false);
+        }
+      }
+    }
+
+    void validatePremiumPlusAccess();
+
+    return () => {
+      active = false;
+    };
+  }, [user]);
+
+  useEffect(() => {
     isMountedRef.current = true;
+
+    if (checkingPremiumPlusAccess || !hasPremiumPlusAccess) {
+      setLoadingStorageSpaces(false);
+      setLoadingChecklists(false);
+      return;
+    }
 
     async function loadArchivedStorageSpaces() {
       try {
@@ -203,6 +267,18 @@ export default function ArchiveScreen() {
     await deleteChecklistTemplate(userId, templateId);
     setArchivedTemplates((current) =>
       current.filter((template) => template.id !== templateId)
+    );
+  }
+
+  if (checkingPremiumPlusAccess || !hasPremiumPlusAccess) {
+    return (
+      <ScreenBackground>
+        <SafeAreaView style={styles.safe}>
+          <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 24 }}>
+            <ThemedText color="secondary">Checking Premium+ access...</ThemedText>
+          </View>
+        </SafeAreaView>
+      </ScreenBackground>
     );
   }
 

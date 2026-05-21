@@ -1,11 +1,17 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { router, useFocusEffect } from "expo-router";
+import { Alert } from "react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { useAuth } from "../components/auth/AuthProvider";
+import { isPremiumPlusUser } from "../lib/revenuecat";
 import HapticPressable from "../components/ui/HapticPressable";
 import { resolveBarcode } from "../lib/barcodeResolver";
 
 export default function ScanItemScreen() {
+  const { user } = useAuth();
+  const [hasPremiumPlusAccess, setHasPremiumPlusAccess] = useState(false);
+  const [checkingPremiumPlusAccess, setCheckingPremiumPlusAccess] = useState(true);
   const [permission, requestPermission] = useCameraPermissions();
   const [mounted, setMounted] = useState(false);
   const _resolverAnchor = resolveBarcode;
@@ -100,6 +106,61 @@ export default function ScanItemScreen() {
     setMounted(true);
   }, []);
 
+  // Premium+ enforcement
+  useEffect(() => {
+    let active = true;
+
+    async function validatePremiumPlusAccess() {
+      try {
+        if (!user) {
+          router.replace("/sign-in");
+          return;
+        }
+
+        const hasAccess = await isPremiumPlusUser();
+
+        if (!active) return;
+
+        setHasPremiumPlusAccess(hasAccess);
+
+        if (!hasAccess) {
+          Alert.alert(
+            "Unlock Premium +",
+            "QR and Barcode scanning is a Premium + add-on feature for smart gear scanning and faster item setup.",
+            [
+              {
+                text: "Not Now",
+                style: "cancel",
+                onPress: () => router.back(),
+              },
+              {
+                text: "Upgrade to Premium +",
+                onPress: () =>
+                  router.push({
+                    pathname: "/paywall",
+                    params: { plan: "premium_plus" },
+                  }),
+              },
+            ]
+          );
+        }
+      } catch (error) {
+        console.error("Premium+ access check failed:", error);
+        router.back();
+      } finally {
+        if (active) {
+          setCheckingPremiumPlusAccess(false);
+        }
+      }
+    }
+
+    void validatePremiumPlusAccess();
+
+    return () => {
+      active = false;
+    };
+  }, [user]);
+
   // camera lifecycle control
   useFocusEffect(
     useCallback(() => {
@@ -116,6 +177,15 @@ export default function ScanItemScreen() {
       };
     }, [])
   );
+
+  if (checkingPremiumPlusAccess || !hasPremiumPlusAccess) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator />
+        <Text style={styles.text}>Checking Premium+ access...</Text>
+      </View>
+    );
+  }
 
   if (!permission) {
     return (
