@@ -865,7 +865,10 @@ export default function ProfileScreen() {
 
                   <ThemedText
                     variant="title"
-                    style={[styles.identityTitle, styles.headerWhite]}
+                    style={[
+                      styles.identityTitle,
+                      { color: theme.isLight ? theme.colors.primary : "#FFFFFF" },
+                    ]}
                   >
                     Where&apos;s My Gear
                   </ThemedText>
