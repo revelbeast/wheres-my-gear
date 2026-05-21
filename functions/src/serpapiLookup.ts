@@ -4,6 +4,33 @@ import { onRequest } from "firebase-functions/v2/https";
 
 const serpApiKey = defineSecret("SERPAPI_API_KEY");
 
+export async function searchSerpApi(query: string) {
+  const cleanedQuery = query.trim();
+
+  const response = await axios.get("https://serpapi.com/search.json", {
+    params: {
+      engine: "google_shopping",
+      q: cleanedQuery,
+      api_key: serpApiKey.value(),
+    },
+    timeout: 10000,
+  });
+
+  const result = response.data?.shopping_results?.[0];
+
+  return {
+    found: !!result,
+    confidence: result ? 0.7 : 0,
+    title: result?.title ?? null,
+    image: result?.thumbnail ?? null,
+    price: result?.price ?? null,
+    brand: result?.source ?? null,
+    description: result?.snippet ?? null,
+    link: result?.link ?? result?.product_link ?? null,
+    raw: result,
+  };
+}
+
 export const lookupSerpApiProduct = onRequest(
   { secrets: [serpApiKey] },
   async (req, res) => {
@@ -30,7 +57,17 @@ export const lookupSerpApiProduct = onRequest(
         timeout: 10000,
       });
 
-      const result = response.data?.shopping_results?.[0];
+      const results = response.data?.shopping_results ?? [];
+
+      const result =
+        results.find((r: any) =>
+          r?.price &&
+          (r?.link || r?.product_link) &&
+          r?.thumbnail
+        ) ||
+        results.find((r: any) => r?.price && (r?.link || r?.product_link)) ||
+        results.find((r: any) => r?.price) ||
+        results[0];
 
       if (!result) {
         res.json({
@@ -51,13 +88,22 @@ export const lookupSerpApiProduct = onRequest(
       res.json({
         found: true,
         source: "serpapi",
-        confidence: 0.7,
+        confidence: Math.min(
+          0.95,
+          0.4 +
+          (result?.price ? 0.3 : 0) +
+          (result?.thumbnail ? 0.2 : 0) +
+          (result?.snippet ? 0.1 : 0)
+        ),
+
         title: result?.title ?? null,
-        brand: result?.source ?? null,
         image: result?.thumbnail ?? null,
+        price: result?.price ?? null,
+
+        brand: result?.source ?? result?.merchant ?? null,
         description: result?.snippet ?? null,
         link: result?.link ?? result?.product_link ?? null,
-        price: result?.price ?? null,
+
         query: cleanedQuery,
       });
     } catch (err) {
