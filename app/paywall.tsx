@@ -1,5 +1,5 @@
 import { BlurView } from "expo-blur";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, CheckCircle2, Crown } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -23,17 +23,24 @@ import {
 import {
   getOfferings,
   hasActivePremiumEntitlement,
+  hasActivePremiumPlusEntitlement,
+  isPremiumPlusUser,
   isPremiumUser,
   purchasePackage,
   restorePurchases,
 } from "../lib/revenuecat";
 
-const PRIVACY_POLICY_URL = "https://revelbeast.github.io/wheres-my-gear-legal/";
+const PRIVACY_POLICY_URL = "https://revelbeast.github.io/wheres-my-gear/";
 const TERMS_OF_USE_URL =
   "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/";
 
 export default function PaywallScreen() {
   const theme = useThemedValues();
+  const params = useLocalSearchParams<{
+    plan?: string;
+  }>();
+
+  const isPremiumPlusPaywall = params.plan === "premium_plus";
   const isMountedRef = useRef(true);
   const paywallLoadVersionRef = useRef(0);
   const purchaseVersionRef = useRef(0);
@@ -48,8 +55,8 @@ export default function PaywallScreen() {
   );
 
   const priceText = useMemo(() => {
-    return annualPackage?.product?.priceString ?? "$12.99/year";
-  }, [annualPackage]);
+    return annualPackage?.product?.priceString ?? (isPremiumPlusPaywall ? "$17.99/year" : "$12.99/year");
+  }, [annualPackage, isPremiumPlusPaywall]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -103,10 +110,20 @@ export default function PaywallScreen() {
         return;
       }
 
-      const pkg =
-        offerings?.current?.annual ??
-        offerings?.current?.availablePackages?.[0] ??
-        null;
+      const availablePackages = offerings?.current?.availablePackages ?? [];
+      const targetProductId = isPremiumPlusPaywall
+        ? "premium_plus_annual"
+        : "premium_annual";
+
+      const matchedPackage =
+        availablePackages.find(
+          (availablePackage) =>
+            availablePackage.product.identifier === targetProductId
+        ) ?? null;
+
+      const pkg = isPremiumPlusPaywall
+        ? matchedPackage
+        : matchedPackage ?? offerings?.current?.annual ?? availablePackages[0] ?? null;
 
       setAnnualPackage(pkg);
     } catch (error) {
@@ -206,12 +223,16 @@ export default function PaywallScreen() {
         return;
       }
 
-      const activePremium = hasActivePremiumEntitlement(customerInfo);
+      const purchaseActivated = isPremiumPlusPaywall
+        ? hasActivePremiumPlusEntitlement(customerInfo)
+        : hasActivePremiumEntitlement(customerInfo);
 
-      if (activePremium) {
+      if (purchaseActivated) {
         Alert.alert(
-          "Premium unlocked",
-          "Your Premium subscription is now active.",
+          isPremiumPlusPaywall ? "Premium+ unlocked" : "Premium unlocked",
+          isPremiumPlusPaywall
+            ? "Your Premium+ subscription is now active."
+            : "Your Premium subscription is now active.",
           [
             {
               text: "Continue",
@@ -226,7 +247,9 @@ export default function PaywallScreen() {
         return;
       }
 
-      const premium = await isPremiumUser();
+      const premium = isPremiumPlusPaywall
+        ? await isPremiumPlusUser()
+        : await isPremiumUser();
 
       if (
         !isMountedRef.current ||
@@ -237,8 +260,12 @@ export default function PaywallScreen() {
 
       if (premium) {
         Alert.alert(
-          "Premium restored",
-          "Your Premium subscription is active.",
+          isPremiumPlusPaywall
+            ? "Premium+ restored"
+            : "Premium restored",
+          isPremiumPlusPaywall
+            ? "Your Premium+ subscription is active."
+            : "Your Premium subscription is active.",
           [
             {
               text: "Continue",
@@ -304,12 +331,16 @@ export default function PaywallScreen() {
         return;
       }
 
-      const activePremium = hasActivePremiumEntitlement(customerInfo);
+      const restoredAccess = isPremiumPlusPaywall
+        ? hasActivePremiumPlusEntitlement(customerInfo)
+        : hasActivePremiumEntitlement(customerInfo);
 
-      if (activePremium) {
+      if (restoredAccess) {
         Alert.alert(
           "Purchases restored",
-          "Your Premium subscription is active.",
+          isPremiumPlusPaywall
+            ? "Your Premium+ subscription is active."
+            : "Your Premium subscription is active.",
           [
             {
               text: "Continue",
@@ -370,7 +401,7 @@ export default function PaywallScreen() {
             </HapticPressable>
 
             <ThemedText variant="title" style={styles.headerTitle}>
-              Premium
+              {isPremiumPlusPaywall ? "Premium+" : "Premium"}
             </ThemedText>
 
             <View style={styles.headerSpacer} />
@@ -392,12 +423,15 @@ export default function PaywallScreen() {
             </View>
 
             <ThemedText variant="header" style={styles.heroTitle}>
-              Upgrade to Premium
+              {isPremiumPlusPaywall
+                ? "Upgrade to Premium+"
+                : "Upgrade to Premium"}
             </ThemedText>
 
             <ThemedText style={styles.heroSubtitle}>
-              Remove ads and unlock premium features for organizing your gear,
-              storage spaces, compartments, and checklists.
+              {isPremiumPlusPaywall
+                ? "Unlock QR / Barcode Scanner, Archive access, and future smart gear tools."
+                : "Remove ads and unlock premium features for organizing your gear, storage spaces, compartments, and checklists."}
             </ThemedText>
 
             <View style={styles.priceWrap}>
@@ -406,7 +440,9 @@ export default function PaywallScreen() {
               ) : (
                 <>
                   <ThemedText variant="header" style={styles.priceText}>
-                    Premium Subscription
+                    {isPremiumPlusPaywall
+                      ? "Premium+ Subscription"
+                      : "Premium Subscription"}
                   </ThemedText>
                   <ThemedText style={styles.subscriptionText}>
                     Annual plan
@@ -422,10 +458,21 @@ export default function PaywallScreen() {
             </View>
 
             <View style={styles.featureList}>
-              <FeatureRow text="Remove ads across the app" />
-              <FeatureRow text="Unlock Premium organizer features" />
-              <FeatureRow text="Keep storage spaces, compartments, and checklists organized" />
-              <FeatureRow text="Restore purchases anytime" />
+              {isPremiumPlusPaywall ? (
+                <>
+                  <FeatureRow text="QR / Barcode Scanner access" />
+                  <FeatureRow text="Archive access for hidden gear" />
+                  <FeatureRow text="Future smart gear tools and scan enhancements" />
+                  <FeatureRow text="Includes all Premium features" />
+                </>
+              ) : (
+                <>
+                  <FeatureRow text="Remove ads across the app" />
+                  <FeatureRow text="Unlock Premium organizer features" />
+                  <FeatureRow text="Keep storage spaces, compartments, and checklists organized" />
+                  <FeatureRow text="Restore purchases anytime" />
+                </>
+              )}
             </View>
 
             <ThemedButton
@@ -434,7 +481,11 @@ export default function PaywallScreen() {
               disabled={loading || actionDisabled}
             >
               <ThemedText style={styles.subscribeButtonText}>
-                {purchasing ? "Processing..." : "Start 7-Day Free Trial"}
+                {purchasing
+                  ? "Processing..."
+                  : isPremiumPlusPaywall
+                    ? "Upgrade to Premium+"
+                    : "Start 7-Day Free Trial"}
               </ThemedText>
             </ThemedButton>
 

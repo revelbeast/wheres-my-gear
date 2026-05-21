@@ -1449,7 +1449,12 @@ export default function DashboardScreen() {
         {
           text: "Upgrade to Premium +",
           onPress: () => {
-            console.log("PREMIUM PLUS UPGRADE SELECTED");
+            pushWithNavigationLock(() => {
+              router.push({
+                pathname: "/paywall",
+                params: { plan: "premium_plus" },
+              });
+            });
           },
         },
       ]
@@ -1475,7 +1480,12 @@ export default function DashboardScreen() {
         {
           text: "Upgrade to Premium +",
           onPress: () => {
-            console.log("PREMIUM PLUS UPGRADE SELECTED");
+            pushWithNavigationLock(() => {
+              router.push({
+                pathname: "/paywall",
+                params: { plan: "premium_plus" },
+              });
+            });
           },
         },
       ]

@@ -187,10 +187,7 @@ export function hasActivePremiumPlusEntitlement(customerInfo: CustomerInfo | nul
 }
 
 export function hasPremiumPlusAccess(customerInfo: CustomerInfo | null) {
-  return (
-    hasActivePremiumEntitlement(customerInfo) &&
-    hasActivePremiumPlusEntitlement(customerInfo)
-  );
+  return hasActivePremiumPlusEntitlement(customerInfo);
 }
 
 export async function isPremiumPlusUser() {
