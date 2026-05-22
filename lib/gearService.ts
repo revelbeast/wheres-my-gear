@@ -12,6 +12,11 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { auth, db } from "../firebaseConfig";
+import {
+  compartmentsCol as workspaceCompartmentsCol,
+  inventoryItemsCol as workspaceInventoryItemsCol,
+  storageSpacesCol as workspaceStorageSpacesCol,
+} from "./workspacePaths";
 
 export type ItemStatus = "packed" | "missing";
 export type StorageSpaceCategory = "vehicle" | "storage";
@@ -63,27 +68,27 @@ function getCurrentUserId() {
 }
 
 function inventoryCol() {
-  return collection(db, "users", getCurrentUserId(), "inventoryItems");
+  return workspaceInventoryItemsCol(getCurrentUserId());
 }
 
 function inventoryDoc(itemId: string) {
-  return doc(db, "users", getCurrentUserId(), "inventoryItems", itemId);
+  return doc(inventoryCol(), itemId);
 }
 
 function storageSpacesCol() {
-  return collection(db, "users", getCurrentUserId(), "storageSpaces");
+  return workspaceStorageSpacesCol(getCurrentUserId());
 }
 
 function storageSpaceDoc(storageId: string) {
-  return doc(db, "users", getCurrentUserId(), "storageSpaces", storageId);
+  return doc(storageSpacesCol(), storageId);
 }
 
 function compartmentsCol() {
-  return collection(db, "users", getCurrentUserId(), "compartments");
+  return workspaceCompartmentsCol(getCurrentUserId());
 }
 
 function compartmentDoc(compartmentId: string) {
-  return doc(db, "users", getCurrentUserId(), "compartments", compartmentId);
+  return doc(compartmentsCol(), compartmentId);
 }
 
 function normalizeName(value: string) {
