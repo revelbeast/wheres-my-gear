@@ -65,6 +65,10 @@ import {
 import { triggerSuccessHaptic } from "../../lib/haptics";
 import { isPremiumPlusUser, isPremiumUser } from "../../lib/revenuecat";
 import { getProfileSettings } from "../../lib/settingsService";
+import {
+  checklistsCol as workspaceChecklistsCol,
+  compartmentsCol as workspaceCompartmentsCol,
+} from "../../lib/workspacePaths";
 import { useDeviceLayout } from "../../lib/useDeviceLayout";
 import { useInteractionLock } from "../../lib/useInteractionLock";
 import type {
@@ -1057,7 +1061,7 @@ export default function DashboardScreen() {
       setAllItems(all);
 
       const compartmentsSnapshot = await getDocs(
-        collection(db, "users", activeUserId, "compartments")
+        workspaceCompartmentsCol(activeUserId)
       );
       const compartments = compartmentsSnapshot.docs.map((docSnap) => ({
         id: docSnap.id,
@@ -1075,7 +1079,7 @@ export default function DashboardScreen() {
       setAllCompartments(compartments);
 
       const checklistsSnapshot = await getDocs(
-        collection(db, "users", activeUserId, "checklists")
+        workspaceChecklistsCol(activeUserId)
       );
       const checklists = checklistsSnapshot.docs.map((docSnap) => ({
         id: docSnap.id,
