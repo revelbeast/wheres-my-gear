@@ -665,9 +665,7 @@ export async function searchItemsForUser(
     packed?: boolean;
   }>
 > {
-  const snapshot = await getDocs(
-    collection(db, "users", userId, "inventoryItems")
-  );
+  const snapshot = await getDocs(workspaceInventoryItemsCol(userId));
 
   const term = searchTerm.trim().toLowerCase();
   if (!term) return [];
@@ -677,9 +675,7 @@ export async function searchItemsForUser(
     ...d.data(),
   })) as Item[];
 
-  const storageSnapshot = await getDocs(
-    collection(db, "users", userId, "storageSpaces")
-  );
+  const storageSnapshot = await getDocs(workspaceStorageSpacesCol(userId));
 
   const storageSpaces = storageSnapshot.docs.map((d) => ({
     id: d.id,
