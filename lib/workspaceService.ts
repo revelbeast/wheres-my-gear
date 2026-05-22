@@ -1,5 +1,5 @@
 import { auth, db } from "../firebaseConfig";
-import { collection, doc } from "firebase/firestore";
+import { collection, doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import {
   PERSONAL_WORKSPACE_NAME,
   WORKSPACE_COLLECTIONS,
@@ -83,6 +83,29 @@ export function getWorkspaceFeatureFlags(): WorkspaceFeatureFlags {
     teamMembersEnabled: false,
     businessSubscriptionEnabled: false,
   };
+}
+
+export async function ensurePersonalWorkspace() {
+  const featureFlags = getWorkspaceFeatureFlags();
+
+  if (!featureFlags.workspaceEnabled) {
+    return null;
+  }
+
+  const userId = requireUserId();
+  const personalWorkspace = createDefaultPersonalWorkspace(userId);
+  const personalWorkspaceRef = workspaceDoc(personalWorkspace.id);
+  const existingWorkspace = await getDoc(personalWorkspaceRef);
+
+  if (!existingWorkspace.exists()) {
+    await setDoc(personalWorkspaceRef, {
+      ...personalWorkspace,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  }
+
+  return createDefaultActiveWorkspace(personalWorkspace.id);
 }
 
 export function getCurrentUserId() {
