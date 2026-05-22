@@ -8,6 +8,7 @@ import Purchases, {
 
 const PREMIUM_ENTITLEMENT_ID = "premium";
 const PREMIUM_PLUS_ENTITLEMENT_ID = "premium_plus";
+const PREMIUM_PLUS_PRODUCT_IDS = ["premium_plus_annual"];
 
 let configurePromise: Promise<boolean> | null = null;
 let isConfigured = false;
@@ -183,7 +184,15 @@ export function hasActivePremiumPlusEntitlement(customerInfo: CustomerInfo | nul
     return false;
   }
 
-  return Boolean(customerInfo.entitlements.active[PREMIUM_PLUS_ENTITLEMENT_ID]);
+  const hasPremiumPlusEntitlement = Boolean(
+    customerInfo.entitlements.active[PREMIUM_PLUS_ENTITLEMENT_ID]
+  );
+
+  const hasPremiumPlusProduct = PREMIUM_PLUS_PRODUCT_IDS.some((productId) =>
+    customerInfo.activeSubscriptions?.includes(productId)
+  );
+
+  return hasPremiumPlusEntitlement || hasPremiumPlusProduct;
 }
 
 export function hasPremiumPlusAccess(customerInfo: CustomerInfo | null) {
