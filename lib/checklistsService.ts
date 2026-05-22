@@ -13,6 +13,12 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
+import {
+  checklistItemsCol as workspaceChecklistItemsCol,
+  checklistTemplateItemsCol as workspaceChecklistTemplateItemsCol,
+  checklistTemplatesCol as workspaceChecklistTemplatesCol,
+  checklistsCol as workspaceChecklistsCol,
+} from "./workspacePaths";
 import type {
   Checklist,
   ChecklistCategory,
@@ -62,64 +68,39 @@ function createSafeUnsubscribe(
 }
 
 function templatesCol(userId: string) {
-  return collection(db, "users", requireUserId(userId), "checklistTemplates");
+  return workspaceChecklistTemplatesCol(requireUserId(userId));
 }
 
 function templateDoc(userId: string, templateId: string) {
-  return doc(
-    db,
-    "users",
-    requireUserId(userId),
-    "checklistTemplates",
-    requireDocumentId(templateId, "Template ID")
-  );
+  return doc(templatesCol(userId), requireDocumentId(templateId, "Template ID"));
 }
 
 function templateItemsCol(userId: string, templateId: string) {
-  return collection(
-    db,
-    "users",
+  return workspaceChecklistTemplateItemsCol(
     requireUserId(userId),
-    "checklistTemplates",
-    requireDocumentId(templateId, "Template ID"),
-    "items"
+    requireDocumentId(templateId, "Template ID")
   );
 }
 
 function templateItemDoc(userId: string, templateId: string, itemId: string) {
   return doc(
-    db,
-    "users",
-    requireUserId(userId),
-    "checklistTemplates",
-    requireDocumentId(templateId, "Template ID"),
-    "items",
+    templateItemsCol(userId, templateId),
     requireDocumentId(itemId, "Template item ID")
   );
 }
 
 function checklistsCol(userId: string) {
-  return collection(db, "users", requireUserId(userId), "checklists");
+  return workspaceChecklistsCol(requireUserId(userId));
 }
 
 function checklistDoc(userId: string, checklistId: string) {
-  return doc(
-    db,
-    "users",
-    requireUserId(userId),
-    "checklists",
-    requireDocumentId(checklistId, "Checklist ID")
-  );
+  return doc(checklistsCol(userId), requireDocumentId(checklistId, "Checklist ID"));
 }
 
 function checklistItemsCol(userId: string, checklistId: string) {
-  return collection(
-    db,
-    "users",
+  return workspaceChecklistItemsCol(
     requireUserId(userId),
-    "checklists",
-    requireDocumentId(checklistId, "Checklist ID"),
-    "items"
+    requireDocumentId(checklistId, "Checklist ID")
   );
 }
 
