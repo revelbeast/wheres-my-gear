@@ -8,13 +8,17 @@ import {
 } from "firebase/firestore";
 
 import { db } from "../firebaseConfig";
+import {
+  checklistTemplateItemsCol as workspaceChecklistTemplateItemsCol,
+  checklistTemplatesCol as workspaceChecklistTemplatesCol,
+} from "./workspacePaths";
 
 function templatesCol(userId: string) {
-  return collection(db, "users", userId, "checklistTemplates");
+  return workspaceChecklistTemplatesCol(userId);
 }
 
 function templateItemsCol(userId: string, templateId: string) {
-  return collection(db, "users", userId, "checklistTemplates", templateId, "items");
+  return workspaceChecklistTemplateItemsCol(userId, templateId);
 }
 
 const DEFAULT_TEMPLATES = [
