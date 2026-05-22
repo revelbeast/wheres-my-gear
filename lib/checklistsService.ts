@@ -18,6 +18,7 @@ import {
   checklistTemplateItemsCol as workspaceChecklistTemplateItemsCol,
   checklistTemplatesCol as workspaceChecklistTemplatesCol,
   checklistsCol as workspaceChecklistsCol,
+  compartmentsCol as workspaceCompartmentsCol,
 } from "./workspacePaths";
 import type {
   Checklist,
@@ -983,7 +984,7 @@ export async function getAssignedChecklistItems(
   );
 
   const compartmentSnapshot = await getDocs(
-    collection(db, "users", requireUserId(userId), "compartments")
+    workspaceCompartmentsCol(requireUserId(userId))
   );
 
   const compartmentVehicleMap = new Map<string, string>();
