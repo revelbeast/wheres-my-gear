@@ -9,6 +9,10 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
+import {
+  checklistTemplateItemsCol as workspaceChecklistTemplateItemsCol,
+  checklistTemplatesCol as workspaceChecklistTemplatesCol,
+} from "./workspacePaths";
 
 type SeedTemplate = {
   id: string;
@@ -161,7 +165,7 @@ const defaultTemplates: SeedTemplate[] = [
 ];
 
 export async function seedChecklistTemplates(userId: string) {
-  const templatesRef = collection(db, "users", userId, "checklistTemplates");
+  const templatesRef = workspaceChecklistTemplatesCol(userId);
 
   for (const template of defaultTemplates) {
     const existing = await getDocs(
@@ -186,12 +190,7 @@ export async function seedChecklistTemplates(userId: string) {
 
     template.items.forEach((itemName, index) => {
       const itemRef = doc(
-        db,
-        "users",
-        userId,
-        "checklistTemplates",
-        templateRef.id,
-        "items",
+        workspaceChecklistTemplateItemsCol(userId, templateRef.id),
         `${index + 1}`
       );
 
