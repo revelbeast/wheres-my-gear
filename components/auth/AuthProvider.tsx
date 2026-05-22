@@ -29,6 +29,7 @@ import {
   configureRevenueCat,
   logOutRevenueCatUser,
 } from "../../lib/revenuecat";
+import { ensurePersonalWorkspace } from "../../lib/workspaceService";
 
 type AuthContextValue = {
   user: User | null;
@@ -103,6 +104,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           );
         } catch (error) {
           console.log("Failed to hydrate saved app settings during auth startup.", error);
+        }
+
+        try {
+          await ensurePersonalWorkspace();
+        } catch (error) {
+          console.log("Failed to ensure personal workspace during auth startup.", error);
         }
 
         if (authHydrationRequestRef.current !== hydrationRequestId) {
