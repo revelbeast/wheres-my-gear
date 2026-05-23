@@ -41,6 +41,7 @@ import { useAuth } from "../../components/auth/AuthProvider";
 import HapticPressable from "../../components/ui/HapticPressable";
 import KeyboardDismissAccessory from "../../components/ui/KeyboardDismissAccessory";
 import ScreenBackground from "../../components/ui/ScreenBackground";
+import WorkspaceSwitchCard from "../../components/workspace/WorkspaceSwitchCard";
 import {
   ThemedButton,
   ThemedCard,
@@ -2205,6 +2206,20 @@ export default function DashboardScreen() {
                   )}
                 </View>
               )}
+
+              <View
+                style={
+                  isTabletLandscape
+                    ? {
+                        width: 325,
+                        maxWidth: "100%",
+                        alignSelf: "flex-start",
+                      }
+                    : undefined
+                }
+              >
+                <WorkspaceSwitchCard />
+              </View>
 
               {!hasStorageSpaces ? (
                 <ThemedCard style={styles.firstRunCard}>

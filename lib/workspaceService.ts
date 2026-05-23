@@ -27,28 +27,28 @@ export function workspacesCol() {
   return collection(db, WORKSPACE_COLLECTIONS.workspaces);
 }
 
-export function workspaceDoc(workspaceId: string) {
+export function workspaceDoc(id: string) {
   return doc(
     db,
     WORKSPACE_COLLECTIONS.workspaces,
-    workspaceId
+    id
   );
 }
 
-export function workspaceMembersCol(workspaceId: string) {
+export function workspaceMembersCol(id: string) {
   return collection(
     db,
     WORKSPACE_COLLECTIONS.workspaces,
-    workspaceId,
+    id,
     WORKSPACE_COLLECTIONS.members
   );
 }
 
-export function workspaceSettingsDoc(workspaceId: string) {
+export function workspaceSettingsDoc(id: string) {
   return doc(
     db,
     WORKSPACE_COLLECTIONS.workspaces,
-    workspaceId,
+    id,
     WORKSPACE_COLLECTIONS.settings,
     WORKSPACE_SETTINGS_DOC_ID
   );
@@ -77,10 +77,10 @@ export function createDefaultPersonalWorkspace(
 }
 
 export function createDefaultActiveWorkspace(
-  workspaceId: string
+  id: string
 ): ActiveWorkspace {
   return {
-    workspaceId,
+    id,
     type: "personal",
     role: "owner",
   };
@@ -133,7 +133,7 @@ export async function getSavedActiveWorkspace() {
   const activeWorkspace = settingsSnapshot.data().activeWorkspace;
 
   if (
-    !activeWorkspace?.workspaceId ||
+    !activeWorkspace?.id ||
     !activeWorkspace?.type ||
     !activeWorkspace?.role
   ) {
@@ -184,10 +184,10 @@ export function createDefaultBusinessWorkspace(
 }
 
 export function createBusinessActiveWorkspace(
-  workspaceId: string
+  id: string
 ): ActiveWorkspace {
   return {
-    workspaceId,
+    id,
     type: "business",
     role: "owner",
   };
@@ -236,7 +236,7 @@ export async function createOwnerBusinessWorkspace(businessName: string) {
   });
 
   await setDoc(workspaceSettingsDoc(businessWorkspace.id), {
-    workspaceId: businessWorkspace.id,
+    id: businessWorkspace.id,
     type: "business",
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -266,14 +266,14 @@ export async function switchToBusinessWorkspace() {
   }
 
   const userId = requireUserId();
-  const workspaceId = createBusinessWorkspaceId(userId);
-  const workspaceSnapshot = await getDoc(workspaceDoc(workspaceId));
+  const id = createBusinessWorkspaceId(userId);
+  const workspaceSnapshot = await getDoc(workspaceDoc(id));
 
   if (!workspaceSnapshot.exists()) {
     return null;
   }
 
-  const activeWorkspace = createBusinessActiveWorkspace(workspaceId);
+  const activeWorkspace = createBusinessActiveWorkspace(id);
 
   return saveActiveWorkspace(activeWorkspace);
 }

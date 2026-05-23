@@ -25,7 +25,7 @@ export type WorkspaceMember = {
 };
 
 export type ActiveWorkspace = {
-  workspaceId: string;
+  id: string;
   type: WorkspaceType;
   role: WorkspaceRole;
 };
