@@ -12,7 +12,8 @@ import {
   updateDoc,
   writeBatch,
 } from "firebase/firestore";
-import { db } from "../firebaseConfig";
+import { auth, db } from "../firebaseConfig";
+import { getSavedActiveWorkspace } from "./workspaceService";
 import {
   checklistItemsCol as workspaceChecklistItemsCol,
   checklistTemplateItemsCol as workspaceChecklistTemplateItemsCol,
@@ -46,6 +47,70 @@ function requireDocumentId(value: string, label: string) {
   }
 
   return trimmedValue;
+}
+
+function getCurrentUserId() {
+  const userId = auth.currentUser?.uid;
+
+  if (!userId) {
+    throw new Error("You are not signed in. Please close and reopen the app, then try again.");
+  }
+
+  return userId;
+}
+
+async function getActiveWorkspaceForUserScopedData() {
+  const savedWorkspace = await getSavedActiveWorkspace();
+
+  return (
+    savedWorkspace ?? {
+      id: getCurrentUserId(),
+      type: "personal",
+      role: "owner",
+    }
+  );
+}
+
+async function activeUserScopedWorkspaceCol(collectionName: string) {
+  const userId = getCurrentUserId();
+  const activeWorkspace = await getActiveWorkspaceForUserScopedData();
+
+  return collection(
+    db,
+    "users",
+    userId,
+    "workspaces",
+    activeWorkspace.id,
+    collectionName
+  );
+}
+
+async function activeChecklistsCol() {
+  return activeUserScopedWorkspaceCol("checklists");
+}
+
+async function activeChecklistTemplatesCol() {
+  return activeUserScopedWorkspaceCol("checklistTemplates");
+}
+
+async function activeChecklistItemsCol(checklistId: string) {
+  return collection(
+    await activeChecklistsCol(),
+    requireDocumentId(checklistId, "Checklist ID"),
+    "items"
+  );
+}
+
+async function activeChecklistTemplateItemsCol(templateId: string) {
+  return collection(
+    await activeChecklistTemplatesCol(),
+    requireDocumentId(templateId, "Template ID"),
+    "items"
+  );
+}
+
+async function activeCompartmentsCol() {
+  return activeUserScopedWorkspaceCol("compartments");
 }
 
 function createSafeUnsubscribe(
@@ -192,7 +257,7 @@ export type ChecklistSearchResult = {
 export async function getChecklistTemplates(
   userId: string
 ): Promise<ChecklistTemplate[]> {
-  const q = query(templatesCol(userId), orderBy("name"));
+  const q = query(await activeChecklistTemplatesCol(), orderBy("name"));
   const snapshot = await getDocs(q);
 
   return snapshot.docs.map((d) => ({
@@ -213,7 +278,7 @@ export async function getChecklistTemplate(
   userId: string,
   templateId: string
 ): Promise<ChecklistTemplate | null> {
-  const snapshot = await getDoc(templateDoc(userId, templateId));
+  const snapshot = await getDoc(doc(await activeChecklistTemplatesCol(), requireDocumentId(templateId, "Template ID")));
 
   if (!snapshot.exists()) {
     return null;
@@ -229,7 +294,7 @@ export async function getChecklistTemplateItems(
   userId: string,
   templateId: string
 ): Promise<ChecklistTemplateItem[]> {
-  const q = query(templateItemsCol(userId, templateId), orderBy("sortOrder"));
+  const q = query(await activeChecklistTemplateItemsCol(templateId), orderBy("sortOrder"));
   const snapshot = await getDocs(q);
 
   return snapshot.docs.map((d) => normalizeTemplateItem(d.id, d.data()));
@@ -276,7 +341,7 @@ export async function createChecklistTemplateWithItems(
     throw new Error("At least one template item is required.");
   }
 
-  const templateRef = await addDoc(templatesCol(userId), {
+  const templateRef = await addDoc(await activeChecklistTemplatesCol(), {
     name: trimmedName,
     category: data.category,
     customCategoryLabel:
@@ -289,9 +354,11 @@ export async function createChecklistTemplateWithItems(
   });
 
   const batch = writeBatch(db);
+  const templateItemsCollection =
+    await activeChecklistTemplateItemsCol(templateRef.id);
 
   safeItems.forEach((item, index) => {
-    const itemRef = doc(templateItemsCol(userId, templateRef.id));
+    const itemRef = doc(templateItemsCollection);
 
     batch.set(itemRef, {
       name: item.name,
@@ -326,7 +393,7 @@ export async function addChecklistTemplateItem(
     throw new Error("Template item name is required.");
   }
 
-  const itemsSnapshot = await getDocs(templateItemsCol(userId, templateId));
+  const itemsSnapshot = await getDocs(await activeChecklistTemplateItemsCol(templateId));
   const existingItems = itemsSnapshot.docs.map((d) =>
     normalizeTemplateItem(d.id, d.data())
   );
@@ -336,7 +403,7 @@ export async function addChecklistTemplateItem(
       ? Math.max(...existingItems.map((item) => item.sortOrder ?? 0)) + 1
       : 1;
 
-  await addDoc(templateItemsCol(userId, templateId), {
+  await addDoc(await activeChecklistTemplateItemsCol(templateId), {
     name: trimmedName,
     notes: "",
     quantity: 1,
@@ -362,7 +429,7 @@ export async function updateChecklistTemplateItemName(
     throw new Error("Template item name is required.");
   }
 
-  await updateDoc(templateItemDoc(userId, templateId, itemId), {
+  await updateDoc(doc(await activeChecklistTemplateItemsCol(templateId), requireDocumentId(itemId, "Template item ID")), {
     name: trimmedName,
     updatedAt: serverTimestamp(),
   });
@@ -376,7 +443,7 @@ export async function updateChecklistTemplateItemQuantity(
 ) {
   const safeQuantity = Math.max(1, Number(quantity) || 1);
 
-  await updateDoc(templateItemDoc(userId, templateId, itemId), {
+  await updateDoc(doc(await activeChecklistTemplateItemsCol(templateId), requireDocumentId(itemId, "Template item ID")), {
     quantity: safeQuantity,
     updatedAt: serverTimestamp(),
   });
@@ -388,7 +455,7 @@ export async function updateChecklistTemplateItemPacked(
   itemId: string,
   packed: boolean
 ) {
-  await updateDoc(templateItemDoc(userId, templateId, itemId), {
+  await updateDoc(doc(await activeChecklistTemplateItemsCol(templateId), requireDocumentId(itemId, "Template item ID")), {
     packed: Boolean(packed),
     updatedAt: serverTimestamp(),
   });
@@ -400,7 +467,7 @@ export async function updateChecklistTemplateItemPhoto(
   itemId: string,
   itemPhotoUri: string
 ) {
-  await updateDoc(templateItemDoc(userId, templateId, itemId), {
+  await updateDoc(doc(await activeChecklistTemplateItemsCol(templateId), requireDocumentId(itemId, "Template item ID")), {
     itemPhotoUri: itemPhotoUri ?? "",
     updatedAt: serverTimestamp(),
   });
@@ -411,7 +478,7 @@ export async function deleteChecklistTemplateItem(
   templateId: string,
   itemId: string
 ) {
-  await deleteDoc(templateItemDoc(userId, templateId, itemId));
+  await deleteDoc(doc(await activeChecklistTemplateItemsCol(templateId), requireDocumentId(itemId, "Template item ID")));
   await recomputeChecklistTemplateItemCount(userId, templateId);
 }
 
@@ -419,9 +486,9 @@ export async function recomputeChecklistTemplateItemCount(
   userId: string,
   templateId: string
 ) {
-  const snapshot = await getDocs(templateItemsCol(userId, templateId));
+  const snapshot = await getDocs(await activeChecklistTemplateItemsCol(templateId));
 
-  await updateDoc(templateDoc(userId, templateId), {
+  await updateDoc(doc(await activeChecklistTemplatesCol(), requireDocumentId(templateId, "Template ID")), {
     itemCount: snapshot.docs.length,
     updatedAt: serverTimestamp(),
   });
@@ -431,7 +498,7 @@ export async function getChecklist(
   userId: string,
   checklistId: string
 ): Promise<Checklist | null> {
-  const snapshot = await getDoc(checklistDoc(userId, checklistId));
+  const snapshot = await getDoc(doc(await activeChecklistsCol(), requireDocumentId(checklistId, "Checklist ID")));
 
   if (!snapshot.exists()) {
     return null;
@@ -457,7 +524,7 @@ export async function createChecklist(
     throw new Error("Checklist name is required.");
   }
 
-  const checklistRef = await addDoc(checklistsCol(userId), {
+  const checklistRef = await addDoc(await activeChecklistsCol(), {
     name: trimmedName,
     category: data.category,
     customCategoryLabel: data.customCategoryLabel ?? "",
@@ -486,7 +553,7 @@ export async function createChecklistFromTemplate(
   const totalCount = templateItems.length;
   const missingCount = totalCount - packedCount;
 
-  const checklistRef = await addDoc(checklistsCol(userId), {
+  const checklistRef = await addDoc(await activeChecklistsCol(), {
     name: template.name,
     category: template.category,
     customCategoryLabel: template.customCategoryLabel ?? "",
@@ -504,10 +571,12 @@ export async function createChecklistFromTemplate(
   });
 
   const batch = writeBatch(db);
+  const checklistItemsCollection =
+    await activeChecklistItemsCol(checklistRef.id);
 
   templateItems.forEach((item) => {
     const isPacked = Boolean(item.packed ?? false);
-    const itemRef = doc(checklistItemsCol(userId, checklistRef.id));
+    const itemRef = doc(checklistItemsCollection);
 
     batch.set(itemRef, {
       name: item.name,
@@ -550,7 +619,7 @@ export async function createChecklistFromSelectedTemplateItems(
   const totalCount = safeSelectedItems.length;
   const missingCount = totalCount - packedCount;
 
-  const checklistRef = await addDoc(checklistsCol(userId), {
+  const checklistRef = await addDoc(await activeChecklistsCol(), {
     name: template.name,
     category: template.category,
     customCategoryLabel: template.customCategoryLabel ?? "",
@@ -572,10 +641,12 @@ export async function createChecklistFromSelectedTemplateItems(
   }
 
   const batch = writeBatch(db);
+  const checklistItemsCollection =
+    await activeChecklistItemsCol(checklistRef.id);
 
   safeSelectedItems.forEach((item, index) => {
     const isPacked = Boolean(item.packed ?? false);
-    const itemRef = doc(checklistItemsCol(userId, checklistRef.id));
+    const itemRef = doc(checklistItemsCollection);
 
     batch.set(itemRef, {
       name: String(item.name ?? "").trim(),
@@ -611,7 +682,7 @@ export async function addChecklistItem(
     throw new Error("Item name is required.");
   }
 
-  const itemsSnapshot = await getDocs(checklistItemsCol(userId, checklistId));
+  const itemsSnapshot = await getDocs(await activeChecklistItemsCol(checklistId));
   const existingItems = itemsSnapshot.docs.map((d) =>
     normalizeChecklistItem(d.id, d.data())
   );
@@ -621,7 +692,7 @@ export async function addChecklistItem(
       ? Math.max(...existingItems.map((item) => item.sortOrder ?? 0)) + 1
       : 1;
 
-  await addDoc(checklistItemsCol(userId, checklistId), {
+  await addDoc(await activeChecklistItemsCol(checklistId), {
     name: trimmedName,
     notes: "",
     quantity: 1,
@@ -888,21 +959,21 @@ export async function updateChecklistName(
     throw new Error("Checklist name is required.");
   }
 
-  await updateDoc(checklistDoc(userId, checklistId), {
+  await updateDoc(doc(await activeChecklistsCol(), requireDocumentId(checklistId, "Checklist ID")), {
     name: trimmed,
     updatedAt: serverTimestamp(),
   });
 }
 
 export async function archiveChecklist(userId: string, checklistId: string) {
-  await updateDoc(checklistDoc(userId, checklistId), {
+  await updateDoc(doc(await activeChecklistsCol(), requireDocumentId(checklistId, "Checklist ID")), {
     isArchived: true,
     updatedAt: serverTimestamp(),
   });
 }
 
 export async function restoreChecklist(userId: string, checklistId: string) {
-  await updateDoc(checklistDoc(userId, checklistId), {
+  await updateDoc(doc(await activeChecklistsCol(), requireDocumentId(checklistId, "Checklist ID")), {
     isArchived: false,
     updatedAt: serverTimestamp(),
   });
@@ -913,7 +984,7 @@ export async function updateChecklistNotes(
   checklistId: string,
   notes: string
 ) {
-  await updateDoc(checklistDoc(userId, checklistId), {
+  await updateDoc(doc(await activeChecklistsCol(), requireDocumentId(checklistId, "Checklist ID")), {
     notes: notes ?? "",
     updatedAt: serverTimestamp(),
   });
@@ -942,14 +1013,14 @@ export async function recomputeChecklistCounts(
   userId: string,
   checklistId: string
 ) {
-  const snapshot = await getDocs(checklistItemsCol(userId, checklistId));
+  const snapshot = await getDocs(await activeChecklistItemsCol(checklistId));
   const items = snapshot.docs.map((d) => normalizeChecklistItem(d.id, d.data()));
 
   const totalCount = items.length;
   const packedCount = items.filter((i) => i.packed).length;
   const missingCount = totalCount - packedCount;
 
-  await updateDoc(checklistDoc(userId, checklistId), {
+  await updateDoc(doc(await activeChecklistsCol(), requireDocumentId(checklistId, "Checklist ID")), {
     totalCount,
     packedCount,
     missingCount,
@@ -959,14 +1030,14 @@ export async function recomputeChecklistCounts(
 
 export async function deleteChecklist(userId: string, checklistId: string) {
   const safeChecklistId = requireDocumentId(checklistId, "Checklist ID");
-  const itemsSnapshot = await getDocs(checklistItemsCol(userId, safeChecklistId));
+  const itemsSnapshot = await getDocs(await activeChecklistItemsCol(safeChecklistId));
   const batch = writeBatch(db);
 
   itemsSnapshot.forEach((itemDoc) => {
     batch.delete(itemDoc.ref);
   });
 
-  batch.delete(checklistDoc(userId, safeChecklistId));
+  batch.delete(doc(await activeChecklistsCol(), safeChecklistId));
 
   await batch.commit();
 }
@@ -978,13 +1049,13 @@ export async function getAssignedChecklistItems(
     packed?: boolean;
   }
 ): Promise<AssignedChecklistItemSummary[]> {
-  const checklistSnapshot = await getDocs(checklistsCol(userId));
+  const checklistSnapshot = await getDocs(await activeChecklistsCol());
   const checklistDocs = checklistSnapshot.docs.map((d) =>
     normalizeChecklist(d.id, d.data())
   );
 
   const compartmentSnapshot = await getDocs(
-    workspaceCompartmentsCol(requireUserId(userId))
+    await activeCompartmentsCol()
   );
 
   const compartmentVehicleMap = new Map<string, string>();
@@ -998,7 +1069,7 @@ export async function getAssignedChecklistItems(
   for (const checklist of checklistDocs) {
     if (checklist.isArchived) continue;
 
-    const itemsSnapshot = await getDocs(checklistItemsCol(userId, checklist.id));
+    const itemsSnapshot = await getDocs(await activeChecklistItemsCol(checklist.id));
     const checklistItems = itemsSnapshot.docs.map((d) =>
       normalizeChecklistItem(d.id, d.data())
     );
@@ -1048,7 +1119,7 @@ export async function searchChecklistsForUser(
     return [];
   }
 
-  const snapshot = await getDocs(checklistsCol(userId));
+  const snapshot = await getDocs(await activeChecklistsCol());
   const checklists = snapshot.docs.map((d) =>
     normalizeChecklist(d.id, d.data())
   );
@@ -1078,9 +1149,9 @@ export async function saveChecklistAsTemplate(
     throw new Error("Checklist not found");
   }
 
-  const itemsSnapshot = await getDocs(checklistItemsCol(userId, checklistId));
+  const itemsSnapshot = await getDocs(await activeChecklistItemsCol(checklistId));
 
-  const templateRef = await addDoc(templatesCol(userId), {
+  const templateRef = await addDoc(await activeChecklistTemplatesCol(), {
     name: checklist.name,
     category: checklist.category ?? "trip",
     customCategoryLabel: checklist.customCategoryLabel ?? "",
@@ -1092,10 +1163,12 @@ export async function saveChecklistAsTemplate(
   });
 
   const batch = writeBatch(db);
+  const templateItemsCollection =
+    await activeChecklistTemplateItemsCol(templateRef.id);
 
   itemsSnapshot.docs.forEach((docSnap, index) => {
     const item = normalizeChecklistItem(docSnap.id, docSnap.data());
-    const itemRef = doc(templateItemsCol(userId, templateRef.id));
+    const itemRef = doc(templateItemsCollection);
 
     batch.set(itemRef, {
       name: item.name,
@@ -1125,7 +1198,7 @@ export async function archiveChecklistTemplate(
 ) {
   const safeTemplateId = requireDocumentId(templateId, "Template ID");
 
-  await updateDoc(templateDoc(userId, safeTemplateId), {
+  await updateDoc(doc(await activeChecklistTemplatesCol(), safeTemplateId), {
     isArchived: true,
     updatedAt: serverTimestamp(),
   });
@@ -1137,7 +1210,7 @@ export async function restoreChecklistTemplate(
 ) {
   const safeTemplateId = requireDocumentId(templateId, "Template ID");
 
-  await updateDoc(templateDoc(userId, safeTemplateId), {
+  await updateDoc(doc(await activeChecklistTemplatesCol(), safeTemplateId), {
     isArchived: false,
     updatedAt: serverTimestamp(),
   });
@@ -1148,14 +1221,14 @@ export async function deleteChecklistTemplate(
   templateId: string
 ) {
   const safeTemplateId = requireDocumentId(templateId, "Template ID");
-  const itemsSnapshot = await getDocs(templateItemsCol(userId, safeTemplateId));
+  const itemsSnapshot = await getDocs(await activeChecklistTemplateItemsCol(safeTemplateId));
   const batch = writeBatch(db);
 
   itemsSnapshot.forEach((itemDoc) => {
     batch.delete(itemDoc.ref);
   });
 
-  batch.delete(templateDoc(userId, safeTemplateId));
+  batch.delete(doc(await activeChecklistTemplatesCol(), safeTemplateId));
 
   await batch.commit();
 }
@@ -1170,7 +1243,7 @@ export async function updateChecklistTemplateName(
     throw new Error("Template name is required.");
   }
 
-  await updateDoc(templateDoc(userId, templateId), {
+  await updateDoc(doc(await activeChecklistTemplatesCol(), requireDocumentId(templateId, "Template ID")), {
     name: trimmed,
     updatedAt: serverTimestamp(),
   });
