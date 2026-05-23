@@ -245,6 +245,39 @@ export async function createOwnerBusinessWorkspace(businessName: string) {
   return createBusinessActiveWorkspace(businessWorkspace.id);
 }
 
+export async function switchToPersonalWorkspace() {
+  const featureFlags = getWorkspaceFeatureFlags();
+
+  if (!featureFlags.workspaceEnabled) {
+    return null;
+  }
+
+  const userId = requireUserId();
+  const activeWorkspace = createDefaultActiveWorkspace(userId);
+
+  return saveActiveWorkspace(activeWorkspace);
+}
+
+export async function switchToBusinessWorkspace() {
+  const featureFlags = getWorkspaceFeatureFlags();
+
+  if (!featureFlags.workspaceEnabled) {
+    return null;
+  }
+
+  const userId = requireUserId();
+  const workspaceId = createBusinessWorkspaceId(userId);
+  const workspaceSnapshot = await getDoc(workspaceDoc(workspaceId));
+
+  if (!workspaceSnapshot.exists()) {
+    return null;
+  }
+
+  const activeWorkspace = createBusinessActiveWorkspace(workspaceId);
+
+  return saveActiveWorkspace(activeWorkspace);
+}
+
 export function getCurrentUserId() {
   return requireUserId();
 }
