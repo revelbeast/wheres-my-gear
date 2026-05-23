@@ -75,6 +75,11 @@ const FAQ_ITEMS: FAQItem[] = [
       "Dashboard search can find Items, Storage Spaces, Compartments, Checklists, and Templates. You can search by names, storage types, packed status, or To Pack status.",
   },
   {
+    question: "How do Workspaces work?",
+    answer:
+      "Workspaces control which set of gear data you are viewing. The Dashboard workspace card shows your current workspace and opens the Workspace Switcher. When you switch workspaces, the app updates the active workspace context, saves that selection, and loads the gear, storage spaces, checklists, and trips for that workspace. Storage Spaces are still separate from Workspaces. For example, a vehicle like Silvie’s Car is a Storage Space inside the selected Workspace.",
+  },
+  {
     question: "What does Packed mean?",
     answer:
       "Packed means the item is currently accounted for and ready. Packed items increase the Items Packed count on the Dashboard for the selected Storage Space.",
