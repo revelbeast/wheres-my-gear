@@ -37,6 +37,15 @@ import { getProfileSettings } from "../../lib/settingsService";
 import type { AppProfile } from "../../lib/settingsService";
 import { useDeviceLayout } from "../../lib/useDeviceLayout";
 import { useInteractionLock } from "../../lib/useInteractionLock";
+import {
+  checklistItemsCol,
+  checklistTemplateItemsCol,
+  checklistsCol,
+  checklistTemplatesCol,
+  compartmentsCol,
+  inventoryItemsCol,
+  storageSpacesCol,
+} from "../../lib/workspacePaths";
 
 const USER_AGREEMENT_URL =
   "https://sites.google.com/view/wheresmygearapp/home";
@@ -602,11 +611,11 @@ export default function ProfileScreen() {
                   checklistsSnapshot,
                   checklistTemplatesSnapshot,
                 ] = await Promise.all([
-                  getDocs(collection(db, "users", userId, "storageSpaces")),
-                  getDocs(collection(db, "users", userId, "compartments")),
-                  getDocs(collection(db, "users", userId, "inventoryItems")),
-                  getDocs(collection(db, "users", userId, "checklists")),
-                  getDocs(collection(db, "users", userId, "checklistTemplates")),
+                  getDocs(storageSpacesCol(userId)),
+                  getDocs(compartmentsCol(userId)),
+                  getDocs(inventoryItemsCol(userId)),
+                  getDocs(checklistsCol(userId)),
+                  getDocs(checklistTemplatesCol(userId)),
                 ]);
 
                 if (
@@ -620,14 +629,7 @@ export default function ProfileScreen() {
 
                 for (const checklistDoc of checklistsSnapshot.docs) {
                   const itemsSnapshot = await getDocs(
-                    collection(
-                      db,
-                      "users",
-                      userId,
-                      "checklists",
-                      checklistDoc.id,
-                      "items"
-                    )
+                    checklistItemsCol(userId, checklistDoc.id)
                   );
 
                   if (
@@ -644,14 +646,7 @@ export default function ProfileScreen() {
 
                 for (const templateDoc of checklistTemplatesSnapshot.docs) {
                   const itemsSnapshot = await getDocs(
-                    collection(
-                      db,
-                      "users",
-                      userId,
-                      "checklistTemplates",
-                      templateDoc.id,
-                      "items"
-                    )
+                    checklistTemplateItemsCol(userId, templateDoc.id)
                   );
 
                   if (
