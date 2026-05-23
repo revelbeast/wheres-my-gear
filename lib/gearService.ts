@@ -20,7 +20,7 @@ import {
 } from "./workspacePaths";
 
 export type ItemStatus = "packed" | "missing";
-export type StorageSpaceCategory = "vehicle" | "storage";
+export type StorageSpaceCategory = "office" | "storage" | "vehicle";
 
 export type StorageSpace = {
   id: string;
@@ -193,7 +193,12 @@ export async function createStorageSpace(input: {
     updatedAt: serverTimestamp(),
   };
 
-  const ref = await addDoc(storageSpacesCol(), payload);
+  const userId = getCurrentUserId();
+  const activeWorkspace = await getActiveWorkspaceForUserScopedData();
+  const ref = await addDoc(
+    userScopedWorkspaceStorageSpacesCol(userId, activeWorkspace.id),
+    payload
+  );
   const confirmationSnapshot = await getDoc(ref);
 
   if (!confirmationSnapshot.exists()) {

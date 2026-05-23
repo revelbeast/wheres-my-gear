@@ -99,7 +99,7 @@ export default function EditStorageScreen() {
 
   const [name, setName] = useState("");
   const [category, setCategory] = useState<
-    "vehicle" | "storage"
+    "office" | "storage" | "vehicle"
   >("vehicle");
 
   const [subtype, setSubtype] = useState("");
@@ -174,7 +174,7 @@ export default function EditStorageScreen() {
     }
   }
 
-  function handleSelectCategory(nextCategory: "vehicle" | "storage") {
+  function handleSelectCategory(nextCategory: "office" | "storage" | "vehicle") {
     if (saving || loading || interactionLocked) return;
 
     Keyboard.dismiss();
