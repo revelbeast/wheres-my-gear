@@ -1,3 +1,4 @@
+import { useActiveWorkspace } from "../../lib/workspace/useActiveWorkspace";
 
 import React, { useState } from "react";
 import { Alert, ScrollView, StyleSheet, View } from "react-native";
@@ -19,10 +20,7 @@ import {
 
 export default function BusinessWorkspaceScreen() {
 
-  const activeWorkspace = {
-    type: "business",
-    role: "owner"
-  };
+  const activeWorkspace = useActiveWorkspace();
 
   
   const theme = useThemedValues();
