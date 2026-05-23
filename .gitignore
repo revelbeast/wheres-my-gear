@@ -43,3 +43,5 @@ app-example
 /android
 .env
 .env
+*.ipa
+step3_workspace_debug.py
