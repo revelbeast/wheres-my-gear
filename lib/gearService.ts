@@ -91,6 +91,27 @@ function userScopedWorkspaceStorageSpacesCol(userId: string, workspaceId: string
   );
 }
 
+async function activeUserScopedWorkspaceStorageSpacesCol() {
+  const userId = getCurrentUserId();
+  const activeWorkspace = await getActiveWorkspaceForUserScopedData();
+
+  return userScopedWorkspaceStorageSpacesCol(userId, activeWorkspace.id);
+}
+
+async function activeUserScopedWorkspaceStorageSpaceDoc(storageId: string) {
+  return doc(await activeUserScopedWorkspaceStorageSpacesCol(), storageId);
+}
+
+async function activeUserScopedWorkspaceInventoryItemsCol() {
+  const activeWorkspace = await getActiveWorkspaceForUserScopedData();
+  return workspaceInventoryItemsCol(activeWorkspace.id, true);
+}
+
+async function activeUserScopedWorkspaceCompartmentsCol() {
+  const activeWorkspace = await getActiveWorkspaceForUserScopedData();
+  return workspaceCompartmentsCol(activeWorkspace.id, true);
+}
+
 function inventoryCol() {
   return workspaceInventoryItemsCol(getCurrentUserId());
 }
@@ -155,7 +176,7 @@ export async function getStorageSpaces(): Promise<StorageSpace[]> {
 export async function getStorageSpaceById(
   storageId: string
 ): Promise<StorageSpace | null> {
-  const snapshot = await getDoc(storageSpaceDoc(storageId));
+  const snapshot = await getDoc(await activeUserScopedWorkspaceStorageSpaceDoc(storageId));
 
   if (!snapshot.exists()) return null;
 
@@ -230,14 +251,14 @@ export async function updateStorageSpace(
     payload.name = trimmed;
   }
 
-  await updateDoc(storageSpaceDoc(storageId), payload);
+  await updateDoc(await activeUserScopedWorkspaceStorageSpaceDoc(storageId), payload);
 }
 
 export async function updateStorageSpaceNotes(
   storageId: string,
   notes: string
 ) {
-  await updateDoc(storageSpaceDoc(storageId), {
+  await updateDoc(await activeUserScopedWorkspaceStorageSpaceDoc(storageId), {
     notes: notes ?? "",
     updatedAt: serverTimestamp(),
   });
@@ -250,7 +271,7 @@ export async function archiveStorageSpace(storageId: string) {
     throw new Error("Storage space ID is required.");
   }
 
-  await updateDoc(storageSpaceDoc(trimmedStorageId), {
+  await updateDoc(await activeUserScopedWorkspaceStorageSpaceDoc(trimmedStorageId), {
     isArchived: true,
     archivedAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -264,7 +285,7 @@ export async function restoreStorageSpace(storageId: string) {
     throw new Error("Storage space ID is required.");
   }
 
-  await updateDoc(storageSpaceDoc(trimmedStorageId), {
+  await updateDoc(await activeUserScopedWorkspaceStorageSpaceDoc(trimmedStorageId), {
     isArchived: false,
     archivedAt: null,
     updatedAt: serverTimestamp(),
@@ -272,7 +293,7 @@ export async function restoreStorageSpace(storageId: string) {
 }
 
 export async function getArchivedStorageSpaces(): Promise<StorageSpace[]> {
-  const snapshot = await getDocs(storageSpacesCol());
+  const snapshot = await getDocs(await activeUserScopedWorkspaceStorageSpacesCol());
 
   return snapshot.docs
     .map((d) => ({
@@ -290,12 +311,12 @@ export async function deleteStorageSpace(storageId: string) {
   }
 
   const relatedCompartmentsQuery = query(
-    compartmentsCol(),
+    await activeUserScopedWorkspaceCompartmentsCol(),
     where("vehicleId", "==", trimmedStorageId)
   );
 
   const relatedItemsByStorageQuery = query(
-    inventoryCol(),
+    await activeUserScopedWorkspaceInventoryItemsCol(),
     where("vehicleId", "==", trimmedStorageId)
   );
 
@@ -315,7 +336,7 @@ export async function deleteStorageSpace(storageId: string) {
   });
 
   if (relatedCompartmentIds.size > 0) {
-    const allItemsSnapshot = await getDocs(inventoryCol());
+    const allItemsSnapshot = await getDocs(await activeUserScopedWorkspaceInventoryItemsCol());
 
     allItemsSnapshot.docs.forEach((itemSnapshot) => {
       const item = itemSnapshot.data() as Item;
@@ -337,7 +358,7 @@ export async function deleteStorageSpace(storageId: string) {
     batch.delete(compartmentSnapshot.ref);
   });
 
-  batch.delete(storageSpaceDoc(trimmedStorageId));
+  batch.delete(await activeUserScopedWorkspaceStorageSpaceDoc(trimmedStorageId));
 
   await batch.commit();
 }
@@ -354,7 +375,7 @@ export async function createCompartment(name: string, vehicleId: string) {
     throw new Error("Vehicle ID is required.");
   }
 
-  const ref = await addDoc(compartmentsCol(), {
+  const ref = await addDoc(await activeUserScopedWorkspaceCompartmentsCol(), {
     name: trimmedName,
     vehicleId: trimmedVehicleId,
     createdAt: serverTimestamp(),
@@ -392,7 +413,7 @@ export async function updateCompartment(
     payload.vehicleId = trimmedVehicleId;
   }
 
-  await updateDoc(compartmentDoc(compartmentId), payload);
+  await updateDoc(doc(await activeUserScopedWorkspaceCompartmentsCol(), compartmentId), payload);
 }
 
 export async function deleteCompartment(compartmentId: string) {
@@ -403,7 +424,7 @@ export async function deleteCompartment(compartmentId: string) {
   }
 
   const relatedItemsQuery = query(
-    inventoryCol(),
+    await activeUserScopedWorkspaceInventoryItemsCol(),
     where("compartmentId", "==", trimmedCompartmentId)
   );
 
@@ -414,13 +435,13 @@ export async function deleteCompartment(compartmentId: string) {
     batch.delete(itemSnapshot.ref);
   });
 
-  batch.delete(compartmentDoc(trimmedCompartmentId));
+  batch.delete(doc(await activeUserScopedWorkspaceCompartmentsCol(), trimmedCompartmentId));
 
   await batch.commit();
 }
 
 export async function getAllCompartments(): Promise<Compartment[]> {
-  const snapshot = await getDocs(compartmentsCol());
+  const snapshot = await getDocs(await activeUserScopedWorkspaceCompartmentsCol());
 
   return snapshot.docs.map((d) => ({
     id: d.id,
@@ -431,7 +452,7 @@ export async function getAllCompartments(): Promise<Compartment[]> {
 export async function getCompartmentsByVehicle(
   vehicleId: string
 ): Promise<Compartment[]> {
-  const q = query(compartmentsCol(), where("vehicleId", "==", vehicleId));
+  const q = query(await activeUserScopedWorkspaceCompartmentsCol(), where("vehicleId", "==", vehicleId));
   const snapshot = await getDocs(q);
 
   return snapshot.docs.map((d) => ({
@@ -449,7 +470,7 @@ export async function getCompartments(
 export async function getCompartmentById(
   compartmentId: string
 ): Promise<Compartment | null> {
-  const snapshot = await getDoc(compartmentDoc(compartmentId));
+  const snapshot = await getDoc(doc(await activeUserScopedWorkspaceCompartmentsCol(), compartmentId));
 
   if (!snapshot.exists()) return null;
 
@@ -460,7 +481,7 @@ export async function getCompartmentById(
 }
 
 export async function getAllItems(): Promise<Item[]> {
-  const snapshot = await getDocs(inventoryCol());
+  const snapshot = await getDocs(await activeUserScopedWorkspaceInventoryItemsCol());
 
   return snapshot.docs.map((d) => ({
     id: d.id,
@@ -471,7 +492,7 @@ export async function getAllItems(): Promise<Item[]> {
 export async function getItemsByCompartment(
   compartmentId: string
 ): Promise<Item[]> {
-  const q = query(inventoryCol(), where("compartmentId", "==", compartmentId));
+  const q = query(await activeUserScopedWorkspaceInventoryItemsCol(), where("compartmentId", "==", compartmentId));
   const snapshot = await getDocs(q);
 
   return snapshot.docs.map((d) => ({
@@ -486,7 +507,7 @@ export async function getItemsByStatus(
   const normalizedStatus =
     String(status).toLowerCase().trim() === "packed" ? "packed" : "missing";
 
-  const q = query(inventoryCol(), where("status", "==", normalizedStatus));
+  const q = query(await activeUserScopedWorkspaceInventoryItemsCol(), where("status", "==", normalizedStatus));
   const snapshot = await getDocs(q);
 
   return snapshot.docs.map((d) => ({
@@ -525,7 +546,7 @@ export async function createItem(input: {
     updatedAt: serverTimestamp(),
   };
 
-  const ref = await addDoc(inventoryCol(), payload);
+  const ref = await addDoc(await activeUserScopedWorkspaceInventoryItemsCol(), payload);
   return ref.id;
 }
 
@@ -559,7 +580,7 @@ export async function updateItem(
     payload.quantity = Math.max(1, Number(updates.quantity));
   }
 
-  await updateDoc(inventoryDoc(id), payload);
+  await updateDoc(doc(await activeUserScopedWorkspaceInventoryItemsCol(), id), payload);
 }
 
 export async function updateItemPhoto(id: string, itemPhotoUri: string) {
@@ -569,7 +590,7 @@ export async function updateItemPhoto(id: string, itemPhotoUri: string) {
 }
 
 export async function deleteItem(id: string) {
-  await deleteDoc(inventoryDoc(id));
+  await deleteDoc(doc(await activeUserScopedWorkspaceInventoryItemsCol(), id));
 }
 
 export async function createOrUpdateInventoryItemFromChecklist(
@@ -716,7 +737,7 @@ export async function searchItemsForUser(
     packed?: boolean;
   }>
 > {
-  const snapshot = await getDocs(workspaceInventoryItemsCol(userId));
+  const snapshot = await getDocs(await activeUserScopedWorkspaceInventoryItemsCol());
 
   const term = searchTerm.trim().toLowerCase();
   if (!term) return [];
@@ -726,7 +747,7 @@ export async function searchItemsForUser(
     ...d.data(),
   })) as Item[];
 
-  const storageSnapshot = await getDocs(workspaceStorageSpacesCol(userId));
+  const storageSnapshot = await getDocs(await activeUserScopedWorkspaceStorageSpacesCol());
 
   const storageSpaces = storageSnapshot.docs.map((d) => ({
     id: d.id,
