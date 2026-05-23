@@ -103,13 +103,31 @@ async function activeUserScopedWorkspaceStorageSpaceDoc(storageId: string) {
 }
 
 async function activeUserScopedWorkspaceInventoryItemsCol() {
+  const userId = getCurrentUserId();
   const activeWorkspace = await getActiveWorkspaceForUserScopedData();
-  return workspaceInventoryItemsCol(activeWorkspace.id, true);
+
+  return collection(
+    db,
+    "users",
+    userId,
+    "workspaces",
+    activeWorkspace.id,
+    "inventoryItems"
+  );
 }
 
 async function activeUserScopedWorkspaceCompartmentsCol() {
+  const userId = getCurrentUserId();
   const activeWorkspace = await getActiveWorkspaceForUserScopedData();
-  return workspaceCompartmentsCol(activeWorkspace.id, true);
+
+  return collection(
+    db,
+    "users",
+    userId,
+    "workspaces",
+    activeWorkspace.id,
+    "compartments"
+  );
 }
 
 function inventoryCol() {
