@@ -1,6 +1,6 @@
 import Constants from "expo-constants";
 import { router, useFocusEffect } from "expo-router";
-import { collection, getDocs, writeBatch } from "firebase/firestore";
+import { collection, doc, getDocs, writeBatch } from "firebase/firestore";
 import {
   ChevronRight,
   CircleHelp,
@@ -37,6 +37,7 @@ import { getProfileSettings } from "../../lib/settingsService";
 import type { AppProfile } from "../../lib/settingsService";
 import { useDeviceLayout } from "../../lib/useDeviceLayout";
 import { useInteractionLock } from "../../lib/useInteractionLock";
+import { WORKSPACE_COLLECTIONS, WORKSPACE_SETTINGS_DOC_ID } from "../../lib/workspaceConstants";
 import {
   checklistItemsCol,
   checklistTemplateItemsCol,
@@ -45,6 +46,7 @@ import {
   compartmentsCol,
   inventoryItemsCol,
   storageSpacesCol,
+  tripsCol,
 } from "../../lib/workspacePaths";
 
 const USER_AGREEMENT_URL =
@@ -610,12 +612,16 @@ export default function ProfileScreen() {
                   inventoryItemsSnapshot,
                   checklistsSnapshot,
                   checklistTemplatesSnapshot,
+                  tripsSnapshot,
+                  userWorkspacesSnapshot,
                 ] = await Promise.all([
                   getDocs(storageSpacesCol(userId)),
                   getDocs(compartmentsCol(userId)),
                   getDocs(inventoryItemsCol(userId)),
                   getDocs(checklistsCol(userId)),
                   getDocs(checklistTemplatesCol(userId)),
+                  getDocs(tripsCol(userId)),
+                  getDocs(collection(db, "users", userId, WORKSPACE_COLLECTIONS.workspaces)),
                 ]);
 
                 if (
@@ -667,6 +673,17 @@ export default function ProfileScreen() {
                   ...storageSpacesSnapshot.docs,
                   ...checklistsSnapshot.docs,
                   ...checklistTemplatesSnapshot.docs,
+                  ...tripsSnapshot.docs,
+                  ...userWorkspacesSnapshot.docs,
+                  {
+                    ref: doc(
+                      db,
+                      "users",
+                      userId,
+                      WORKSPACE_COLLECTIONS.settings,
+                      WORKSPACE_SETTINGS_DOC_ID
+                    ),
+                  },
                 ]);
 
                 if (
