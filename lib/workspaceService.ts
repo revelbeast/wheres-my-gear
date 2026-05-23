@@ -54,6 +54,16 @@ export function workspaceSettingsDoc(workspaceId: string) {
   );
 }
 
+export function userWorkspaceSettingsDoc(userId: string) {
+  return doc(
+    db,
+    "users",
+    userId,
+    WORKSPACE_COLLECTIONS.settings,
+    WORKSPACE_SETTINGS_DOC_ID
+  );
+}
+
 export function createDefaultPersonalWorkspace(
   userId: string
 ): Workspace {
@@ -83,6 +93,54 @@ export function getWorkspaceFeatureFlags(): WorkspaceFeatureFlags {
     teamMembersEnabled: false,
     businessSubscriptionEnabled: false,
   };
+}
+
+export async function saveActiveWorkspace(activeWorkspace: ActiveWorkspace) {
+  const featureFlags = getWorkspaceFeatureFlags();
+
+  if (!featureFlags.workspaceEnabled) {
+    return null;
+  }
+
+  const userId = requireUserId();
+
+  await setDoc(
+    userWorkspaceSettingsDoc(userId),
+    {
+      activeWorkspace,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
+
+  return activeWorkspace;
+}
+
+export async function getSavedActiveWorkspace() {
+  const featureFlags = getWorkspaceFeatureFlags();
+
+  if (!featureFlags.workspaceEnabled) {
+    return null;
+  }
+
+  const userId = requireUserId();
+  const settingsSnapshot = await getDoc(userWorkspaceSettingsDoc(userId));
+
+  if (!settingsSnapshot.exists()) {
+    return null;
+  }
+
+  const activeWorkspace = settingsSnapshot.data().activeWorkspace;
+
+  if (
+    !activeWorkspace?.workspaceId ||
+    !activeWorkspace?.type ||
+    !activeWorkspace?.role
+  ) {
+    return null;
+  }
+
+  return activeWorkspace as ActiveWorkspace;
 }
 
 export async function ensurePersonalWorkspace() {
