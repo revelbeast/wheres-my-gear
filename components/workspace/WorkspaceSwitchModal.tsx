@@ -1,14 +1,17 @@
 import React, { useEffect, useState } from "react";
 import { Modal, View, Text, Pressable, ScrollView } from "react-native";
 
+import { auth } from "../../firebaseConfig";
 import { getUserWorkspaces } from "../../lib/workspace/getUserWorkspaces";
 import { useActiveWorkspace } from "../../lib/workspace/useActiveWorkspace";
 
 export default function WorkspaceSwitchModal({
   visible,
   onClose,
-  userId = "current-user"
-}: any) {
+}: {
+  visible: boolean;
+  onClose: () => void;
+}) {
   const [workspaces, setWorkspaces] = useState<any[]>([]);
   const { activeWorkspace, setWorkspace } = useActiveWorkspace();
 
@@ -17,7 +20,14 @@ export default function WorkspaceSwitchModal({
   }, [visible]);
 
   async function load() {
-    const data = await getUserWorkspaces(userId);
+    const currentUserId = auth.currentUser?.uid;
+
+    if (!currentUserId) {
+      setWorkspaces([]);
+      return;
+    }
+
+    const data = await getUserWorkspaces(currentUserId);
     setWorkspaces(data);
   }
 

@@ -152,12 +152,19 @@ export async function ensurePersonalWorkspace() {
 
   const userId = requireUserId();
   const personalWorkspace = createDefaultPersonalWorkspace(userId);
-  const personalWorkspaceRef = workspaceDoc(personalWorkspace.id);
+  const personalWorkspaceRef = doc(
+    db,
+    "users",
+    userId,
+    WORKSPACE_COLLECTIONS.workspaces,
+    personalWorkspace.id
+  );
   const existingWorkspace = await getDoc(personalWorkspaceRef);
 
   if (!existingWorkspace.exists()) {
     await setDoc(personalWorkspaceRef, {
       ...personalWorkspace,
+      role: "owner",
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
