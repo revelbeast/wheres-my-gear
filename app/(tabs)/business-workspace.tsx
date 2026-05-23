@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Alert, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -17,7 +18,13 @@ import {
 } from "../../lib/workspaceService";
 
 export default function BusinessWorkspaceScreen() {
-  const { activeWorkspace } = useAuth();
+
+  const activeWorkspace = {
+    type: "business",
+    role: "owner"
+  };
+
+  
   const theme = useThemedValues();
   const featureFlags = getWorkspaceFeatureFlags();
   const [businessName, setBusinessName] = useState("");

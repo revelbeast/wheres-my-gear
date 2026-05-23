@@ -88,8 +88,8 @@ export function createDefaultActiveWorkspace(
 
 export function getWorkspaceFeatureFlags(): WorkspaceFeatureFlags {
   return {
-    workspaceEnabled: false,
-    businessWorkspaceCreationEnabled: false,
+    workspaceEnabled: true,
+    businessWorkspaceCreationEnabled: true,
     teamMembersEnabled: false,
     businessSubscriptionEnabled: false,
   };
