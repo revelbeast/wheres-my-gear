@@ -29,11 +29,16 @@ import {
   configureRevenueCat,
   logOutRevenueCatUser,
 } from "../../lib/revenuecat";
-import { ensurePersonalWorkspace } from "../../lib/workspaceService";
+import {
+  ensurePersonalWorkspace,
+  getSavedActiveWorkspace,
+} from "../../lib/workspaceService";
+import type { ActiveWorkspace } from "../../types/workspaces";
 
 type AuthContextValue = {
   user: User | null;
   initializing: boolean;
+  activeWorkspace: ActiveWorkspace | null;
   signInWithApple: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   createAccountWithEmail: (email: string, password: string) => Promise<void>;
@@ -60,6 +65,9 @@ function getSafeBackgroundUri(value: unknown): string | null {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [initializing, setInitializing] = useState(true);
+  const [activeWorkspace, setActiveWorkspace] = useState<ActiveWorkspace | null>(
+    null
+  );
 
   const revenueCatConfiguredUserIdRef = useRef<string | null>(null);
   const authHydrationRequestRef = useRef(0);
@@ -79,6 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!nextUser?.uid) {
           clearAppThemeUpdateForUser(user?.uid);
           revenueCatConfiguredUserIdRef.current = null;
+          setActiveWorkspace(null);
           setUser(null);
           setInitializing(false);
           return;
@@ -107,9 +116,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         try {
-          await ensurePersonalWorkspace();
+          const ensuredWorkspace = await ensurePersonalWorkspace();
+          const savedWorkspace = await getSavedActiveWorkspace();
+
+          if (authHydrationRequestRef.current !== hydrationRequestId) {
+            return;
+          }
+
+          setActiveWorkspace(savedWorkspace ?? ensuredWorkspace);
         } catch (error) {
-          console.log("Failed to ensure personal workspace during auth startup.", error);
+          console.log("Failed to hydrate workspace during auth startup.", error);
+          setActiveWorkspace(null);
         }
 
         if (authHydrationRequestRef.current !== hydrationRequestId) {
@@ -208,6 +225,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     authHydrationRequestRef.current += 1;
     clearAppThemeUpdateForUser(user?.uid);
     revenueCatConfiguredUserIdRef.current = null;
+    setActiveWorkspace(null);
     await logOutRevenueCatUser();
     await signOut(auth);
     setUser(null);
@@ -217,13 +235,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     () => ({
       user,
       initializing,
+      activeWorkspace,
       signInWithApple,
       signInWithEmail,
       createAccountWithEmail,
       sendPasswordReset,
       signOutUser,
     }),
-    [user, initializing]
+    [user, initializing, activeWorkspace]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
