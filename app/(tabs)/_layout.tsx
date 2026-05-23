@@ -86,6 +86,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="storage/edit" options={{ href: null }} />
       <Tabs.Screen name="notes" options={{ href: null }} />
       <Tabs.Screen name="archive" options={{ href: null }} />
+      <Tabs.Screen name="business-workspace" options={{ href: null }} />
       <Tabs.Screen name="trips" options={{ href: null }} />
       <Tabs.Screen name="explore" options={{ href: null }} />
 
