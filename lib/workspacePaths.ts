@@ -93,6 +93,16 @@ export function checklistTemplateItemsCol(
     : collection(db, ...legacyUserPath(workspaceId), WORKSPACE_COLLECTIONS.checklistTemplates, templateId, "items");
 }
 
+export function workspaceSettingsDoc(
+  workspaceId: string,
+  settingsDocId: string,
+  workspaceEnabled = false
+) {
+  return workspaceEnabled
+    ? doc(db, ...workspacePath(workspaceId), WORKSPACE_COLLECTIONS.settings, settingsDocId)
+    : doc(db, ...legacyUserPath(workspaceId), WORKSPACE_COLLECTIONS.settings, settingsDocId);
+}
+
 export function workspaceDoc(workspaceId: string) {
   return doc(db, WORKSPACE_COLLECTIONS.workspaces, workspaceId);
 }

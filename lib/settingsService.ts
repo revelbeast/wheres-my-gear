@@ -1,5 +1,6 @@
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../firebaseConfig";
+import { workspaceSettingsDoc } from "./workspacePaths";
 
 export type AppTheme = "dark" | "light";
 export type AppFontSize = "small" | "medium" | "large";
@@ -72,7 +73,7 @@ const legacyHardcodedProfileValues = {
 };
 
 function profileDoc(userId: string) {
-  return doc(db, "users", userId, "settings", "profile");
+  return workspaceSettingsDoc(userId, "profile");
 }
 
 function notificationSettingsDoc() {
