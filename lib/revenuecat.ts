@@ -8,6 +8,7 @@ import Purchases, {
 
 const PREMIUM_ENTITLEMENT_ID = "premium";
 const PREMIUM_PLUS_ENTITLEMENT_ID = "premium_plus";
+const PREMIUM_PLUS_PRODUCT_IDS = ["premium_plus_annual"];
 
 let configurePromise: Promise<boolean> | null = null;
 let isConfigured = false;
