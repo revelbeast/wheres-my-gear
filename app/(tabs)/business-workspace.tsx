@@ -17,6 +17,7 @@ import {
 } from "../../lib/workspaceService";
 
 export default function BusinessWorkspaceScreen() {
+  const { activeWorkspace } = useAuth();
   const theme = useThemedValues();
   const featureFlags = getWorkspaceFeatureFlags();
   const [businessName, setBusinessName] = useState("");
@@ -108,6 +109,13 @@ export default function BusinessWorkspaceScreen() {
             <ThemedText color="secondary" style={styles.flagText}>
               businessWorkspaceCreationEnabled:{" "}
               {featureFlags.businessWorkspaceCreationEnabled ? "on" : "off"}
+            </ThemedText>
+
+            <ThemedText color="secondary" style={styles.flagText}>
+              activeWorkspace:{" "}
+              {activeWorkspace
+                ? `${activeWorkspace.type} / ${activeWorkspace.role}`
+                : "none"}
             </ThemedText>
 
             <View style={styles.inputGroup}>
