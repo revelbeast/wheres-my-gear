@@ -4,6 +4,7 @@ export const WORKSPACE_COLLECTIONS = {
   storageSpaces: "storageSpaces",
   compartments: "compartments",
   inventoryItems: "inventoryItems",
+  items: "items",
   checklists: "checklists",
   checklistTemplates: "checklistTemplates",
   trips: "trips",

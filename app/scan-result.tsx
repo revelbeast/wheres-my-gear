@@ -33,6 +33,7 @@ import {
   type StorageSpace
 } from "../lib/gearService";
 import { useResponsiveLayout } from "../lib/useResponsiveLayout";
+import { legacyItemsCol } from "../lib/workspacePaths";
 
 type ScanState =
   | "autoCreate"
@@ -146,7 +147,7 @@ export default function ScanResultScreen() {
     if (!uid) return null;
 
     const q = query(
-      collection(db, "users", uid, "items"),
+      legacyItemsCol(uid),
       where("barcode", "==", barcode)
     );
     const snapshot = await getDocs(q);
@@ -164,7 +165,7 @@ export default function ScanResultScreen() {
       throw new Error("Cannot create draft item without signed-in user.");
     }
 
-    const docRef = await addDoc(collection(db, "users", uid, "items"), {
+    const docRef = await addDoc(legacyItemsCol(uid), {
       barcode,
       name: "Unidentified Item",
       status: "draft",
@@ -179,7 +180,7 @@ export default function ScanResultScreen() {
 
     if (!uid) return;
 
-    const ref = doc(db, "users", uid, "items", item.id);
+    const ref = doc(legacyItemsCol(uid), item.id);
 
     await updateDoc(ref, {
       storageId: selectedStorage,
@@ -192,7 +193,7 @@ export default function ScanResultScreen() {
 
     if (!uid) return;
 
-    const ref = doc(db, "users", uid, "items", item.id);
+    const ref = doc(legacyItemsCol(uid), item.id);
 
     await updateDoc(ref, {
       checklistId: selectedChecklist,

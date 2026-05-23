@@ -19,6 +19,15 @@ export function inventoryItemsCol(
     : collection(db, ...legacyUserPath(workspaceId), WORKSPACE_COLLECTIONS.inventoryItems);
 }
 
+export function legacyItemsCol(
+  workspaceId: string,
+  workspaceEnabled = false
+) {
+  return workspaceEnabled
+    ? collection(db, ...workspacePath(workspaceId), WORKSPACE_COLLECTIONS.items)
+    : collection(db, ...legacyUserPath(workspaceId), WORKSPACE_COLLECTIONS.items);
+}
+
 export function storageSpacesCol(
   workspaceId: string,
   workspaceEnabled = false
