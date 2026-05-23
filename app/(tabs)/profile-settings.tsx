@@ -1,4 +1,5 @@
 import { BlurView } from "expo-blur";
+import { router } from "expo-router";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 import {
@@ -41,6 +42,7 @@ import {
   getProfileSettings,
   saveProfileSettings,
 } from "../../lib/settingsService";
+import { getWorkspaceFeatureFlags } from "../../lib/workspaceService";
 
 type ImagePickerKind = "profile" | "background";
 
@@ -286,6 +288,10 @@ function LabeledInput({
 export default function ProfileSettingsScreen() {
   const { user, signOutUser } = useAuth();
   const theme = useThemedValues();
+  const workspaceFeatureFlags = getWorkspaceFeatureFlags();
+  const showBusinessWorkspaceEntry =
+    workspaceFeatureFlags.workspaceEnabled &&
+    workspaceFeatureFlags.businessWorkspaceCreationEnabled;
   const scrollViewRef = useRef<ScrollView | null>(null);
   const isMountedRef = useRef(true);
   const profileLoadVersionRef = useRef(0);
@@ -1167,6 +1173,29 @@ export default function ProfileSettingsScreen() {
               style={styles.actionsCard}
               contentStyle={styles.actionsCardContent}
             >
+              {showBusinessWorkspaceEntry ? (
+                <HapticPressable
+                  onPress={() => router.push("/business-workspace")}
+                  disabled={interactionBusy}
+                  style={[
+                    styles.businessWorkspaceButton,
+                    {
+                      borderColor: theme.colors.border,
+                      backgroundColor: theme.colors.inputSurface,
+                    },
+                    interactionBusy && styles.disabledInteraction,
+                  ]}
+                >
+                  <ThemedText variant="bodyStrong">
+                    Business Workspace
+                  </ThemedText>
+
+                  <ThemedText color="secondary" style={styles.businessWorkspaceText}>
+                    Create or manage your owner business workspace.
+                  </ThemedText>
+                </HapticPressable>
+              ) : null}
+
               <ThemedButton
                 onPress={handleSave}
                 disabled={interactionBusy}
@@ -1486,6 +1515,18 @@ const styles = StyleSheet.create({
   actionsCardContent: {
     padding: 14,
     gap: 12,
+  },
+
+  businessWorkspaceButton: {
+    borderWidth: 1,
+    borderRadius: 18,
+    gap: 6,
+    padding: 16,
+  },
+
+  businessWorkspaceText: {
+    fontSize: 13,
+    lineHeight: 19,
   },
 
   saveButton: {
