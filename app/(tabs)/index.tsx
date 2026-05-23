@@ -509,6 +509,7 @@ export default function DashboardScreen() {
     null
   );
   const [, forceNavigationStateRefresh] = useState(0);
+  const [workspaceReloadKey, setWorkspaceReloadKey] = useState(0);
   const isMountedRef = useRef(true);
   const quickActionColors = {
     scan: "#3B82F6",
@@ -715,7 +716,7 @@ export default function DashboardScreen() {
         isActive = false;
         dashboardLoadVersionRef.current += 1;
       };
-    }, [initializing, user, isPremiumLoading, isPremium])
+    }, [initializing, user, isPremiumLoading, isPremium, workspaceReloadKey])
   );
 
   async function runWithLock(action: () => Promise<void> | void) {
@@ -2218,7 +2219,9 @@ export default function DashboardScreen() {
                     : undefined
                 }
               >
-                <WorkspaceSwitchCard />
+                <WorkspaceSwitchCard
+                  onWorkspaceChanged={() => setWorkspaceReloadKey((value) => value + 1)}
+                />
               </View>
 
               {!hasStorageSpaces ? (

@@ -12,6 +12,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { auth, db } from "../firebaseConfig";
+import { getSavedActiveWorkspace } from "./workspaceService";
 import {
   compartmentsCol as workspaceCompartmentsCol,
   inventoryItemsCol as workspaceInventoryItemsCol,
@@ -67,6 +68,29 @@ function getCurrentUserId() {
   return userId;
 }
 
+async function getActiveWorkspaceForUserScopedData() {
+  const savedWorkspace = await getSavedActiveWorkspace();
+
+  return (
+    savedWorkspace ?? {
+      id: getCurrentUserId(),
+      type: "personal",
+      role: "owner",
+    }
+  );
+}
+
+function userScopedWorkspaceStorageSpacesCol(userId: string, workspaceId: string) {
+  return collection(
+    db,
+    "users",
+    userId,
+    "workspaces",
+    workspaceId,
+    "storageSpaces"
+  );
+}
+
 function inventoryCol() {
   return workspaceInventoryItemsCol(getCurrentUserId());
 }
@@ -96,14 +120,36 @@ function normalizeName(value: string) {
 }
 
 export async function getStorageSpaces(): Promise<StorageSpace[]> {
-  const snapshot = await getDocs(storageSpacesCol());
+  const userId = getCurrentUserId();
+  const activeWorkspace = await getActiveWorkspaceForUserScopedData();
 
-  return snapshot.docs
+  const snapshot = await getDocs(
+    userScopedWorkspaceStorageSpacesCol(userId, activeWorkspace.id)
+  );
+
+  const spaces = snapshot.docs
     .map((d) => ({
       id: d.id,
       ...d.data(),
     }) as StorageSpace)
     .filter((space) => !space.isArchived);
+
+  if (spaces.length > 0) {
+    return spaces;
+  }
+
+  if (activeWorkspace.type === "personal") {
+    const legacySnapshot = await getDocs(storageSpacesCol());
+
+    return legacySnapshot.docs
+      .map((d) => ({
+        id: d.id,
+        ...d.data(),
+      }) as StorageSpace)
+      .filter((space) => !space.isArchived);
+  }
+
+  return [];
 }
 
 export async function getStorageSpaceById(

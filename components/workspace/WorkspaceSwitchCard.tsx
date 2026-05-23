@@ -7,7 +7,11 @@ import { ThemedText, useThemedValues } from "../ui/Themed";
 import { useActiveWorkspace } from "../../lib/workspace/useActiveWorkspace";
 import WorkspaceSwitchModal from "./WorkspaceSwitchModal";
 
-export default function WorkspaceSwitchCard() {
+export default function WorkspaceSwitchCard({
+  onWorkspaceChanged,
+}: {
+  onWorkspaceChanged?: () => void;
+}) {
   const theme = useThemedValues();
   const { activeWorkspace, refreshWorkspace } = useActiveWorkspace();
   const [open, setOpen] = useState(false);
@@ -82,7 +86,13 @@ export default function WorkspaceSwitchCard() {
       <WorkspaceSwitchModal
         visible={open}
         onClose={() => setOpen(false)}
-        onWorkspaceSelected={refreshWorkspace}
+        onWorkspaceSelected={async () => {
+          await refreshWorkspace();
+
+          if (onWorkspaceChanged) {
+            onWorkspaceChanged();
+          }
+        }}
       />
     </>
   );
