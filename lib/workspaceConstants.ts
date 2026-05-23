@@ -6,6 +6,7 @@ export const WORKSPACE_COLLECTIONS = {
   inventoryItems: "inventoryItems",
   checklists: "checklists",
   checklistTemplates: "checklistTemplates",
+  trips: "trips",
   settings: "settings",
 } as const;
 

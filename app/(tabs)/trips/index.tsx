@@ -30,6 +30,7 @@ import {
 } from "../../../components/ui/Themed";
 import { db } from "../../../firebaseConfig";
 import { useInteractionLock } from "../../../lib/useInteractionLock";
+import { tripsCol as workspaceTripsCol } from "../../../lib/workspacePaths";
 
 type UpcomingTrip = {
   id: string;
@@ -268,7 +269,7 @@ export default function TripsScreen() {
 
       const activeUserId = user.uid;
       const tripsSnapshot = await getDocs(
-        collection(db, "users", activeUserId, "trips")
+        workspaceTripsCol(activeUserId)
       );
       const today = getStartOfDay(new Date());
 
@@ -363,7 +364,7 @@ export default function TripsScreen() {
 
                 setDeletingTripId(tripId);
 
-                await deleteDoc(doc(db, "users", activeUserId, "trips", tripId));
+                await deleteDoc(doc(workspaceTripsCol(activeUserId), tripId));
 
                 if (!isMountedRef.current) return;
 

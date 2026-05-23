@@ -37,6 +37,7 @@ import {
 } from "../../../components/ui/Themed";
 import { db } from "../../../firebaseConfig";
 import { useInteractionLock } from "../../../lib/useInteractionLock";
+import { tripsCol as workspaceTripsCol } from "../../../lib/workspacePaths";
 
 
 
@@ -291,7 +292,7 @@ export default function CreateTripScreen() {
 
         setIsSaving(true);
 
-        await addDoc(collection(db, "users", uid, "trips"), {
+        await addDoc(workspaceTripsCol(uid), {
           name: trimmedName,
           startDate: Timestamp.fromDate(tripDate),
           createdAt: serverTimestamp(),

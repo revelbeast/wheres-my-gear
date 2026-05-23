@@ -40,6 +40,7 @@ import {
 } from "../../../components/ui/Themed";
 import { db } from "../../../firebaseConfig";
 import { useInteractionLock } from "../../../lib/useInteractionLock";
+import { tripsCol as workspaceTripsCol } from "../../../lib/workspacePaths";
 
 const LABEL_WHITE = "#FFFFFF";
 
@@ -248,7 +249,7 @@ export default function EditTripScreen() {
         }
 
         const tripSnap = await getDoc(
-          doc(db, "users", user.uid, "trips", tripId)
+          doc(workspaceTripsCol(user.uid), tripId)
         );
 
         if (!isMountedRef.current || loadRequestIdRef.current !== requestId) {
@@ -461,7 +462,7 @@ export default function EditTripScreen() {
 
         setIsSaving(true);
 
-        await updateDoc(doc(db, "users", uid, "trips", currentTripId), {
+        await updateDoc(doc(workspaceTripsCol(uid), currentTripId), {
           name: trimmedName,
           startDate: Timestamp.fromDate(tripDate),
           updatedAt: serverTimestamp(),
@@ -516,7 +517,7 @@ export default function EditTripScreen() {
 
                 setIsDeleting(true);
 
-                await deleteDoc(doc(db, "users", uid, "trips", currentTripId));
+                await deleteDoc(doc(workspaceTripsCol(uid), currentTripId));
 
                 if (isMountedRef.current) {
                   safeGoBack();

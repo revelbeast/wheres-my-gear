@@ -68,6 +68,7 @@ import { getProfileSettings } from "../../lib/settingsService";
 import {
   checklistsCol as workspaceChecklistsCol,
   compartmentsCol as workspaceCompartmentsCol,
+  tripsCol as workspaceTripsCol,
 } from "../../lib/workspacePaths";
 import { useDeviceLayout } from "../../lib/useDeviceLayout";
 import { useInteractionLock } from "../../lib/useInteractionLock";
@@ -1139,7 +1140,7 @@ export default function DashboardScreen() {
       setAllTemplateItems(templateItemsNested.flat());
 
       const tripsSnapshot = await getDocs(
-        collection(db, "users", activeUserId, "trips")
+        workspaceTripsCol(activeUserId)
       );
       if (
         !isMountedRef.current ||

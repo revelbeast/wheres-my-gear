@@ -55,6 +55,15 @@ export function checklistTemplatesCol(
     : collection(db, ...legacyUserPath(workspaceId), WORKSPACE_COLLECTIONS.checklistTemplates);
 }
 
+export function tripsCol(
+  workspaceId: string,
+  workspaceEnabled = false
+) {
+  return workspaceEnabled
+    ? collection(db, ...workspacePath(workspaceId), WORKSPACE_COLLECTIONS.trips)
+    : collection(db, ...legacyUserPath(workspaceId), WORKSPACE_COLLECTIONS.trips);
+}
+
 export function checklistItemsCol(
   workspaceId: string,
   checklistId: string,
