@@ -20,7 +20,7 @@ import {
 
 export default function BusinessWorkspaceScreen() {
 
-  const activeWorkspace = useActiveWorkspace();
+  const { activeWorkspace } = useActiveWorkspace();
 
   
   const theme = useThemedValues();
