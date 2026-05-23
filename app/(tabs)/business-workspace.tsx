@@ -1,19 +1,70 @@
-import React from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import React, { useState } from "react";
+import { Alert, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import AppHeader from "../../components/ui/AppHeader";
 import ScreenBackground from "../../components/ui/ScreenBackground";
 import {
+  ThemedButton,
   ThemedCard,
+  ThemedInput,
   ThemedText,
   useThemedValues,
 } from "../../components/ui/Themed";
-import { getWorkspaceFeatureFlags } from "../../lib/workspaceService";
+import {
+  createOwnerBusinessWorkspace,
+  getWorkspaceFeatureFlags,
+} from "../../lib/workspaceService";
 
 export default function BusinessWorkspaceScreen() {
   const theme = useThemedValues();
   const featureFlags = getWorkspaceFeatureFlags();
+  const [businessName, setBusinessName] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  const canCreateBusinessWorkspace =
+    featureFlags.workspaceEnabled &&
+    featureFlags.businessWorkspaceCreationEnabled;
+
+  async function handleCreateBusinessWorkspace() {
+    if (!canCreateBusinessWorkspace) {
+      Alert.alert(
+        "Business Workspace Disabled",
+        "Business workspace creation is not enabled yet."
+      );
+      return;
+    }
+
+    const normalizedName = businessName.trim();
+
+    if (!normalizedName) {
+      Alert.alert("Business Name Required", "Enter a business workspace name.");
+      return;
+    }
+
+    try {
+      setCreating(true);
+      const activeWorkspace = await createOwnerBusinessWorkspace(normalizedName);
+
+      if (!activeWorkspace) {
+        Alert.alert(
+          "Business Workspace Disabled",
+          "Business workspace creation is not enabled yet."
+        );
+        return;
+      }
+
+      Alert.alert("Business Workspace Created", "Your business workspace is ready.");
+    } catch (error) {
+      console.log("Failed to create business workspace.", error);
+      Alert.alert(
+        "Business Workspace Error",
+        "We could not create the business workspace. Please try again."
+      );
+    } finally {
+      setCreating(false);
+    }
+  }
 
   return (
     <ScreenBackground>
@@ -58,6 +109,29 @@ export default function BusinessWorkspaceScreen() {
               businessWorkspaceCreationEnabled:{" "}
               {featureFlags.businessWorkspaceCreationEnabled ? "on" : "off"}
             </ThemedText>
+
+            <View style={styles.inputGroup}>
+              <ThemedText variant="small" style={styles.inputLabel}>
+                Business Name
+              </ThemedText>
+
+              <ThemedInput
+                value={businessName}
+                onChangeText={setBusinessName}
+                placeholder="Enter business name"
+                editable={!creating && canCreateBusinessWorkspace}
+              />
+            </View>
+
+            <ThemedButton
+              onPress={handleCreateBusinessWorkspace}
+              disabled={creating || !canCreateBusinessWorkspace}
+              style={styles.createButton}
+            >
+              <ThemedText style={styles.buttonText}>
+                {creating ? "Creating..." : "Create Business Workspace"}
+              </ThemedText>
+            </ThemedButton>
           </ThemedCard>
         </ScrollView>
       </SafeAreaView>
@@ -100,5 +174,18 @@ const styles = StyleSheet.create({
   flagText: {
     fontSize: 13,
     lineHeight: 20,
+  },
+  inputGroup: {
+    gap: 8,
+  },
+  inputLabel: {
+    fontWeight: "800",
+  },
+  createButton: {
+    marginTop: 4,
+  },
+  buttonText: {
+    color: "#FFFFFF",
+    fontWeight: "800",
   },
 });
