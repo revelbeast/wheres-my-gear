@@ -108,6 +108,85 @@ export async function ensurePersonalWorkspace() {
   return createDefaultActiveWorkspace(personalWorkspace.id);
 }
 
+export function createBusinessWorkspaceId(userId: string) {
+  return `${userId}_business`;
+}
+
+export function createDefaultBusinessWorkspace(
+  userId: string,
+  businessName: string
+): Workspace {
+  return {
+    id: createBusinessWorkspaceId(userId),
+    name: businessName.trim(),
+    type: "business",
+    ownerUserId: userId,
+    status: "active",
+  };
+}
+
+export function createBusinessActiveWorkspace(
+  workspaceId: string
+): ActiveWorkspace {
+  return {
+    workspaceId,
+    type: "business",
+    role: "owner",
+  };
+}
+
+export async function createOwnerBusinessWorkspace(businessName: string) {
+  const featureFlags = getWorkspaceFeatureFlags();
+
+  if (
+    !featureFlags.workspaceEnabled ||
+    !featureFlags.businessWorkspaceCreationEnabled
+  ) {
+    return null;
+  }
+
+  const normalizedBusinessName = businessName.trim();
+
+  if (!normalizedBusinessName) {
+    throw new Error("Business workspace name is required.");
+  }
+
+  const userId = requireUserId();
+  const businessWorkspace = createDefaultBusinessWorkspace(
+    userId,
+    normalizedBusinessName
+  );
+  const businessWorkspaceRef = workspaceDoc(businessWorkspace.id);
+  const existingWorkspace = await getDoc(businessWorkspaceRef);
+
+  if (existingWorkspace.exists()) {
+    return createBusinessActiveWorkspace(businessWorkspace.id);
+  }
+
+  await setDoc(businessWorkspaceRef, {
+    ...businessWorkspace,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
+  await setDoc(doc(workspaceMembersCol(businessWorkspace.id), userId), {
+    id: userId,
+    userId,
+    role: "owner",
+    joinedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
+  await setDoc(workspaceSettingsDoc(businessWorkspace.id), {
+    workspaceId: businessWorkspace.id,
+    type: "business",
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
+  return createBusinessActiveWorkspace(businessWorkspace.id);
+}
+
 export function getCurrentUserId() {
   return requireUserId();
 }
