@@ -1,4 +1,5 @@
 import { BlurView } from "expo-blur";
+import { router } from "expo-router";
 import React, { useState } from "react";
 import { StyleSheet, View } from "react-native";
 import HapticPressable from "../ui/HapticPressable";
@@ -8,7 +9,7 @@ import WorkspaceSwitchModal from "./WorkspaceSwitchModal";
 
 export default function WorkspaceSwitchCard() {
   const theme = useThemedValues();
-  const { activeWorkspace } = useActiveWorkspace();
+  const { activeWorkspace, refreshWorkspace } = useActiveWorkspace();
   const [open, setOpen] = useState(false);
 
   const workspaceType = activeWorkspace?.type
@@ -42,24 +43,46 @@ export default function WorkspaceSwitchCard() {
           Role: {workspaceRole}
         </ThemedText>
 
-        <HapticPressable
-          onPress={() => setOpen(true)}
-          style={[
-            styles.button,
-            {
-              backgroundColor: theme.isLight ? "#2563EB" : "#2E7DFF",
-            },
-          ]}
-        >
-          <ThemedText style={styles.buttonText}>
-            Switch Workspaces
-          </ThemedText>
-        </HapticPressable>
+        <View style={styles.buttonRow}>
+          <HapticPressable
+            onPress={() => setOpen(true)}
+            style={[
+              styles.button,
+              styles.primaryButton,
+              {
+                backgroundColor: theme.isLight ? "#2563EB" : "#2E7DFF",
+              },
+            ]}
+          >
+            <ThemedText style={styles.buttonText}>
+              Switch
+            </ThemedText>
+          </HapticPressable>
+
+          <HapticPressable
+            onPress={() => router.push("/(tabs)/business-workspace")}
+            style={[
+              styles.button,
+              styles.qaButton,
+              {
+                borderColor: theme.colors.border,
+                backgroundColor: theme.isLight
+                  ? "rgba(255,255,255,0.7)"
+                  : "rgba(255,255,255,0.10)",
+              },
+            ]}
+          >
+            <ThemedText style={[styles.buttonText, { color: theme.colors.text }]}>
+              QA Business
+            </ThemedText>
+          </HapticPressable>
+        </View>
       </BlurView>
 
       <WorkspaceSwitchModal
         visible={open}
         onClose={() => setOpen(false)}
+        onWorkspaceSelected={refreshWorkspace}
       />
     </>
   );
@@ -86,11 +109,22 @@ const styles = StyleSheet.create({
   roleText: {
     marginTop: 0,
   },
-  button: {
+  buttonRow: {
+    flexDirection: "row",
+    gap: 8,
     marginTop: 6,
+  },
+  button: {
     paddingVertical: 6,
     borderRadius: 10,
     alignItems: "center",
+  },
+  primaryButton: {
+    flex: 1,
+  },
+  qaButton: {
+    flex: 1,
+    borderWidth: 1,
   },
   buttonText: {
     color: "#FFFFFF",

@@ -221,35 +221,28 @@ export async function createOwnerBusinessWorkspace(businessName: string) {
     userId,
     normalizedBusinessName
   );
-  const businessWorkspaceRef = workspaceDoc(businessWorkspace.id);
+  const businessWorkspaceRef = doc(
+    db,
+    "users",
+    userId,
+    WORKSPACE_COLLECTIONS.workspaces,
+    businessWorkspace.id
+  );
   const existingWorkspace = await getDoc(businessWorkspaceRef);
+  const activeWorkspace = createBusinessActiveWorkspace(businessWorkspace.id);
 
   if (existingWorkspace.exists()) {
-    return createBusinessActiveWorkspace(businessWorkspace.id);
+    return saveActiveWorkspace(activeWorkspace);
   }
 
   await setDoc(businessWorkspaceRef, {
     ...businessWorkspace,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
-
-  await setDoc(doc(workspaceMembersCol(businessWorkspace.id), userId), {
-    id: userId,
-    userId,
     role: "owner",
-    joinedAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
-
-  await setDoc(workspaceSettingsDoc(businessWorkspace.id), {
-    id: businessWorkspace.id,
-    type: "business",
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
 
-  return createBusinessActiveWorkspace(businessWorkspace.id);
+  return saveActiveWorkspace(activeWorkspace);
 }
 
 export async function switchToPersonalWorkspace() {
@@ -274,7 +267,14 @@ export async function switchToBusinessWorkspace() {
 
   const userId = requireUserId();
   const id = createBusinessWorkspaceId(userId);
-  const workspaceSnapshot = await getDoc(workspaceDoc(id));
+  const businessWorkspaceRef = doc(
+    db,
+    "users",
+    userId,
+    WORKSPACE_COLLECTIONS.workspaces,
+    id
+  );
+  const workspaceSnapshot = await getDoc(businessWorkspaceRef);
 
   if (!workspaceSnapshot.exists()) {
     return null;

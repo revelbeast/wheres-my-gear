@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import { useActiveWorkspace } from "../../lib/workspace/useActiveWorkspace";
 
 import React, { useState } from "react";
@@ -20,7 +21,7 @@ import {
 
 export default function BusinessWorkspaceScreen() {
 
-  const { activeWorkspace } = useActiveWorkspace();
+  const { activeWorkspace, setWorkspace } = useActiveWorkspace();
 
   
   const theme = useThemedValues();
@@ -60,7 +61,19 @@ export default function BusinessWorkspaceScreen() {
         return;
       }
 
-      Alert.alert("Business Workspace Created", "Your business workspace is ready.");
+      await setWorkspace(activeWorkspace);
+      setBusinessName("");
+
+      Alert.alert(
+        "Business Workspace Created",
+        "Your business workspace is ready.",
+        [
+          {
+            text: "OK",
+            onPress: () => router.replace("/(tabs)"),
+          },
+        ]
+      );
     } catch (error) {
       console.log("Failed to create business workspace.", error);
       Alert.alert(

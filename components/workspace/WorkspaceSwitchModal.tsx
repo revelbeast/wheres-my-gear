@@ -8,9 +8,11 @@ import { useActiveWorkspace } from "../../lib/workspace/useActiveWorkspace";
 export default function WorkspaceSwitchModal({
   visible,
   onClose,
+  onWorkspaceSelected,
 }: {
   visible: boolean;
   onClose: () => void;
+  onWorkspaceSelected?: () => Promise<void> | void;
 }) {
   const [workspaces, setWorkspaces] = useState<any[]>([]);
   const { activeWorkspace, setWorkspace } = useActiveWorkspace();
@@ -33,6 +35,11 @@ export default function WorkspaceSwitchModal({
 
   async function select(ws: any) {
     await setWorkspace(ws);
+
+    if (onWorkspaceSelected) {
+      await onWorkspaceSelected();
+    }
+
     onClose();
   }
 

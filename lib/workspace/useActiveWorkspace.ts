@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { getSavedActiveWorkspace } from "../workspaceService";
+import { getSavedActiveWorkspace, saveActiveWorkspace } from "../workspaceService";
 import { saveActiveWorkspaceId, getActiveWorkspaceId } from "./workspaceStorage";
 import { ActiveWorkspace } from "../../types/workspaces";
 
@@ -22,6 +22,7 @@ export function useActiveWorkspace() {
 
     if (workspace?.id) {
       await saveActiveWorkspaceId(workspace.id);
+      await saveActiveWorkspace(workspace);
     }
   }, []);
 
