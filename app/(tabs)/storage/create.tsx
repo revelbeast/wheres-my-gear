@@ -79,7 +79,7 @@ export default function CreateStorageScreen() {
   }>();
 
   const returnRoute =
-    params.returnTo === "dashboard" ? "/" : "/(tabs)/storage";
+    params.returnTo === "dashboard" ? "/(tabs)" : "/(tabs)/storage";
 
   const {
     isLocked: interactionLocked,

@@ -275,7 +275,7 @@ export default function StorageManagementScreen() {
     const lockAcquired = lockNavigationTransition();
     if (!lockAcquired) return;
 
-    router.replace("/inventory");
+    router.replace("/(tabs)");
   }
 
   function handleCreateStorage() {
