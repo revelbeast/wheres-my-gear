@@ -662,10 +662,6 @@ export default function DashboardScreen() {
 
           setIsPremium(premium);
           setIsPremiumPlus(premiumPlus);
-
-          if (!premium) {
-            router.replace("/paywall");
-          }
         } catch (error) {
           console.error("RevenueCat premium gate failed:", error);
 
@@ -675,7 +671,6 @@ export default function DashboardScreen() {
 
           setIsPremium(false);
           setIsPremiumPlus(false);
-          router.replace("/paywall");
         } finally {
           if (isActive) {
             setIsPremiumLoading(false);
@@ -693,7 +688,7 @@ export default function DashboardScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (initializing || !user || isPremiumLoading || !isPremium) {
+      if (initializing || !user || isPremiumLoading) {
         return;
       }
 
@@ -2009,10 +2004,6 @@ export default function DashboardScreen() {
         </SafeAreaView>
       </ScreenBackground>
     );
-  }
-
-  if (!initializing && user && !isPremium) {
-    return null;
   }
 
   return (
