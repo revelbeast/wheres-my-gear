@@ -25,15 +25,49 @@ function cleanDetectedText(text: string | undefined): string | null {
   return cleaned.length > 0 ? cleaned : null;
 }
 
+function scoreProductText(value: string): number {
+  const normalized = value.toLowerCase();
+
+  let score = 0;
+
+  if (value.length >= 5) score += 2;
+  if (value.length >= 10) score += 2;
+  if (/\\b(wipes?|spray|bottle|case|bag|pack|kit|tool|charger|cable|light|gloves?|jacket|pants|shirt|shoes?|boots?|tent|stove|filter|knife|blanket)\\b/i.test(value)) score += 6;
+  if (/\\b(tooth|dental|plaque|pet|dog|cat|gear|outdoor|camp|first aid|battery|water)\\b/i.test(value)) score += 3;
+  if (/[A-Z]{3,}/.test(value)) score += 1;
+
+  if (/\\b(\\d+\\s?(ct|count|oz|fl oz|lb|lbs|kg|g|ml|l)|for dogs?|for cats?|new|free|the|and|with)\\b/i.test(value)) score -= 3;
+  if (normalized.length <= 3) score -= 5;
+
+  return score;
+}
+
 function buildSuggestedName(labels: string[], detectedText: string[]): string | null {
   const usefulText = detectedText
     .map(cleanDetectedText)
     .filter((value): value is string => !!value)
-    .filter((value) => value.length >= 3)
-    .slice(0, 2);
+    .filter((value) => value.length >= 3);
 
-  if (usefulText.length > 0) {
-    return usefulText.join(" ");
+  const sortedText = [...usefulText].sort(
+    (a, b) => scoreProductText(b) - scoreProductText(a)
+  );
+
+  const brandCandidate =
+    usefulText.find((value) => /™|®/.test(value)) ??
+    usefulText.find((value) => /^[A-Z][A-Z\\s&'-]{4,}$/.test(value)) ??
+    null;
+
+  const productCandidate =
+    sortedText.find((value) => value !== brandCandidate) ??
+    sortedText[0] ??
+    null;
+
+  if (brandCandidate && productCandidate) {
+    return `${brandCandidate} ${productCandidate}`.trim();
+  }
+
+  if (productCandidate) {
+    return productCandidate;
   }
 
   const usefulLabels = labels
