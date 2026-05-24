@@ -1,4 +1,7 @@
-import { CameraView, useCameraPermissions } from "expo-camera";
+import {
+  CameraView,
+  useCameraPermissions,
+} from "expo-camera";
 import { router, useFocusEffect } from "expo-router";
 import { Alert } from "react-native";
 import React, { useCallback, useEffect, useState } from "react";
@@ -21,6 +24,8 @@ export default function ScanItemScreen() {
 
   // camera lifecycle control
   const [cameraActive, setCameraActive] = useState(true);
+
+  const cameraRef = React.useRef<CameraView | null>(null);
 
   // session tracking
   const scanSessionRef = React.useRef({
@@ -90,6 +95,66 @@ export default function ScanItemScreen() {
       suggestedName: isFound ? productName : null,
       timestamp: Date.now(),
     };
+  };
+
+  const handleAnalyzeImageWithAI = async () => {
+    if (isScanning) return;
+    if (!cameraRef.current) return;
+    if (!cameraActive) return;
+
+    try {
+      setIsScanning(true);
+
+      const photo = await cameraRef.current.takePictureAsync({
+        base64: true,
+        quality: 0.55,
+        skipProcessing: true,
+      });
+
+      if (!photo?.base64) {
+        Alert.alert("AI Scan Failed", "Could not capture an image for AI analysis.");
+        return;
+      }
+
+      const response = await fetch(
+        "https://us-central1-wheres-my-gear-ab7a7.cloudfunctions.net/analyzeGearImageWithRekognition",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            imageBase64: photo.base64,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      router.replace({
+        pathname: "/scan-result",
+        params: {
+          code: "AI_IMAGE_SCAN",
+          found: String(!!result?.found),
+          suggestedName: result?.title ?? "",
+          source: "AWS Rekognition",
+          brand: result?.brand ?? "",
+          image: photo.uri ?? "",
+          description: result?.description ?? "",
+          matchConfidence:
+            result?.confidence != null ? String(result.confidence) : "",
+          matchStatus: result?.found ? "possible" : "unknown",
+        },
+      });
+    } catch (error) {
+      console.log("AI IMAGE SCAN FAILED:", error);
+      Alert.alert(
+        "AI Scan Failed",
+        "Where's My Gear could not analyze this image. You can still scan a barcode or add the item manually."
+      );
+    } finally {
+      setIsScanning(false);
+    }
   };
 
   // permission handling
@@ -245,6 +310,7 @@ export default function ScanItemScreen() {
       </View>
 
       <CameraView
+        ref={cameraRef}
         style={styles.camera}
         facing="back"
         active={cameraActive}
@@ -318,6 +384,16 @@ export default function ScanItemScreen() {
 
       <View style={styles.footer}>
         <HapticPressable
+          style={[styles.closeButton, styles.aiButton]}
+          onPress={handleAnalyzeImageWithAI}
+          disabled={isScanning}
+        >
+          <Text style={styles.buttonText}>
+            {isScanning ? "Scanning..." : "Scan with AI"}
+          </Text>
+        </HapticPressable>
+
+        <HapticPressable
           style={styles.closeButton}
           onPress={() => router.back()}
         >
@@ -355,5 +431,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     backgroundColor: "#111",
     borderRadius: 12,
+  },
+  aiButton: {
+    marginBottom: 12,
+    backgroundColor: "#2563EB",
   },
 });
