@@ -2637,9 +2637,9 @@ export default function DashboardScreen() {
                             <ThemedText>Add Storage Space</ThemedText>
                           </HapticPressable>
 
-                          <HapticPressable style={[styles.selectorButton, styles.stackedQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.trip }]} onPress={handleAddTrip}>
-                            <CalendarDays size={18} color={quickActionColors.trip} />
-                            <ThemedText>Create Trip</ThemedText>
+                          <HapticPressable style={[styles.selectorButton, styles.stackedQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.trip }]} onPress={handleOpenScanQuickAction}>
+                            <Camera size={18} color={quickActionColors.trip} />
+                            <ThemedText>Scan w/AI</ThemedText>
                           </HapticPressable>
 
                           <HapticPressable style={[styles.selectorButton, styles.stackedQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.export }]} onPress={handleOpenDashboardExport}>
@@ -2702,9 +2702,9 @@ export default function DashboardScreen() {
                           </View>
 
                           <View style={styles.tabletQuickActionsRow}>
-                            <HapticPressable style={[styles.selectorButton, styles.tabletQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.trip }]} onPress={handleAddTrip}>
-                              <CalendarDays size={18} color={quickActionColors.trip} />
-                              <ThemedText>Create Trip</ThemedText>
+                            <HapticPressable style={[styles.selectorButton, styles.tabletQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.trip }]} onPress={handleOpenScanQuickAction}>
+                              <Camera size={18} color={quickActionColors.trip} />
+                              <ThemedText>Scan w/AI</ThemedText>
                             </HapticPressable>
 
                             <HapticPressable
