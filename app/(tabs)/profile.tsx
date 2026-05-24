@@ -391,7 +391,14 @@ export default function ProfileScreen() {
         {
           text: "Upgrade to Premium +",
           onPress: () => {
-            console.log("PROFILE PREMIUM PLUS UPGRADE SELECTED");
+            runNavigationAction(() => {
+              router.push({
+                pathname: "/paywall",
+                params: {
+                  plan: "premium_plus",
+                },
+              });
+            });
           },
         },
       ]

@@ -3080,11 +3080,6 @@ export default function DashboardScreen() {
           </View>
         </Modal>
 
-        <View style={styles.bottomAdWrap}>
-          <SafeBannerAd
-            enabled={!initializing && !!user && !isPremiumLoading && !isPremium}
-          />
-        </View>
       </SafeAreaView>
 
       {shouldUseDashboardSearchAccessory ? (
