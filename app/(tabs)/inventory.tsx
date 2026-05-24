@@ -601,8 +601,8 @@ export default function InventoryScreen() {
   return (
     <ScreenBackground>
       <SafeAreaView style={styles.safe}>
-        <View
-          style={[
+        <ScrollView
+          contentContainerStyle={[
             styles.container,
             isTablet && {
               maxWidth: isLandscape ? 1100 : 900,
@@ -610,6 +610,8 @@ export default function InventoryScreen() {
               alignSelf: "center",
             },
           ]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
           <ThemedText
             variant="header"
@@ -898,6 +900,7 @@ export default function InventoryScreen() {
               <FlatList
                 data={filteredItems}
                 keyExtractor={(item) => item.id}
+                scrollEnabled={false}
                 contentContainerStyle={styles.listContent}
                 ListEmptyComponent={renderEmptyState}
                 renderItem={({ item }) => {
@@ -958,7 +961,7 @@ export default function InventoryScreen() {
               />
             </View>
           </View>
-        </View>
+        </ScrollView>
       </SafeAreaView>
 
       {shouldUseInventorySearchAccessory ? (
@@ -977,8 +980,9 @@ const styles = StyleSheet.create({
   },
 
   container: {
-    flex: 1,
     paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 120,
   },
 
   inventoryMainLayout: {
