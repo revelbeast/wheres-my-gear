@@ -149,6 +149,7 @@ export default function ProfileScreen() {
   const [isDeletingAllData, setIsDeletingAllData] = useState(false);
   const [appProfile, setAppProfile] = useState<AppProfile | null>(null);
   const [isPremium, setIsPremium] = useState(false);
+  const [isPremiumPlus, setIsPremiumPlus] = useState(false);
   const [premiumSubtitle, setPremiumSubtitle] = useState(
     "Your Premium subscription is active"
   );
@@ -233,7 +234,7 @@ export default function ProfileScreen() {
           isScreenMountedRef.current
         ) {
           setIsPremium(false);
-          setPremiumSubtitle("Remove ads and unlock premium features");
+          setIsPremiumPlus(false);
           setPremiumSubtitle("Remove ads and unlock premium features");
         }
 
@@ -243,7 +244,10 @@ export default function ProfileScreen() {
       try {
         const customerInfo = await getCustomerInfo();
         const premiumEntitlement = customerInfo?.entitlements.active.premium;
-        const premium = Boolean(premiumEntitlement);
+        const premiumPlusEntitlement =
+          customerInfo?.entitlements.active.premium_plus;
+        const premiumPlus = Boolean(premiumPlusEntitlement);
+        const premium = Boolean(premiumEntitlement) || premiumPlus;
 
         if (
           premiumCheckVersionRef.current !== checkVersion ||
@@ -253,6 +257,7 @@ export default function ProfileScreen() {
         }
 
         setIsPremium(premium);
+        setIsPremiumPlus(premiumPlus);
 
         if (!premiumEntitlement) {
           setPremiumSubtitle("Remove ads and unlock premium features");
@@ -953,11 +958,19 @@ export default function ProfileScreen() {
                   <ProfileRow
                     icon={<Crown size={20} color="#FFFFFF" />}
                     iconBackgroundColor="#2563EB"
-                    title="Upgrade to Premium +"
-                    subtitle="Add QR / Barcode Scanner and Archive access"
-                    onPress={handleOpenPremiumPlusUpgrade}
+                    title={isPremiumPlus ? "Premium + Active" : "Upgrade to Premium +"}
+                    subtitle={
+                      isPremiumPlus
+                        ? "QR / Barcode Scanner and Archive access are active"
+                        : "Add QR / Barcode Scanner and Archive access"
+                    }
+                    onPress={
+                      isPremiumPlus
+                        ? handleOpenSubscriptionDetails
+                        : handleOpenPremiumPlusUpgrade
+                    }
                     showChevron={false}
-                    disabled={rowActionsDisabled}
+                    disabled={rowActionsDisabled || isPremiumPlus}
                   />
 
                   <View
@@ -1133,11 +1146,19 @@ export default function ProfileScreen() {
                 <ProfileRow
                   icon={<Crown size={20} color="#FFFFFF" />}
                   iconBackgroundColor="#2563EB"
-                  title="Upgrade to Premium +"
-                  subtitle="Add QR / Barcode Scanner and Archive access"
-                  onPress={handleOpenPremiumPlusUpgrade}
+                  title={isPremiumPlus ? "Premium + Active" : "Upgrade to Premium +"}
+                  subtitle={
+                    isPremiumPlus
+                      ? "QR / Barcode Scanner and Archive access are active"
+                      : "Add QR / Barcode Scanner and Archive access"
+                  }
+                  onPress={
+                    isPremiumPlus
+                      ? handleOpenSubscriptionDetails
+                      : handleOpenPremiumPlusUpgrade
+                  }
                   showChevron={false}
-                  disabled={rowActionsDisabled}
+                  disabled={rowActionsDisabled || isPremiumPlus}
                 />
 
                 <View
