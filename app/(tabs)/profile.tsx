@@ -31,6 +31,7 @@ import { db } from "../../firebaseConfig";
 import {
   getCustomerInfo,
   hasActivePremiumEntitlement,
+  hasActivePremiumPlusEntitlement,
   restorePurchases
 } from "../../lib/revenuecat";
 import { getProfileSettings } from "../../lib/settingsService";
@@ -153,6 +154,9 @@ export default function ProfileScreen() {
   const [premiumSubtitle, setPremiumSubtitle] = useState(
     "Your Premium subscription is active"
   );
+  const [premiumPlusSubtitle, setPremiumPlusSubtitle] = useState(
+    "QR / Barcode Scanner and Archive access are active"
+  );
   const [isRestoringPurchases, setIsRestoringPurchases] = useState(false);
 
   const version =
@@ -236,6 +240,7 @@ export default function ProfileScreen() {
           setIsPremium(false);
           setIsPremiumPlus(false);
           setPremiumSubtitle("Remove ads and unlock premium features");
+          setPremiumPlusSubtitle("Add QR / Barcode Scanner and Archive access");
         }
 
         return;
@@ -258,6 +263,16 @@ export default function ProfileScreen() {
 
         setIsPremium(premium);
         setIsPremiumPlus(premiumPlus);
+
+        if (premiumPlusEntitlement?.expirationDate) {
+          setPremiumPlusSubtitle(
+            `Active until ${new Date(premiumPlusEntitlement.expirationDate).toLocaleDateString()}`
+          );
+        } else if (premiumPlus) {
+          setPremiumPlusSubtitle("Premium + access is active");
+        } else {
+          setPremiumPlusSubtitle("Add QR / Barcode Scanner and Archive access");
+        }
 
         if (!premiumEntitlement) {
           setPremiumSubtitle("Remove ads and unlock premium features");
@@ -411,21 +426,30 @@ export default function ProfileScreen() {
     await runWithLock(async () => {
       try {
         const customerInfo = await getCustomerInfo();
-        const premiumEntitlement = customerInfo?.entitlements.active.premium;
+        const premiumEntitlement =
+          customerInfo?.entitlements.active.premium_plus ??
+          customerInfo?.entitlements.active.premium;
 
         if (!premiumEntitlement) {
           Alert.alert(
             "Subscription Details",
-            "No active Premium subscription was found for this account."
+            "No active Premium or Premium+ subscription was found for this account."
           );
           return;
         }
+
+        const subscriptionProductId =
+          premiumEntitlement.productIdentifier ??
+          customerInfo?.activeSubscriptions?.find((productId) =>
+            productId.includes("premium_plus")
+          ) ??
+          "Premium";
 
         const periodType = premiumEntitlement.periodType?.toUpperCase?.() ?? "";
         const isTrial = periodType === "TRIAL";
         const productId = isTrial
           ? "7-Day Free Trial"
-          : premiumEntitlement.productIdentifier || "Premium";
+          : subscriptionProductId;
         const isIntro = periodType === "INTRO";
         const planStatus = isTrial
           ? "Trial"
@@ -968,12 +992,12 @@ export default function ProfileScreen() {
                     title={isPremiumPlus ? "Premium + Active" : "Upgrade to Premium +"}
                     subtitle={
                       isPremiumPlus
-                        ? "QR / Barcode Scanner and Archive access are active"
+                        ? premiumPlusSubtitle
                         : "Add QR / Barcode Scanner and Archive access"
                     }
                     onPress={
                       isPremiumPlus
-                        ? handleOpenSubscriptionDetails
+                        ? undefined
                         : handleOpenPremiumPlusUpgrade
                     }
                     showChevron={false}
@@ -1156,12 +1180,12 @@ export default function ProfileScreen() {
                   title={isPremiumPlus ? "Premium + Active" : "Upgrade to Premium +"}
                   subtitle={
                     isPremiumPlus
-                      ? "QR / Barcode Scanner and Archive access are active"
+                      ? premiumPlusSubtitle
                       : "Add QR / Barcode Scanner and Archive access"
                   }
                   onPress={
                     isPremiumPlus
-                      ? handleOpenSubscriptionDetails
+                      ? undefined
                       : handleOpenPremiumPlusUpgrade
                   }
                   showChevron={false}
