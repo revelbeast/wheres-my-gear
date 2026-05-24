@@ -2,7 +2,7 @@ import {
   CameraView,
   useCameraPermissions,
 } from "expo-camera";
-import { router, useFocusEffect } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { Alert } from "react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
@@ -12,6 +12,9 @@ import HapticPressable from "../components/ui/HapticPressable";
 import { resolveBarcode } from "../lib/barcodeResolver";
 
 export default function ScanItemScreen() {
+  const { mode } = useLocalSearchParams();
+  const isAiMode = String(mode ?? "") === "ai";
+  const autoAiScanStartedRef = React.useRef(false);
   const { user } = useAuth();
   const [hasPremiumPlusAccess, setHasPremiumPlusAccess] = useState(false);
   const [checkingPremiumPlusAccess, setCheckingPremiumPlusAccess] = useState(true);
@@ -156,6 +159,32 @@ export default function ScanItemScreen() {
       setIsScanning(false);
     }
   };
+
+  useEffect(() => {
+    if (!isAiMode) return;
+    if (autoAiScanStartedRef.current) return;
+    if (checkingPremiumPlusAccess) return;
+    if (!hasPremiumPlusAccess) return;
+    if (!mounted) return;
+    if (!permission?.granted) return;
+    if (!cameraActive) return;
+    if (!cameraRef.current) return;
+
+    autoAiScanStartedRef.current = true;
+
+    const timer = setTimeout(() => {
+      void handleAnalyzeImageWithAI();
+    }, 2500);
+
+    return () => clearTimeout(timer);
+  }, [
+    isAiMode,
+    checkingPremiumPlusAccess,
+    hasPremiumPlusAccess,
+    mounted,
+    permission?.granted,
+    cameraActive,
+  ]);
 
   // permission handling
   useEffect(() => {
@@ -367,12 +396,12 @@ export default function ScanItemScreen() {
               code: result.barcode,
               found: String(result.found),
               suggestedName: result.bestName ?? "",
-              source: result.sources.upcitemdb ? "UPCitemDB" : result.sources.serpapi ? "SerpAPI" : result.sources.openFoodFacts ? "OpenFoodFacts" : "Unknown",
-              brand: result.sources.upcitemdb?.brand ?? result.sources.serpapi?.brand ?? "",
-              image: result.sources.upcitemdb?.image ?? result.sources.serpapi?.image ?? "",
-              description: result.sources.upcitemdb?.description ?? result.sources.serpapi?.description ?? "",
-              matchConfidence: result.sources.upcitemdb?.confidence != null ? String(result.sources.upcitemdb.confidence) : result.sources.serpapi?.confidence != null ? String(result.sources.serpapi.confidence) : "",
-              matchStatus: /[A-Za-z]/.test(result.barcode) && result.sources.serpapi ? "possible" : "found",
+              source: result.sources.upcitemdb ? "UPCitemDB" : result.sources.openFoodFacts ? "OpenFoodFacts" : "Unknown",
+              brand: result.sources.upcitemdb?.brand ?? "",
+              image: result.sources.upcitemdb?.image ?? "",
+              description: result.sources.upcitemdb?.description ?? "",
+              matchConfidence: result.sources.upcitemdb?.confidence != null ? String(result.sources.upcitemdb.confidence) : "",
+              matchStatus: result.found ? "found" : "unknown",
             },
           });
 

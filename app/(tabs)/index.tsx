@@ -1456,6 +1456,37 @@ export default function DashboardScreen() {
     );
   }
 
+  function handleOpenAiScanQuickAction() {
+    if (isPremiumPlus) {
+      pushWithNavigationLock(() => {
+        router.push({
+          pathname: "/scan-item",
+          params: { mode: "ai" },
+        });
+      });
+      return;
+    }
+
+    Alert.alert(
+      "Unlock Premium +",
+      "AI scanning is a Premium + add-on feature for smart gear recognition and faster item setup.",
+      [
+        {
+          text: "Not Now",
+          style: "cancel",
+        },
+        {
+          text: "Upgrade to Premium +",
+          onPress: () =>
+            router.push({
+              pathname: "/paywall",
+              params: { plan: "premium_plus" },
+            }),
+        },
+      ]
+    );
+  }
+
   function handleOpenScanQuickAction() {
     if (isPremiumPlus) {
       pushWithNavigationLock(() => {
@@ -2610,6 +2641,11 @@ export default function DashboardScreen() {
                         </ThemedText>
 
                         <View style={styles.stackedQuickActionsGrid}>
+                          <HapticPressable style={[styles.selectorButton, styles.stackedQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.trip }]} onPress={handleOpenAiScanQuickAction}>
+                            <Camera size={18} color={quickActionColors.trip} />
+                            <ThemedText>Scan w/AI</ThemedText>
+                          </HapticPressable>
+
                           <HapticPressable style={[styles.selectorButton, styles.stackedQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.scan }]} onPress={handleOpenScanQuickAction}>
                             <Camera size={18} color={quickActionColors.scan} />
                             <ThemedText>QR / Barcode Scanner</ThemedText>
@@ -2637,11 +2673,6 @@ export default function DashboardScreen() {
                             <ThemedText>Add Storage Space</ThemedText>
                           </HapticPressable>
 
-                          <HapticPressable style={[styles.selectorButton, styles.stackedQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.trip }]} onPress={handleOpenScanQuickAction}>
-                            <Camera size={18} color={quickActionColors.trip} />
-                            <ThemedText>Scan w/AI</ThemedText>
-                          </HapticPressable>
-
                           <HapticPressable style={[styles.selectorButton, styles.stackedQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.export }]} onPress={handleOpenDashboardExport}>
                             <Share size={18} color={quickActionColors.export} />
                             <ThemedText>Export To...</ThemedText>
@@ -2664,6 +2695,11 @@ export default function DashboardScreen() {
                         <View style={styles.tabletQuickActionsGrid}>
 
                           <View style={styles.tabletQuickActionsRow}>
+                            <HapticPressable style={[styles.selectorButton, styles.tabletQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.trip }]} onPress={handleOpenAiScanQuickAction}>
+                              <Camera size={18} color={quickActionColors.trip} />
+                              <ThemedText>Scan w/AI</ThemedText>
+                            </HapticPressable>
+
                             <HapticPressable
                               style={[
                                 styles.selectorButton,
@@ -2675,7 +2711,9 @@ export default function DashboardScreen() {
                               <Camera size={18} color={quickActionColors.scan} />
                               <ThemedText>QR / Barcode Scanner</ThemedText>
                             </HapticPressable>
+                          </View>
 
+                          <View style={styles.tabletQuickActionsRow}>
                             <HapticPressable
                               style={[
                                 styles.selectorButton,
@@ -2687,24 +2725,17 @@ export default function DashboardScreen() {
                               <Archive size={18} color={quickActionColors.addItem} />
                               <ThemedText>Archive</ThemedText>
                             </HapticPressable>
-                          </View>
 
-                          <View style={styles.tabletQuickActionsRow}>
                             <HapticPressable style={[styles.selectorButton, styles.tabletQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.compartment }]} onPress={handleAddCompartment}>
                               <FolderPlus size={18} color={quickActionColors.compartment} />
                               <ThemedText>Add Compartment</ThemedText>
                             </HapticPressable>
-
-                            <HapticPressable style={[styles.selectorButton, styles.tabletQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.storage }]} onPress={handleAddStorageSpace}>
-                              <Plus size={18} color={quickActionColors.storage} />
-                              <ThemedText>Add Storage Space</ThemedText>
-                            </HapticPressable>
                           </View>
 
                           <View style={styles.tabletQuickActionsRow}>
-                            <HapticPressable style={[styles.selectorButton, styles.tabletQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.trip }]} onPress={handleOpenScanQuickAction}>
-                              <Camera size={18} color={quickActionColors.trip} />
-                              <ThemedText>Scan w/AI</ThemedText>
+                            <HapticPressable style={[styles.selectorButton, styles.tabletQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.storage }]} onPress={handleAddStorageSpace}>
+                              <Plus size={18} color={quickActionColors.storage} />
+                              <ThemedText>Add Storage Space</ThemedText>
                             </HapticPressable>
 
                             <HapticPressable

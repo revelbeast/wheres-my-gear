@@ -1095,7 +1095,7 @@ export default function ScanResultScreen() {
                     fontSize: 18,
                   }}
                 >
-                  Find product online
+                  Find or Reorder Online
                 </Text>
               </View>
             </TouchableOpacity>
