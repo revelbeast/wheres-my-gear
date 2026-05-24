@@ -238,7 +238,7 @@ export default function PaywallScreen() {
               text: "Continue",
               onPress: () => {
                 if (isMountedRef.current) {
-                  router.replace("/");
+                  router.replace("/(tabs)");
                 }
               },
             },
@@ -271,7 +271,7 @@ export default function PaywallScreen() {
               text: "Continue",
               onPress: () => {
                 if (isMountedRef.current) {
-                  router.replace("/");
+                  router.replace("/(tabs)");
                 }
               },
             },
@@ -346,7 +346,7 @@ export default function PaywallScreen() {
               text: "Continue",
               onPress: () => {
                 if (isMountedRef.current) {
-                  router.replace("/");
+                  router.replace("/(tabs)");
                 }
               },
             },
