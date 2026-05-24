@@ -20,6 +20,10 @@ import {
   getProfileSettings,
   saveProfileSettings,
 } from "../../lib/settingsService";
+import {
+  hasActivePremiumEntitlement,
+  restorePurchases,
+} from "../../lib/revenuecat";
 import { publishAppThemeUpdate } from "../../lib/themeUpdateBus";
 
 export default function GeneralSettingsScreen() {
@@ -35,6 +39,8 @@ export default function GeneralSettingsScreen() {
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [isRestoringPurchases, setIsRestoringPurchases] = useState(false);
+  const restorePurchasesVersionRef = useRef(0);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -43,6 +49,7 @@ export default function GeneralSettingsScreen() {
       isMountedRef.current = false;
       loadRequestVersionRef.current += 1;
       actionLockRef.current = false;
+      restorePurchasesVersionRef.current += 1;
     };
   }, []);
 
@@ -200,6 +207,76 @@ export default function GeneralSettingsScreen() {
     setHapticsEnabled(value);
   }
 
+  async function handleRestorePurchases() {
+    if (isRestoringPurchases || saving || loading || actionLockRef.current) {
+      return;
+    }
+
+    Alert.alert(
+      "Restore Purchases?",
+      "This will check your Apple ID for an active Premium subscription and restore access if one is found. No new purchase will be made.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Restore Purchases",
+          onPress: async () => {
+            const restoreVersion = restorePurchasesVersionRef.current + 1;
+            restorePurchasesVersionRef.current = restoreVersion;
+
+            try {
+              if (isMountedRef.current) {
+                setIsRestoringPurchases(true);
+              }
+
+              const customerInfo = await restorePurchases();
+              const hasPremium = hasActivePremiumEntitlement(customerInfo);
+
+              if (
+                restorePurchasesVersionRef.current !== restoreVersion ||
+                !isMountedRef.current
+              ) {
+                return;
+              }
+
+              if (hasPremium) {
+                Alert.alert(
+                  "Purchases Restored",
+                  "Your Premium access has been restored."
+                );
+                return;
+              }
+
+              Alert.alert(
+                "No Purchases Found",
+                "No active Premium purchase was found for this Apple ID."
+              );
+            } catch (err) {
+              if (
+                restorePurchasesVersionRef.current !== restoreVersion ||
+                !isMountedRef.current
+              ) {
+                return;
+              }
+
+              console.error("Failed to restore purchases:", err);
+              Alert.alert(
+                "Restore Failed",
+                "Unable to restore purchases right now. Please try again."
+              );
+            } finally {
+              if (
+                restorePurchasesVersionRef.current === restoreVersion &&
+                isMountedRef.current
+              ) {
+                setIsRestoringPurchases(false);
+              }
+            }
+          },
+        },
+      ]
+    );
+  }
+
   function renderThemeOption(option: AppTheme) {
     const isSelected = theme === option;
     const Icon = option === "dark" ? Moon : Sun;
@@ -320,6 +397,46 @@ export default function GeneralSettingsScreen() {
                 </View>
               </ThemedCard>
 
+              <ThemedCard style={styles.restoreCard}>
+                <View style={styles.settingRow}>
+                  <View style={styles.settingTextBlock}>
+                    <ThemedText variant="bodyStrong">
+                      {isRestoringPurchases
+                        ? "Restoring Purchases..."
+                        : "Restore Purchases"}
+                    </ThemedText>
+                    <ThemedText color="secondary" style={styles.settingHelper}>
+                      Recover a previous Premium purchase.
+                    </ThemedText>
+                  </View>
+
+                  <HapticPressable
+                    style={[
+                      styles.restoreButton,
+                      {
+                        backgroundColor: activeTheme.colors.primary,
+                      },
+                      (isRestoringPurchases ||
+                        saving ||
+                        loading ||
+                        actionLockRef.current) &&
+                        styles.disabledInteraction,
+                    ]}
+                    onPress={handleRestorePurchases}
+                    disabled={
+                      isRestoringPurchases ||
+                      saving ||
+                      loading ||
+                      actionLockRef.current
+                    }
+                  >
+                    <ThemedText style={styles.restoreButtonText}>
+                      Restore
+                    </ThemedText>
+                  </HapticPressable>
+                </View>
+              </ThemedCard>
+
             </>
           )}
         </ScrollView>
@@ -373,6 +490,23 @@ const styles = StyleSheet.create({
 
   feedbackCard: {
     marginTop: 16,
+  },
+
+  restoreCard: {
+    marginTop: 16,
+  },
+
+  restoreButton: {
+    minHeight: 44,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+  },
+
+  restoreButtonText: {
+    color: "#fff",
+    fontWeight: "700",
   },
 
   settingRow: {

@@ -9,7 +9,6 @@ import {
   Info,
   LogOut,
   Moon,
-  RotateCcw,
   ShieldCheck,
   Star,
   Trash2,
@@ -30,9 +29,7 @@ import {
 import { db } from "../../firebaseConfig";
 import {
   getCustomerInfo,
-  hasActivePremiumEntitlement,
   hasActivePremiumPlusEntitlement,
-  restorePurchases
 } from "../../lib/revenuecat";
 import { getProfileSettings } from "../../lib/settingsService";
 import type { AppProfile } from "../../lib/settingsService";
@@ -140,7 +137,6 @@ export default function ProfileScreen() {
   const isScreenMountedRef = useRef(true);
   const premiumCheckVersionRef = useRef(0);
   const profileSettingsLoadVersionRef = useRef(0);
-  const restorePurchasesVersionRef = useRef(0);
   const deleteAllDataVersionRef = useRef(0);
   const navigationTransitionLockedRef = useRef(false);
   const navigationUnlockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -157,7 +153,6 @@ export default function ProfileScreen() {
   const [premiumPlusSubtitle, setPremiumPlusSubtitle] = useState(
     "QR / Barcode Scanner and Archive access are active"
   );
-  const [isRestoringPurchases, setIsRestoringPurchases] = useState(false);
 
   const version =
     Constants.expoConfig?.version ||
@@ -171,7 +166,6 @@ export default function ProfileScreen() {
       isScreenMountedRef.current = false;
       premiumCheckVersionRef.current += 1;
       profileSettingsLoadVersionRef.current += 1;
-      restorePurchasesVersionRef.current += 1;
       deleteAllDataVersionRef.current += 1;
 
       if (navigationUnlockTimeoutRef.current) {
@@ -531,77 +525,6 @@ export default function ProfileScreen() {
     });
   }
 
-  async function handleRestorePurchases() {
-    if (isRestoringPurchases || interactionLocked) {
-      return;
-    }
-
-    Alert.alert(
-      "Restore Purchases?",
-      "This will check your Apple ID for an active Premium subscription and restore access if one is found. No new purchase will be made.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Restore Purchases",
-          onPress: () => {
-            void runWithLock(async () => {
-              const restoreVersion = restorePurchasesVersionRef.current + 1;
-              restorePurchasesVersionRef.current = restoreVersion;
-
-              try {
-                setIsRestoringPurchases(true);
-
-                const customerInfo = await restorePurchases();
-                const hasPremium = hasActivePremiumEntitlement(customerInfo);
-
-                if (
-                  restorePurchasesVersionRef.current !== restoreVersion ||
-                  !isScreenMountedRef.current
-                ) {
-                  return;
-                }
-
-                setIsPremium(hasPremium);
-
-                if (hasPremium) {
-                  Alert.alert(
-                    "Purchases Restored",
-                    "Your Premium access has been restored."
-                  );
-                  return;
-                }
-
-                Alert.alert(
-                  "No Purchases Found",
-                  "No active Premium purchase was found for this Apple ID."
-                );
-              } catch (err) {
-                if (
-                  restorePurchasesVersionRef.current !== restoreVersion ||
-                  !isScreenMountedRef.current
-                ) {
-                  return;
-                }
-
-                console.error("Failed to restore purchases:", err);
-                Alert.alert(
-                  "Restore Failed",
-                  "Unable to restore purchases right now. Please try again."
-                );
-              } finally {
-                if (
-                  restorePurchasesVersionRef.current === restoreVersion &&
-                  isScreenMountedRef.current
-                ) {
-                  setIsRestoringPurchases(false);
-                }
-              }
-            });
-          },
-        },
-      ]
-    );
-  }
 
   async function handleDeleteAllData() {
     if (!user || isDeletingAllData || interactionLocked) {
@@ -830,7 +753,7 @@ export default function ProfileScreen() {
   const iconColor = theme.colors.text;
   const dangerIconColor = theme.colors.danger;
   const rowActionsDisabled =
-    interactionLocked || isDeletingAllData || isRestoringPurchases;
+    interactionLocked || isDeletingAllData;
 
   const appProfileDisplayName = `${appProfile?.firstName || ""} ${appProfile?.lastName || ""}`.trim();
 
@@ -1004,25 +927,6 @@ export default function ProfileScreen() {
                     disabled={rowActionsDisabled || isPremiumPlus}
                   />
 
-                  <View
-                    style={[
-                      styles.divider,
-                      { backgroundColor: theme.colors.border },
-                    ]}
-                  />
-
-                  <ProfileRow
-                    icon={<RotateCcw size={20} color={iconColor} />}
-                    title={
-                      isRestoringPurchases
-                        ? "Restoring Purchases..."
-                        : "Restore Purchases"
-                    }
-                    subtitle="Recover a previous Premium purchase"
-                    onPress={handleRestorePurchases}
-                    showChevron={false}
-                    disabled={rowActionsDisabled}
-                  />
                 </ThemedCard>
 
                 <ThemedCard contentStyle={styles.profileCardContent}>
@@ -1192,25 +1096,6 @@ export default function ProfileScreen() {
                   disabled={rowActionsDisabled || isPremiumPlus}
                 />
 
-                <View
-                  style={[
-                    styles.divider,
-                    { backgroundColor: theme.colors.border },
-                  ]}
-                />
-
-                <ProfileRow
-                  icon={<RotateCcw size={20} color={iconColor} />}
-                  title={
-                    isRestoringPurchases
-                      ? "Restoring Purchases..."
-                      : "Restore Purchases"
-                  }
-                  subtitle="Recover a previous Premium purchase"
-                  onPress={handleRestorePurchases}
-                  showChevron={false}
-                  disabled={rowActionsDisabled}
-                />
               </ThemedCard>
 
               <ThemedCard contentStyle={styles.profileCardContent}>
