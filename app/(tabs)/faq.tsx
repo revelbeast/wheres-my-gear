@@ -27,7 +27,17 @@ const FAQ_ITEMS: FAQItem[] = [
   {
     question: "What is included with Premium +?",
     answer:
-      "Premium + adds QR / Barcode Scanner access and Archive access. The scanner helps you quickly identify and add gear items, while Archive lets you move inactive Storage Spaces, Compartments, Inventory Items, Checklists, Checklist Items, Checklist Templates, and saved notes out of your active workspace without permanently deleting them.",
+      "Premium + adds Scan w/AI, QR / Barcode Scanner access, and Archive access. Scan w/AI helps identify gear by taking a photo and using smart image recognition, while QR / Barcode Scanner helps identify items using product barcodes when available. Archive lets you move inactive Storage Spaces, Compartments, Inventory Items, Checklists, Checklist Items, Checklist Templates, and saved notes out of your active workspace without permanently deleting them.",
+  },
+  {
+    question: "What is Scan w/AI?",
+    answer:
+      "Scan w/AI uses your camera to automatically capture a photo of your gear and identify the item using smart image recognition. It works best for tools, camping gear, tactical gear, electronics, storage items, and products without barcodes. After scanning, you can review the suggested item name, add details, and use Find or Reorder Online to look for similar products.",
+  },
+  {
+    question: "When should I use Scan w/AI vs QR / Barcode Scanner?",
+    answer:
+      "Use Scan w/AI when an item has no barcode, the label is worn, or you want to identify gear from a photo. Use QR / Barcode Scanner when a product has a visible UPC or barcode for faster and more accurate identification.",
   },
   {
     question: "Can I add photos to items?",
