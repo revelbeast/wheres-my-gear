@@ -25,6 +25,11 @@ const FAQ_ITEMS: FAQItem[] = [
       "Where's My Gear helps you track gear by storage space, compartment, and checklist so you know where items are located and what still needs to be packed.",
   },
   {
+    question: "What is included with Premium +?",
+    answer:
+      "Premium + adds QR / Barcode Scanner access and Archive access. The scanner helps you quickly identify and add gear items, while Archive lets you move inactive Storage Spaces, Compartments, Inventory Items, Checklists, Checklist Items, Checklist Templates, and saved notes out of your active workspace without permanently deleting them.",
+  },
+  {
     question: "Can I add photos to items?",
     answer:
       "Yes. You can take a photo or choose one from your device library. Item photos help you identify gear faster.",
