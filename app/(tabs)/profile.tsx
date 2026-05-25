@@ -15,7 +15,7 @@ import {
   User,
 } from "lucide-react-native";
 import React, { useEffect, useRef, useState } from "react";
-import { Alert, Image, Linking, ScrollView, StyleSheet, View } from "react-native";
+import { Alert, Image, Linking, Platform, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../components/auth/AuthProvider";
@@ -47,6 +47,12 @@ const APP_STORE_REVIEW_URL =
 
 const APP_STORE_FALLBACK_URL =
   "https://apps.apple.com/app/id6762979732";
+
+const PLAY_STORE_URL =
+  "market://details?id=com.revelbeast.wheresmygear";
+
+const PLAY_STORE_FALLBACK_URL =
+  "https://play.google.com/store/apps/details?id=com.revelbeast.wheresmygear";
 
 const APP_ICON = require("../../assets/images/app-icon.png");
 
@@ -699,19 +705,25 @@ export default function ProfileScreen() {
     if (interactionLocked) return;
 
     await runWithLock(async () => {
+      const primaryUrl =
+        Platform.OS === "android" ? PLAY_STORE_URL : APP_STORE_REVIEW_URL;
+      const fallbackUrl =
+        Platform.OS === "android" ? PLAY_STORE_FALLBACK_URL : APP_STORE_FALLBACK_URL;
+      const storeName = Platform.OS === "android" ? "Google Play" : "App Store";
+
       try {
-        await Linking.openURL(APP_STORE_REVIEW_URL);
+        await Linking.openURL(primaryUrl);
       } catch (err) {
-        console.error("Failed to open App Store review page:", err);
+        console.error(`Failed to open ${storeName} review page:`, err);
 
         try {
-          await Linking.openURL(APP_STORE_FALLBACK_URL);
+          await Linking.openURL(fallbackUrl);
         } catch (fallbackErr) {
-          console.error("Failed to open App Store fallback page:", fallbackErr);
+          console.error(`Failed to open ${storeName} fallback page:`, fallbackErr);
 
           Alert.alert(
-            "Unable to Open App Store",
-            "Please search for Where's My Gear in the App Store and leave a review there."
+            `Unable to Open ${storeName}`,
+            `Please search for Where's My Gear in ${storeName} and leave a review there.`
           );
         }
       }
