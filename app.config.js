@@ -17,7 +17,7 @@ export default {
     },
 
     android: {
-      package: "com.milesandmoments.wheresmygear",
+      package: "com.revelbeast.wheresmygear",
       adaptiveIcon: {
         foregroundImage: "./assets/images/app-icon.png",
         backgroundColor: "#0b1020",
