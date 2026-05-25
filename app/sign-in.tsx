@@ -234,25 +234,27 @@ export default function SignInScreen() {
               <Text style={styles.smallLink}>Forgot password?</Text>
             </HapticPressable>
 
-            <Text style={styles.or}>OR</Text>
+            {Platform.OS === "ios" ? <Text style={styles.or}>OR</Text> : null}
 
-            {isAppleAvailable ? (
-              <AppleAuthentication.AppleAuthenticationButton
-                buttonType={
-                  AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN
-                }
-                buttonStyle={
-                  AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
-                }
-                cornerRadius={14}
-                style={styles.appleButton}
-                onPress={handleAppleSignIn}
-              />
-            ) : (
-              <Text style={styles.helperText}>
-                Apple Sign-In is only available on supported Apple devices.
-              </Text>
-            )}
+            {Platform.OS === "ios" ? (
+              isAppleAvailable ? (
+                <AppleAuthentication.AppleAuthenticationButton
+                  buttonType={
+                    AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN
+                  }
+                  buttonStyle={
+                    AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
+                  }
+                  cornerRadius={14}
+                  style={styles.appleButton}
+                  onPress={handleAppleSignIn}
+                />
+              ) : (
+                <Text style={styles.helperText}>
+                  Apple Sign-In is only available on supported Apple devices.
+                </Text>
+              )
+            ) : null}
 
             {signInError && <Text style={styles.errorText}>{signInError}</Text>}
           </ScrollView>

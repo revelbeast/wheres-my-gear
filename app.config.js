@@ -54,6 +54,7 @@ export default {
       firebaseMessagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
       firebaseAppId: process.env.FIREBASE_APP_ID,
       revenueCatIosKey: "appl_mSZszlOmDuRtonDUwsKqTsoYsDX",
+      revenueCatAndroidKey: "goog_kQGiZroVpnrsZIhIedjpdBuZxYb",
     },
   },
 };
