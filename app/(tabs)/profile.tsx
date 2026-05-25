@@ -490,14 +490,21 @@ export default function ProfileScreen() {
             ? `Renews: ${expirationDate}`
             : `Expires: ${expirationDate}`;
 
+        const subscriptionStoreName =
+          Platform.OS === "android" ? "Google Play" : "Apple";
+        const subscriptionManageUrl =
+          Platform.OS === "android"
+            ? "https://play.google.com/store/account/subscriptions?package=com.revelbeast.wheresmygear"
+            : "https://apps.apple.com/account/subscriptions";
+
         Alert.alert(
           "Premium Subscription",
-          `Type: ${planStatus}\nPlan: ${productId}\n${startLabel}: ${originalPurchaseDate}\nLatest Purchase/Renewal: ${latestPurchaseDate}\n${renewalText}\nTime Remaining: ${daysRemainingText}\nAuto-renew: ${premiumEntitlement.willRenew ? "On" : "Off"}\n\nUse Manage to view, update, or cancel your Apple subscription.`,
+          `Type: ${planStatus}\nPlan: ${productId}\n${startLabel}: ${originalPurchaseDate}\nLatest Purchase/Renewal: ${latestPurchaseDate}\n${renewalText}\nTime Remaining: ${daysRemainingText}\nAuto-renew: ${premiumEntitlement.willRenew ? "On" : "Off"}\n\nUse Manage to view, update, or cancel your ${subscriptionStoreName} subscription.`,
           [
             {
               text: "Manage",
               onPress: () => {
-                void Linking.openURL("https://apps.apple.com/account/subscriptions");
+                void Linking.openURL(subscriptionManageUrl);
               },
             },
             { text: "OK", style: "cancel" },
