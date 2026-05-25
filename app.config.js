@@ -18,6 +18,7 @@ export default {
 
     android: {
       package: "com.revelbeast.wheresmygear",
+      versionCode: 1,
       adaptiveIcon: {
         foregroundImage: "./assets/images/app-icon.png",
         backgroundColor: "#0b1020",
