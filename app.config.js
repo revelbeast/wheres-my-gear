@@ -28,20 +28,7 @@ export default {
     plugins: [
       "expo-apple-authentication",
       "expo-web-browser",
-      [
-        "expo-tracking-transparency",
-        {
-          userTrackingPermission:
-            "This identifier will be used to deliver personalized ads and improve ad relevance.",
-        },
-      ],
-      [
-        "react-native-google-mobile-ads",
-        {
-          iosAppId: "ca-app-pub-6678004145625444~4416697271",
-          androidAppId: "ca-app-pub-3940256099942544~3347511713",
-        },
-      ],
+
     ],
 
     extra: {

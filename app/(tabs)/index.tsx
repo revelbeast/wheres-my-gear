@@ -36,7 +36,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 const DASHBOARD_SEARCH_KEYBOARD_ACCESSORY_ID =
   "dashboard-search-keyboard-accessory";
 
-import SafeBannerAd from "../../components/ads/SafeBannerAd";
 import { useAuth } from "../../components/auth/AuthProvider";
 import HapticPressable from "../../components/ui/HapticPressable";
 import KeyboardDismissAccessory from "../../components/ui/KeyboardDismissAccessory";
