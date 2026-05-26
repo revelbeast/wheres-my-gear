@@ -29,7 +29,12 @@ export default {
     plugins: [
       "expo-apple-authentication",
       "expo-web-browser",
-      "@react-native-google-signin/google-signin",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          iosUrlScheme: "com.googleusercontent.apps.742156812361-dkqbs9o24bhmnk7vrf46clhuv3vep8oo",
+        },
+      ],
     ],
 
     extra: {
