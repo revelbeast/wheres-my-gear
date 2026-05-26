@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "742156812361",
+    "project_id": "wheres-my-gear-ab7a7",
+    "storage_bucket": "wheres-my-gear-ab7a7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:742156812361:android:4c1a0a8c23e8c0931fbf98",
+        "android_client_info": {
+          "package_name": "com.revelbeast.wheresmygear"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "742156812361-k57ebtl2j0h636t2j68ll3l0pqcvj21m.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.revelbeast.wheresmygear",
+            "certificate_hash": "490dbe76e04efb79c42aa278c4e4aaf81ae311b1"
+          }
+        },
+        {
+          "client_id": "742156812361-dkqbs9o24bhmnk7vrf46clhuv3vep8oo.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCD8ZSHwPjqpCIpEImJgu826vx2r6JwbYs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "742156812361-dkqbs9o24bhmnk7vrf46clhuv3vep8oo.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "742156812361-n8uap5ched23v4f65n11cl70em24llar.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.richgarcia.wheresmygear"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
