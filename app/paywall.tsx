@@ -5,6 +5,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   Linking,
   ScrollView,
   StyleSheet,
@@ -112,8 +113,12 @@ export default function PaywallScreen() {
 
       const availablePackages = offerings?.current?.availablePackages ?? [];
       const targetProductId = isPremiumPlusPaywall
-        ? "premium_plus_annual"
-        : "premium_annual";
+        ? (Platform.OS === "android"
+            ? "premium_plus_annual:premium-plus-annual"
+            : "premium_plus_annual")
+        : (Platform.OS === "android"
+            ? "premium_annual:premium-annual"
+            : "premium_annual");
 
       const matchedPackage =
         availablePackages.find(

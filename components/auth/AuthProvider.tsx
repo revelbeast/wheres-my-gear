@@ -1,6 +1,9 @@
 import * as AppleAuthentication from "expo-apple-authentication";
+import Constants from "expo-constants";
+import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import {
   User,
+  GoogleAuthProvider,
   OAuthProvider,
   createUserWithEmailAndPassword,
   onAuthStateChanged,
@@ -17,6 +20,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { Platform } from "react-native";
 
 import { auth } from "../../firebaseConfig";
 import { publishAppBackgroundUpdate } from "../../lib/backgroundUpdateBus";
@@ -34,6 +38,7 @@ type AuthContextValue = {
   user: User | null;
   initializing: boolean;
   signInWithApple: () => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   createAccountWithEmail: (email: string, password: string) => Promise<void>;
   sendPasswordReset: (email: string) => Promise<void>;
@@ -41,6 +46,10 @@ type AuthContextValue = {
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+const extra = Constants.expoConfig?.extra ?? {};
+const googleWebClientId =
+  typeof extra.googleWebClientId === "string" ? extra.googleWebClientId : "";
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
@@ -168,6 +177,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(result.user);
   }
 
+  async function signInWithGoogle() {
+    console.log("Google Sign-In started.");
+
+    if (!googleWebClientId) {
+      throw new Error("Google Sign-In is missing the web client ID.");
+    }
+
+    GoogleSignin.configure({
+      webClientId: googleWebClientId,
+      offlineAccess: false,
+    });
+
+    if (Platform.OS === "android") {
+      await GoogleSignin.hasPlayServices({
+        showPlayServicesUpdateDialog: true,
+      });
+    }
+
+    const googleCredential = await GoogleSignin.signIn();
+    const idToken =
+      (googleCredential as any)?.data?.idToken ??
+      (googleCredential as any)?.idToken ??
+      null;
+
+    if (!idToken) {
+      throw new Error("Google Sign-In failed because no ID token was returned.");
+    }
+
+    const firebaseCredential = GoogleAuthProvider.credential(idToken);
+    const result = await signInWithCredential(auth, firebaseCredential);
+
+    console.log("Firebase Google sign-in succeeded:", {
+      uid: result.user.uid,
+      email: result.user.email ?? null,
+    });
+
+    setUser(result.user);
+  }
+
   async function signInWithEmail(email: string, password: string) {
     const cleanEmail = normalizeEmail(email);
 
@@ -211,6 +259,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       initializing,
       signInWithApple,
+      signInWithGoogle,
       signInWithEmail,
       createAccountWithEmail,
       sendPasswordReset,

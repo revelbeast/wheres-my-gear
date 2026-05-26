@@ -27,6 +27,7 @@ export default function SignInScreen() {
     user,
     initializing,
     signInWithApple,
+    signInWithGoogle,
     signInWithEmail,
     createAccountWithEmail,
     sendPasswordReset,
@@ -85,6 +86,34 @@ export default function SignInScreen() {
         : "Unknown Apple Sign-In error.";
 
       console.error("Apple sign-in failed:", {
+        code: errorCode,
+        message: errorMessage,
+      });
+
+      setSignInError(`${errorCode}: ${errorMessage}`);
+      Alert.alert("Sign in failed", `${errorCode}\n\n${errorMessage}`);
+    } finally {
+      setSigningIn(false);
+    }
+  }
+
+  async function handleGoogleSignIn() {
+    if (signingIn) return;
+
+    try {
+      setSigningIn(true);
+      setSignInError(null);
+
+      await signInWithGoogle();
+    } catch (error: any) {
+      if (error?.code === "SIGN_IN_CANCELLED") return;
+
+      const errorCode = error?.code ? String(error.code) : "unknown";
+      const errorMessage = error?.message
+        ? String(error.message)
+        : "Unknown Google Sign-In error.";
+
+      console.error("Google sign-in failed:", {
         code: errorCode,
         message: errorMessage,
       });
@@ -234,7 +263,15 @@ export default function SignInScreen() {
               <Text style={styles.smallLink}>Forgot password?</Text>
             </HapticPressable>
 
-            {Platform.OS === "ios" ? <Text style={styles.or}>OR</Text> : null}
+            <Text style={styles.or}>OR</Text>
+
+            <HapticPressable
+              style={styles.googleButton}
+              onPress={handleGoogleSignIn}
+              disabled={signingIn}
+            >
+              <Text style={styles.googleButtonText}>Continue with Google</Text>
+            </HapticPressable>
 
             {Platform.OS === "ios" ? (
               isAppleAvailable ? (
@@ -363,6 +400,22 @@ const styles = StyleSheet.create({
     textAlign: "center",
     color: "#6b7280",
     marginVertical: 16,
+  },
+
+  googleButton: {
+    width: "100%",
+    height: 52,
+    borderRadius: 14,
+    backgroundColor: "#ffffff",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+
+  googleButtonText: {
+    color: "#111827",
+    fontSize: 16,
+    fontWeight: "700",
   },
 
   appleButton: {

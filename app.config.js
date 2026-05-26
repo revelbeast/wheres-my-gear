@@ -28,7 +28,7 @@ export default {
     plugins: [
       "expo-apple-authentication",
       "expo-web-browser",
-
+      "@react-native-google-signin/google-signin",
     ],
 
     extra: {
@@ -43,6 +43,8 @@ export default {
       firebaseAppId: process.env.FIREBASE_APP_ID,
       revenueCatIosKey: "appl_mSZszlOmDuRtonDUwsKqTsoYsDX",
       revenueCatAndroidKey: "goog_kQGiZroVpnrsZIhIedjpdBuZxYb",
+      googleWebClientId:
+        "742156812361-dkqbs9o24bhmnk7vrf46clhuv3vep8oo.apps.googleusercontent.com",
     },
   },
 };
