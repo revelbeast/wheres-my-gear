@@ -24,6 +24,17 @@ export default {
         foregroundImage: "./assets/images/app-icon.png",
         backgroundColor: "#0b1020",
       },
+      intentFilters: [
+        {
+          action: "VIEW",
+          data: [
+            {
+              scheme: "com.revelbeast.wheresmygear",
+            },
+          ],
+          category: ["BROWSABLE", "DEFAULT"],
+        },
+      ],
     },
 
     plugins: [
@@ -35,7 +46,6 @@ export default {
           iosUrlScheme: "com.googleusercontent.apps.742156812361-dkqbs9o24bhmnk7vrf46clhuv3vep8oo",
         },
       ],
-      "./plugins/withGoogleSigninAndroidPackage",
     ],
 
     extra: {
@@ -52,6 +62,8 @@ export default {
       revenueCatAndroidKey: "goog_kQGiZroVpnrsZIhIedjpdBuZxYb",
       googleWebClientId:
         "742156812361-dkqbs9o24bhmnk7vrf46clhuv3vep8oo.apps.googleusercontent.com",
+      googleAndroidClientId:
+        "742156812361-k57ebtl2j0h636t2j68ll3l0pqcvj21m.apps.googleusercontent.com",
     },
   },
 };

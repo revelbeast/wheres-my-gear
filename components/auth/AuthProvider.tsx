@@ -1,4 +1,6 @@
 import * as AppleAuthentication from "expo-apple-authentication";
+import * as AuthSession from "expo-auth-session";
+import * as WebBrowser from "expo-web-browser";
 import Constants from "expo-constants";
 import {
   User,
@@ -46,9 +48,15 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+WebBrowser.maybeCompleteAuthSession();
+
 const extra = Constants.expoConfig?.extra ?? {};
 const googleWebClientId =
   typeof extra.googleWebClientId === "string" ? extra.googleWebClientId : "";
+const googleAndroidClientId =
+  typeof extra.googleAndroidClientId === "string"
+    ? extra.googleAndroidClientId
+    : "";
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
@@ -183,24 +191,77 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error("Google Sign-In is missing the web client ID.");
     }
 
-    const { GoogleSignin } = require("@react-native-google-signin/google-signin");
-
-    GoogleSignin.configure({
-      webClientId: googleWebClientId,
-      offlineAccess: false,
-    });
+    let idToken: string | null = null;
 
     if (Platform.OS === "android") {
-      await GoogleSignin.hasPlayServices({
-        showPlayServicesUpdateDialog: true,
-      });
-    }
+      if (!googleAndroidClientId) {
+        throw new Error("Google Sign-In is missing the Android client ID.");
+      }
 
-    const googleCredential = await GoogleSignin.signIn();
-    const idToken =
-      (googleCredential as any)?.data?.idToken ??
-      (googleCredential as any)?.idToken ??
-      null;
+      const redirectUri = AuthSession.makeRedirectUri({
+        scheme: "com.revelbeast.wheresmygear",
+      });
+
+      const authRequestUrl =
+        "https://accounts.google.com/o/oauth2/v2/auth" +
+        `?client_id=${encodeURIComponent(googleAndroidClientId)}` +
+        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+        "&response_type=code" +
+        "&scope=openid%20profile%20email";
+
+      const authResult = await WebBrowser.openAuthSessionAsync(
+        authRequestUrl,
+        redirectUri
+      );
+
+      if (authResult.type !== "success") {
+        throw new Error("Google Sign-In was cancelled or did not complete.");
+      }
+
+      const redirectUrl = new URL(authResult.url);
+      const queryParams = new URLSearchParams(redirectUrl.search);
+      const authorizationCode = queryParams.get("code");
+
+      if (!authorizationCode) {
+        throw new Error("Google Sign-In failed because no authorization code was returned.");
+      }
+
+      const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          client_id: googleAndroidClientId,
+          code: authorizationCode,
+          grant_type: "authorization_code",
+          redirect_uri: redirectUri,
+        }).toString(),
+      });
+
+      const tokenJson = await tokenResponse.json();
+
+      if (!tokenResponse.ok) {
+        console.error("Google token exchange failed:", tokenJson);
+        throw new Error("Google Sign-In token exchange failed.");
+      }
+
+      idToken = typeof tokenJson.id_token === "string" ? tokenJson.id_token : null;
+    } else {
+      const { GoogleSignin } = require("@react-native-google-signin/google-signin");
+
+      GoogleSignin.configure({
+        webClientId: googleWebClientId,
+        offlineAccess: false,
+      });
+
+      const googleCredential = await GoogleSignin.signIn();
+
+      idToken =
+        (googleCredential as any)?.data?.idToken ??
+        (googleCredential as any)?.idToken ??
+        null;
+    }
 
     if (!idToken) {
       throw new Error("Google Sign-In failed because no ID token was returned.");
