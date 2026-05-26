@@ -35,6 +35,7 @@ export default {
           iosUrlScheme: "com.googleusercontent.apps.742156812361-dkqbs9o24bhmnk7vrf46clhuv3vep8oo",
         },
       ],
+      "./plugins/withGoogleSigninAndroidPackage",
     ],
 
     extra: {
