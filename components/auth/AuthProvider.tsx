@@ -1,6 +1,5 @@
 import * as AppleAuthentication from "expo-apple-authentication";
 import Constants from "expo-constants";
-import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import {
   User,
   GoogleAuthProvider,
@@ -183,6 +182,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!googleWebClientId) {
       throw new Error("Google Sign-In is missing the web client ID.");
     }
+
+    const { GoogleSignin } = require("@react-native-google-signin/google-signin");
 
     GoogleSignin.configure({
       webClientId: googleWebClientId,
