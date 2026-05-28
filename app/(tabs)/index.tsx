@@ -3066,6 +3066,18 @@ export default function DashboardScreen() {
                         </ThemedText>
 
                         <View style={styles.stackedQuickActionsGrid}>
+                          <HapticPressable
+                            style={[
+                              styles.selectorButton,
+                              styles.stackedQuickActionButton,
+                              { borderWidth: 2, borderColor: quickActionColors.export },
+                            ]}
+                            onPress={handleOpenVoiceAddQuickAction}
+                          >
+                            <Mic size={18} color={quickActionColors.export} />
+                            <ThemedText>Gear Assistant</ThemedText>
+                          </HapticPressable>
+
                           <HapticPressable style={[styles.selectorButton, styles.stackedQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.trip }]} onPress={handleOpenAiScanQuickAction}>
                             <Camera size={18} color={quickActionColors.trip} />
                             <ThemedText>Scan w/AI</ThemedText>
@@ -3086,18 +3098,6 @@ export default function DashboardScreen() {
                           >
                             <Archive size={18} color={quickActionColors.addItem} />
                             <ThemedText>Archive</ThemedText>
-                          </HapticPressable>
-
-                          <HapticPressable
-                            style={[
-                              styles.selectorButton,
-                              styles.stackedQuickActionButton,
-                              { borderWidth: 2, borderColor: quickActionColors.export },
-                            ]}
-                            onPress={handleOpenVoiceAddQuickAction}
-                          >
-                            <Mic size={18} color={quickActionColors.export} />
-                            <ThemedText>Gear Assistant</ThemedText>
                           </HapticPressable>
 
                           <HapticPressable style={[styles.selectorButton, styles.stackedQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.compartment }]} onPress={handleAddCompartment}>
@@ -3134,11 +3134,25 @@ export default function DashboardScreen() {
                         <View style={styles.tabletQuickActionsGrid}>
 
                           <View style={styles.tabletQuickActionsRow}>
+                            <HapticPressable
+                              style={[
+                                styles.selectorButton,
+                                styles.tabletQuickActionButton,
+                                { borderWidth: 2, borderColor: quickActionColors.export },
+                              ]}
+                              onPress={handleOpenVoiceAddQuickAction}
+                            >
+                              <Mic size={18} color={quickActionColors.export} />
+                              <ThemedText>Gear Assistant</ThemedText>
+                            </HapticPressable>
+
                             <HapticPressable style={[styles.selectorButton, styles.tabletQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.trip }]} onPress={handleOpenAiScanQuickAction}>
                               <Camera size={18} color={quickActionColors.trip} />
                               <ThemedText>Scan w/AI</ThemedText>
                             </HapticPressable>
+                          </View>
 
+                          <View style={styles.tabletQuickActionsRow}>
                             <HapticPressable
                               style={[
                                 styles.selectorButton,
@@ -3150,9 +3164,7 @@ export default function DashboardScreen() {
                               <Camera size={18} color={quickActionColors.scan} />
                               <ThemedText>QR / Barcode Scanner</ThemedText>
                             </HapticPressable>
-                          </View>
 
-                          <View style={styles.tabletQuickActionsRow}>
                             <HapticPressable
                               style={[
                                 styles.selectorButton,
@@ -3163,18 +3175,6 @@ export default function DashboardScreen() {
                             >
                               <Archive size={18} color={quickActionColors.addItem} />
                               <ThemedText>Archive</ThemedText>
-                            </HapticPressable>
-
-                            <HapticPressable
-                              style={[
-                                styles.selectorButton,
-                                styles.tabletQuickActionButton,
-                                { borderWidth: 2, borderColor: quickActionColors.export },
-                              ]}
-                              onPress={handleOpenVoiceAddQuickAction}
-                            >
-                              <Mic size={18} color={quickActionColors.export} />
-                              <ThemedText>Gear Assistant</ThemedText>
                             </HapticPressable>
                           </View>
 
