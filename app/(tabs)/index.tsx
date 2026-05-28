@@ -659,7 +659,7 @@ export default function DashboardScreen() {
             return;
           }
 
-          setIsPremium(premium);
+          setIsPremium(premium || premiumPlus);
           setIsPremiumPlus(premiumPlus);
         } catch (error) {
           console.error("RevenueCat premium gate failed:", error);

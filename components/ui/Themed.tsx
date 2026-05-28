@@ -91,6 +91,7 @@ export function ThemedCard({
       ]}
     >
       <BlurView
+        pointerEvents="box-none"
         intensity={theme.isLight ? 18 : 35}
         tint={theme.isLight ? "light" : "dark"}
         style={[styles.cardBlur, contentStyle]}
