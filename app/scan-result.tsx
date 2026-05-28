@@ -1170,6 +1170,7 @@ export default function ScanResultScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingBottom: 32 }}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         {content}
       </ScrollView>
