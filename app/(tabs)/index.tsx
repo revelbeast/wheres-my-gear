@@ -1811,7 +1811,7 @@ export default function DashboardScreen() {
 
   async function handleSaveVoiceItems() {
     if (!voiceAddReview || voiceAddReview.items.length === 0) {
-      Alert.alert("Nothing to Save", "Voice Add did not detect any items yet.");
+      Alert.alert("Nothing to Save", "Gear Assistant did not detect any items yet.");
       return;
     }
 
@@ -1895,7 +1895,7 @@ export default function DashboardScreen() {
       console.log("VOICE ADD SAVE ERROR:", error);
       Alert.alert(
         "Save Failed",
-        "Unable to save Voice Add items. Please try again."
+        "Unable to save Gear Assistant items. Please try again."
       );
     } finally {
       setIsSavingVoiceItems(false);
@@ -1914,7 +1914,7 @@ export default function DashboardScreen() {
       if (!result.granted) {
         Alert.alert(
           "Microphone Permission Needed",
-          "Please allow microphone and speech recognition access for Voice Add."
+          "Please allow microphone and speech recognition access for Gear Assistant."
         );
         return;
       }
@@ -1935,7 +1935,7 @@ export default function DashboardScreen() {
       console.log("VOICE ADD START ERROR:", error);
 
       Alert.alert(
-        "Voice Add Error",
+        "Gear Assistant Error",
         "Unable to start voice recognition."
       );
 
@@ -3097,7 +3097,7 @@ export default function DashboardScreen() {
                             onPress={handleOpenVoiceAddQuickAction}
                           >
                             <Mic size={18} color={quickActionColors.export} />
-                            <ThemedText>Voice Add</ThemedText>
+                            <ThemedText>Gear Assistant</ThemedText>
                           </HapticPressable>
 
                           <HapticPressable style={[styles.selectorButton, styles.stackedQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.compartment }]} onPress={handleAddCompartment}>
@@ -3174,7 +3174,7 @@ export default function DashboardScreen() {
                               onPress={handleOpenVoiceAddQuickAction}
                             >
                               <Mic size={18} color={quickActionColors.export} />
-                              <ThemedText>Voice Add</ThemedText>
+                              <ThemedText>Gear Assistant</ThemedText>
                             </HapticPressable>
                           </View>
 
@@ -3592,7 +3592,7 @@ export default function DashboardScreen() {
                 <Mic size={34} color="#FFFFFF" />
               </Pressable>
 
-              <ThemedText variant="title">Voice Add</ThemedText>
+              <ThemedText variant="title">Gear Assistant</ThemedText>
 
               <ThemedText color="secondary">
                 Tap the mic, speak your items, then review and choose where to save them.
@@ -3718,7 +3718,7 @@ export default function DashboardScreen() {
                     </ScrollView>
                   ) : (
                     <ThemedText color="secondary">
-                      Add a storage space or compartment before saving Voice Add items.
+                      Add a storage space or compartment before saving Gear Assistant items.
                     </ThemedText>
                   )}
                 </View>
@@ -3753,7 +3753,7 @@ export default function DashboardScreen() {
                         ? "Choose Save Location"
                         : isVoiceListening
                           ? "Listening..."
-                          : "Start Voice Add"}
+                          : "Start Gear Assistant"}
                 </ThemedText>
               </HapticPressable>
 

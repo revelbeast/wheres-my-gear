@@ -27,7 +27,7 @@ const FAQ_ITEMS: FAQItem[] = [
   {
     question: "What is included with Premium +?",
     answer:
-      "Premium + adds Voice Add, Scan w/AI, QR / Barcode Scanner access, and Archive access. Voice Add lets you quickly speak items into inventory and save them to a Storage Space or Compartment. Scan w/AI helps identify gear by taking a photo and using smart image recognition, while QR / Barcode Scanner helps identify items using product barcodes when available. Archive lets you move inactive Storage Spaces, Compartments, Inventory Items, Checklists, Checklist Items, Checklist Templates, and saved notes out of your active workspace without permanently deleting them.",
+      "Premium + adds Gear Assistant, Scan w/AI, QR / Barcode Scanner access, and Archive access. Gear Assistant lets you quickly speak items into inventory and save them to a Storage Space or Compartment. Scan w/AI helps identify gear by taking a photo and using smart image recognition, while QR / Barcode Scanner helps identify items using product barcodes when available. Archive lets you move inactive Storage Spaces, Compartments, Inventory Items, Checklists, Checklist Items, Checklist Templates, and saved notes out of your active workspace without permanently deleting them.",
   },
   {
     question: "What is Scan w/AI?",
@@ -40,9 +40,9 @@ const FAQ_ITEMS: FAQItem[] = [
       "Use Scan w/AI when an item has no barcode, the label is worn, or you want to identify gear from a photo. Use QR / Barcode Scanner when a product has a visible UPC or barcode for faster and more accurate identification.",
   },
   {
-    question: "What is Voice Add?",
+    question: "What is Gear Assistant?",
     answer:
-      "Voice Add lets you speak items into inventory, review what was detected, choose the correct Storage Space or Compartment, and save the items without manually typing each one. After saving, Where's My Gear can take you to the saved location so you can visually confirm the items were added.",
+      "Gear Assistant lets you speak items into inventory, review what was detected, choose the correct Storage Space or Compartment, and save the items without manually typing each one. After saving, Where's My Gear can take you to the saved location so you can visually confirm the items were added.",
   },
   {
     question: "Can I add photos to items?",
