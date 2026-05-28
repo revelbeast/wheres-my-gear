@@ -157,7 +157,7 @@ export default function ProfileScreen() {
     "Your Premium subscription is active"
   );
   const [premiumPlusSubtitle, setPremiumPlusSubtitle] = useState(
-    "QR / Barcode Scanner and Archive access are active"
+    "Gear Assistant, Scan w/AI, QR / Barcode Scanner, and Archive access are active"
   );
 
   const version =
@@ -240,7 +240,7 @@ export default function ProfileScreen() {
           setIsPremium(false);
           setIsPremiumPlus(false);
           setPremiumSubtitle("Remove ads and unlock premium features");
-          setPremiumPlusSubtitle("Adds Scan w/AI, QR / Barcode Scanner, and Archive access");
+          setPremiumPlusSubtitle("Adds Gear Assistant, Scan w/AI, QR / Barcode Scanner, and Archive access");
         }
 
         return;
@@ -271,7 +271,7 @@ export default function ProfileScreen() {
         } else if (premiumPlus) {
           setPremiumPlusSubtitle("Premium + access is active");
         } else {
-          setPremiumPlusSubtitle("Adds Scan w/AI, QR / Barcode Scanner, and Archive access");
+          setPremiumPlusSubtitle("Adds Gear Assistant, Scan w/AI, QR / Barcode Scanner, and Archive access");
         }
 
         if (!premiumEntitlement) {
@@ -397,7 +397,7 @@ export default function ProfileScreen() {
   function handleOpenPremiumPlusUpgrade() {
     Alert.alert(
       "Unlock Premium +",
-      "Premium + adds QR / Barcode Scanner and Archive access as an add-on upgrade to your Premium subscription.",
+      "Premium + adds Gear Assistant, Scan w/AI, QR / Barcode Scanner, and Archive access as an add-on upgrade to your Premium subscription.",
       [
         {
           text: "Maybe Later",
@@ -935,7 +935,7 @@ export default function ProfileScreen() {
                     subtitle={
                       isPremiumPlus
                         ? premiumPlusSubtitle
-                        : "Adds Scan w/AI, QR / Barcode Scanner, and Archive access"
+                        : "Adds Gear Assistant, Scan w/AI, QR / Barcode Scanner, and Archive access"
                     }
                     onPress={
                       isPremiumPlus
@@ -1104,7 +1104,7 @@ export default function ProfileScreen() {
                   subtitle={
                     isPremiumPlus
                       ? premiumPlusSubtitle
-                      : "Adds Scan w/AI, QR / Barcode Scanner, and Archive access"
+                      : "Adds Gear Assistant, Scan w/AI, QR / Barcode Scanner, and Archive access"
                   }
                   onPress={
                     isPremiumPlus

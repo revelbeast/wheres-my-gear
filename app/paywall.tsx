@@ -435,7 +435,7 @@ export default function PaywallScreen() {
 
             <ThemedText style={styles.heroSubtitle}>
               {isPremiumPlusPaywall
-                ? "Unlock QR / Barcode Scanner, Archive access, and future smart gear tools."
+                ? "Unlock Gear Assistant, Scan w/AI, QR / Barcode Scanner, and Archive access."
                 : "Remove ads and unlock premium features for organizing your gear, storage spaces, compartments, and checklists."}
             </ThemedText>
 
@@ -465,6 +465,8 @@ export default function PaywallScreen() {
             <View style={styles.featureList}>
               {isPremiumPlusPaywall ? (
                 <>
+                  <FeatureRow text="Gear Assistant voice inventory" />
+                  <FeatureRow text="Scan w/AI smart gear recognition" />
                   <FeatureRow text="QR / Barcode Scanner access" />
                   <FeatureRow text="Archive access for hidden gear" />
                   <FeatureRow text="Future smart gear tools and scan enhancements" />
