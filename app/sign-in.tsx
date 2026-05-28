@@ -265,13 +265,15 @@ export default function SignInScreen() {
 
             <Text style={styles.or}>OR</Text>
 
-            <HapticPressable
-              style={styles.googleButton}
-              onPress={handleGoogleSignIn}
-              disabled={signingIn}
-            >
-              <Text style={styles.googleButtonText}>Continue with Google</Text>
-            </HapticPressable>
+            {Platform.OS === "android" ? (
+              <HapticPressable
+                style={styles.googleButton}
+                onPress={handleGoogleSignIn}
+                disabled={signingIn}
+              >
+                <Text style={styles.googleButtonText}>Continue with Google</Text>
+              </HapticPressable>
+            ) : null}
 
             {Platform.OS === "ios" ? (
               isAppleAvailable ? (
