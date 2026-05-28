@@ -60,6 +60,7 @@ import {
 } from "../../lib/checklistsService";
 import {
   Compartment,
+  createItem,
   getAllItems,
   getCompartments,
   getStorageSpaces,
@@ -140,6 +141,16 @@ type VoiceDetectedItem = {
 type VoiceAddReview = {
   items: VoiceDetectedItem[];
   destinationName: string;
+};
+
+type VoiceAddLocationOption = {
+  id: string;
+  type: "storage" | "compartment";
+  name: string;
+  storageId: string;
+  storageName: string;
+  compartmentId?: string;
+  compartmentName?: string;
 };
 
 type QuickCompartment = {
@@ -564,6 +575,11 @@ export default function DashboardScreen() {
   const [voiceAddReview, setVoiceAddReview] = useState<VoiceAddReview | null>(
     null
   );
+  const [selectedVoiceLocationId, setSelectedVoiceLocationId] = useState<
+    string | null
+  >(null);
+  const [showAllVoiceLocations, setShowAllVoiceLocations] = useState(false);
+  const [isSavingVoiceItems, setIsSavingVoiceItems] = useState(false);
   const [isVoiceListening, setIsVoiceListening] = useState(false);
 
   const [exportStep, setExportStep] = useState<
@@ -632,6 +648,89 @@ export default function DashboardScreen() {
   );
 
   const hasStorageSpaces = storageSpaces.length > 0;
+
+  const voiceLocationOptions = useMemo<VoiceAddLocationOption[]>(() => {
+    const storageOptions = sortedStorageSpaces.map((space) => ({
+      id: `storage-${space.id}`,
+      type: "storage" as const,
+      name: `Storage Space: ${space.name}`,
+      storageId: space.id,
+      storageName: space.name,
+    }));
+
+    const compartmentOptions = allCompartments
+      .map((compartment) => {
+        const storageName = storageNameById.get(compartment.vehicleId) ?? "";
+
+        return {
+          id: `compartment-${compartment.id}`,
+          type: "compartment" as const,
+          name: storageName
+            ? `Compartment: ${compartment.name} (${storageName})`
+            : `Compartment: ${compartment.name}`,
+          storageId: compartment.vehicleId,
+          storageName,
+          compartmentId: compartment.id,
+          compartmentName: compartment.name,
+        };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    return [...storageOptions, ...compartmentOptions];
+  }, [allCompartments, sortedStorageSpaces, storageNameById]);
+
+  const suggestedVoiceLocationOptions = useMemo(() => {
+    const destination = voiceAddReview?.destinationName.toLowerCase().trim();
+
+    if (!destination || destination === "not detected") {
+      return voiceLocationOptions.slice(0, 5);
+    }
+
+    const destinationWords = destination
+      .split(/\s+/)
+      .filter((word) => word.length >= 3);
+
+    const scored = voiceLocationOptions.map((option, index) => {
+      const searchable = [
+        option.storageName,
+        option.compartmentName ?? "",
+        option.name,
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      const exactScore =
+        searchable.includes(destination) ||
+        destination.includes(option.storageName.toLowerCase()) ||
+        Boolean(
+          option.compartmentName &&
+            destination.includes(option.compartmentName.toLowerCase())
+        )
+          ? 10
+          : 0;
+
+      const wordScore = destinationWords.reduce((score, word) => {
+        return searchable.includes(word) ? score + 2 : score;
+      }, 0);
+
+      return {
+        option,
+        score: exactScore + wordScore,
+        index,
+      };
+    });
+
+    const matched = scored
+      .filter((entry) => entry.score > 0)
+      .sort((a, b) => b.score - a.score || a.index - b.index)
+      .map((entry) => entry.option);
+
+    if (matched.length > 0) {
+      return matched.slice(0, 5);
+    }
+
+    return voiceLocationOptions.slice(0, 5);
+  }, [voiceAddReview?.destinationName, voiceLocationOptions]);
 
   useSpeechRecognitionEvent("start", () => {
     console.log("VOICE ADD LISTENING STARTED");
@@ -716,12 +815,37 @@ export default function DashboardScreen() {
   }
 
   useSpeechRecognitionEvent("result", (event) => {
-    const transcript = event.results[event.results.length - 1]?.transcript
-      ?.trim() ?? "";
+    const transcript = event.results
+      .map((result) => result.transcript?.trim() ?? "")
+      .filter(Boolean)
+      .sort((a, b) => b.length - a.length)[0] ?? "";
 
     console.log("VOICE ADD TRANSCRIPT:", transcript);
+
+    const nextReview = buildVoiceAddReview(transcript);
+    const normalizedDestination = nextReview?.destinationName
+      .toLowerCase()
+      .trim();
+
+    const shouldMatchDestination =
+      Boolean(normalizedDestination) &&
+      normalizedDestination !== "not detected";
+
+    const matchedLocation = shouldMatchDestination
+      ? voiceLocationOptions.find((option) => {
+          const storageName = option.storageName.toLowerCase().trim();
+          const compartmentName = option.compartmentName?.toLowerCase().trim();
+
+          return (
+            storageName === normalizedDestination ||
+            compartmentName === normalizedDestination
+          );
+        })
+      : null;
+
     setVoiceTranscript(transcript);
-    setVoiceAddReview(buildVoiceAddReview(transcript));
+    setVoiceAddReview(nextReview);
+    setSelectedVoiceLocationId(matchedLocation?.id ?? null);
   });
 
   useSpeechRecognitionEvent("error", (event) => {
@@ -1644,7 +1768,69 @@ export default function DashboardScreen() {
     setVoiceAddModalVisible(false);
     setVoiceTranscript("");
     setVoiceAddReview(null);
+    setSelectedVoiceLocationId(null);
+    setShowAllVoiceLocations(false);
     setIsVoiceListening(false);
+  }
+
+  async function handleSaveVoiceItems() {
+    if (!voiceAddReview || voiceAddReview.items.length === 0) {
+      Alert.alert("Nothing to Save", "Voice Add did not detect any items yet.");
+      return;
+    }
+
+    const selectedLocation = voiceLocationOptions.find(
+      (option) => option.id === selectedVoiceLocationId
+    );
+
+    if (!selectedLocation) {
+      Alert.alert(
+        "Choose Save Location",
+        "Please choose a storage space or compartment before saving."
+      );
+      return;
+    }
+
+    try {
+      setIsSavingVoiceItems(true);
+
+      for (const item of voiceAddReview.items) {
+        await createItem({
+          name: item.name,
+          quantity: item.quantity,
+          status: "missing",
+          vehicleId: selectedLocation.storageId,
+          vehicleName: selectedLocation.storageName,
+          compartmentId: selectedLocation.compartmentId ?? "",
+          compartmentName: selectedLocation.compartmentName ?? "",
+          source: "voice",
+        });
+      }
+
+      const refreshedItems = await getAllItems();
+      setAllItems(refreshedItems);
+
+      Alert.alert(
+        "Items Added",
+        `Added ${voiceAddReview.items.length} item${
+          voiceAddReview.items.length === 1 ? "" : "s"
+        } to ${selectedLocation.compartmentName ?? selectedLocation.storageName}.`
+      );
+
+      setVoiceAddModalVisible(false);
+      setVoiceTranscript("");
+      setVoiceAddReview(null);
+      setSelectedVoiceLocationId(null);
+      setShowAllVoiceLocations(false);
+    } catch (error) {
+      console.log("VOICE ADD SAVE ERROR:", error);
+      Alert.alert(
+        "Save Failed",
+        "Unable to save Voice Add items. Please try again."
+      );
+    } finally {
+      setIsSavingVoiceItems(false);
+    }
   }
 
   async function handleVoiceMicPress() {
@@ -1666,6 +1852,8 @@ export default function DashboardScreen() {
 
       setVoiceTranscript("");
       setVoiceAddReview(null);
+      setSelectedVoiceLocationId(null);
+      setShowAllVoiceLocations(false);
 
       await ExpoSpeechRecognitionModule.start({
         lang: "en-US",
@@ -3390,18 +3578,104 @@ export default function DashboardScreen() {
                   <ThemedText color="secondary">
                     {voiceAddReview.destinationName}
                   </ThemedText>
+
+                  <View style={styles.voiceReviewDivider} />
+
+                  <ThemedText variant="bodyStrong">Save Location</ThemedText>
+
+                  {!selectedVoiceLocationId &&
+                  voiceAddReview.destinationName !== "Not Detected" ? (
+                    <ThemedText color="secondary">
+                      No matching location found for "{voiceAddReview.destinationName}".
+                      Choose where to save the items:
+                    </ThemedText>
+                  ) : null}
+
+                  {voiceLocationOptions.length > 0 ? (
+                    <ScrollView
+                      style={styles.voiceLocationList}
+                      nestedScrollEnabled
+                      showsVerticalScrollIndicator
+                    >
+                      {(showAllVoiceLocations
+                        ? voiceLocationOptions
+                        : suggestedVoiceLocationOptions
+                      ).map((option) => {
+                        const isSelected = selectedVoiceLocationId === option.id;
+
+                        return (
+                          <HapticPressable
+                            key={option.id}
+                            style={[
+                              styles.voiceLocationOption,
+                              {
+                                borderColor: isSelected
+                                  ? theme.colors.primary
+                                  : theme.colors.border,
+                                backgroundColor: isSelected
+                                  ? "rgba(37, 99, 235, 0.14)"
+                                  : theme.colors.card,
+                              },
+                            ]}
+                            onPress={() => setSelectedVoiceLocationId(option.id)}
+                          >
+                            <ThemedText>{option.name}</ThemedText>
+                            <ThemedText color="secondary">
+                              {isSelected ? "Selected" : "Tap to select"}
+                            </ThemedText>
+                          </HapticPressable>
+                        );
+                      })}
+
+                      {!showAllVoiceLocations &&
+                      voiceLocationOptions.length >
+                        suggestedVoiceLocationOptions.length ? (
+                        <HapticPressable
+                          style={styles.voiceChooseAnotherButton}
+                          onPress={() => setShowAllVoiceLocations(true)}
+                        >
+                          <ThemedText color="secondary">
+                            Choose Another Location
+                          </ThemedText>
+                        </HapticPressable>
+                      ) : null}
+                    </ScrollView>
+                  ) : (
+                    <ThemedText color="secondary">
+                      Add a storage space or compartment before saving Voice Add items.
+                    </ThemedText>
+                  )}
                 </View>
               ) : null}
 
               <HapticPressable
                 style={[
                   styles.exportModalPrimaryButton,
-                  { backgroundColor: theme.colors.primary },
+                  {
+                    backgroundColor:
+                      voiceAddReview?.items.length && selectedVoiceLocationId
+                        ? theme.colors.primary
+                        : theme.colors.primary,
+                    opacity: isSavingVoiceItems ? 0.7 : 1,
+                  },
                 ]}
-                onPress={handleVoiceMicPress}
+                onPress={
+                  voiceAddReview?.items.length && selectedVoiceLocationId
+                    ? handleSaveVoiceItems
+                    : handleVoiceMicPress
+                }
+                disabled={isSavingVoiceItems}
               >
                 <ThemedText style={styles.exportModalPrimaryButtonText}>
-                  {isVoiceListening ? "Listening..." : "Start Voice Add"}
+                  {isSavingVoiceItems
+                    ? "Saving..."
+                    : voiceAddReview?.items.length && selectedVoiceLocationId
+                      ? "Save Items"
+                      : voiceAddReview?.items.length
+                        ? "Choose Save Location"
+                        : isVoiceListening
+                          ? "Listening..."
+                          : "Start Voice Add"}
                 </ThemedText>
               </HapticPressable>
 
@@ -4122,6 +4396,27 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: "rgba(148, 163, 184, 0.35)",
     marginVertical: 4,
+  },
+
+  voiceLocationList: {
+    maxHeight: 260,
+  },
+
+  voiceLocationOption: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 10,
+    gap: 3,
+    marginBottom: 8,
+  },
+
+  voiceChooseAnotherButton: {
+    alignItems: "center",
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 10,
+    borderColor: "rgba(148, 163, 184, 0.45)",
+    marginBottom: 8,
   },
 
   exportModalOverlay: {
