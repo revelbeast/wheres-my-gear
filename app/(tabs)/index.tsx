@@ -13,6 +13,7 @@ import {
   FolderPlus,
   ListChecks,
   Archive,
+  Mic,
   Plus,
   Search,
   Share,
@@ -543,6 +544,7 @@ export default function DashboardScreen() {
   );
   const [upcomingTrips, setUpcomingTrips] = useState<UpcomingTrip[]>([]);
   const [exportModalVisible, setExportModalVisible] = useState(false);
+  const [voiceAddModalVisible, setVoiceAddModalVisible] = useState(false);
   const [exportStep, setExportStep] = useState<
     "category" | "selection" | "compartments" | "format"
   >("category");
@@ -1515,6 +1517,14 @@ export default function DashboardScreen() {
         },
       ]
     );
+  }
+
+  function handleOpenVoiceAddQuickAction() {
+    setVoiceAddModalVisible(true);
+  }
+
+  function handleCloseVoiceAddModal() {
+    setVoiceAddModalVisible(false);
   }
 
   function handleOpenDashboardExport() {
@@ -2662,6 +2672,18 @@ export default function DashboardScreen() {
                             <ThemedText>Archive</ThemedText>
                           </HapticPressable>
 
+                          <HapticPressable
+                            style={[
+                              styles.selectorButton,
+                              styles.stackedQuickActionButton,
+                              { borderWidth: 2, borderColor: quickActionColors.export },
+                            ]}
+                            onPress={handleOpenVoiceAddQuickAction}
+                          >
+                            <Mic size={18} color={quickActionColors.export} />
+                            <ThemedText>Voice Add</ThemedText>
+                          </HapticPressable>
+
                           <HapticPressable style={[styles.selectorButton, styles.stackedQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.compartment }]} onPress={handleAddCompartment}>
                             <FolderPlus size={18} color={quickActionColors.compartment} />
                             <ThemedText>Add Compartment</ThemedText>
@@ -2676,6 +2698,8 @@ export default function DashboardScreen() {
                             <Share size={18} color={quickActionColors.export} />
                             <ThemedText>Export To...</ThemedText>
                           </HapticPressable>
+
+                          <View style={styles.stackedQuickActionButton} />
                         </View>
                       </ThemedCard>
                     )}
@@ -2725,18 +2749,32 @@ export default function DashboardScreen() {
                               <ThemedText>Archive</ThemedText>
                             </HapticPressable>
 
-                            <HapticPressable style={[styles.selectorButton, styles.tabletQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.compartment }]} onPress={handleAddCompartment}>
-                              <FolderPlus size={18} color={quickActionColors.compartment} />
-                              <ThemedText>Add Compartment</ThemedText>
+                            <HapticPressable
+                              style={[
+                                styles.selectorButton,
+                                styles.tabletQuickActionButton,
+                                { borderWidth: 2, borderColor: quickActionColors.export },
+                              ]}
+                              onPress={handleOpenVoiceAddQuickAction}
+                            >
+                              <Mic size={18} color={quickActionColors.export} />
+                              <ThemedText>Voice Add</ThemedText>
                             </HapticPressable>
                           </View>
 
                           <View style={styles.tabletQuickActionsRow}>
+                            <HapticPressable style={[styles.selectorButton, styles.tabletQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.compartment }]} onPress={handleAddCompartment}>
+                              <FolderPlus size={18} color={quickActionColors.compartment} />
+                              <ThemedText>Add Compartment</ThemedText>
+                            </HapticPressable>
+
                             <HapticPressable style={[styles.selectorButton, styles.tabletQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.storage }]} onPress={handleAddStorageSpace}>
                               <Plus size={18} color={quickActionColors.storage} />
                               <ThemedText>Add Storage Space</ThemedText>
                             </HapticPressable>
+                          </View>
 
+                          <View style={styles.tabletQuickActionsRow}>
                             <HapticPressable
                               style={[
                                 styles.selectorButton,
@@ -2751,6 +2789,8 @@ export default function DashboardScreen() {
                               <Share size={18} color={quickActionColors.export} />
                               <ThemedText>Export To...</ThemedText>
                             </HapticPressable>
+
+                            <View style={styles.tabletQuickActionButton} />
                           </View>
 
                         </View>
@@ -3104,6 +3144,53 @@ export default function DashboardScreen() {
               <HapticPressable onPress={handleCloseDashboardExport}>
                 <ThemedText color="secondary" style={styles.exportModalCancelText}>
                   Cancel
+                </ThemedText>
+              </HapticPressable>
+            </View>
+          </View>
+        </Modal>
+
+        <Modal
+          visible={voiceAddModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={handleCloseVoiceAddModal}
+        >
+          <View style={styles.exportModalOverlay}>
+            <View
+              style={[
+                styles.exportModalCard,
+                {
+                  backgroundColor: theme.colors.cardStrong,
+                  borderColor: theme.colors.border,
+                },
+              ]}
+            >
+              <View style={styles.voiceAddIconWrap}>
+                <Mic size={34} color="#FFFFFF" />
+              </View>
+
+              <ThemedText variant="title">Voice Add</ThemedText>
+
+              <ThemedText color="secondary">
+                Soon you will be able to say something like, “Add two headlamps and one first aid kit to my camping bin,” review the items, and save them to your gear.
+              </ThemedText>
+
+              <HapticPressable
+                style={[
+                  styles.exportModalPrimaryButton,
+                  { backgroundColor: theme.colors.primary },
+                ]}
+                onPress={handleCloseVoiceAddModal}
+              >
+                <ThemedText style={styles.exportModalPrimaryButtonText}>
+                  Got it
+                </ThemedText>
+              </HapticPressable>
+
+              <HapticPressable onPress={handleCloseVoiceAddModal}>
+                <ThemedText color="secondary" style={styles.exportModalCancelText}>
+                  Close
                 </ThemedText>
               </HapticPressable>
             </View>
@@ -3776,6 +3863,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     flexWrap: "wrap",
+    marginBottom: 10,
+  },
+
+  voiceAddIconWrap: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#2563EB",
+    alignSelf: "center",
     marginBottom: 10,
   },
 
