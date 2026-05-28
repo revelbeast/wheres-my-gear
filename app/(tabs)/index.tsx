@@ -729,7 +729,7 @@ export default function DashboardScreen() {
       return matched.slice(0, 5);
     }
 
-    return voiceLocationOptions.slice(0, 5);
+    return [];
   }, [voiceAddReview?.destinationName, voiceLocationOptions]);
 
   useSpeechRecognitionEvent("start", () => {
@@ -3626,6 +3626,13 @@ export default function DashboardScreen() {
                       nestedScrollEnabled
                       showsVerticalScrollIndicator
                     >
+                      {!showAllVoiceLocations &&
+                      suggestedVoiceLocationOptions.length === 0 ? (
+                        <ThemedText color="secondary" style={styles.voiceNoSuggestionsText}>
+                          No close matches found. Tap Choose Another Location to browse all saved locations.
+                        </ThemedText>
+                      ) : null}
+
                       {(showAllVoiceLocations
                         ? voiceLocationOptions
                         : suggestedVoiceLocationOptions
@@ -4449,6 +4456,13 @@ const styles = StyleSheet.create({
     borderColor: "rgba(148, 163, 184, 0.45)",
     marginBottom: 8,
   },
+
+  voiceNoSuggestionsText: {
+    marginBottom: 8,
+    lineHeight: 19,
+  },
+
+
 
   exportModalOverlay: {
     flex: 1,
