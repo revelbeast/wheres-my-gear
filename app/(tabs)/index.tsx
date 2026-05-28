@@ -1801,7 +1801,32 @@ export default function DashboardScreen() {
   }
 
   function handleOpenVoiceAddQuickAction() {
-    setVoiceAddModalVisible(true);
+    if (isPremiumPlus) {
+      setVoiceAddModalVisible(true);
+      return;
+    }
+
+    Alert.alert(
+      "Unlock Premium +",
+      "Gear Assistant is a Premium + add-on feature for quickly adding gear with voice commands.",
+      [
+        {
+          text: "Not Now",
+          style: "cancel",
+        },
+        {
+          text: "Upgrade to Premium +",
+          onPress: () => {
+            pushWithNavigationLock(() => {
+              router.push({
+                pathname: "/paywall",
+                params: { plan: "premium_plus" },
+              });
+            });
+          },
+        },
+      ]
+    );
   }
 
   function handleCloseVoiceAddModal() {
