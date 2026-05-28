@@ -131,6 +131,17 @@ type SearchResultItem =
     statusLabel: "Packed" | "To Pack";
   };
 
+type VoiceDetectedItem = {
+  id: string;
+  name: string;
+  quantity: number;
+};
+
+type VoiceAddReview = {
+  items: VoiceDetectedItem[];
+  destinationName: string;
+};
+
 type QuickCompartment = {
   id: string;
   name: string;
@@ -550,6 +561,9 @@ export default function DashboardScreen() {
   const [exportModalVisible, setExportModalVisible] = useState(false);
   const [voiceAddModalVisible, setVoiceAddModalVisible] = useState(false);
   const [voiceTranscript, setVoiceTranscript] = useState("");
+  const [voiceAddReview, setVoiceAddReview] = useState<VoiceAddReview | null>(
+    null
+  );
   const [isVoiceListening, setIsVoiceListening] = useState(false);
 
   const [exportStep, setExportStep] = useState<
@@ -629,14 +643,85 @@ export default function DashboardScreen() {
     setIsVoiceListening(false);
   });
 
-  useSpeechRecognitionEvent("result", (event) => {
-    const transcript = event.results
-      .map((result) => result.transcript)
-      .join(" ")
+  function buildVoiceAddReview(
+    transcript: string
+  ): VoiceAddReview | null {
+    const normalized = transcript.toLowerCase().trim();
+
+    if (!normalized) {
+      return null;
+    }
+
+    const quantityWords: Record<string, number> = {
+      a: 1,
+      an: 1,
+      one: 1,
+      two: 2,
+      three: 3,
+      four: 4,
+      five: 5,
+      six: 6,
+      seven: 7,
+      eight: 8,
+      nine: 9,
+      ten: 10,
+    };
+
+    const destinationMatch = normalized.match(/\bto my\s+(.+)$/i);
+    const itemText = normalized
+      .replace(/^add\s+/i, "")
+      .replace(/\bto my\s+.+$/i, "")
       .trim();
+
+    const itemMatches = [
+      ...itemText.matchAll(
+        /(?:(one|two|three|four|five|six|seven|eight|nine|ten|a|an|\d+)\s+)?([a-z\s]+?)(?:,|and|$)/gi
+      ),
+    ];
+
+    const items: VoiceDetectedItem[] = itemMatches
+      .map((match, index) => {
+        const quantityRaw = match[1]?.toLowerCase()?.trim() ?? "1";
+
+        const quantity =
+          quantityWords[quantityRaw] ??
+          Number(quantityRaw) ??
+          1;
+
+        const itemName = match[2]
+          ?.trim()
+          .replace(/\b(one|two|three|four|five|six|seven|eight|nine|ten|a|an|\d+)\b/gi, "")
+          .replace(/\b(bin|bag|box|container)\b/gi, "")
+          .trim();
+
+        if (!itemName) {
+          return null;
+        }
+
+        return {
+          id: `voice-item-${index}`,
+          name: itemName.replace(/\b\w/g, (c) => c.toUpperCase()),
+          quantity,
+        };
+      })
+      .filter(Boolean) as VoiceDetectedItem[];
+
+    return {
+      items,
+      destinationName: destinationMatch
+        ? destinationMatch[1]
+            .replace(/\b\w/g, (c) => c.toUpperCase())
+        : "Not Detected",
+    };
+  }
+
+  useSpeechRecognitionEvent("result", (event) => {
+    const transcript = event.results[event.results.length - 1]?.transcript
+      ?.trim() ?? "";
 
     console.log("VOICE ADD TRANSCRIPT:", transcript);
     setVoiceTranscript(transcript);
+    setVoiceAddReview(buildVoiceAddReview(transcript));
   });
 
   useSpeechRecognitionEvent("error", (event) => {
@@ -1558,6 +1643,7 @@ export default function DashboardScreen() {
   function handleCloseVoiceAddModal() {
     setVoiceAddModalVisible(false);
     setVoiceTranscript("");
+    setVoiceAddReview(null);
     setIsVoiceListening(false);
   }
 
@@ -1579,6 +1665,7 @@ export default function DashboardScreen() {
       }
 
       setVoiceTranscript("");
+      setVoiceAddReview(null);
 
       await ExpoSpeechRecognitionModule.start({
         lang: "en-US",
@@ -3272,6 +3359,40 @@ export default function DashboardScreen() {
                 </View>
               ) : null}
 
+              {voiceAddReview ? (
+                <View
+                  style={[
+                    styles.voiceReviewCard,
+                    {
+                      backgroundColor: theme.colors.card,
+                      borderColor: theme.colors.border,
+                    },
+                  ]}
+                >
+                  <ThemedText variant="bodyStrong">Detected Items</ThemedText>
+
+                  {voiceAddReview.items.length > 0 ? (
+                    voiceAddReview.items.map((item) => (
+                      <View key={item.id} style={styles.voiceReviewRow}>
+                        <ThemedText>{item.name}</ThemedText>
+                        <ThemedText color="secondary">x{item.quantity}</ThemedText>
+                      </View>
+                    ))
+                  ) : (
+                    <ThemedText color="secondary">
+                      No items detected yet.
+                    </ThemedText>
+                  )}
+
+                  <View style={styles.voiceReviewDivider} />
+
+                  <ThemedText variant="bodyStrong">Destination</ThemedText>
+                  <ThemedText color="secondary">
+                    {voiceAddReview.destinationName}
+                  </ThemedText>
+                </View>
+              ) : null}
+
               <HapticPressable
                 style={[
                   styles.exportModalPrimaryButton,
@@ -3981,6 +4102,26 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 14,
     padding: 12,
+  },
+
+  voiceReviewCard: {
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 12,
+    gap: 8,
+  },
+
+  voiceReviewRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+
+  voiceReviewDivider: {
+    height: 1,
+    backgroundColor: "rgba(148, 163, 184, 0.35)",
+    marginVertical: 4,
   },
 
   exportModalOverlay: {
