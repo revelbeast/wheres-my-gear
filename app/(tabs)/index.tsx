@@ -680,56 +680,69 @@ export default function DashboardScreen() {
   }, [allCompartments, sortedStorageSpaces, storageNameById]);
 
   const suggestedVoiceLocationOptions = useMemo(() => {
-    const destination = voiceAddReview?.destinationName.toLowerCase().trim();
+    const normalizeLocationText = (value: string) =>
+      value
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+    const destination = normalizeLocationText(
+      voiceAddReview?.destinationName ?? ""
+    );
 
     if (!destination || destination === "not detected") {
-      return voiceLocationOptions.slice(0, 5);
+      return [];
     }
 
     const destinationWords = destination
       .split(/\s+/)
-      .filter((word) => word.length >= 3);
+      .filter((word) => word.length >= 2);
 
     const scored = voiceLocationOptions.map((option, index) => {
-      const searchable = [
-        option.storageName,
-        option.compartmentName ?? "",
-        option.name,
-      ]
-        .join(" ")
-        .toLowerCase();
+      const normalizedStorageName = normalizeLocationText(option.storageName);
+      const normalizedCompartmentName = normalizeLocationText(
+        option.compartmentName ?? ""
+      );
+      const searchable = normalizeLocationText(
+        [option.storageName, option.compartmentName ?? "", option.name].join(" ")
+      );
 
       const exactScore =
-        searchable.includes(destination) ||
-        destination.includes(option.storageName.toLowerCase()) ||
-        Boolean(
-          option.compartmentName &&
-            destination.includes(option.compartmentName.toLowerCase())
-        )
-          ? 10
+        normalizedStorageName === destination ||
+        normalizedCompartmentName === destination
+          ? 20
+          : 0;
+
+      const phraseScore =
+        searchable.includes(destination) || destination.includes(searchable)
+          ? 8
           : 0;
 
       const wordScore = destinationWords.reduce((score, word) => {
-        return searchable.includes(word) ? score + 2 : score;
+        return searchable.split(/\s+/).includes(word) ? score + 3 : score;
+      }, 0);
+
+      const startsWithScore = destinationWords.reduce((score, word) => {
+        return searchable
+          .split(/\s+/)
+          .some((candidate) => candidate.startsWith(word))
+          ? score + 1
+          : score;
       }, 0);
 
       return {
         option,
-        score: exactScore + wordScore,
+        score: exactScore + phraseScore + wordScore + startsWithScore,
         index,
       };
     });
 
-    const matched = scored
-      .filter((entry) => entry.score > 0)
+    return scored
+      .filter((entry) => entry.score >= 3)
       .sort((a, b) => b.score - a.score || a.index - b.index)
+      .slice(0, 5)
       .map((entry) => entry.option);
-
-    if (matched.length > 0) {
-      return matched.slice(0, 5);
-    }
-
-    return [];
   }, [voiceAddReview?.destinationName, voiceLocationOptions]);
 
   useSpeechRecognitionEvent("start", () => {
