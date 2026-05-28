@@ -41,9 +41,19 @@ export default {
       "expo-apple-authentication",
       "expo-web-browser",
       [
+        "expo-speech-recognition",
+        {
+          microphonePermission:
+            "Allow Where's My Gear to use your microphone for Voice Add.",
+          speechRecognitionPermission:
+            "Allow Where's My Gear to recognize speech for Voice Add.",
+        },
+      ],
+      [
         "@react-native-google-signin/google-signin",
         {
-          iosUrlScheme: "com.googleusercontent.apps.742156812361-dkqbs9o24bhmnk7vrf46clhuv3vep8oo",
+          iosUrlScheme:
+            "com.googleusercontent.apps.742156812361-dkqbs9o24bhmnk7vrf46clhuv3vep8oo",
         },
       ],
     ],

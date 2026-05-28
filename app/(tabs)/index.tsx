@@ -1,10 +1,14 @@
 import { Document, Packer, Paragraph, TextRun } from "docx";
 import { BlurView } from "expo-blur";
 import * as FileSystem from "expo-file-system/legacy";
+import {
+  ExpoSpeechRecognitionModule,
+  useSpeechRecognitionEvent,
+} from "expo-speech-recognition";
 import { router, useFocusEffect } from "expo-router";
 import { collection, getDocs } from "firebase/firestore";
 import {
-  CalendarDays,
+  Archive,
   Camera,
   CheckCircle2,
   ChevronDown,
@@ -12,7 +16,6 @@ import {
   FileText,
   FolderPlus,
   ListChecks,
-  Archive,
   Mic,
   Plus,
   Search,
@@ -27,6 +30,7 @@ import {
   Modal,
   Share as NativeShare,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -545,6 +549,9 @@ export default function DashboardScreen() {
   const [upcomingTrips, setUpcomingTrips] = useState<UpcomingTrip[]>([]);
   const [exportModalVisible, setExportModalVisible] = useState(false);
   const [voiceAddModalVisible, setVoiceAddModalVisible] = useState(false);
+  const [voiceTranscript, setVoiceTranscript] = useState("");
+  const [isVoiceListening, setIsVoiceListening] = useState(false);
+
   const [exportStep, setExportStep] = useState<
     "category" | "selection" | "compartments" | "format"
   >("category");
@@ -611,6 +618,31 @@ export default function DashboardScreen() {
   );
 
   const hasStorageSpaces = storageSpaces.length > 0;
+
+  useSpeechRecognitionEvent("start", () => {
+    console.log("VOICE ADD LISTENING STARTED");
+    setIsVoiceListening(true);
+  });
+
+  useSpeechRecognitionEvent("end", () => {
+    console.log("VOICE ADD LISTENING ENDED");
+    setIsVoiceListening(false);
+  });
+
+  useSpeechRecognitionEvent("result", (event) => {
+    const transcript = event.results
+      .map((result) => result.transcript)
+      .join(" ")
+      .trim();
+
+    console.log("VOICE ADD TRANSCRIPT:", transcript);
+    setVoiceTranscript(transcript);
+  });
+
+  useSpeechRecognitionEvent("error", (event) => {
+    console.log("VOICE ADD ERROR:", event.error, event.message);
+    setIsVoiceListening(false);
+  });
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -1525,6 +1557,46 @@ export default function DashboardScreen() {
 
   function handleCloseVoiceAddModal() {
     setVoiceAddModalVisible(false);
+    setVoiceTranscript("");
+    setIsVoiceListening(false);
+  }
+
+  async function handleVoiceMicPress() {
+    try {
+      console.log("VOICE ADD MIC PRESSED");
+
+      const result =
+        await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+
+      console.log("VOICE PERMISSION RESULT:", result);
+
+      if (!result.granted) {
+        Alert.alert(
+          "Microphone Permission Needed",
+          "Please allow microphone and speech recognition access for Voice Add."
+        );
+        return;
+      }
+
+      setVoiceTranscript("");
+
+      await ExpoSpeechRecognitionModule.start({
+        lang: "en-US",
+        interimResults: true,
+        continuous: false,
+      });
+
+      console.log("VOICE ADD START REQUESTED");
+    } catch (error) {
+      console.log("VOICE ADD START ERROR:", error);
+
+      Alert.alert(
+        "Voice Add Error",
+        "Unable to start voice recognition."
+      );
+
+      setIsVoiceListening(false);
+    }
   }
 
   function handleOpenDashboardExport() {
@@ -3156,7 +3228,7 @@ export default function DashboardScreen() {
           animationType="fade"
           onRequestClose={handleCloseVoiceAddModal}
         >
-          <View style={styles.exportModalOverlay}>
+          <View style={styles.exportModalOverlay} pointerEvents="auto">
             <View
               style={[
                 styles.exportModalCard,
@@ -3166,25 +3238,49 @@ export default function DashboardScreen() {
                 },
               ]}
             >
-              <View style={styles.voiceAddIconWrap}>
+              <Pressable
+                style={[
+                  styles.voiceAddIconWrap,
+                  isVoiceListening ? styles.voiceAddIconWrapListening : null,
+                ]}
+                onPress={handleVoiceMicPress}
+              >
                 <Mic size={34} color="#FFFFFF" />
-              </View>
+              </Pressable>
 
               <ThemedText variant="title">Voice Add</ThemedText>
 
               <ThemedText color="secondary">
-                Soon you will be able to say something like, “Add two headlamps and one first aid kit to my camping bin,” review the items, and save them to your gear.
+                Tap the mic and say something like, “Add two headlamps and one first aid kit to my camping bin.”
               </ThemedText>
+
+              <ThemedText color="secondary">
+                {isVoiceListening ? "Listening..." : "Tap the mic to start listening."}
+              </ThemedText>
+
+              {voiceTranscript ? (
+                <View
+                  style={[
+                    styles.voiceTranscriptCard,
+                    {
+                      backgroundColor: theme.colors.card,
+                      borderColor: theme.colors.border,
+                    },
+                  ]}
+                >
+                  <ThemedText>{voiceTranscript}</ThemedText>
+                </View>
+              ) : null}
 
               <HapticPressable
                 style={[
                   styles.exportModalPrimaryButton,
                   { backgroundColor: theme.colors.primary },
                 ]}
-                onPress={handleCloseVoiceAddModal}
+                onPress={handleVoiceMicPress}
               >
                 <ThemedText style={styles.exportModalPrimaryButtonText}>
-                  Got it
+                  {isVoiceListening ? "Listening..." : "Start Voice Add"}
                 </ThemedText>
               </HapticPressable>
 
@@ -3875,6 +3971,16 @@ const styles = StyleSheet.create({
     backgroundColor: "#2563EB",
     alignSelf: "center",
     marginBottom: 10,
+  },
+
+  voiceAddIconWrapListening: {
+    backgroundColor: "#DC2626",
+  },
+
+  voiceTranscriptCard: {
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 12,
   },
 
   exportModalOverlay: {
