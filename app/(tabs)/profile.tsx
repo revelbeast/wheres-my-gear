@@ -240,7 +240,7 @@ export default function ProfileScreen() {
           setIsPremium(false);
           setIsPremiumPlus(false);
           setPremiumSubtitle("Remove ads and unlock premium features");
-          setPremiumPlusSubtitle("Add QR / Barcode Scanner and Archive access");
+          setPremiumPlusSubtitle("Adds Scan w/AI, QR / Barcode Scanner, and Archive access");
         }
 
         return;
@@ -271,7 +271,7 @@ export default function ProfileScreen() {
         } else if (premiumPlus) {
           setPremiumPlusSubtitle("Premium + access is active");
         } else {
-          setPremiumPlusSubtitle("Add QR / Barcode Scanner and Archive access");
+          setPremiumPlusSubtitle("Adds Scan w/AI, QR / Barcode Scanner, and Archive access");
         }
 
         if (!premiumEntitlement) {
@@ -935,7 +935,7 @@ export default function ProfileScreen() {
                     subtitle={
                       isPremiumPlus
                         ? premiumPlusSubtitle
-                        : "Add QR / Barcode Scanner and Archive access"
+                        : "Adds Scan w/AI, QR / Barcode Scanner, and Archive access"
                     }
                     onPress={
                       isPremiumPlus
@@ -1104,7 +1104,7 @@ export default function ProfileScreen() {
                   subtitle={
                     isPremiumPlus
                       ? premiumPlusSubtitle
-                      : "Add QR / Barcode Scanner and Archive access"
+                      : "Adds Scan w/AI, QR / Barcode Scanner, and Archive access"
                   }
                   onPress={
                     isPremiumPlus
