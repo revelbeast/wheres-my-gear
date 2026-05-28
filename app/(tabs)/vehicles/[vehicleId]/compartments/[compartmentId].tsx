@@ -391,7 +391,7 @@ export default function CompartmentDetailScreen() {
         await createItem({
           name: trimmedName,
           quantity: parsedQty,
-          status: "packed",
+          status: "missing",
           compartmentId: String(compartmentId),
           compartmentName: compartment?.name ?? "",
           vehicleId: String(vehicleId),
@@ -910,8 +910,8 @@ export default function CompartmentDetailScreen() {
       style={[
         styles.headerActionWrap,
         {
-          borderColor: theme.colors.border,
-          backgroundColor: theme.colors.card,
+          borderColor: "rgba(255,255,255,0.14)",
+          backgroundColor: "#FFFFFF",
         },
       ]}
     >
@@ -921,9 +921,9 @@ export default function CompartmentDetailScreen() {
         disabled={interactionLocked}
       >
         {showCreateBox ? (
-          <X size={18} color={theme.colors.text} />
+          <X size={18} color="#111827" />
         ) : (
-          <Plus size={18} color={theme.colors.text} />
+          <Plus size={18} color="#111827" />
         )}
       </HapticPressable>
     </BlurView>
