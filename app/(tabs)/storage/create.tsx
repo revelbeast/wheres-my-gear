@@ -66,10 +66,33 @@ const STORAGE_SUBTYPES = [
   "Warehouse",
 ] as const;
 
-function getSubtypePlaceholder(category: "vehicle" | "storage") {
-  return category === "vehicle"
-    ? "Select subtype, for example Car, SUV, Van"
-    : "Select subtype, for example Attic, Garage, Shed";
+const OFFICE_SUBTYPES = [
+  "Home Office",
+  "Corporate Office",
+  "Desk",
+  "Filing Cabinet",
+  "Storage Closet",
+  "Supply Room",
+  "Warehouse Office",
+  "Server Room / IT Closet",
+  "Tool Room",
+  "Classroom / Training Room",
+  "Break Room",
+  "Other",
+] as const;
+
+type StorageCategory = "storage" | "office" | "vehicle";
+
+function getSubtypePlaceholder(category: StorageCategory) {
+  if (category === "vehicle") {
+    return "Select subtype, for example Car, SUV, Van";
+  }
+
+  if (category === "office") {
+    return "Select subtype, for example Home Office, Desk, Supply Room";
+  }
+
+  return "Select subtype, for example Attic, Garage, Shed";
 }
 
 export default function CreateStorageScreen() {
@@ -88,7 +111,7 @@ export default function CreateStorageScreen() {
   } = useInteractionLock(450);
 
   const [name, setName] = useState("");
-  const [category, setCategory] = useState<"vehicle" | "storage">("vehicle");
+  const [category, setCategory] = useState<StorageCategory>("storage");
   const [subtype, setSubtype] = useState("");
   const [customSubtype, setCustomSubtype] = useState("");
   const [showSubtypeDropdown, setShowSubtypeDropdown] = useState(false);
@@ -131,9 +154,15 @@ export default function CreateStorageScreen() {
   }, []);
 
   const subtypeOptions = useMemo(() => {
-    return category === "vehicle"
-      ? VEHICLE_SUBTYPES
-      : STORAGE_SUBTYPES;
+    if (category === "vehicle") {
+      return VEHICLE_SUBTYPES;
+    }
+
+    if (category === "office") {
+      return OFFICE_SUBTYPES;
+    }
+
+    return STORAGE_SUBTYPES;
   }, [category]);
 
   const selectedSubtypeLabel = useMemo(() => {
@@ -264,7 +293,7 @@ export default function CreateStorageScreen() {
     }
   }
 
-  function handleSelectCategory(nextCategory: "vehicle" | "storage") {
+  function handleSelectCategory(nextCategory: StorageCategory) {
     if (saving || interactionLocked) return;
 
     Keyboard.dismiss();
@@ -350,7 +379,7 @@ export default function CreateStorageScreen() {
 
         if (isMountedRef.current) {
           setName("");
-          setCategory("vehicle");
+          setCategory("storage");
           setSubtype("");
           setCustomSubtype("");
           setShowSubtypeDropdown(false);
@@ -509,73 +538,46 @@ export default function CreateStorageScreen() {
               </Text>
 
               <View style={styles.row}>
-                <HapticPressable
-                  style={[
-                    styles.toggle,
-                    {
-                      backgroundColor: theme.isLight
-                        ? "rgba(255,255,255,0.72)"
-                        : "rgba(255,255,255,0.05)",
-                      borderColor: theme.isLight
-                        ? "rgba(0,0,0,0.12)"
-                        : "rgba(255,255,255,0.12)",
-                    },
-                    category === "vehicle" &&
-                    styles.toggleActive,
-                  ]}
-                  onPress={() =>
-                    handleSelectCategory("vehicle")
-                  }
-                >
-                  <Text
-                    style={[
-                      styles.toggleText,
-                      {
-                        color: theme.isLight
-                          ? "#000000"
-                          : "#FFFFFF",
-                      },
-                      category === "vehicle" &&
-                      styles.toggleTextActive,
-                    ]}
-                  >
-                    Vehicle
-                  </Text>
-                </HapticPressable>
+                {(["storage", "office", "vehicle"] as const).map((option) => {
+                  const selected = category === option;
 
-                <HapticPressable
-                  style={[
-                    styles.toggle,
-                    {
-                      backgroundColor: theme.isLight
-                        ? "rgba(255,255,255,0.72)"
-                        : "rgba(255,255,255,0.05)",
-                      borderColor: theme.isLight
-                        ? "rgba(0,0,0,0.12)"
-                        : "rgba(255,255,255,0.12)",
-                    },
-                    category === "storage" &&
-                    styles.toggleActive,
-                  ]}
-                  onPress={() =>
-                    handleSelectCategory("storage")
-                  }
-                >
-                  <Text
-                    style={[
-                      styles.toggleText,
-                      {
-                        color: theme.isLight
-                          ? "#000000"
-                          : "#FFFFFF",
-                      },
-                      category === "storage" &&
-                      styles.toggleTextActive,
-                    ]}
-                  >
-                    Storage
-                  </Text>
-                </HapticPressable>
+                  return (
+                    <HapticPressable
+                      key={option}
+                      style={[
+                        styles.toggle,
+                        {
+                          backgroundColor: theme.isLight
+                            ? "rgba(255,255,255,0.72)"
+                            : "rgba(255,255,255,0.05)",
+                          borderColor: theme.isLight
+                            ? "rgba(0,0,0,0.12)"
+                            : "rgba(255,255,255,0.12)",
+                        },
+                        selected && styles.toggleActive,
+                      ]}
+                      onPress={() => handleSelectCategory(option)}
+                    >
+                      <Text
+                        style={[
+                          styles.toggleText,
+                          {
+                            color: theme.isLight
+                              ? "#000000"
+                              : "#FFFFFF",
+                          },
+                          selected && styles.toggleTextActive,
+                        ]}
+                      >
+                        {option === "storage"
+                          ? "Storage"
+                          : option === "office"
+                            ? "Office"
+                            : "Vehicle"}
+                      </Text>
+                    </HapticPressable>
+                  );
+                })}
               </View>
 
               <Text

@@ -68,6 +68,23 @@ const STORAGE_SUBTYPES = [
   "Warehouse",
 ] as const;
 
+const OFFICE_SUBTYPES = [
+  "Home Office",
+  "Corporate Office",
+  "Desk",
+  "Filing Cabinet",
+  "Storage Closet",
+  "Supply Room",
+  "Warehouse Office",
+  "Server Room / IT Closet",
+  "Tool Room",
+  "Classroom / Training Room",
+  "Break Room",
+  "Other",
+] as const;
+
+type StorageCategory = "storage" | "office" | "vehicle";
+
 export default function EditStorageScreen() {
   const theme = useThemedValues();
 
@@ -98,17 +115,21 @@ export default function EditStorageScreen() {
   const [saving, setSaving] = useState(false);
 
   const [name, setName] = useState("");
-  const [category, setCategory] = useState<
-    "vehicle" | "storage"
-  >("vehicle");
+  const [category, setCategory] = useState<StorageCategory>("storage");
 
   const [subtype, setSubtype] = useState("");
   const [showSubtypeDropdown, setShowSubtypeDropdown] = useState(false);
 
   const subtypeOptions = useMemo(() => {
-    return category === "vehicle"
-      ? VEHICLE_SUBTYPES
-      : STORAGE_SUBTYPES;
+    if (category === "vehicle") {
+      return VEHICLE_SUBTYPES;
+    }
+
+    if (category === "office") {
+      return OFFICE_SUBTYPES;
+    }
+
+    return STORAGE_SUBTYPES;
   }, [category]);
 
   useEffect(() => {
@@ -157,7 +178,7 @@ export default function EditStorageScreen() {
       if (!isMountedRef.current) return;
 
       setName(storage.name ?? "");
-      setCategory(storage.category ?? "vehicle");
+      setCategory(storage.category ?? "storage");
       setSubtype(storage.subtype ?? "");
     } catch (err: any) {
       Alert.alert(
@@ -174,7 +195,7 @@ export default function EditStorageScreen() {
     }
   }
 
-  function handleSelectCategory(nextCategory: "vehicle" | "storage") {
+  function handleSelectCategory(nextCategory: StorageCategory) {
     if (saving || loading || interactionLocked) return;
 
     Keyboard.dismiss();
@@ -380,7 +401,7 @@ export default function EditStorageScreen() {
               </Text>
 
               <View style={styles.row}>
-                {(["vehicle", "storage"] as const).map((option) => {
+                {(["storage", "office", "vehicle"] as const).map((option) => {
                   const selected = category === option;
 
                   return (

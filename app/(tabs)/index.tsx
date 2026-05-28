@@ -1144,7 +1144,11 @@ export default function DashboardScreen() {
             type: "storage",
             id: space.id,
             name: space.name,
-            subtitle: `${space.category === "vehicle" ? "Vehicle" : "Storage"}${space.subtype ? ` • ${space.subtype}` : ""
+            subtitle: `${space.category === "vehicle"
+  ? "Vehicle"
+  : space.category === "office"
+    ? "Office"
+    : "Storage"}${space.subtype ? ` • ${space.subtype}` : ""
               }`,
             vehicleId: space.id,
           }));

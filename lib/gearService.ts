@@ -14,7 +14,7 @@ import {
 import { auth, db } from "../firebaseConfig";
 
 export type ItemStatus = "packed" | "missing";
-export type StorageSpaceCategory = "vehicle" | "storage";
+export type StorageSpaceCategory = "storage" | "office" | "vehicle";
 
 export type StorageSpace = {
   id: string;

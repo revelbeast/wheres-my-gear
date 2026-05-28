@@ -823,7 +823,11 @@ export default function InventoryScreen() {
                               color="secondary"
                               style={styles.storageDropdownMeta}
                             >
-                              {space.category === "vehicle" ? "Vehicle" : "Storage"}
+                              {space.category === "vehicle"
+  ? "Vehicle"
+  : space.category === "office"
+    ? "Office"
+    : "Storage"}
                               {space.subtype ? ` • ${space.subtype}` : ""}
                             </ThemedText>
                           </View>

@@ -1137,7 +1137,11 @@ export default function StorageManagementScreen() {
                   },
                 ]}
               >
-                {space.category === "vehicle" ? "Vehicle" : "Storage"}
+                {space.category === "vehicle"
+  ? "Vehicle"
+  : space.category === "office"
+    ? "Office"
+    : "Storage"}
                 {space.subtype ? ` • ${space.subtype}` : ""}
               </Text>
             </View>
