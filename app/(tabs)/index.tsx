@@ -786,6 +786,7 @@ export default function DashboardScreen() {
         .trim();
 
       const replacements: Array<[RegExp, string]> = [
+        [/\bband[-\s]?aid(s)?\b/g, "band-aid$1"],
         [/\bhead\s*lamp(s)?\b/g, "headlamp$1"],
         [/\bflash\s*light(s)?\b/g, "flashlight$1"],
         [/\bfirst aid (eight|ate|kid)\b/g, "first aid kit"],
@@ -802,15 +803,18 @@ export default function DashboardScreen() {
       return normalizedItem.replace(/\b\w/g, (c) => c.toUpperCase());
     };
 
-    const destinationMatch = normalized.match(/\bto my\s+(.+)$/i);
+    const destinationMatch = normalized.match(
+      /\b(?:to|in|into|inside)(?: my)?\s+(.+)$/i
+    );
     const itemText = normalized
+      .replace(/\bband[-\s]?aid(s)?\b/g, "bandaid$1")
       .replace(/^add\s+/i, "")
-      .replace(/\bto my\s+.+$/i, "")
+      .replace(/\b(?:to|in|into|inside)(?: my)?\s+.+$/i, "")
       .trim();
 
     const itemMatches = [
       ...itemText.matchAll(
-        /(?:(one|two|three|four|five|six|seven|eight|nine|ten|a|an|\d+)\s+)?([a-z\s]+?)(?:,|and|$)/gi
+        /(?:(one|two|three|four|five|six|seven|eight|nine|ten|a|an|\d+)\s+)?([a-z\s-]+?)(?:,|\band\b|$)/gi
       ),
     ];
 
@@ -825,6 +829,7 @@ export default function DashboardScreen() {
 
         const itemName = match[2]
           ?.trim()
+          .replace(/\bbandaid(s)?\b/gi, "band-aid$1")
           .replace(/\b(one|two|three|four|five|six|seven|eight|nine|ten|a|an|\d+)\b/gi, "")
           .replace(/\b(bin|bag|box|container)\b/gi, "")
           .trim();
