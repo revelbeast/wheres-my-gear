@@ -1855,11 +1855,15 @@ export default function DashboardScreen() {
       setSelectedVoiceLocationId(null);
       setShowAllVoiceLocations(false);
 
+      const itemSummary = voiceAddReview.items
+        .map((item) => `${item.quantity} ${item.name}${
+          item.quantity === 1 ? "" : "s"
+        }`)
+        .join(" and ");
+
       Alert.alert(
         "Items Added",
-        `Added ${voiceAddReview.items.length} item${
-          voiceAddReview.items.length === 1 ? "" : "s"
-        } to ${savedLocationName}.`,
+        `Added ${itemSummary} to ${savedLocationName}.`,
         [
           {
             text: "View Items",
