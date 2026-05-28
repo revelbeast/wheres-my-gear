@@ -1810,18 +1810,47 @@ export default function DashboardScreen() {
       const refreshedItems = await getAllItems();
       setAllItems(refreshedItems);
 
-      Alert.alert(
-        "Items Added",
-        `Added ${voiceAddReview.items.length} item${
-          voiceAddReview.items.length === 1 ? "" : "s"
-        } to ${selectedLocation.compartmentName ?? selectedLocation.storageName}.`
-      );
+      const savedLocationName =
+        selectedLocation.compartmentName ?? selectedLocation.storageName;
 
       setVoiceAddModalVisible(false);
       setVoiceTranscript("");
       setVoiceAddReview(null);
       setSelectedVoiceLocationId(null);
       setShowAllVoiceLocations(false);
+
+      Alert.alert(
+        "Items Added",
+        `Added ${voiceAddReview.items.length} item${
+          voiceAddReview.items.length === 1 ? "" : "s"
+        } to ${savedLocationName}.`,
+        [
+          {
+            text: "View Items",
+            onPress: () => {
+              pushWithNavigationLock(() => {
+                if (selectedLocation.type === "compartment" && selectedLocation.compartmentId) {
+                  router.push({
+                    pathname: "/vehicles/[vehicleId]/compartments/[compartmentId]",
+                    params: {
+                      vehicleId: selectedLocation.storageId,
+                      compartmentId: selectedLocation.compartmentId,
+                    },
+                  });
+                  return;
+                }
+
+                router.push({
+                  pathname: "/vehicles/[vehicleId]/compartments",
+                  params: {
+                    vehicleId: selectedLocation.storageId,
+                  },
+                });
+              });
+            },
+          },
+        ]
+      );
     } catch (error) {
       console.log("VOICE ADD SAVE ERROR:", error);
       Alert.alert(
@@ -3526,7 +3555,7 @@ export default function DashboardScreen() {
               <ThemedText variant="title">Voice Add</ThemedText>
 
               <ThemedText color="secondary">
-                Tap the mic and say something like, “Add two headlamps and one first aid kit to my camping bin.”
+                Tap the mic, speak your items, then review and choose where to save them.
               </ThemedText>
 
               <ThemedText color="secondary">
@@ -3670,7 +3699,9 @@ export default function DashboardScreen() {
                   {isSavingVoiceItems
                     ? "Saving..."
                     : voiceAddReview?.items.length && selectedVoiceLocationId
-                      ? "Save Items"
+                      ? `Save ${voiceAddReview.items.length} Item${
+                          voiceAddReview.items.length === 1 ? "" : "s"
+                        }`
                       : voiceAddReview?.items.length
                         ? "Choose Save Location"
                         : isVoiceListening
@@ -3681,7 +3712,7 @@ export default function DashboardScreen() {
 
               <HapticPressable onPress={handleCloseVoiceAddModal}>
                 <ThemedText color="secondary" style={styles.exportModalCancelText}>
-                  Close
+                  Cancel
                 </ThemedText>
               </HapticPressable>
             </View>
