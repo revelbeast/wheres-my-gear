@@ -2,7 +2,7 @@ export default {
   expo: {
     name: "Where's My Gear",
     slug: "wheres-my-gear",
-    version: "1.0.8",
+    version: "1.0.9",
     orientation: "default",
     scheme: "wheres-my-gear",
 
@@ -10,7 +10,7 @@ export default {
 
     ios: {
       bundleIdentifier: "com.richgarcia.wheresmygear",
-      buildNumber: "38",
+      buildNumber: "39",
       supportsTablet: true,
       usesIap: true,
       usesAppleSignIn: true,
@@ -18,7 +18,7 @@ export default {
 
     android: {
       package: "com.revelbeast.wheresmygear",
-      versionCode: 1,
+      versionCode: 2,
       googleServicesFile: "./google-services.json",
       adaptiveIcon: {
         foregroundImage: "./assets/images/app-icon.png",
@@ -44,9 +44,9 @@ export default {
         "expo-speech-recognition",
         {
           microphonePermission:
-            "Allow Where's My Gear to use your microphone for Voice Add.",
+            "Allow Where's My Gear to use your microphone for Gear Assistant.",
           speechRecognitionPermission:
-            "Allow Where's My Gear to recognize speech for Voice Add.",
+            "Allow Where's My Gear to recognize speech for Gear Assistant.",
         },
       ],
       [
