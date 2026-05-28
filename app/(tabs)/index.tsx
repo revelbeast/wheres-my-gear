@@ -779,6 +779,29 @@ export default function DashboardScreen() {
       ten: 10,
     };
 
+    const normalizeVoiceItemName = (value: string) => {
+      const cleaned = value
+        .toLowerCase()
+        .replace(/\s+/g, " ")
+        .trim();
+
+      const replacements: Array<[RegExp, string]> = [
+        [/\bhead\s*lamp(s)?\b/g, "headlamp$1"],
+        [/\bflash\s*light(s)?\b/g, "flashlight$1"],
+        [/\bfirst aid (eight|ate|kid)\b/g, "first aid kit"],
+        [/\bmed kit\b/g, "first aid kit"],
+        [/\bmedical kit\b/g, "first aid kit"],
+      ];
+
+      const normalizedItem = replacements.reduce(
+        (current, [pattern, replacement]) =>
+          current.replace(pattern, replacement),
+        cleaned
+      );
+
+      return normalizedItem.replace(/\b\w/g, (c) => c.toUpperCase());
+    };
+
     const destinationMatch = normalized.match(/\bto my\s+(.+)$/i);
     const itemText = normalized
       .replace(/^add\s+/i, "")
@@ -812,7 +835,7 @@ export default function DashboardScreen() {
 
         return {
           id: `voice-item-${index}`,
-          name: itemName.replace(/\b\w/g, (c) => c.toUpperCase()),
+          name: normalizeVoiceItemName(itemName),
           quantity,
         };
       })
