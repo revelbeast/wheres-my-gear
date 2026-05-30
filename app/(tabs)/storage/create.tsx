@@ -383,7 +383,11 @@ export default function CreateStorageScreen() {
           setSubtype("");
           setCustomSubtype("");
           setShowSubtypeDropdown(false);
-          router.replace(returnRoute);
+          router.replace(
+            createdId.startsWith("offline-storage-")
+              ? "/(tabs)/storage"
+              : returnRoute
+          );
         }
       } catch (err: any) {
         console.error(
