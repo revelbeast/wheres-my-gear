@@ -132,14 +132,33 @@ export async function getStorageSpaces(): Promise<StorageSpace[]> {
 export async function getStorageSpaceById(
   storageId: string
 ): Promise<StorageSpace | null> {
-  const snapshot = await getDoc(storageSpaceDoc(storageId));
+  const userId = getCurrentUserId();
 
-  if (!snapshot.exists()) return null;
+  if (storageId.startsWith("offline-storage-")) {
+    const offlineSpaces = (await getOfflineStorageSpaces(
+      userId
+    )) as StorageSpace[];
 
-  return {
-    id: snapshot.id,
-    ...snapshot.data(),
-  } as StorageSpace;
+    return (
+      offlineSpaces.find((space) => space.id === storageId) ?? null
+    );
+  }
+
+  try {
+    const snapshot = await withOfflineReadTimeout(
+      getDoc(storageSpaceDoc(storageId))
+    );
+
+    if (!snapshot.exists()) return null;
+
+    return {
+      id: snapshot.id,
+      ...snapshot.data(),
+    } as StorageSpace;
+  } catch (error) {
+    console.warn("Unable to load storage space while offline.", error);
+    return null;
+  }
 }
 
 export async function createStorageSpace(input: {
