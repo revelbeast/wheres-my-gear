@@ -13,7 +13,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { auth, db } from "../firebaseConfig";
-import { cacheStorageSpaces, enqueueOfflineOperation, getCachedStorageSpaces, getOfflineCompartments, getOfflineStorageSpaces, removeOfflineOperation } from "./offlineQueue";
+import { cacheStorageSpaces, enqueueOfflineOperation, getCachedStorageSpaces, getOfflineCompartments, getOfflineItemsByCompartment, getOfflineStorageSpaces, removeOfflineOperation, updateOfflineCreatedItem } from "./offlineQueue";
 
 export type ItemStatus = "packed" | "missing";
 export type StorageSpaceCategory = "storage" | "office" | "vehicle";
@@ -493,14 +493,23 @@ export async function getCompartments(
 export async function getCompartmentById(
   compartmentId: string
 ): Promise<Compartment | null> {
-  const snapshot = await getDoc(compartmentDoc(compartmentId));
+  if (compartmentId.startsWith("offline-compartment-")) {
+    return null;
+  }
 
-  if (!snapshot.exists()) return null;
+  try {
+    const snapshot = await withOfflineReadTimeout(getDoc(compartmentDoc(compartmentId)));
 
-  return {
-    id: snapshot.id,
-    ...snapshot.data(),
-  } as Compartment;
+    if (!snapshot.exists()) return null;
+
+    return {
+      id: snapshot.id,
+      ...snapshot.data(),
+    } as Compartment;
+  } catch (error) {
+    console.warn("Unable to load compartment while offline.", error);
+    return null;
+  }
 }
 
 export async function getAllItems(): Promise<Item[]> {
@@ -515,13 +524,27 @@ export async function getAllItems(): Promise<Item[]> {
 export async function getItemsByCompartment(
   compartmentId: string
 ): Promise<Item[]> {
-  const q = query(inventoryCol(), where("compartmentId", "==", compartmentId));
-  const snapshot = await getDocs(q);
+  const userId = getCurrentUserId();
+  const offlineItems = (await getOfflineItemsByCompartment(
+    userId,
+    compartmentId
+  )) as Item[];
 
-  return snapshot.docs.map((d) => ({
-    id: d.id,
-    ...d.data(),
-  })) as Item[];
+  let remoteItems: Item[] = [];
+
+  try {
+    const q = query(inventoryCol(), where("compartmentId", "==", compartmentId));
+    const snapshot = await withOfflineReadTimeout(getDocs(q));
+
+    remoteItems = snapshot.docs.map((d) => ({
+      id: d.id,
+      ...d.data(),
+    })) as Item[];
+  } catch (error) {
+    console.warn("Unable to load remote items. Showing offline queue.", error);
+  }
+
+  return [...offlineItems, ...remoteItems];
 }
 
 export async function getItemsByStatus(
@@ -569,6 +592,31 @@ export async function createItem(input: {
     updatedAt: serverTimestamp(),
   };
 
+  const networkState = await Promise.race([
+    NetInfo.fetch(),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), 750)),
+  ]);
+
+  const isOnline =
+    networkState !== null &&
+    networkState.isConnected === true &&
+    networkState.isInternetReachable === true;
+
+  if (!isOnline) {
+    const userId = getCurrentUserId();
+    const offlineId = `offline-item-${Date.now()}`;
+
+    await enqueueOfflineOperation({
+      id: offlineId,
+      type: "createItem",
+      userId,
+      payload,
+      createdAt: new Date().toISOString(),
+    });
+
+    return offlineId;
+  }
+
   const ref = await addDoc(inventoryCol(), payload);
   return ref.id;
 }
@@ -601,6 +649,11 @@ export async function updateItem(
 
   if (typeof updates.quantity === "number") {
     payload.quantity = Math.max(1, Number(updates.quantity));
+  }
+
+  if (id.startsWith("offline-item-")) {
+    await updateOfflineCreatedItem(id, updates);
+    return;
   }
 
   await updateDoc(inventoryDoc(id), payload);
