@@ -1,7 +1,7 @@
 const toggleReplayGuard = new Set<string>();
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { addDoc, collection, doc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 
 const OFFLINE_QUEUE_KEY = "wmg.offlineQueue.v1";
@@ -83,6 +83,16 @@ export type OfflineQueueOperation =
         checklistId: string;
         itemId: string;
         packed: boolean;
+      };
+      createdAt: string;
+    }
+  | {
+      id: string;
+      type: "deleteChecklistItem";
+      userId: string;
+      payload: {
+        checklistId: string;
+        itemId: string;
       };
       createdAt: string;
     };
@@ -341,6 +351,30 @@ export async function flushOfflineQueue() {
         updatedAt: serverTimestamp(),
       });
 
+      await removeOfflineOperation(operation.id);
+      continue;
+    }
+
+    if (operation.type === "deleteChecklistItem") {
+      const resolvedChecklistId =
+        checklistIdMap.get(operation.payload.checklistId) ??
+        operation.payload.checklistId;
+
+      const resolvedItemId =
+        checklistItemIdMap.get(operation.payload.itemId) ??
+        operation.payload.itemId;
+
+      const itemRef = doc(
+        db,
+        "users",
+        operation.userId,
+        "checklists",
+        resolvedChecklistId,
+        "items",
+        resolvedItemId
+      );
+
+      await deleteDoc(itemRef);
       await removeOfflineOperation(operation.id);
       continue;
     }

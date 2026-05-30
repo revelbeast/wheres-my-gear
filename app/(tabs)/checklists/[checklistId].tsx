@@ -300,7 +300,21 @@ export default function ChecklistDetailScreen() {
           return;
         }
 
-        setItems(nextItems);
+        setItems((prevItems) => {
+          const mergedById = new Map<string, any>();
+
+          for (const item of prevItems) {
+            mergedById.set(item.id, item);
+          }
+
+          for (const item of nextItems) {
+            mergedById.set(item.id, item);
+          }
+
+          return Array.from(mergedById.values()).sort(
+            (a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
+          );
+        });
       }
     );
 
@@ -575,9 +589,47 @@ export default function ChecklistDetailScreen() {
 
     await runWithLock(async () => {
       try {
-        await addChecklistItem(user.uid, checklistId, trimmed);
+        const createdItemId = await addChecklistItem(user.uid, checklistId, trimmed);
         const nextItems = await getChecklistItems(user.uid, checklistId);
-        setItems(nextItems);
+
+        if (String(createdItemId ?? "").startsWith("offline-checklist-item-")) {
+          setItems((prevItems) => {
+            const alreadyExists = prevItems.some(
+              (item) => item.id === createdItemId
+            );
+
+            if (alreadyExists) {
+              return prevItems;
+            }
+
+            return [
+              ...prevItems,
+              {
+                id: String(createdItemId),
+                name: trimmed,
+                notes: "",
+                quantity: 1,
+                packed: false,
+                packedAt: null,
+                sortOrder:
+                  prevItems.length > 0
+                    ? Math.max(
+                        ...prevItems.map((item: any) => item.sortOrder ?? 0)
+                      ) + 1
+                    : 1,
+                sourceTemplateItemId: null,
+                itemPhotoUri: "",
+                compartmentId: "",
+                compartmentName: "",
+                vehicleId: "",
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              },
+            ];
+          });
+        } else {
+          setItems(nextItems);
+        }
         void triggerSuccessHaptic();
         setNewItemName("");
         setShowCreateBox(false);
@@ -1108,6 +1160,10 @@ export default function ChecklistDetailScreen() {
               }
 
               await deleteChecklistItem(user.uid, checklistId, item.id);
+
+              setItems((prevItems) =>
+                prevItems.filter((prevItem) => prevItem.id !== item.id)
+              );
             } catch (err) {
               console.error(err);
               Alert.alert("Error", "Failed to delete checklist item.");

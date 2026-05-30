@@ -723,8 +723,10 @@ export async function addChecklistItem(
           ) + 1
         : 1;
 
+    const offlineItemId = `offline-checklist-item-${Date.now()}`;
+
     await enqueueOfflineOperation({
-      id: `offline-checklist-item-${Date.now()}`,
+      id: offlineItemId,
       type: "createChecklistItem",
       userId,
       payload: {
@@ -735,7 +737,7 @@ export async function addChecklistItem(
       createdAt: new Date().toISOString(),
     });
 
-    return;
+    return offlineItemId;
   }
 
   const itemsSnapshot = await getDocs(
@@ -751,7 +753,7 @@ export async function addChecklistItem(
       ? Math.max(...existingItems.map((item) => item.sortOrder ?? 0)) + 1
       : 1;
 
-  await addDoc(checklistItemsCol(userId, checklistId), {
+  const ref = await addDoc(checklistItemsCol(userId, checklistId), {
     name: trimmedName,
     notes: "",
     quantity: 1,
@@ -765,6 +767,8 @@ export async function addChecklistItem(
   });
 
   await recomputeChecklistCounts(userId, checklistId);
+
+  return ref.id;
 }
 
 export async function getArchivedChecklists(userId: string): Promise<Checklist[]> {
@@ -882,16 +886,26 @@ export function subscribeToChecklistItems(
 
     unsubscribe = onSnapshot(
       q,
-      (snapshot) => {
+      async (snapshot) => {
         if (!isActive) return;
 
-        const data = snapshot.docs.map((d) =>
+        const firebaseItems = snapshot.docs.map((d) =>
           normalizeChecklistItem(d.id, d.data())
         );
 
-        // FIX: Firestore is now single source of truth
+        const offlineItems = (await getOfflineChecklistItems(
+          safeUserId,
+          safeChecklistId
+        )) as ChecklistItem[];
+
+        if (!isActive) return;
+
+        const mergedItems = [...firebaseItems, ...offlineItems];
+
         callback(
-          data.sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+          mergedItems.sort(
+            (a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
+          )
         );
       },
       (error) => {
@@ -1114,6 +1128,31 @@ export async function deleteChecklistItem(
   checklistId: string,
   itemId: string
 ) {
+  const networkState = await Promise.race([
+    NetInfo.fetch(),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), 750)),
+  ]);
+
+  const isOnline =
+    networkState !== null &&
+    networkState.isConnected === true &&
+    networkState.isInternetReachable === true;
+
+  if (!isOnline || checklistId.startsWith("offline-checklist-")) {
+    await enqueueOfflineOperation({
+      id: `offline-delete-checklist-item-${Date.now()}`,
+      type: "deleteChecklistItem",
+      userId,
+      payload: {
+        checklistId,
+        itemId,
+      },
+      createdAt: new Date().toISOString(),
+    });
+
+    return;
+  }
+
   const itemRef = doc(
     db,
     "users",
