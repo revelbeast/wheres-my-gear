@@ -117,9 +117,13 @@ export async function getOfflineQueue() {
 export async function flushOfflineQueue() {
   const queue = await readQueue();
 
+  const storageIdMap = new Map<string, string>();
+  const compartmentIdMap = new Map<string, string>();
+  const compartmentNameMap = new Map<string, string>();
+
   for (const operation of queue) {
     if (operation.type === "createStorageSpace") {
-      await addDoc(collection(db, "users", operation.userId, "storageSpaces"), {
+      const ref = await addDoc(collection(db, "users", operation.userId, "storageSpaces"), {
         name: operation.payload.name,
         category: operation.payload.category,
         subtype: operation.payload.subtype,
@@ -130,30 +134,48 @@ export async function flushOfflineQueue() {
         updatedAt: serverTimestamp(),
       });
 
+      storageIdMap.set(operation.id, ref.id);
       await removeOfflineOperation(operation.id);
       continue;
     }
 
     if (operation.type === "createCompartment") {
-      await addDoc(collection(db, "users", operation.userId, "compartments"), {
+      const resolvedVehicleId =
+        storageIdMap.get(operation.payload.vehicleId) ?? operation.payload.vehicleId;
+
+      const ref = await addDoc(collection(db, "users", operation.userId, "compartments"), {
         name: operation.payload.name,
-        vehicleId: operation.payload.vehicleId,
+        vehicleId: resolvedVehicleId,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
 
+      compartmentIdMap.set(operation.id, ref.id);
+      compartmentNameMap.set(operation.id, operation.payload.name);
       await removeOfflineOperation(operation.id);
       continue;
     }
 
     if (operation.type === "createItem") {
+      const resolvedCompartmentId =
+        compartmentIdMap.get(operation.payload.compartmentId) ??
+        operation.payload.compartmentId;
+
+      const resolvedCompartmentName =
+        operation.payload.compartmentName ||
+        compartmentNameMap.get(operation.payload.compartmentId) ||
+        "";
+
+      const resolvedVehicleId =
+        storageIdMap.get(operation.payload.vehicleId) ?? operation.payload.vehicleId;
+
       await addDoc(collection(db, "users", operation.userId, "inventoryItems"), {
         name: operation.payload.name,
         quantity: operation.payload.quantity,
         status: operation.payload.status,
-        compartmentId: operation.payload.compartmentId,
-        compartmentName: operation.payload.compartmentName,
-        vehicleId: operation.payload.vehicleId,
+        compartmentId: resolvedCompartmentId,
+        compartmentName: resolvedCompartmentName,
+        vehicleId: resolvedVehicleId,
         vehicleName: operation.payload.vehicleName,
         notes: operation.payload.notes,
         source: operation.payload.source,
@@ -166,7 +188,6 @@ export async function flushOfflineQueue() {
     }
   }
 }
-
 
 export async function getOfflineCompartments(
   userId: string,
@@ -286,4 +307,97 @@ export async function updateOfflineCreatedItem(
   });
 
   await writeQueue(nextQueue);
+}
+
+
+export async function getOfflineItemsByStatus(
+  userId: string,
+  status: "packed" | "missing"
+) {
+  const queue = await readQueue();
+
+  return queue.flatMap((operation) => {
+    if (
+      operation.type !== "createItem" ||
+      operation.userId !== userId ||
+      operation.payload.status !== status
+    ) {
+      return [];
+    }
+
+    return [
+      {
+        id: operation.id,
+        name: operation.payload.name,
+        quantity: operation.payload.quantity,
+        status: operation.payload.status,
+        compartmentId: operation.payload.compartmentId,
+        compartmentName: operation.payload.compartmentName,
+        vehicleId: operation.payload.vehicleId,
+        vehicleName: operation.payload.vehicleName,
+        notes: operation.payload.notes,
+        source: operation.payload.source,
+        itemPhotoUri: operation.payload.itemPhotoUri,
+        createdAt: operation.createdAt,
+        updatedAt: operation.createdAt,
+      },
+    ];
+  });
+}
+
+export async function getOfflineCompartmentById(
+  userId: string,
+  compartmentId: string
+) {
+  const queue = await readQueue();
+
+  for (const operation of queue) {
+    if (
+      operation.type === "createCompartment" &&
+      operation.userId === userId &&
+      operation.id === compartmentId
+    ) {
+      return {
+        id: operation.id,
+        name: operation.payload.name,
+        vehicleId: operation.payload.vehicleId,
+        createdAt: operation.createdAt,
+        updatedAt: operation.createdAt,
+      };
+    }
+  }
+
+  return null;
+}
+
+
+export async function getOfflineItems(userId: string) {
+  const queue = await readQueue();
+
+  return queue.flatMap((operation) => {
+    if (
+      operation.type !== "createItem" ||
+      operation.userId !== userId
+    ) {
+      return [];
+    }
+
+    return [
+      {
+        id: operation.id,
+        name: operation.payload.name,
+        quantity: operation.payload.quantity,
+        status: operation.payload.status,
+        compartmentId: operation.payload.compartmentId,
+        compartmentName: operation.payload.compartmentName,
+        vehicleId: operation.payload.vehicleId,
+        vehicleName: operation.payload.vehicleName,
+        notes: operation.payload.notes,
+        source: operation.payload.source,
+        itemPhotoUri: operation.payload.itemPhotoUri,
+        createdAt: operation.createdAt,
+        updatedAt: operation.createdAt,
+      },
+    ];
+  });
 }

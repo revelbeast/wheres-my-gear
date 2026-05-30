@@ -623,6 +623,10 @@ export default function DashboardScreen() {
     return new Map(storageSpaces.map((space) => [space.id, space.name]));
   }, [storageSpaces]);
 
+  const compartmentNameById = useMemo(() => {
+    return new Map(allCompartments.map((compartment) => [compartment.id, compartment.name]));
+  }, [allCompartments]);
+
   const selectedStorageItems = useMemo(
     () =>
       selectedStorageId
@@ -1078,25 +1082,40 @@ export default function DashboardScreen() {
         setIsSearching(true);
 
         const itemResults: SearchResultItem[] = allItems
-          .filter((item) =>
-            searchIncludes(trimmed, [
+          .filter((item) => {
+            const hasOrphanedOfflineCompartment =
+              String(item.compartmentId ?? "").startsWith("offline-compartment-") &&
+              !item.compartmentName &&
+              !compartmentNameById.get(item.compartmentId ?? "");
+
+            if (hasOrphanedOfflineCompartment) {
+              return false;
+            }
+
+            return searchIncludes(trimmed, [
               item.name,
               item.status === "packed" ? "packed items packed" : "to pack missing",
               item.compartmentName,
+              compartmentNameById.get(item.compartmentId ?? ""),
               item.vehicleName,
               storageNameById.get(item.vehicleId ?? ""),
-            ])
-          )
+            ]);
+          })
           .map((item) => ({
             type: "item",
             id: item.id,
             name: item.name,
-            subtitle: `${item.compartmentName || "Unassigned compartment"} • ${item.vehicleName ||
+            subtitle: `${item.compartmentName ||
+              compartmentNameById.get(item.compartmentId ?? "") ||
+              "Unassigned compartment"} • ${item.vehicleName ||
               storageNameById.get(item.vehicleId ?? "") ||
               "Unknown storage space"
               }`,
             statusLabel: item.status === "packed" ? "Packed" : "To Pack",
-            compartmentId: item.compartmentId ?? "",
+            compartmentId:
+              item.compartmentId && !String(item.compartmentId).startsWith("offline-compartment-")
+                ? item.compartmentId
+                : "",
             vehicleId: item.vehicleId ?? "",
           }));
 

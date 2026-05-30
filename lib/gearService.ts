@@ -13,7 +13,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { auth, db } from "../firebaseConfig";
-import { cacheStorageSpaces, enqueueOfflineOperation, getCachedStorageSpaces, getOfflineCompartments, getOfflineItemsByCompartment, getOfflineStorageSpaces, removeOfflineOperation, updateOfflineCreatedItem } from "./offlineQueue";
+import { cacheStorageSpaces, enqueueOfflineOperation, getCachedStorageSpaces, getOfflineCompartments, getOfflineCompartmentById, getOfflineItems, getOfflineItemsByCompartment, getOfflineItemsByStatus, getOfflineStorageSpaces, removeOfflineOperation, updateOfflineCreatedItem } from "./offlineQueue";
 
 export type ItemStatus = "packed" | "missing";
 export type StorageSpaceCategory = "storage" | "office" | "vehicle";
@@ -493,8 +493,13 @@ export async function getCompartments(
 export async function getCompartmentById(
   compartmentId: string
 ): Promise<Compartment | null> {
+  const userId = getCurrentUserId();
+
   if (compartmentId.startsWith("offline-compartment-")) {
-    return null;
+    return (await getOfflineCompartmentById(
+      userId,
+      compartmentId
+    )) as Compartment | null;
   }
 
   try {
@@ -513,12 +518,23 @@ export async function getCompartmentById(
 }
 
 export async function getAllItems(): Promise<Item[]> {
-  const snapshot = await getDocs(inventoryCol());
+  const userId = getCurrentUserId();
+  const offlineItems = (await getOfflineItems(userId)) as Item[];
 
-  return snapshot.docs.map((d) => ({
-    id: d.id,
-    ...d.data(),
-  })) as Item[];
+  let remoteItems: Item[] = [];
+
+  try {
+    const snapshot = await withOfflineReadTimeout(getDocs(inventoryCol()));
+
+    remoteItems = snapshot.docs.map((d) => ({
+      id: d.id,
+      ...d.data(),
+    })) as Item[];
+  } catch (error) {
+    console.warn("Unable to load remote inventory items. Showing offline queue.", error);
+  }
+
+  return [...offlineItems, ...remoteItems];
 }
 
 export async function getItemsByCompartment(
@@ -553,13 +569,27 @@ export async function getItemsByStatus(
   const normalizedStatus =
     String(status).toLowerCase().trim() === "packed" ? "packed" : "missing";
 
-  const q = query(inventoryCol(), where("status", "==", normalizedStatus));
-  const snapshot = await getDocs(q);
+  const userId = getCurrentUserId();
+  const offlineItems = (await getOfflineItemsByStatus(
+    userId,
+    normalizedStatus
+  )) as Item[];
 
-  return snapshot.docs.map((d) => ({
-    id: d.id,
-    ...d.data(),
-  })) as Item[];
+  let remoteItems: Item[] = [];
+
+  try {
+    const q = query(inventoryCol(), where("status", "==", normalizedStatus));
+    const snapshot = await withOfflineReadTimeout(getDocs(q));
+
+    remoteItems = snapshot.docs.map((d) => ({
+      id: d.id,
+      ...d.data(),
+    })) as Item[];
+  } catch (error) {
+    console.warn("Unable to load remote items by status. Showing offline queue.", error);
+  }
+
+  return [...offlineItems, ...remoteItems];
 }
 
 export async function createItem(input: {
