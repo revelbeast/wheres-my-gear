@@ -156,3 +156,24 @@ export async function getOfflineCompartments(
     ];
   });
 }
+
+const STORAGE_SPACES_CACHE_PREFIX = "wmg.cache.storageSpaces.";
+
+export async function cacheStorageSpaces(userId: string, spaces: unknown[]) {
+  await AsyncStorage.setItem(
+    `${STORAGE_SPACES_CACHE_PREFIX}${userId}`,
+    JSON.stringify(spaces)
+  );
+}
+
+export async function getCachedStorageSpaces(userId: string) {
+  const raw = await AsyncStorage.getItem(`${STORAGE_SPACES_CACHE_PREFIX}${userId}`);
+  if (!raw) return [];
+
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}

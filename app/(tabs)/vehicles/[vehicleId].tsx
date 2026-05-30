@@ -493,10 +493,23 @@ export default function VehicleDetailScreen() {
         setNewCompartmentName("");
         setShowCreateBox(false);
 
-        await Promise.race([
-          refreshCompartments(),
-          new Promise<void>((resolve) => setTimeout(resolve, 1200)),
-        ]);
+        if (createdId.startsWith("offline-compartment-")) {
+          setCompartments((current) => [
+            {
+              id: createdId,
+              name: trimmed,
+              vehicleId: String(vehicleId),
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            },
+            ...current,
+          ]);
+        } else {
+          await Promise.race([
+            refreshCompartments(),
+            new Promise<void>((resolve) => setTimeout(resolve, 1200)),
+          ]);
+        }
       } catch (err) {
         if (!isScreenMountedRef.current) return;
 

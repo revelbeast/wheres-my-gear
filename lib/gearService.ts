@@ -13,7 +13,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { auth, db } from "../firebaseConfig";
-import { enqueueOfflineOperation, getOfflineCompartments, getOfflineStorageSpaces, removeOfflineOperation } from "./offlineQueue";
+import { cacheStorageSpaces, enqueueOfflineOperation, getCachedStorageSpaces, getOfflineCompartments, getOfflineStorageSpaces, removeOfflineOperation } from "./offlineQueue";
 
 export type ItemStatus = "packed" | "missing";
 export type StorageSpaceCategory = "storage" | "office" | "vehicle";
@@ -92,26 +92,41 @@ function normalizeName(value: string) {
   return value.trim().toLowerCase();
 }
 
+async function withOfflineReadTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs = 900
+): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error("Offline read timeout")), timeoutMs)
+    ),
+  ]);
+}
+
 export async function getStorageSpaces(): Promise<StorageSpace[]> {
   const userId = getCurrentUserId();
   const offlineSpaces = (await getOfflineStorageSpaces(userId)) as StorageSpace[];
 
-  let remoteSpaces: StorageSpace[] = [];
+  let baseSpaces: StorageSpace[] = [];
 
   try {
-    const snapshot = await getDocs(storageSpacesCol());
+    const snapshot = await withOfflineReadTimeout(getDocs(storageSpacesCol()));
 
-    remoteSpaces = snapshot.docs
+    baseSpaces = snapshot.docs
       .map((d) => ({
         id: d.id,
         ...d.data(),
       }) as StorageSpace)
       .filter((space) => !space.isArchived);
+
+    await cacheStorageSpaces(userId, baseSpaces);
   } catch (error) {
-    console.warn("Unable to load remote storage spaces. Showing offline queue.", error);
+    console.warn("Unable to load remote storage spaces. Showing cached spaces.", error);
+    baseSpaces = (await getCachedStorageSpaces(userId)) as StorageSpace[];
   }
 
-  return [...offlineSpaces, ...remoteSpaces];
+  return [...offlineSpaces, ...baseSpaces];
 }
 
 export async function getStorageSpaceById(
@@ -456,7 +471,7 @@ export async function getCompartmentsByVehicle(
 
   try {
     const q = query(compartmentsCol(), where("vehicleId", "==", vehicleId));
-    const snapshot = await getDocs(q);
+    const snapshot = await withOfflineReadTimeout(getDocs(q));
 
     remoteCompartments = snapshot.docs.map((d) => ({
       id: d.id,
