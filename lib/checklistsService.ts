@@ -1,9 +1,11 @@
+import NetInfo from "@react-native-community/netinfo";
 import {
   addDoc,
   collection,
   deleteDoc,
   doc,
   getDoc,
+  getDocFromCache,
   getDocs,
   onSnapshot,
   orderBy,
@@ -13,6 +15,11 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
+import {
+  enqueueOfflineOperation,
+  getOfflineChecklistItems,
+  getOfflineChecklists,
+} from "./offlineQueue";
 import type {
   Checklist,
   ChecklistCategory,
@@ -449,13 +456,43 @@ export async function getChecklist(
   userId: string,
   checklistId: string
 ): Promise<Checklist | null> {
-  const snapshot = await getDoc(checklistDoc(userId, checklistId));
+  if (checklistId.startsWith("offline-checklist-")) {
+    const offlineChecklists = (await getOfflineChecklists(
+      userId
+    )) as Checklist[];
 
-  if (!snapshot.exists()) {
-    return null;
+    return (
+      offlineChecklists.find((checklist) => checklist.id === checklistId) ??
+      null
+    );
   }
 
-  return normalizeChecklist(snapshot.id, snapshot.data());
+  const ref = checklistDoc(userId, checklistId);
+
+  try {
+    const snapshot = await getDoc(ref);
+
+    if (!snapshot.exists()) {
+      return null;
+    }
+
+    return normalizeChecklist(snapshot.id, snapshot.data());
+  } catch (error) {
+    console.warn("Falling back to cached checklist:", error);
+
+    try {
+      const cachedSnapshot = await getDocFromCache(ref);
+
+      if (!cachedSnapshot.exists()) {
+        return null;
+      }
+
+      return normalizeChecklist(cachedSnapshot.id, cachedSnapshot.data());
+    } catch (cacheError) {
+      console.warn("No cached checklist available:", cacheError);
+      return null;
+    }
+  }
 }
 
 export async function createChecklist(
@@ -475,7 +512,7 @@ export async function createChecklist(
     throw new Error("Checklist name is required.");
   }
 
-  const checklistRef = await addDoc(checklistsCol(userId), {
+  const payload = {
     name: trimmedName,
     category: data.category,
     customCategoryLabel: data.customCategoryLabel ?? "",
@@ -490,7 +527,40 @@ export async function createChecklist(
     isArchived: false,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-  });
+  };
+
+  const networkState = await Promise.race([
+    NetInfo.fetch(),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), 750)),
+  ]);
+
+  const isOnline =
+    networkState !== null &&
+    networkState.isConnected === true &&
+    networkState.isInternetReachable === true;
+
+  if (!isOnline) {
+    const offlineId = `offline-checklist-${Date.now()}`;
+
+    await enqueueOfflineOperation({
+      id: offlineId,
+      type: "createChecklist",
+      userId,
+      payload: {
+        name: trimmedName,
+        category: data.category,
+        customCategoryLabel: data.customCategoryLabel ?? "",
+        templateId: data.templateId ?? null,
+        vehicleId: data.vehicleId ?? null,
+        tripId: data.tripId ?? null,
+      },
+      createdAt: new Date().toISOString(),
+    });
+
+    return offlineId;
+  }
+
+  const checklistRef = await addDoc(checklistsCol(userId), payload);
 
   return checklistRef.id;
 }
@@ -625,11 +695,53 @@ export async function addChecklistItem(
   name: string
 ) {
   const trimmedName = name.trim();
+
   if (!trimmedName) {
     throw new Error("Item name is required.");
   }
 
-  const itemsSnapshot = await getDocs(checklistItemsCol(userId, checklistId));
+  const networkState = await Promise.race([
+    NetInfo.fetch(),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), 750)),
+  ]);
+
+  const isOnline =
+    networkState !== null &&
+    networkState.isConnected === true &&
+    networkState.isInternetReachable === true;
+
+  if (!isOnline || checklistId.startsWith("offline-checklist-")) {
+    const offlineItems = await getOfflineChecklistItems(
+      userId,
+      checklistId
+    );
+
+    const nextSortOrder =
+      offlineItems.length > 0
+        ? Math.max(
+            ...(offlineItems as any[]).map((item: any) => item.sortOrder ?? 0)
+          ) + 1
+        : 1;
+
+    await enqueueOfflineOperation({
+      id: `offline-checklist-item-${Date.now()}`,
+      type: "createChecklistItem",
+      userId,
+      payload: {
+        checklistId,
+        name: trimmedName,
+        sortOrder: nextSortOrder,
+      },
+      createdAt: new Date().toISOString(),
+    });
+
+    return;
+  }
+
+  const itemsSnapshot = await getDocs(
+    checklistItemsCol(userId, checklistId)
+  );
+
   const existingItems = itemsSnapshot.docs.map((d) =>
     normalizeChecklistItem(d.id, d.data())
   );
@@ -715,6 +827,42 @@ export function subscribeToChecklists(
   }
 }
 
+export async function getChecklistItems(
+  userId: string,
+  checklistId: string
+): Promise<ChecklistItem[]> {
+  const offlineItems = (await getOfflineChecklistItems(
+    userId,
+    checklistId
+  )) as ChecklistItem[];
+
+  if (checklistId.startsWith("offline-checklist-")) {
+    return offlineItems.sort(
+      (a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
+    );
+  }
+
+  try {
+    const q = query(
+      checklistItemsCol(userId, checklistId),
+      orderBy("sortOrder")
+    );
+
+    const snapshot = await getDocs(q);
+    const firebaseItems = snapshot.docs.map((d) =>
+      normalizeChecklistItem(d.id, d.data())
+    );
+
+    return firebaseItems.sort(
+      (a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
+    );
+  } catch {
+    return offlineItems.sort(
+      (a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
+    );
+  }
+}
+
 export function subscribeToChecklistItems(
   userId: string,
   checklistId: string,
@@ -735,22 +883,20 @@ export function subscribeToChecklistItems(
     unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        if (!isActive) {
-          return;
-        }
+        if (!isActive) return;
 
         const data = snapshot.docs.map((d) =>
           normalizeChecklistItem(d.id, d.data())
         );
 
-        callback(data);
+        // FIX: Firestore is now single source of truth
+        callback(
+          data.sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+        );
       },
       (error) => {
-        if (!isActive) {
-          return;
-        }
-
-        console.error("Failed to subscribe to checklist items:", error);
+        if (!isActive) return;
+        console.error(error);
         callback([]);
       }
     );
@@ -758,13 +904,9 @@ export function subscribeToChecklistItems(
     return createSafeUnsubscribe(unsubscribe, () => {
       isActive = false;
     });
-  } catch (error) {
-    console.error("Failed to start checklist item subscription:", error);
-
-    if (isActive) {
-      callback([]);
-    }
-
+  } catch (e) {
+    console.error(e);
+    if (isActive) callback([]);
     return createSafeUnsubscribe(unsubscribe, () => {
       isActive = false;
     });
@@ -776,6 +918,36 @@ export async function toggleChecklistItemPacked(
   checklistId: string,
   item: ChecklistItem
 ) {
+  const networkState = await Promise.race([
+    NetInfo.fetch(),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), 750)),
+  ]);
+
+  const isOnline =
+    networkState !== null &&
+    networkState.isConnected === true &&
+    networkState.isInternetReachable === true;
+
+  const newPacked = !item.packed;
+
+  // OFFLINE → QUEUE ONLY
+  if (!isOnline || checklistId.startsWith("offline-checklist-")) {
+    await enqueueOfflineOperation({
+      id: `offline-toggle-${Date.now()}`,
+      type: "toggleChecklistItemPacked",
+      userId,
+      payload: {
+        checklistId,
+        itemId: item.id,
+        packed: newPacked,
+      },
+      createdAt: new Date().toISOString(),
+    });
+
+    return;
+  }
+
+  // ONLINE → FIRESTORE DIRECT
   const itemRef = doc(
     db,
     "users",
@@ -787,8 +959,8 @@ export async function toggleChecklistItemPacked(
   );
 
   await updateDoc(itemRef, {
-    packed: !item.packed,
-    packedAt: !item.packed ? serverTimestamp() : null,
+    packed: newPacked,
+    packedAt: newPacked ? serverTimestamp() : null,
     updatedAt: serverTimestamp(),
   });
 

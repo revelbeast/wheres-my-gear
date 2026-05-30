@@ -1,3 +1,4 @@
+import NetInfo from "@react-native-community/netinfo";
 import { BlurView } from "expo-blur";
 import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
@@ -56,6 +57,7 @@ import {
   deleteChecklist,
   deleteChecklistItem,
   getChecklist,
+  getChecklistItems,
   saveChecklistAsTemplate,
   subscribeToChecklistItems,
   toggleChecklistItemPacked,
@@ -574,6 +576,8 @@ export default function ChecklistDetailScreen() {
     await runWithLock(async () => {
       try {
         await addChecklistItem(user.uid, checklistId, trimmed);
+        const nextItems = await getChecklistItems(user.uid, checklistId);
+        setItems(nextItems);
         void triggerSuccessHaptic();
         setNewItemName("");
         setShowCreateBox(false);
@@ -695,9 +699,41 @@ export default function ChecklistDetailScreen() {
 
     await runWithLock(async () => {
       try {
+        const networkState = await Promise.race([
+          NetInfo.fetch(),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 750)),
+        ]);
+
+        const isOnline =
+          networkState !== null &&
+          networkState.isConnected === true &&
+          networkState.isInternetReachable === true;
+
+        if (!isOnline) {
+          setItems((prevItems) =>
+            prevItems.map((prevItem) =>
+              prevItem.id === item.id
+                ? {
+                    ...prevItem,
+                    packed: !item.packed,
+                    packedAt: !item.packed
+                      ? new Date().toISOString()
+                      : null,
+                  }
+                : prevItem
+            )
+          );
+
+          await toggleChecklistItemPacked(user.uid, checklistId, item);
+
+          return;
+        }
+
         await toggleChecklistItemPacked(user.uid, checklistId, item);
 
-        if (item.compartmentId) {
+        const networkStateAfterToggle = networkState;
+
+        if (isOnline && item.compartmentId) {
           await syncInventoryItemStatusFromChecklist({
             name: item.name,
             quantity: getSafeQuantity(item.quantity),
