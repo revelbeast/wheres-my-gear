@@ -260,10 +260,22 @@ export async function getProfileSettings(userId: string): Promise<AppProfile> {
   }
 
   const ref = profileDoc(userId.trim());
-  const snapshot = await getDoc(ref);
+
+  let snapshot;
+  try {
+    snapshot = await getDoc(ref);
+  } catch (error) {
+    console.warn("Profile settings unavailable offline. Using defaults.", error);
+    return sanitizeProfilePayload(defaultProfile);
+  }
 
   if (!snapshot.exists()) {
-    await setDoc(ref, sanitizeProfilePayload(defaultProfile), { merge: true });
+    try {
+      await setDoc(ref, sanitizeProfilePayload(defaultProfile), { merge: true });
+    } catch (error) {
+      console.warn("Unable to create default profile settings.", error);
+    }
+
     return sanitizeProfilePayload(defaultProfile);
   }
 

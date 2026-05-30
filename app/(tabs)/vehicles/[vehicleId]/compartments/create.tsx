@@ -63,7 +63,13 @@ export default function CreateCompartmentScreen() {
 
     try {
       setSaving(true);
-      await createCompartment(name.trim(), vehicleId);
+
+      const createdId = await Promise.race([
+        createCompartment(name.trim(), vehicleId),
+        new Promise<string>((resolve) =>
+          setTimeout(() => resolve(`offline-timeout-compartment-${Date.now()}`), 1200)
+        ),
+      ]);
 
       if (typeof returnTo === "string" && returnTo.length > 0) {
         router.replace(returnTo as any);

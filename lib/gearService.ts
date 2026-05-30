@@ -1,3 +1,4 @@
+import NetInfo from "@react-native-community/netinfo";
 import {
   addDoc,
   collection,
@@ -12,6 +13,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { auth, db } from "../firebaseConfig";
+import { enqueueOfflineOperation, getOfflineStorageSpaces, removeOfflineOperation } from "./offlineQueue";
 
 export type ItemStatus = "packed" | "missing";
 export type StorageSpaceCategory = "storage" | "office" | "vehicle";
@@ -91,14 +93,25 @@ function normalizeName(value: string) {
 }
 
 export async function getStorageSpaces(): Promise<StorageSpace[]> {
-  const snapshot = await getDocs(storageSpacesCol());
+  const userId = getCurrentUserId();
+  const offlineSpaces = (await getOfflineStorageSpaces(userId)) as StorageSpace[];
 
-  return snapshot.docs
-    .map((d) => ({
-      id: d.id,
-      ...d.data(),
-    }) as StorageSpace)
-    .filter((space) => !space.isArchived);
+  let remoteSpaces: StorageSpace[] = [];
+
+  try {
+    const snapshot = await getDocs(storageSpacesCol());
+
+    remoteSpaces = snapshot.docs
+      .map((d) => ({
+        id: d.id,
+        ...d.data(),
+      }) as StorageSpace)
+      .filter((space) => !space.isArchived);
+  } catch (error) {
+    console.warn("Unable to load remote storage spaces. Showing offline queue.", error);
+  }
+
+  return [...offlineSpaces, ...remoteSpaces];
 }
 
 export async function getStorageSpaceById(
@@ -142,12 +155,37 @@ export async function createStorageSpace(input: {
     updatedAt: serverTimestamp(),
   };
 
-  const ref = await addDoc(storageSpacesCol(), payload);
-  const confirmationSnapshot = await getDoc(ref);
+  const networkState = await Promise.race([
+    NetInfo.fetch(),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), 750)),
+  ]);
 
-  if (!confirmationSnapshot.exists()) {
-    throw new Error("Storage space was not confirmed in Firestore. Please try again.");
+  const isOnline =
+    networkState !== null &&
+    networkState.isConnected === true &&
+    networkState.isInternetReachable === true;
+
+  if (!isOnline) {
+    const userId = getCurrentUserId();
+    const offlineId = `offline-storage-${Date.now()}`;
+
+    await enqueueOfflineOperation({
+      id: offlineId,
+      type: "createStorageSpace",
+      userId,
+      payload: {
+        name: trimmedName,
+        category: input.category ?? "vehicle",
+        subtype: trimmedSubtype,
+        notes: input.notes ?? "",
+      },
+      createdAt: new Date().toISOString(),
+    });
+
+    return offlineId;
   }
+
+  const ref = await addDoc(storageSpacesCol(), payload);
 
   return ref.id;
 }
@@ -233,6 +271,11 @@ export async function deleteStorageSpace(storageId: string) {
     throw new Error("Storage space ID is required.");
   }
 
+  if (trimmedStorageId.startsWith("offline-storage-")) {
+    await removeOfflineOperation(trimmedStorageId);
+    return;
+  }
+
   const relatedCompartmentsQuery = query(
     compartmentsCol(),
     where("vehicleId", "==", trimmedStorageId)
@@ -296,6 +339,34 @@ export async function createCompartment(name: string, vehicleId: string) {
 
   if (!trimmedVehicleId) {
     throw new Error("Vehicle ID is required.");
+  }
+
+  const networkState = await Promise.race([
+    NetInfo.fetch(),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), 750)),
+  ]);
+
+  const isOnline =
+    networkState !== null &&
+    networkState.isConnected === true &&
+    networkState.isInternetReachable === true;
+
+  if (!isOnline) {
+    const userId = getCurrentUserId();
+    const offlineId = `offline-compartment-${Date.now()}`;
+
+    await enqueueOfflineOperation({
+      id: offlineId,
+      type: "createCompartment",
+      userId,
+      payload: {
+        name: trimmedName,
+        vehicleId: trimmedVehicleId,
+      },
+      createdAt: new Date().toISOString(),
+    });
+
+    return offlineId;
   }
 
   const ref = await addDoc(compartmentsCol(), {
