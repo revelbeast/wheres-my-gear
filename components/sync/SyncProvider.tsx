@@ -7,6 +7,8 @@ import React, {
   useState,
 } from "react";
 
+import { flushOfflineQueue } from "../../lib/offlineQueue";
+
 type SyncContextValue = {
   isOnline: boolean;
   connectionChecked: boolean;
@@ -32,6 +34,14 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
 
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    if (!isOnline || !connectionChecked) return;
+
+    flushOfflineQueue().catch((error) => {
+      console.warn("Failed to flush offline queue:", error);
+    });
+  }, [isOnline, connectionChecked]);
 
   const value = useMemo(
     () => ({

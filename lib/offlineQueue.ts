@@ -1,4 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { db } from "../firebaseConfig";
 
 const OFFLINE_QUEUE_KEY = "wmg.offlineQueue.v1";
 
@@ -86,4 +88,31 @@ export async function getOfflineStorageSpaces(userId: string) {
       },
     ];
   });
+}
+
+
+export async function getOfflineQueue() {
+  return readQueue();
+}
+
+
+export async function flushOfflineQueue() {
+  const queue = await readQueue();
+
+  for (const operation of queue) {
+    if (operation.type === "createStorageSpace") {
+      await addDoc(collection(db, "users", operation.userId, "storageSpaces"), {
+        name: operation.payload.name,
+        category: operation.payload.category,
+        subtype: operation.payload.subtype,
+        notes: operation.payload.notes,
+        isArchived: false,
+        archivedAt: null,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      await removeOfflineOperation(operation.id);
+    }
+  }
 }
