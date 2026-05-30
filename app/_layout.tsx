@@ -4,6 +4,7 @@ import { LogBox } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { AuthProvider, useAuth } from "../components/auth/AuthProvider";
+import { SyncProvider } from "../components/sync/SyncProvider";
 import { setHapticsEnabled } from "../lib/haptics";
 import { getProfileSettings } from "../lib/settingsService";
 
@@ -45,7 +46,9 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthProvider>
-        <RootLayoutInner />
+        <SyncProvider>
+          <RootLayoutInner />
+        </SyncProvider>
       </AuthProvider>
     </GestureHandlerRootView>
   );
