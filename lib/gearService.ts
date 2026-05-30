@@ -13,7 +13,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { auth, db } from "../firebaseConfig";
-import { enqueueOfflineOperation, getOfflineStorageSpaces, removeOfflineOperation } from "./offlineQueue";
+import { enqueueOfflineOperation, getOfflineCompartments, getOfflineStorageSpaces, removeOfflineOperation } from "./offlineQueue";
 
 export type ItemStatus = "packed" | "missing";
 export type StorageSpaceCategory = "storage" | "office" | "vehicle";
@@ -446,13 +446,27 @@ export async function getAllCompartments(): Promise<Compartment[]> {
 export async function getCompartmentsByVehicle(
   vehicleId: string
 ): Promise<Compartment[]> {
-  const q = query(compartmentsCol(), where("vehicleId", "==", vehicleId));
-  const snapshot = await getDocs(q);
+  const userId = getCurrentUserId();
+  const offlineCompartments = (await getOfflineCompartments(
+    userId,
+    vehicleId
+  )) as Compartment[];
 
-  return snapshot.docs.map((d) => ({
-    id: d.id,
-    ...d.data(),
-  })) as Compartment[];
+  let remoteCompartments: Compartment[] = [];
+
+  try {
+    const q = query(compartmentsCol(), where("vehicleId", "==", vehicleId));
+    const snapshot = await getDocs(q);
+
+    remoteCompartments = snapshot.docs.map((d) => ({
+      id: d.id,
+      ...d.data(),
+    })) as Compartment[];
+  } catch (error) {
+    console.warn("Unable to load remote compartments. Showing offline queue.", error);
+  }
+
+  return [...offlineCompartments, ...remoteCompartments];
 }
 
 export async function getCompartments(

@@ -113,6 +113,46 @@ export async function flushOfflineQueue() {
       });
 
       await removeOfflineOperation(operation.id);
+      continue;
+    }
+
+    if (operation.type === "createCompartment") {
+      await addDoc(collection(db, "users", operation.userId, "compartments"), {
+        name: operation.payload.name,
+        vehicleId: operation.payload.vehicleId,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      await removeOfflineOperation(operation.id);
     }
   }
+}
+
+
+export async function getOfflineCompartments(
+  userId: string,
+  vehicleId: string
+) {
+  const queue = await readQueue();
+
+  return queue.flatMap((operation) => {
+    if (
+      operation.type !== "createCompartment" ||
+      operation.userId !== userId ||
+      operation.payload.vehicleId !== vehicleId
+    ) {
+      return [];
+    }
+
+    return [
+      {
+        id: operation.id,
+        name: operation.payload.name,
+        vehicleId: operation.payload.vehicleId,
+        createdAt: operation.createdAt,
+        updatedAt: operation.createdAt,
+      },
+    ];
+  });
 }
