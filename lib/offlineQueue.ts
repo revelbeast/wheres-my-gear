@@ -155,6 +155,33 @@ export type OfflineQueueOperation =
         templateId: string;
       };
       createdAt: string;
+    }
+  | {
+      id: string;
+      type: "archiveChecklist";
+      userId: string;
+      payload: {
+        checklistId: string;
+      };
+      createdAt: string;
+    }
+  | {
+      id: string;
+      type: "archiveChecklistTemplate";
+      userId: string;
+      payload: {
+        templateId: string;
+      };
+      createdAt: string;
+    }
+  | {
+      id: string;
+      type: "restoreChecklistTemplate";
+      userId: string;
+      payload: {
+        templateId: string;
+      };
+      createdAt: string;
     };
 
 async function readQueue(): Promise<OfflineQueueOperation[]> {
@@ -596,6 +623,69 @@ export async function flushOfflineQueue() {
       continue;
     }
 
+    if (operation.type === "archiveChecklist") {
+      const resolvedChecklistId =
+        checklistIdMap.get(operation.payload.checklistId) ??
+        operation.payload.checklistId;
+
+      await updateDoc(
+        doc(db, "users", operation.userId, "checklists", resolvedChecklistId),
+        {
+          isArchived: true,
+          updatedAt: serverTimestamp(),
+        }
+      );
+
+      await removeOfflineOperation(operation.id);
+      continue;
+    }
+
+    if (operation.type === "archiveChecklistTemplate") {
+      const resolvedTemplateId =
+        templateIdMap.get(operation.payload.templateId) ??
+        operation.payload.templateId;
+
+      await updateDoc(
+        doc(
+          db,
+          "users",
+          operation.userId,
+          "checklistTemplates",
+          resolvedTemplateId
+        ),
+        {
+          isArchived: true,
+          updatedAt: serverTimestamp(),
+        }
+      );
+
+      await removeOfflineOperation(operation.id);
+      continue;
+    }
+
+    if (operation.type === "restoreChecklistTemplate") {
+      const resolvedTemplateId =
+        templateIdMap.get(operation.payload.templateId) ??
+        operation.payload.templateId;
+
+      await updateDoc(
+        doc(
+          db,
+          "users",
+          operation.userId,
+          "checklistTemplates",
+          resolvedTemplateId
+        ),
+        {
+          isArchived: false,
+          updatedAt: serverTimestamp(),
+        }
+      );
+
+      await removeOfflineOperation(operation.id);
+      continue;
+    }
+
     if (operation.type === "createCompartment") {
       const resolvedVehicleId =
         storageIdMap.get(operation.payload.vehicleId) ??
@@ -752,6 +842,21 @@ export async function getOfflineChecklistItems(
 
 export async function getOfflineChecklistTemplates(userId: string) {
   const queue = await readQueue();
+  const archiveOverrides = new Map<string, boolean>();
+
+  for (const operation of queue) {
+    if (operation.userId !== userId) {
+      continue;
+    }
+
+    if (operation.type === "archiveChecklistTemplate") {
+      archiveOverrides.set(operation.payload.templateId, true);
+    }
+
+    if (operation.type === "restoreChecklistTemplate") {
+      archiveOverrides.set(operation.payload.templateId, false);
+    }
+  }
 
   return queue.flatMap((operation) => {
     if (
@@ -769,7 +874,7 @@ export async function getOfflineChecklistTemplates(userId: string) {
         customCategoryLabel: operation.payload.customCategoryLabel,
         description: "",
         isDefault: false,
-        isArchived: false,
+        isArchived: archiveOverrides.get(operation.id) ?? false,
         itemCount: operation.payload.items.length,
         createdAt: operation.createdAt,
         updatedAt: operation.createdAt,
@@ -822,6 +927,27 @@ export async function getOfflineChecklistTemplateNameOverrides(userId: string) {
   }
 
   return nameByTemplateId;
+}
+
+export async function getOfflineChecklistTemplateArchiveOverrides(userId: string) {
+  const queue = await readQueue();
+  const archivedByTemplateId = new Map<string, boolean>();
+
+  for (const operation of queue) {
+    if (operation.userId !== userId) {
+      continue;
+    }
+
+    if (operation.type === "archiveChecklistTemplate") {
+      archivedByTemplateId.set(operation.payload.templateId, true);
+    }
+
+    if (operation.type === "restoreChecklistTemplate") {
+      archivedByTemplateId.set(operation.payload.templateId, false);
+    }
+  }
+
+  return archivedByTemplateId;
 }
 
 export async function getOfflineDeletedChecklistTemplateIds(userId: string) {

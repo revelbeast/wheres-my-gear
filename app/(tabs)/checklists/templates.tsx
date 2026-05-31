@@ -191,7 +191,7 @@ export default function ManageTemplatesScreen() {
         return;
       }
 
-      setTemplates(data);
+      setTemplates(data.filter((template) => !template.isArchived));
     } catch (err) {
       console.error("Failed to load templates:", err);
 

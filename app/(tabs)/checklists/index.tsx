@@ -402,6 +402,14 @@ export default function ChecklistsTabScreen() {
     try {
       const templates = await getChecklistTemplates(uid);
 
+      console.log("CHECKLIST PAGE TEMPLATE ROWS:", {
+        templates: templates.map((template) => ({
+          id: template.id,
+          name: template.name,
+          isArchived: template.isArchived ?? false,
+        })),
+      });
+
       const rows = await Promise.all(
         templates
           .filter((template) => !template.isArchived)
@@ -820,7 +828,11 @@ export default function ChecklistsTabScreen() {
                                     text: "Archive",
                                     style: "default",
                                     onPress: async () => {
-                                      console.log("DELETE CLICKED:", checklist.id);
+                                      console.log("ARCHIVE CLICKED:", {
+                                        id: checklist.id,
+                                        name: checklist.name,
+                                        type: checklist._type ?? "checklist",
+                                      });
 
                                       if (checklist._type === "template") {
                                         const templateId = checklist.id.replace("template:", "");
@@ -1113,7 +1125,11 @@ export default function ChecklistsTabScreen() {
                                 text: "Archive",
                                 style: "default",
                                 onPress: async () => {
-                                  console.log("DELETE CLICKED:", checklist.id);
+                                  console.log("ARCHIVE CLICKED:", {
+                                    id: checklist.id,
+                                    name: checklist.name,
+                                    type: checklist._type ?? "checklist",
+                                  });
 
                                   if (checklist._type === "template") {
                                     const templateId = checklist.id.replace("template:", "");

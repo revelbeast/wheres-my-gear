@@ -53,6 +53,8 @@ export default function ArchiveScreen() {
 
         if (!active) return;
 
+        console.log("ARCHIVE ACCESS:", { hasAccess });
+
         setHasPremiumPlusAccess(hasAccess);
 
         if (!hasAccess) {
@@ -141,6 +143,19 @@ export default function ArchiveScreen() {
 
         if (!isMountedRef.current) return;
 
+        console.log("ARCHIVE SCREEN LOAD:", {
+          checklists: checklists.map((checklist) => ({
+            id: checklist.id,
+            name: checklist.name,
+            isArchived: checklist.isArchived ?? false,
+          })),
+          templates: templates.map((template) => ({
+            id: template.id,
+            name: template.name,
+            isArchived: template.isArchived ?? false,
+          })),
+        });
+
         setArchivedChecklists(checklists);
         setArchivedTemplates(templates);
       } catch (error) {
@@ -163,7 +178,7 @@ export default function ArchiveScreen() {
     return () => {
       isMountedRef.current = false;
     };
-  }, [userId]);
+  }, [userId, checkingPremiumPlusAccess, hasPremiumPlusAccess]);
 
   async function handleRestoreStorageSpace(storageId: string) {
     await restoreStorageSpace(storageId);

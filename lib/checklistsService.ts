@@ -18,6 +18,7 @@ import { db } from "../firebaseConfig";
 import {
   enqueueOfflineOperation,
   getOfflineChecklistItems,
+  getOfflineChecklistTemplateArchiveOverrides,
   getOfflineChecklistTemplateItems,
   getOfflineChecklistTemplateNameOverrides,
   getOfflineChecklistTemplates,
@@ -231,6 +232,9 @@ export async function getChecklistTemplates(
   const offlineDeletedTemplateIds =
     await getOfflineDeletedChecklistTemplateIds(userId);
 
+  const offlineTemplateArchiveOverrides =
+    await getOfflineChecklistTemplateArchiveOverrides(userId);
+
   try {
     const q = query(templatesCol(userId), orderBy("name"));
     const snapshot = await getDocs(q);
@@ -261,6 +265,17 @@ export async function getChecklistTemplates(
       }
     }
 
+    for (const [templateId, isArchived] of offlineTemplateArchiveOverrides.entries()) {
+      const template = mergedById.get(templateId);
+
+      if (template) {
+        mergedById.set(templateId, {
+          ...template,
+          isArchived,
+        });
+      }
+    }
+
     for (const templateId of offlineDeletedTemplateIds.values()) {
       mergedById.delete(templateId);
     }
@@ -274,6 +289,9 @@ export async function getChecklistTemplates(
       .map((template) => ({
         ...template,
         name: offlineTemplateNameOverrides.get(template.id) ?? template.name,
+        isArchived:
+          offlineTemplateArchiveOverrides.get(template.id) ??
+          Boolean(template.isArchived ?? false),
       }))
       .sort((a, b) =>
         String(a.name ?? "").localeCompare(String(b.name ?? ""))
@@ -1250,6 +1268,30 @@ export async function updateChecklistName(
 }
 
 export async function archiveChecklist(userId: string, checklistId: string) {
+  const networkState = await Promise.race([
+    NetInfo.fetch(),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), 750)),
+  ]);
+
+  const isOnline =
+    networkState !== null &&
+    networkState.isConnected === true &&
+    networkState.isInternetReachable === true;
+
+  if (!isOnline || checklistId.startsWith("offline-checklist-")) {
+    await enqueueOfflineOperation({
+      id: `offline-archive-checklist-${Date.now()}`,
+      type: "archiveChecklist",
+      userId,
+      payload: {
+        checklistId,
+      },
+      createdAt: new Date().toISOString(),
+    });
+
+    return;
+  }
+
   await updateDoc(checklistDoc(userId, checklistId), {
     isArchived: true,
     updatedAt: serverTimestamp(),
@@ -1561,6 +1603,35 @@ export async function archiveChecklistTemplate(
 ) {
   const safeTemplateId = requireDocumentId(templateId, "Template ID");
 
+  const networkState = await Promise.race([
+    NetInfo.fetch(),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), 750)),
+  ]);
+
+  const isOnline =
+    networkState !== null &&
+    networkState.isConnected === true &&
+    networkState.isInternetReachable === true;
+
+  if (!isOnline || safeTemplateId.startsWith("offline-checklist-template-")) {
+    console.log("TEMPLATE ARCHIVE: enqueue", {
+      templateId: safeTemplateId,
+      isOnline,
+    });
+
+    await enqueueOfflineOperation({
+      id: `offline-archive-checklist-template-${Date.now()}`,
+      type: "archiveChecklistTemplate",
+      userId,
+      payload: {
+        templateId: safeTemplateId,
+      },
+      createdAt: new Date().toISOString(),
+    });
+
+    return;
+  }
+
   await updateDoc(templateDoc(userId, safeTemplateId), {
     isArchived: true,
     updatedAt: serverTimestamp(),
@@ -1572,6 +1643,35 @@ export async function restoreChecklistTemplate(
   templateId: string
 ) {
   const safeTemplateId = requireDocumentId(templateId, "Template ID");
+
+  const networkState = await Promise.race([
+    NetInfo.fetch(),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), 750)),
+  ]);
+
+  const isOnline =
+    networkState !== null &&
+    networkState.isConnected === true &&
+    networkState.isInternetReachable === true;
+
+  if (!isOnline || safeTemplateId.startsWith("offline-checklist-template-")) {
+    console.log("TEMPLATE RESTORE: enqueue", {
+      templateId: safeTemplateId,
+      isOnline,
+    });
+
+    await enqueueOfflineOperation({
+      id: `offline-restore-checklist-template-${Date.now()}`,
+      type: "restoreChecklistTemplate",
+      userId,
+      payload: {
+        templateId: safeTemplateId,
+      },
+      createdAt: new Date().toISOString(),
+    });
+
+    return;
+  }
 
   await updateDoc(templateDoc(userId, safeTemplateId), {
     isArchived: false,
