@@ -667,6 +667,19 @@ export default function ChecklistDetailScreen() {
     await runWithLock(async () => {
       try {
         await updateChecklistItemName(user.uid, checklistId, itemId, trimmed);
+
+        setItems((prevItems) =>
+          prevItems.map((item) =>
+            item.id === itemId
+              ? {
+                  ...item,
+                  name: trimmed,
+                  updatedAt: new Date().toISOString(),
+                }
+              : item
+          )
+        );
+
         void triggerSuccessHaptic();
         setEditingItemId(null);
         setEditingItemName("");

@@ -1018,6 +1018,32 @@ export async function updateChecklistItemName(
     throw new Error("Item name is required.");
   }
 
+  const networkState = await Promise.race([
+    NetInfo.fetch(),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), 750)),
+  ]);
+
+  const isOnline =
+    networkState !== null &&
+    networkState.isConnected === true &&
+    networkState.isInternetReachable === true;
+
+  if (!isOnline || checklistId.startsWith("offline-checklist-")) {
+    await enqueueOfflineOperation({
+      id: `offline-update-checklist-item-name-${Date.now()}`,
+      type: "updateChecklistItemName",
+      userId,
+      payload: {
+        checklistId,
+        itemId,
+        name: trimmed,
+      },
+      createdAt: new Date().toISOString(),
+    });
+
+    return;
+  }
+
   const itemRef = doc(
     db,
     "users",
