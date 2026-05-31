@@ -1614,11 +1614,6 @@ export async function archiveChecklistTemplate(
     networkState.isInternetReachable === true;
 
   if (!isOnline || safeTemplateId.startsWith("offline-checklist-template-")) {
-    console.log("TEMPLATE ARCHIVE: enqueue", {
-      templateId: safeTemplateId,
-      isOnline,
-    });
-
     await enqueueOfflineOperation({
       id: `offline-archive-checklist-template-${Date.now()}`,
       type: "archiveChecklistTemplate",
@@ -1655,11 +1650,6 @@ export async function restoreChecklistTemplate(
     networkState.isInternetReachable === true;
 
   if (!isOnline || safeTemplateId.startsWith("offline-checklist-template-")) {
-    console.log("TEMPLATE RESTORE: enqueue", {
-      templateId: safeTemplateId,
-      isOnline,
-    });
-
     await enqueueOfflineOperation({
       id: `offline-restore-checklist-template-${Date.now()}`,
       type: "restoreChecklistTemplate",
