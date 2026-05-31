@@ -301,6 +301,43 @@ export async function createChecklistTemplateWithItems(
     throw new Error("At least one template item is required.");
   }
 
+  const networkState = await Promise.race([
+    NetInfo.fetch(),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), 750)),
+  ]);
+
+  const isOnline =
+    networkState !== null &&
+    networkState.isConnected === true &&
+    networkState.isInternetReachable === true;
+
+  if (!isOnline) {
+    const offlineTemplateId = `offline-checklist-template-${Date.now()}`;
+
+    await enqueueOfflineOperation({
+      id: offlineTemplateId,
+      type: "createChecklistTemplate",
+      userId,
+      payload: {
+        name: trimmedName,
+        category: data.category,
+        customCategoryLabel:
+          data.category === "custom" ? trimmedCustomCategoryLabel : "",
+        items: safeItems.map((item, index) => ({
+          name: item.name,
+          quantity: item.quantity,
+          packed: item.packed,
+          notes: item.notes,
+          sortOrder: index + 1,
+          itemPhotoUri: item.itemPhotoUri,
+        })),
+      },
+      createdAt: new Date().toISOString(),
+    });
+
+    return offlineTemplateId;
+  }
+
   const templateRef = await addDoc(templatesCol(userId), {
     name: trimmedName,
     category: data.category,
@@ -1352,12 +1389,68 @@ export async function searchChecklistsForUser(
 
 export async function saveChecklistAsTemplate(
   userId: string,
-  checklistId: string
+  checklistId: string,
+  snapshot?: {
+    checklist: Checklist;
+    items: ChecklistItem[];
+  }
 ) {
-  const checklist = await getChecklist(userId, checklistId);
+  console.log("TEMPLATE SAVE: start", { checklistId, hasSnapshot: Boolean(snapshot) });
+
+  const networkState = await Promise.race([
+    NetInfo.fetch(),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), 750)),
+  ]);
+
+  const isOnline =
+    networkState !== null &&
+    networkState.isConnected === true &&
+    networkState.isInternetReachable === true;
+
+  console.log("TEMPLATE SAVE: network state", { isOnline, networkState });
+
+  const checklist = snapshot?.checklist ?? (await getChecklist(userId, checklistId));
   if (!checklist) {
     throw new Error("Checklist not found");
   }
+
+  if (!isOnline || checklistId.startsWith("offline-checklist-")) {
+    console.log("TEMPLATE SAVE: offline branch");
+
+    const items = snapshot?.items ?? (await getChecklistItems(userId, checklistId));
+    const offlineTemplateId = `offline-checklist-template-${Date.now()}`;
+
+    console.log("TEMPLATE SAVE: enqueue template", {
+      offlineTemplateId,
+      itemCount: items.length,
+    });
+
+    await enqueueOfflineOperation({
+      id: offlineTemplateId,
+      type: "createChecklistTemplate",
+      userId,
+      payload: {
+        name: checklist.name,
+        category: checklist.category ?? "trip",
+        customCategoryLabel: checklist.customCategoryLabel ?? "",
+        items: items.map((item, index) => ({
+          name: item.name,
+          quantity: item.quantity ?? 1,
+          packed: Boolean(item.packed ?? false),
+          notes: item.notes ?? "",
+          sortOrder: item.sortOrder ?? index,
+          itemPhotoUri: item.itemPhotoUri ?? "",
+        })),
+      },
+      createdAt: new Date().toISOString(),
+    });
+
+    console.log("TEMPLATE SAVE: offline enqueue complete", { offlineTemplateId });
+
+    return offlineTemplateId;
+  }
+
+  console.log("TEMPLATE SAVE: online branch");
 
   const itemsSnapshot = await getDocs(checklistItemsCol(userId, checklistId));
 

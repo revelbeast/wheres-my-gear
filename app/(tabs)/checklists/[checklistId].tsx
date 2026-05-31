@@ -441,7 +441,14 @@ export default function ChecklistDetailScreen() {
 
     await runWithLock(async () => {
       try {
-        await saveChecklistAsTemplate(user.uid, checklistId);
+        if (!checklist) {
+          throw new Error("Checklist not loaded.");
+        }
+
+        await saveChecklistAsTemplate(user.uid, checklistId, {
+          checklist,
+          items,
+        });
         void triggerSuccessHaptic();
         Alert.alert("Saved", "Checklist saved as template.");
       } catch (err) {

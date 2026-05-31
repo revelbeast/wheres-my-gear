@@ -117,6 +117,25 @@ export type OfflineQueueOperation =
         quantity: number;
       };
       createdAt: string;
+    }
+  | {
+      id: string;
+      type: "createChecklistTemplate";
+      userId: string;
+      payload: {
+        name: string;
+        category: string;
+        customCategoryLabel: string;
+        items: Array<{
+          name: string;
+          quantity: number;
+          packed: boolean;
+          notes: string;
+          sortOrder: number;
+          itemPhotoUri: string;
+        }>;
+      };
+      createdAt: string;
     };
 
 async function readQueue(): Promise<OfflineQueueOperation[]> {
@@ -452,6 +471,48 @@ export async function flushOfflineQueue() {
         quantity: operation.payload.quantity,
         updatedAt: serverTimestamp(),
       });
+
+      await removeOfflineOperation(operation.id);
+      continue;
+    }
+
+    if (operation.type === "createChecklistTemplate") {
+      const templateRef = await addDoc(
+        collection(db, "users", operation.userId, "checklistTemplates"),
+        {
+          name: operation.payload.name,
+          category: operation.payload.category,
+          customCategoryLabel: operation.payload.customCategoryLabel,
+          description: "",
+          isDefault: false,
+          itemCount: operation.payload.items.length,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        }
+      );
+
+      for (const item of operation.payload.items) {
+        await addDoc(
+          collection(
+            db,
+            "users",
+            operation.userId,
+            "checklistTemplates",
+            templateRef.id,
+            "items"
+          ),
+          {
+            name: item.name,
+            quantity: item.quantity,
+            packed: item.packed,
+            notes: item.notes,
+            sortOrder: item.sortOrder,
+            itemPhotoUri: item.itemPhotoUri,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          }
+        );
+      }
 
       await removeOfflineOperation(operation.id);
       continue;
