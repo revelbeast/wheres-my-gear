@@ -106,6 +106,17 @@ export type OfflineQueueOperation =
         name: string;
       };
       createdAt: string;
+    }
+  | {
+      id: string;
+      type: "updateChecklistItemQuantity";
+      userId: string;
+      payload: {
+        checklistId: string;
+        itemId: string;
+        quantity: number;
+      };
+      createdAt: string;
     };
 
 async function readQueue(): Promise<OfflineQueueOperation[]> {
@@ -411,6 +422,34 @@ export async function flushOfflineQueue() {
 
       await updateDoc(itemRef, {
         name: operation.payload.name,
+        updatedAt: serverTimestamp(),
+      });
+
+      await removeOfflineOperation(operation.id);
+      continue;
+    }
+
+    if (operation.type === "updateChecklistItemQuantity") {
+      const resolvedChecklistId =
+        checklistIdMap.get(operation.payload.checklistId) ??
+        operation.payload.checklistId;
+
+      const resolvedItemId =
+        checklistItemIdMap.get(operation.payload.itemId) ??
+        operation.payload.itemId;
+
+      const itemRef = doc(
+        db,
+        "users",
+        operation.userId,
+        "checklists",
+        resolvedChecklistId,
+        "items",
+        resolvedItemId
+      );
+
+      await updateDoc(itemRef, {
+        quantity: operation.payload.quantity,
         updatedAt: serverTimestamp(),
       });
 

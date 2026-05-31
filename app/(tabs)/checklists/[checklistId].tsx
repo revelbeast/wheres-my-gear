@@ -714,6 +714,18 @@ export default function ChecklistDetailScreen() {
           nextQuantity
         );
 
+        setItems((prevItems) =>
+          prevItems.map((prevItem) =>
+            prevItem.id === item.id
+              ? {
+                  ...prevItem,
+                  quantity: nextQuantity,
+                  updatedAt: new Date().toISOString(),
+                }
+              : prevItem
+          )
+        );
+
         if (item.compartmentId) {
           if (quantityDelta > 0) {
             await createOrUpdateInventoryItemFromChecklist(
