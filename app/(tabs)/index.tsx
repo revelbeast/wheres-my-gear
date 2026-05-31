@@ -67,6 +67,7 @@ import {
   Item,
   StorageSpace,
 } from "../../lib/gearService";
+import { getTrips } from "../../lib/tripsService";
 import { triggerSuccessHaptic } from "../../lib/haptics";
 import { isPremiumPlusUser, isPremiumUser } from "../../lib/revenuecat";
 import { getProfileSettings } from "../../lib/settingsService";
@@ -1435,9 +1436,7 @@ export default function DashboardScreen() {
 
       setAllTemplateItems(templateItemsNested.flat());
 
-      const tripsSnapshot = await getDocs(
-        collection(db, "users", activeUserId, "trips")
-      );
+      const loadedTrips = await getTrips(activeUserId);
       if (
         !isMountedRef.current ||
         !isActive() ||
@@ -1447,37 +1446,13 @@ export default function DashboardScreen() {
       }
       const today = getStartOfDay(new Date());
 
-      const trips = tripsSnapshot.docs
-        .map((docSnap) => {
-          const data = docSnap.data();
-          const tripDate =
-            parseTripDate(data.startDate) ??
-            parseTripDate(data.tripDate) ??
-            parseTripDate(data.date) ??
-            parseTripDate(data.departureDate);
-
-          if (!tripDate) {
-            return null;
-          }
-
-          const tripName =
-            typeof data.name === "string" && data.name.trim().length > 0
-              ? data.name.trim()
-              : typeof data.title === "string" && data.title.trim().length > 0
-                ? data.title.trim()
-                : "Upcoming Trip";
-
-          return {
-            id: docSnap.id,
-            name: tripName,
-            date: tripDate,
-          };
-        })
+      const trips = loadedTrips
+        .map((trip) => ({
+          id: trip.id,
+          name: trip.name,
+          date: trip.startDate,
+        }))
         .filter((trip): trip is UpcomingTrip => {
-          if (!trip) {
-            return false;
-          }
-
           return getStartOfDay(trip.date).getTime() >= today.getTime();
         })
         .sort((a, b) => a.date.getTime() - b.date.getTime());

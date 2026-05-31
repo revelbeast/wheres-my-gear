@@ -1,6 +1,5 @@
 import { BlurView } from "expo-blur";
 import { router, useFocusEffect } from "expo-router";
-import { collection, deleteDoc, doc, getDocs } from "firebase/firestore";
 import {
   CalendarDays,
   ChevronLeft,
@@ -28,7 +27,7 @@ import {
   ThemedText,
   useThemedValues,
 } from "../../../components/ui/Themed";
-import { db } from "../../../firebaseConfig";
+import { deleteTrip, getTrips } from "../../../lib/tripsService";
 import { useInteractionLock } from "../../../lib/useInteractionLock";
 
 type UpcomingTrip = {
@@ -267,42 +266,20 @@ export default function TripsScreen() {
       }
 
       const activeUserId = user.uid;
-      const tripsSnapshot = await getDocs(
-        collection(db, "users", activeUserId, "trips")
-      );
       const today = getStartOfDay(new Date());
+      const loadedTrips = await getTrips(activeUserId);
 
       if (!isMountedRef.current || loadVersionRef.current !== loadVersion) {
         return;
       }
 
-      const trips = tripsSnapshot.docs
-        .map((docSnap) => {
-          const data = docSnap.data();
-          const tripDate =
-            parseTripDate(data.startDate) ??
-            parseTripDate(data.tripDate) ??
-            parseTripDate(data.date) ??
-            parseTripDate(data.departureDate);
-
-          if (!tripDate) return null;
-
-          const tripName =
-            typeof data.name === "string" && data.name.trim().length > 0
-              ? data.name.trim()
-              : typeof data.title === "string" && data.title.trim().length > 0
-                ? data.title.trim()
-                : "Upcoming Trip";
-
-          return {
-            id: docSnap.id,
-            name: tripName,
-            date: tripDate,
-          };
-        })
+      const trips = loadedTrips
+        .map((trip) => ({
+          id: trip.id,
+          name: trip.name,
+          date: trip.startDate,
+        }))
         .filter((trip): trip is UpcomingTrip => {
-          if (!trip) return false;
-
           return getStartOfDay(trip.date).getTime() >= today.getTime();
         })
         .sort((a, b) => a.date.getTime() - b.date.getTime());
@@ -363,7 +340,7 @@ export default function TripsScreen() {
 
                 setDeletingTripId(tripId);
 
-                await deleteDoc(doc(db, "users", activeUserId, "trips", tripId));
+                await deleteTrip({ userId: activeUserId, tripId });
 
                 if (!isMountedRef.current) return;
 

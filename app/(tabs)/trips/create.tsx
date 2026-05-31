@@ -1,12 +1,6 @@
 import { BlurView } from "expo-blur";
 import { router, useLocalSearchParams } from "expo-router";
 import {
-  addDoc,
-  collection,
-  serverTimestamp,
-  Timestamp,
-} from "firebase/firestore";
-import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
@@ -35,7 +29,7 @@ import {
   ThemedText,
   useThemedValues,
 } from "../../../components/ui/Themed";
-import { db } from "../../../firebaseConfig";
+import { createTrip } from "../../../lib/tripsService";
 import { useInteractionLock } from "../../../lib/useInteractionLock";
 
 
@@ -291,11 +285,10 @@ export default function CreateTripScreen() {
 
         setIsSaving(true);
 
-        await addDoc(collection(db, "users", uid, "trips"), {
+        await createTrip({
+          userId: uid,
           name: trimmedName,
-          startDate: Timestamp.fromDate(tripDate),
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
+          startDate: tripDate,
         });
 
         if (isMountedRef.current) {

@@ -1,14 +1,6 @@
 import { BlurView } from "expo-blur";
 import { router, useLocalSearchParams } from "expo-router";
 import {
-  deleteDoc,
-  doc,
-  getDoc,
-  serverTimestamp,
-  Timestamp,
-  updateDoc,
-} from "firebase/firestore";
-import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
@@ -38,7 +30,11 @@ import {
   ThemedText,
   useThemedValues,
 } from "../../../components/ui/Themed";
-import { db } from "../../../firebaseConfig";
+import {
+  deleteTrip,
+  getTripById,
+  updateTrip,
+} from "../../../lib/tripsService";
 import { useInteractionLock } from "../../../lib/useInteractionLock";
 
 const LABEL_WHITE = "#FFFFFF";
@@ -247,15 +243,13 @@ export default function EditTripScreen() {
           setIsLoading(true);
         }
 
-        const tripSnap = await getDoc(
-          doc(db, "users", user.uid, "trips", tripId)
-        );
+        const trip = await getTripById(user.uid, tripId);
 
         if (!isMountedRef.current || loadRequestIdRef.current !== requestId) {
           return;
         }
 
-        if (!tripSnap.exists()) {
+        if (!trip) {
           Alert.alert("Trip not found", "This trip could not be found.");
 
           safeGoBack();
@@ -263,21 +257,8 @@ export default function EditTripScreen() {
           return;
         }
 
-        const data = tripSnap.data();
-
-        const loadedName =
-          typeof data.name === "string" && data.name.trim().length > 0
-            ? data.name.trim()
-            : typeof data.title === "string" && data.title.trim().length > 0
-              ? data.title.trim()
-              : "Upcoming Trip";
-
-        const loadedDate =
-          parseTripDate(data.startDate) ??
-          parseTripDate(data.tripDate) ??
-          parseTripDate(data.date) ??
-          parseTripDate(data.departureDate) ??
-          getNoonDate(new Date());
+        const loadedName = trip.name;
+        const loadedDate = trip.startDate ?? getNoonDate(new Date());
 
         if (!isMountedRef.current || loadRequestIdRef.current !== requestId) {
           return;
@@ -461,10 +442,11 @@ export default function EditTripScreen() {
 
         setIsSaving(true);
 
-        await updateDoc(doc(db, "users", uid, "trips", currentTripId), {
+        await updateTrip({
+          userId: uid,
+          tripId: currentTripId,
           name: trimmedName,
-          startDate: Timestamp.fromDate(tripDate),
-          updatedAt: serverTimestamp(),
+          startDate: tripDate,
         });
 
         if (isMountedRef.current) {
@@ -516,7 +498,7 @@ export default function EditTripScreen() {
 
                 setIsDeleting(true);
 
-                await deleteDoc(doc(db, "users", uid, "trips", currentTripId));
+                await deleteTrip({ userId: uid, tripId: currentTripId });
 
                 if (isMountedRef.current) {
                   safeGoBack();

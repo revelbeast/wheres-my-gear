@@ -167,6 +167,36 @@ export type OfflineQueueOperation =
     }
   | {
       id: string;
+      type: "createTrip";
+      userId: string;
+      payload: {
+        name: string;
+        startDateIso: string;
+      };
+      createdAt: string;
+    }
+  | {
+      id: string;
+      type: "updateTrip";
+      userId: string;
+      payload: {
+        tripId: string;
+        name: string;
+        startDateIso: string;
+      };
+      createdAt: string;
+    }
+  | {
+      id: string;
+      type: "deleteTrip";
+      userId: string;
+      payload: {
+        tripId: string;
+      };
+      createdAt: string;
+    }
+  | {
+      id: string;
       type: "archiveChecklistTemplate";
       userId: string;
       payload: {
@@ -304,6 +334,7 @@ export async function flushOfflineQueue() {
   const checklistIdMap = new Map<string, string>();
   const checklistItemIdMap = new Map<string, string>();
   const templateIdMap = new Map<string, string>();
+  const tripIdMap = new Map<string, string>();
 
   for (const operation of queue) {
 
@@ -518,6 +549,53 @@ export async function flushOfflineQueue() {
         quantity: operation.payload.quantity,
         updatedAt: serverTimestamp(),
       });
+
+      await removeOfflineOperation(operation.id);
+      continue;
+    }
+
+    if (operation.type === "createTrip") {
+      const ref = await addDoc(
+        collection(db, "users", operation.userId, "trips"),
+        {
+          name: operation.payload.name,
+          startDate: new Date(operation.payload.startDateIso),
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        }
+      );
+
+      tripIdMap.set(operation.id, ref.id);
+      await removeOfflineOperation(operation.id);
+      continue;
+    }
+
+    if (operation.type === "updateTrip") {
+      const resolvedTripId =
+        tripIdMap.get(operation.payload.tripId) ??
+        operation.payload.tripId;
+
+      await updateDoc(
+        doc(db, "users", operation.userId, "trips", resolvedTripId),
+        {
+          name: operation.payload.name,
+          startDate: new Date(operation.payload.startDateIso),
+          updatedAt: serverTimestamp(),
+        }
+      );
+
+      await removeOfflineOperation(operation.id);
+      continue;
+    }
+
+    if (operation.type === "deleteTrip") {
+      const resolvedTripId =
+        tripIdMap.get(operation.payload.tripId) ??
+        operation.payload.tripId;
+
+      await deleteDoc(
+        doc(db, "users", operation.userId, "trips", resolvedTripId)
+      );
 
       await removeOfflineOperation(operation.id);
       continue;
@@ -1130,3 +1208,112 @@ export async function getOfflineItems(userId: string) {
     ];
   });
 }
+
+const TRIPS_CACHE_PREFIX = "wmg.cache.trips.";
+
+export async function cacheTrips(userId: string, trips: unknown[]) {
+  await AsyncStorage.setItem(
+    `${TRIPS_CACHE_PREFIX}${userId}`,
+    JSON.stringify(trips)
+  );
+}
+
+export async function getCachedTrips(userId: string) {
+  const raw = await AsyncStorage.getItem(`${TRIPS_CACHE_PREFIX}${userId}`);
+  if (!raw) return [];
+
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function getOfflineTrips(userId: string) {
+  const queue = await readQueue();
+  const updatedByTripId = new Map<
+    string,
+    { name: string; startDateIso: string; updatedAt: string }
+  >();
+  const deletedTripIds = new Set<string>();
+
+  for (const operation of queue) {
+    if (operation.userId !== userId) {
+      continue;
+    }
+
+    if (operation.type === "updateTrip") {
+      updatedByTripId.set(operation.payload.tripId, {
+        name: operation.payload.name,
+        startDateIso: operation.payload.startDateIso,
+        updatedAt: operation.createdAt,
+      });
+    }
+
+    if (operation.type === "deleteTrip") {
+      deletedTripIds.add(operation.payload.tripId);
+    }
+  }
+
+  return queue.flatMap((operation) => {
+    if (operation.type !== "createTrip" || operation.userId !== userId) {
+      return [];
+    }
+
+    if (deletedTripIds.has(operation.id)) {
+      return [];
+    }
+
+    const update = updatedByTripId.get(operation.id);
+
+    return [
+      {
+        id: operation.id,
+        name: update?.name ?? operation.payload.name,
+        startDate: update?.startDateIso ?? operation.payload.startDateIso,
+        createdAt: operation.createdAt,
+        updatedAt: update?.updatedAt ?? operation.createdAt,
+      },
+    ];
+  });
+}
+
+export async function getOfflineTripById(userId: string, tripId: string) {
+  const offlineTrips = await getOfflineTrips(userId);
+  return offlineTrips.find((trip: any) => trip.id === tripId) ?? null;
+}
+
+export async function getOfflineTripUpdateOverrides(userId: string) {
+  const queue = await readQueue();
+  const updatesByTripId = new Map<
+    string,
+    { name: string; startDateIso: string; updatedAt: string }
+  >();
+
+  for (const operation of queue) {
+    if (operation.type === "updateTrip" && operation.userId === userId) {
+      updatesByTripId.set(operation.payload.tripId, {
+        name: operation.payload.name,
+        startDateIso: operation.payload.startDateIso,
+        updatedAt: operation.createdAt,
+      });
+    }
+  }
+
+  return updatesByTripId;
+}
+
+export async function getOfflineDeletedTripIds(userId: string) {
+  const queue = await readQueue();
+  const deletedTripIds = new Set<string>();
+
+  for (const operation of queue) {
+    if (operation.type === "deleteTrip" && operation.userId === userId) {
+      deletedTripIds.add(operation.payload.tripId);
+    }
+  }
+
+  return deletedTripIds;
+}
+
