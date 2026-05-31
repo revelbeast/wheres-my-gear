@@ -45,6 +45,7 @@ import {
   useThemedValues,
 } from "../../../components/ui/Themed";
 import { createChecklistTemplateWithItems } from "../../../lib/checklistsService";
+import { savePhotoToLocalDocumentStorage } from "../../../lib/localPhotoStorage";
 import type { ChecklistCategory } from "../../../types/checklists";
 
 type EditableTemplateItem = {
@@ -478,7 +479,12 @@ export default function CreateTemplateScreen() {
         return;
       }
 
-      updateItemPhoto(item.id, asset.uri);
+      const localUri = await savePhotoToLocalDocumentStorage(
+        asset.uri,
+        "template-item"
+      );
+
+      updateItemPhoto(item.id, localUri);
     } catch (err: any) {
       const message = String(err?.message ?? err ?? "");
 
@@ -511,7 +517,12 @@ export default function CreateTemplateScreen() {
         return;
       }
 
-      updateItemPhoto(item.id, asset.uri);
+      const localUri = await savePhotoToLocalDocumentStorage(
+        asset.uri,
+        "template-item"
+      );
+
+      updateItemPhoto(item.id, localUri);
     } catch (err) {
       console.error("Failed to choose template item photo:", err);
       Alert.alert("Error", "Failed to save item photo.");

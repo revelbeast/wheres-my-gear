@@ -44,6 +44,7 @@ import {
   updateChecklistTemplateItemPhoto,
   updateChecklistTemplateItemQuantity,
 } from "../../../lib/checklistsService";
+import { savePhotoToLocalDocumentStorage } from "../../../lib/localPhotoStorage";
 import { useInteractionLock } from "../../../lib/useInteractionLock";
 import { colors } from "../../../theme/tokens";
 import type {
@@ -328,13 +329,18 @@ export default function TemplateItemsScreen() {
           return;
         }
 
-        updateLocalItem(item.id, { itemPhotoUri: asset.uri });
+        const localUri = await savePhotoToLocalDocumentStorage(
+          asset.uri,
+          "template-item"
+        );
+
+        updateLocalItem(item.id, { itemPhotoUri: localUri });
 
         await updateChecklistTemplateItemPhoto(
           user.uid,
           safeTemplateId,
           item.id,
-          asset.uri
+          localUri
         );
       } catch (err: any) {
         const message = String(err?.message ?? err ?? "");
@@ -380,13 +386,18 @@ export default function TemplateItemsScreen() {
           return;
         }
 
-        updateLocalItem(item.id, { itemPhotoUri: asset.uri });
+        const localUri = await savePhotoToLocalDocumentStorage(
+          asset.uri,
+          "template-item"
+        );
+
+        updateLocalItem(item.id, { itemPhotoUri: localUri });
 
         await updateChecklistTemplateItemPhoto(
           user.uid,
           safeTemplateId,
           item.id,
-          asset.uri
+          localUri
         );
       } catch (err) {
         console.error("Failed to choose template item photo:", err);
