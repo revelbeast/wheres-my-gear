@@ -672,6 +672,64 @@ export async function getOfflineChecklistItems(
   });
 }
 
+export async function getOfflineChecklistTemplates(userId: string) {
+  const queue = await readQueue();
+
+  return queue.flatMap((operation) => {
+    if (
+      operation.type !== "createChecklistTemplate" ||
+      operation.userId !== userId
+    ) {
+      return [];
+    }
+
+    return [
+      {
+        id: operation.id,
+        name: operation.payload.name,
+        category: operation.payload.category,
+        customCategoryLabel: operation.payload.customCategoryLabel,
+        description: "",
+        isDefault: false,
+        isArchived: false,
+        itemCount: operation.payload.items.length,
+        createdAt: operation.createdAt,
+        updatedAt: operation.createdAt,
+      },
+    ];
+  });
+}
+
+export async function getOfflineChecklistTemplateItems(
+  userId: string,
+  templateId: string
+) {
+  const queue = await readQueue();
+
+  const templateOperation = queue.find(
+    (operation) =>
+      operation.type === "createChecklistTemplate" &&
+      operation.userId === userId &&
+      operation.id === templateId
+  );
+
+  if (!templateOperation || templateOperation.type !== "createChecklistTemplate") {
+    return [];
+  }
+
+  return templateOperation.payload.items.map((item, index) => ({
+    id: `${templateOperation.id}-item-${index + 1}`,
+    name: item.name,
+    notes: item.notes,
+    quantity: item.quantity,
+    packed: item.packed,
+    sortOrder: item.sortOrder,
+    itemPhotoUri: item.itemPhotoUri,
+    createdAt: templateOperation.createdAt,
+    updatedAt: templateOperation.createdAt,
+  }));
+}
+
 export async function getOfflineItemsByCompartment(
   userId: string,
   compartmentId: string

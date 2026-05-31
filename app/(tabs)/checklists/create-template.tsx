@@ -601,6 +601,16 @@ export default function CreateTemplateScreen() {
 
     const trimmedName = name.trim();
     const trimmedCustomCategory = customCategory.trim();
+    console.log("CREATE TEMPLATE: save attempt", {
+      name: trimmedName,
+      category,
+      rawItems: items.map((item) => ({
+        id: item.id,
+        name: item.name,
+        quantity: item.quantity,
+      })),
+    });
+
     const validItems = items
       .map((item) => ({
         name: item.name.trim(),
@@ -610,6 +620,8 @@ export default function CreateTemplateScreen() {
       }))
       .filter((item) => item.name.length > 0);
 
+    console.log("CREATE TEMPLATE: valid items", validItems);
+
     if (!trimmedName) {
       Alert.alert("Required name", "Please enter a template name.");
       return;
@@ -617,11 +629,6 @@ export default function CreateTemplateScreen() {
 
     if (category === "custom" && !trimmedCustomCategory) {
       Alert.alert("Required category", "Please enter a custom category.");
-      return;
-    }
-
-    if (validItems.length === 0) {
-      Alert.alert("Required item", "Please add at least one template item.");
       return;
     }
 

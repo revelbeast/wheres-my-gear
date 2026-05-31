@@ -18,6 +18,8 @@ import { db } from "../firebaseConfig";
 import {
   enqueueOfflineOperation,
   getOfflineChecklistItems,
+  getOfflineChecklistTemplateItems,
+  getOfflineChecklistTemplates,
   getOfflineChecklists,
 } from "./offlineQueue";
 import type {
@@ -217,13 +219,37 @@ export type ChecklistSearchResult = {
 export async function getChecklistTemplates(
   userId: string
 ): Promise<ChecklistTemplate[]> {
-  const q = query(templatesCol(userId), orderBy("name"));
-  const snapshot = await getDocs(q);
+  const offlineTemplates = (await getOfflineChecklistTemplates(
+    userId
+  )) as ChecklistTemplate[];
 
-  return snapshot.docs.map((d) => ({
-    id: d.id,
-    ...d.data(),
-  })) as ChecklistTemplate[];
+  try {
+    const q = query(templatesCol(userId), orderBy("name"));
+    const snapshot = await getDocs(q);
+
+    const firebaseTemplates = snapshot.docs.map((d) => ({
+      id: d.id,
+      ...d.data(),
+    })) as ChecklistTemplate[];
+
+    const mergedById = new Map<string, ChecklistTemplate>();
+
+    for (const template of firebaseTemplates) {
+      mergedById.set(template.id, template);
+    }
+
+    for (const template of offlineTemplates) {
+      mergedById.set(template.id, template);
+    }
+
+    return Array.from(mergedById.values()).sort((a, b) =>
+      String(a.name ?? "").localeCompare(String(b.name ?? ""))
+    );
+  } catch {
+    return offlineTemplates.sort((a, b) =>
+      String(a.name ?? "").localeCompare(String(b.name ?? ""))
+    );
+  }
 }
 
 export async function getArchivedChecklistTemplates(
@@ -254,10 +280,21 @@ export async function getChecklistTemplateItems(
   userId: string,
   templateId: string
 ): Promise<ChecklistTemplateItem[]> {
-  const q = query(templateItemsCol(userId, templateId), orderBy("sortOrder"));
-  const snapshot = await getDocs(q);
+  if (templateId.startsWith("offline-checklist-template-")) {
+    return (await getOfflineChecklistTemplateItems(
+      userId,
+      templateId
+    )) as ChecklistTemplateItem[];
+  }
 
-  return snapshot.docs.map((d) => normalizeTemplateItem(d.id, d.data()));
+  try {
+    const q = query(templateItemsCol(userId, templateId), orderBy("sortOrder"));
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs.map((d) => normalizeTemplateItem(d.id, d.data()));
+  } catch {
+    return [];
+  }
 }
 
 export async function createChecklistTemplateWithItems(
@@ -296,10 +333,6 @@ export async function createChecklistTemplateWithItems(
       itemPhotoUri: item.itemPhotoUri ?? "",
     }))
     .filter((item) => item.name.length > 0);
-
-  if (safeItems.length === 0) {
-    throw new Error("At least one template item is required.");
-  }
 
   const networkState = await Promise.race([
     NetInfo.fetch(),
