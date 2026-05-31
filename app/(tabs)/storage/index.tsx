@@ -49,6 +49,7 @@ import {
 } from "../../../lib/gearService";
 import { useDeviceLayout } from "../../../lib/useDeviceLayout";
 import { useInteractionLock } from "../../../lib/useInteractionLock";
+import { savePhotoToLocalDocumentStorage } from "../../../lib/localPhotoStorage";
 import { colors } from "../../../theme/tokens";
 
 function getSafeQuantity(value?: number) {
@@ -862,7 +863,12 @@ export default function StorageManagementScreen() {
           return;
         }
 
-        await updateItemPhoto(item.id, asset.uri);
+        const localUri = await savePhotoToLocalDocumentStorage(
+          asset.uri,
+          "inventory-item"
+        );
+
+        await updateItemPhoto(item.id, localUri);
         await loadStorageSpaces();
       } catch (error) {
         console.error("Failed to take item photo:", error);
@@ -900,7 +906,12 @@ export default function StorageManagementScreen() {
           return;
         }
 
-        await updateItemPhoto(item.id, asset.uri);
+        const localUri = await savePhotoToLocalDocumentStorage(
+          asset.uri,
+          "inventory-item"
+        );
+
+        await updateItemPhoto(item.id, localUri);
         await loadStorageSpaces();
       } catch (error) {
         console.error("Failed to choose item photo:", error);
