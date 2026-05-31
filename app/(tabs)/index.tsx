@@ -1358,6 +1358,29 @@ export default function DashboardScreen() {
       }
       setAllItems(all);
 
+      const loadedTrips = await getTrips(activeUserId);
+      if (
+        !isMountedRef.current ||
+        !isActive() ||
+        dashboardLoadVersionRef.current !== loadVersion
+      ) {
+        return;
+      }
+      const today = getStartOfDay(new Date());
+
+      const trips = loadedTrips
+        .map((trip) => ({
+          id: trip.id,
+          name: trip.name,
+          date: trip.startDate,
+        }))
+        .filter((trip): trip is UpcomingTrip => {
+          return getStartOfDay(trip.date).getTime() >= today.getTime();
+        })
+        .sort((a, b) => a.date.getTime() - b.date.getTime());
+
+      setUpcomingTrips(trips);
+
       const compartmentsSnapshot = await getDocs(
         collection(db, "users", activeUserId, "compartments")
       );
@@ -1435,29 +1458,6 @@ export default function DashboardScreen() {
       }
 
       setAllTemplateItems(templateItemsNested.flat());
-
-      const loadedTrips = await getTrips(activeUserId);
-      if (
-        !isMountedRef.current ||
-        !isActive() ||
-        dashboardLoadVersionRef.current !== loadVersion
-      ) {
-        return;
-      }
-      const today = getStartOfDay(new Date());
-
-      const trips = loadedTrips
-        .map((trip) => ({
-          id: trip.id,
-          name: trip.name,
-          date: trip.startDate,
-        }))
-        .filter((trip): trip is UpcomingTrip => {
-          return getStartOfDay(trip.date).getTime() >= today.getTime();
-        })
-        .sort((a, b) => a.date.getTime() - b.date.getTime());
-
-      setUpcomingTrips(trips);
 
       if (!chosenId) {
         setSelectedCompartments([]);

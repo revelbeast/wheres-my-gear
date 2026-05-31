@@ -1,7 +1,7 @@
 const toggleReplayGuard = new Set<string>();
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { addDoc, collection, deleteDoc, doc, getDocs, updateDoc, serverTimestamp } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDocs, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 
 const OFFLINE_QUEUE_KEY = "wmg.offlineQueue.v1";
@@ -555,17 +555,18 @@ export async function flushOfflineQueue() {
     }
 
     if (operation.type === "createTrip") {
-      const ref = await addDoc(
-        collection(db, "users", operation.userId, "trips"),
+      await setDoc(
+        doc(db, "users", operation.userId, "trips", operation.id),
         {
           name: operation.payload.name,
           startDate: new Date(operation.payload.startDateIso),
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
-        }
+        },
+        { merge: true }
       );
 
-      tripIdMap.set(operation.id, ref.id);
+      tripIdMap.set(operation.id, operation.id);
       await removeOfflineOperation(operation.id);
       continue;
     }
