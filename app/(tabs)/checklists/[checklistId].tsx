@@ -51,6 +51,7 @@ import {
   type StorageSpace,
 } from "../../../lib/gearService";
 import { triggerSuccessHaptic } from "../../../lib/haptics";
+import { savePhotoToLocalDocumentStorage } from "../../../lib/localPhotoStorage";
 import { useInteractionLock } from "../../../lib/useInteractionLock";
 import {
   addChecklistItem,
@@ -900,11 +901,16 @@ export default function ChecklistDetailScreen() {
           return;
         }
 
+        const localUri = await savePhotoToLocalDocumentStorage(
+          asset.uri,
+          "checklist-item"
+        );
+
         await updateChecklistItemPhoto(
           user.uid,
           checklistId,
           item.id,
-          asset.uri
+          localUri
         );
 
         void triggerSuccessHaptic();
@@ -940,11 +946,16 @@ export default function ChecklistDetailScreen() {
           return;
         }
 
+        const localUri = await savePhotoToLocalDocumentStorage(
+          asset.uri,
+          "checklist-item"
+        );
+
         await updateChecklistItemPhoto(
           user.uid,
           checklistId,
           item.id,
-          asset.uri
+          localUri
         );
 
         void triggerSuccessHaptic();
