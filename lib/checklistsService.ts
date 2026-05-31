@@ -19,7 +19,9 @@ import {
   enqueueOfflineOperation,
   getOfflineChecklistItems,
   getOfflineChecklistTemplateItems,
+  getOfflineChecklistTemplateNameOverrides,
   getOfflineChecklistTemplates,
+  getOfflineDeletedChecklistTemplateIds,
   getOfflineChecklists,
 } from "./offlineQueue";
 import type {
@@ -223,6 +225,12 @@ export async function getChecklistTemplates(
     userId
   )) as ChecklistTemplate[];
 
+  const offlineTemplateNameOverrides =
+    await getOfflineChecklistTemplateNameOverrides(userId);
+
+  const offlineDeletedTemplateIds =
+    await getOfflineDeletedChecklistTemplateIds(userId);
+
   try {
     const q = query(templatesCol(userId), orderBy("name"));
     const snapshot = await getDocs(q);
@@ -242,13 +250,34 @@ export async function getChecklistTemplates(
       mergedById.set(template.id, template);
     }
 
+    for (const [templateId, name] of offlineTemplateNameOverrides.entries()) {
+      const template = mergedById.get(templateId);
+
+      if (template) {
+        mergedById.set(templateId, {
+          ...template,
+          name,
+        });
+      }
+    }
+
+    for (const templateId of offlineDeletedTemplateIds.values()) {
+      mergedById.delete(templateId);
+    }
+
     return Array.from(mergedById.values()).sort((a, b) =>
       String(a.name ?? "").localeCompare(String(b.name ?? ""))
     );
   } catch {
-    return offlineTemplates.sort((a, b) =>
-      String(a.name ?? "").localeCompare(String(b.name ?? ""))
-    );
+    return offlineTemplates
+      .filter((template) => !offlineDeletedTemplateIds.has(template.id))
+      .map((template) => ({
+        ...template,
+        name: offlineTemplateNameOverrides.get(template.id) ?? template.name,
+      }))
+      .sort((a, b) =>
+        String(a.name ?? "").localeCompare(String(b.name ?? ""))
+      );
   }
 }
 
@@ -1555,6 +1584,31 @@ export async function deleteChecklistTemplate(
   templateId: string
 ) {
   const safeTemplateId = requireDocumentId(templateId, "Template ID");
+
+  const networkState = await Promise.race([
+    NetInfo.fetch(),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), 750)),
+  ]);
+
+  const isOnline =
+    networkState !== null &&
+    networkState.isConnected === true &&
+    networkState.isInternetReachable === true;
+
+  if (!isOnline || safeTemplateId.startsWith("offline-checklist-template-")) {
+    await enqueueOfflineOperation({
+      id: `offline-delete-checklist-template-${Date.now()}`,
+      type: "deleteChecklistTemplate",
+      userId,
+      payload: {
+        templateId: safeTemplateId,
+      },
+      createdAt: new Date().toISOString(),
+    });
+
+    return;
+  }
+
   const itemsSnapshot = await getDocs(templateItemsCol(userId, safeTemplateId));
   const batch = writeBatch(db);
 
@@ -1575,6 +1629,31 @@ export async function updateChecklistTemplateName(
   const trimmed = name.trim();
   if (!trimmed) {
     throw new Error("Template name is required.");
+  }
+
+  const networkState = await Promise.race([
+    NetInfo.fetch(),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), 750)),
+  ]);
+
+  const isOnline =
+    networkState !== null &&
+    networkState.isConnected === true &&
+    networkState.isInternetReachable === true;
+
+  if (!isOnline || templateId.startsWith("offline-checklist-template-")) {
+    await enqueueOfflineOperation({
+      id: `offline-update-checklist-template-name-${Date.now()}`,
+      type: "updateChecklistTemplateName",
+      userId,
+      payload: {
+        templateId,
+        name: trimmed,
+      },
+      createdAt: new Date().toISOString(),
+    });
+
+    return;
   }
 
   await updateDoc(templateDoc(userId, templateId), {

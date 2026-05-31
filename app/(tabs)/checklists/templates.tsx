@@ -347,10 +347,9 @@ export default function ManageTemplatesScreen() {
             try {
               await deleteChecklistTemplate(uid, template.id);
 
-              const loadVersion = templatesLoadVersionRef.current + 1;
-              templatesLoadVersionRef.current = loadVersion;
-
-              await loadTemplates(loadVersion);
+              setTemplates((prev) =>
+                prev.filter((current) => current.id !== template.id)
+              );
             } catch (err) {
               if (!isMountedRef.current) return;
 

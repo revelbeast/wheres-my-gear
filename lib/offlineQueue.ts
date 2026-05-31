@@ -1,7 +1,7 @@
 const toggleReplayGuard = new Set<string>();
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { addDoc, collection, deleteDoc, doc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDocs, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 
 const OFFLINE_QUEUE_KEY = "wmg.offlineQueue.v1";
@@ -136,6 +136,25 @@ export type OfflineQueueOperation =
         }>;
       };
       createdAt: string;
+    }
+  | {
+      id: string;
+      type: "updateChecklistTemplateName";
+      userId: string;
+      payload: {
+        templateId: string;
+        name: string;
+      };
+      createdAt: string;
+    }
+  | {
+      id: string;
+      type: "deleteChecklistTemplate";
+      userId: string;
+      payload: {
+        templateId: string;
+      };
+      createdAt: string;
     };
 
 async function readQueue(): Promise<OfflineQueueOperation[]> {
@@ -257,6 +276,7 @@ export async function flushOfflineQueue() {
   const compartmentNameMap = new Map<string, string>();
   const checklistIdMap = new Map<string, string>();
   const checklistItemIdMap = new Map<string, string>();
+  const templateIdMap = new Map<string, string>();
 
   for (const operation of queue) {
 
@@ -491,6 +511,8 @@ export async function flushOfflineQueue() {
         }
       );
 
+      templateIdMap.set(operation.id, templateRef.id);
+
       for (const item of operation.payload.items) {
         await addDoc(
           collection(
@@ -513,6 +535,62 @@ export async function flushOfflineQueue() {
           }
         );
       }
+
+      await removeOfflineOperation(operation.id);
+      continue;
+    }
+
+    if (operation.type === "updateChecklistTemplateName") {
+      const resolvedTemplateId =
+        templateIdMap.get(operation.payload.templateId) ??
+        operation.payload.templateId;
+
+      const itemRef = doc(
+        db,
+        "users",
+        operation.userId,
+        "checklistTemplates",
+        resolvedTemplateId
+      );
+
+      await updateDoc(itemRef, {
+        name: operation.payload.name,
+        updatedAt: serverTimestamp(),
+      });
+
+      await removeOfflineOperation(operation.id);
+      continue;
+    }
+
+    if (operation.type === "deleteChecklistTemplate") {
+      const resolvedTemplateId =
+        templateIdMap.get(operation.payload.templateId) ??
+        operation.payload.templateId;
+
+      const itemsSnapshot = await getDocs(
+        collection(
+          db,
+          "users",
+          operation.userId,
+          "checklistTemplates",
+          resolvedTemplateId,
+          "items"
+        )
+      );
+
+      for (const itemDoc of itemsSnapshot.docs) {
+        await deleteDoc(itemDoc.ref);
+      }
+
+      await deleteDoc(
+        doc(
+          db,
+          "users",
+          operation.userId,
+          "checklistTemplates",
+          resolvedTemplateId
+        )
+      );
 
       await removeOfflineOperation(operation.id);
       continue;
@@ -728,6 +806,38 @@ export async function getOfflineChecklistTemplateItems(
     createdAt: templateOperation.createdAt,
     updatedAt: templateOperation.createdAt,
   }));
+}
+
+export async function getOfflineChecklistTemplateNameOverrides(userId: string) {
+  const queue = await readQueue();
+  const nameByTemplateId = new Map<string, string>();
+
+  for (const operation of queue) {
+    if (
+      operation.type === "updateChecklistTemplateName" &&
+      operation.userId === userId
+    ) {
+      nameByTemplateId.set(operation.payload.templateId, operation.payload.name);
+    }
+  }
+
+  return nameByTemplateId;
+}
+
+export async function getOfflineDeletedChecklistTemplateIds(userId: string) {
+  const queue = await readQueue();
+  const deletedTemplateIds = new Set<string>();
+
+  for (const operation of queue) {
+    if (
+      operation.type === "deleteChecklistTemplate" &&
+      operation.userId === userId
+    ) {
+      deletedTemplateIds.add(operation.payload.templateId);
+    }
+  }
+
+  return deletedTemplateIds;
 }
 
 export async function getOfflineItemsByCompartment(
