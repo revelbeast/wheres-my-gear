@@ -595,8 +595,6 @@ export default function VehicleDetailScreen() {
 
       if (!next) {
         setNewRoomName("");
-      } else {
-        scrollToBottom(180);
       }
 
       return next;
