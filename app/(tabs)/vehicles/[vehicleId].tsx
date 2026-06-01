@@ -33,10 +33,12 @@ import ScreenBackground from "../../../components/ui/ScreenBackground";
 import { useThemedValues } from "../../../components/ui/Themed";
 import {
   Compartment,
+  Room,
   StorageSpace,
   createCompartment,
   deleteCompartment,
   getCompartments,
+  getRoomsByStorageSpace,
   getStorageSpaceById,
   updateCompartment,
 } from "../../../lib/gearService";
@@ -155,6 +157,7 @@ export default function VehicleDetailScreen() {
   } = useInteractionLock(450);
 
   const [storageSpace, setStorageSpace] = useState<StorageSpace | null>(null);
+  const [rooms, setRooms] = useState<Room[]>([]);
   const [compartments, setCompartments] = useState<Compartment[]>([]);
   const [showCreateBox, setShowCreateBox] = useState(false);
   const [newCompartmentName, setNewCompartmentName] = useState("");
@@ -206,14 +209,16 @@ export default function VehicleDetailScreen() {
 
     if (!vehicleId) {
       setStorageSpace(null);
+      setRooms([]);
       setCompartments([]);
       return;
     }
 
     async function loadScreenData() {
       try {
-        const [spaceData, compartmentData] = await Promise.all([
+        const [spaceData, roomData, compartmentData] = await Promise.all([
           getStorageSpaceById(String(vehicleId)),
+          getRoomsByStorageSpace(String(vehicleId)),
           getCompartments(String(vehicleId)),
         ]);
 
@@ -225,6 +230,7 @@ export default function VehicleDetailScreen() {
         }
 
         setStorageSpace(spaceData);
+        setRooms(roomData);
         setCompartments(compartmentData);
       } catch (err) {
         if (
@@ -236,6 +242,7 @@ export default function VehicleDetailScreen() {
 
         console.error("Failed to load storage space details:", err);
         setStorageSpace(null);
+        setRooms([]);
         setCompartments([]);
       }
     }
