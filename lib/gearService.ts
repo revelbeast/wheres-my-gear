@@ -34,6 +34,8 @@ export type Compartment = {
   id: string;
   name: string;
   vehicleId: string;
+  roomId?: string;
+  roomName?: string;
   createdAt?: unknown;
   updatedAt?: unknown;
 };

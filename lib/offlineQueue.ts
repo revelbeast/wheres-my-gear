@@ -29,6 +29,8 @@ export type OfflineQueueOperation =
       payload: {
         name: string;
         vehicleId: string;
+        roomId?: string;
+        roomName?: string;
       };
       createdAt: string;
     }
@@ -775,6 +777,8 @@ export async function flushOfflineQueue() {
         {
           name: operation.payload.name,
           vehicleId: resolvedVehicleId,
+          roomId: operation.payload.roomId ?? "",
+          roomName: operation.payload.roomName ?? "",
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         }
@@ -844,6 +848,8 @@ export async function getOfflineCompartments(
         id: operation.id,
         name: operation.payload.name,
         vehicleId: operation.payload.vehicleId,
+        roomId: operation.payload.roomId ?? "",
+        roomName: operation.payload.roomName ?? "",
         createdAt: operation.createdAt,
         updatedAt: operation.createdAt,
       },
@@ -1169,6 +1175,8 @@ export async function getOfflineCompartmentById(
         id: operation.id,
         name: operation.payload.name,
         vehicleId: operation.payload.vehicleId,
+        roomId: operation.payload.roomId ?? "",
+        roomName: operation.payload.roomName ?? "",
         createdAt: operation.createdAt,
         updatedAt: operation.createdAt,
       };
