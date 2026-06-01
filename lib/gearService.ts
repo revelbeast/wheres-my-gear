@@ -655,6 +655,60 @@ export async function updateCompartment(
   await updateDoc(compartmentDoc(compartmentId), payload);
 }
 
+export async function moveCompartment(input: {
+  compartmentId: string;
+  compartmentName: string;
+  vehicleId: string;
+  vehicleName: string;
+  roomId?: string;
+  roomName?: string;
+}) {
+  const trimmedCompartmentId = input.compartmentId.trim();
+  const trimmedCompartmentName = input.compartmentName.trim();
+  const trimmedVehicleId = input.vehicleId.trim();
+  const trimmedVehicleName = input.vehicleName.trim();
+  const trimmedRoomId = input.roomId?.trim() ?? "";
+  const trimmedRoomName = input.roomName?.trim() ?? "";
+
+  if (!trimmedCompartmentId) {
+    throw new Error("Compartment ID is required.");
+  }
+
+  if (!trimmedCompartmentName) {
+    throw new Error("Compartment name is required.");
+  }
+
+  if (!trimmedVehicleId) {
+    throw new Error("Storage space ID is required.");
+  }
+
+  const relatedItemsQuery = query(
+    inventoryCol(),
+    where("compartmentId", "==", trimmedCompartmentId)
+  );
+
+  const relatedItemsSnapshot = await getDocs(relatedItemsQuery);
+  const batch = writeBatch(db);
+
+  batch.update(compartmentDoc(trimmedCompartmentId), {
+    vehicleId: trimmedVehicleId,
+    roomId: trimmedRoomId,
+    roomName: trimmedRoomName,
+    updatedAt: serverTimestamp(),
+  });
+
+  relatedItemsSnapshot.docs.forEach((itemSnapshot) => {
+    batch.update(itemSnapshot.ref, {
+      compartmentName: trimmedCompartmentName,
+      vehicleId: trimmedVehicleId,
+      vehicleName: trimmedVehicleName,
+      updatedAt: serverTimestamp(),
+    });
+  });
+
+  await batch.commit();
+}
+
 export async function deleteCompartment(compartmentId: string) {
   const trimmedCompartmentId = compartmentId.trim();
 

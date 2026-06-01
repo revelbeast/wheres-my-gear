@@ -41,8 +41,10 @@ import {
   deleteItem,
   getAllCompartments,
   getStorageSpaces,
+  getRoomsByStorageSpace,
   getCompartmentById,
   getItemsByCompartment,
+  moveCompartment,
   updateItem,
   updateItemPhoto,
 } from "../../../../../lib/gearService";
@@ -152,6 +154,7 @@ export default function CompartmentDetailScreen() {
   const [updatingPhotoId, setUpdatingPhotoId] = useState<string | null>(null);
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
   const [movingItemId, setMovingItemId] = useState<string | null>(null);
+  const [movingCompartment, setMovingCompartment] = useState(false);
 
   const [photoViewerVisible, setPhotoViewerVisible] = useState(false);
   const [selectedPhotoItem, setSelectedPhotoItem] = useState<Item | null>(null);
@@ -644,6 +647,146 @@ export default function CompartmentDetailScreen() {
       } finally {
         if (isMountedRef.current) {
           setMovingItemId(null);
+        }
+      }
+    });
+  }
+
+
+  async function handleMoveCompartment() {
+    if (
+      !compartment ||
+      interactionLocked ||
+      movingCompartment
+    ) {
+      return;
+    }
+
+    await runWithLock(async () => {
+      try {
+        if (!isMountedRef.current) return;
+
+        setMovingCompartment(true);
+
+        const storageSpaces = await getStorageSpaces();
+
+        const destinations = storageSpaces;
+
+        if (destinations.length === 0) {
+          Alert.alert(
+            "No destinations available",
+            "Create a storage space first."
+          );
+          return;
+        }
+
+        Alert.alert(
+          "Move Compartment",
+          `Choose a destination for "${compartment.name}".`,
+          [
+            ...destinations.map((space) => ({
+              text: space.name,
+              onPress: async () => {
+                try {
+                  const rooms = await getRoomsByStorageSpace(space.id);
+
+                  Alert.alert(
+                    space.name,
+                    "Choose a room or leave unassigned.",
+                    [
+                      {
+                        text: "Unassigned",
+                        onPress: async () => {
+                          if (
+                            space.id === compartment.vehicleId &&
+                            !compartment.roomId
+                          ) {
+                            Alert.alert(
+                              "Already there",
+                              `"${compartment.name}" is already unassigned in ${space.name}.`
+                            );
+                            return;
+                          }
+
+                          await moveCompartment({
+                            compartmentId: compartment.id,
+                            compartmentName: compartment.name,
+                            vehicleId: space.id,
+                            vehicleName: space.name,
+                            roomId: "",
+                            roomName: "",
+                          });
+
+                          await loadCompartment();
+                          await refreshItems();
+                          Alert.alert(
+                            "Compartment moved",
+                            `"${compartment.name}" moved to ${space.name}.`
+                          );
+                        },
+                      },
+                      ...rooms.map((room) => ({
+                        text: room.name,
+                        onPress: async () => {
+                          if (
+                            space.id === compartment.vehicleId &&
+                            room.id === compartment.roomId
+                          ) {
+                            Alert.alert(
+                              "Already there",
+                              `"${compartment.name}" is already in ${room.name}.`
+                            );
+                            return;
+                          }
+
+                          await moveCompartment({
+                            compartmentId: compartment.id,
+                            compartmentName: compartment.name,
+                            vehicleId: space.id,
+                            vehicleName: space.name,
+                            roomId: room.id,
+                            roomName: room.name,
+                          });
+
+                          await loadCompartment();
+                          await refreshItems();
+
+                          Alert.alert(
+                            "Compartment moved",
+                            `"${compartment.name}" moved to ${room.name}.`
+                          );
+                        },
+                      })),
+                      {
+                        text: "Cancel",
+                        style: "cancel",
+                      },
+                    ]
+                  );
+                } catch (error) {
+                  console.error(error);
+                  Alert.alert(
+                    "Error",
+                    "Failed to load destination rooms."
+                  );
+                }
+              },
+            })),
+            {
+              text: "Cancel",
+              style: "cancel",
+            },
+          ]
+        );
+      } catch (error) {
+        console.error(error);
+        Alert.alert(
+          "Error",
+          "Failed to load move destinations."
+        );
+      } finally {
+        if (isMountedRef.current) {
+          setMovingCompartment(false);
         }
       }
     });
@@ -1290,6 +1433,30 @@ export default function CompartmentDetailScreen() {
                 ]}
               >
                 Share Compartment
+              </Text>
+            </HapticPressable>
+
+            <HapticPressable
+              style={[
+                styles.shareCompartmentButton,
+                {
+                  borderColor: theme.colors.border,
+                  backgroundColor: theme.colors.card,
+                },
+                (interactionLocked || movingCompartment) &&
+                  styles.createButtonDisabled,
+              ]}
+              onPress={handleMoveCompartment}
+              disabled={interactionLocked || movingCompartment}
+            >
+              <MoveRight size={18} color={theme.colors.text} />
+              <Text
+                style={[
+                  styles.shareCompartmentButtonText,
+                  { color: theme.colors.text },
+                ]}
+              >
+                Move Compartment
               </Text>
             </HapticPressable>
 
