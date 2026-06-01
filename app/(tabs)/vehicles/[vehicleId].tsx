@@ -1271,6 +1271,21 @@ export default function VehicleDetailScreen() {
 
                   <HapticPressable
                     style={[
+                      styles.cancelCreateButton,
+                      (isCreatingRoom || interactionLocked) &&
+                        styles.createButtonDisabled,
+                    ]}
+                    onPress={() => {
+                      setNewRoomName("");
+                      setShowCreateRoomBox(false);
+                    }}
+                    disabled={isCreatingRoom || interactionLocked}
+                  >
+                    <X size={18} color="#fff" />
+                  </HapticPressable>
+
+                  <HapticPressable
+                    style={[
                       styles.createButton,
                       (!newRoomName.trim() ||
                         isCreatingRoom ||
