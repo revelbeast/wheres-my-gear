@@ -600,6 +600,25 @@ export default function VehicleDetailScreen() {
     });
   }
 
+
+  function showRoomBoxes(room: Room) {
+    const roomCompartments = compartments
+      .filter((c) => c.roomId === room.id)
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    if (roomCompartments.length === 0) {
+      Alert.alert(room.name, "No compartments assigned.");
+      return;
+    }
+
+    Alert.alert(
+      room.name,
+      roomCompartments
+        .map((c, index) => `${index + 1}. ${c.name}`)
+        .join("\n")
+    );
+  }
+
   function getSelectedCompartmentRoomName() {
     if (!newCompartmentRoomId) {
       return "Unassigned";
@@ -1328,6 +1347,22 @@ export default function VehicleDetailScreen() {
 
                   <HapticPressable
                     style={[
+                      styles.cancelCreateButton,
+                      (isCreating || interactionLocked) &&
+                        styles.createButtonDisabled,
+                    ]}
+                    onPress={() => {
+                      setNewCompartmentName("");
+                      setNewCompartmentRoomId("");
+                      setShowCreateBox(false);
+                    }}
+                    disabled={isCreating || interactionLocked}
+                  >
+                    <X size={18} color="#fff" />
+                  </HapticPressable>
+
+                  <HapticPressable
+                    style={[
                       styles.createButton,
                       (!newCompartmentName.trim() ||
                         isCreating ||
@@ -1524,18 +1559,25 @@ export default function VehicleDetailScreen() {
                         >
                           {`${room.name} (${formatRoomCompartmentCount(room.id)})`}
                         </Text>
-                        <Text
-                          style={[
-                            styles.roomCardSubtitle,
-                            {
-                              color: theme.isLight
-                                ? "rgba(0,0,0,0.58)"
-                                : colors.textSecondary,
-                            },
-                          ]}
+                        <HapticPressable
+                          style={styles.viewBoxesButton}
+                          onPress={() => showRoomBoxes(room)}
+                          disabled={roomInteractionDisabled}
                         >
-                          {formatRoomPreview(room.id)}
-                        </Text>
+                          <Text
+                            style={[
+                              styles.roomCardSubtitle,
+                              styles.viewBoxesText,
+                              {
+                                color: theme.isLight
+                                  ? "rgba(37,99,235,0.92)"
+                                  : colors.primary,
+                              },
+                            ]}
+                          >
+                            {`View Boxes (${getRoomCompartmentCount(room.id)})`}
+                          </Text>
+                        </HapticPressable>
 
                         {!!room.notes && (
                           <Text
@@ -1976,6 +2018,15 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(55,130,245,0.95)",
   },
 
+  cancelCreateButton: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(239,68,68,0.92)",
+  },
+
   createButtonDisabled: {
     opacity: 0.5,
   },
@@ -2050,6 +2101,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
     marginTop: 4,
+  },
+
+  viewBoxesButton: {
+    alignSelf: "flex-start",
+  },
+
+  viewBoxesText: {
+    fontWeight: "800",
   },
 
   iconButton: {
