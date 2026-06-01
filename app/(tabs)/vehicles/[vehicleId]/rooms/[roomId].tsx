@@ -1,6 +1,6 @@
 import { BlurView } from "expo-blur";
 import { router, useLocalSearchParams } from "expo-router";
-import { ChevronRight, Pencil, Plus, Trash2 } from "lucide-react-native";
+import { ChevronRight, MoveRight, Pencil, Plus, Trash2 } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
@@ -26,6 +26,8 @@ import {
   deleteCompartment,
   getCompartmentsByVehicle,
   getRoomById,
+  getRoomsByStorageSpace,
+  moveCompartment,
   updateCompartment,
 } from "../../../../../lib/gearService";
 import { useInteractionLock } from "../../../../../lib/useInteractionLock";
@@ -307,6 +309,75 @@ export default function RoomDetailScreen() {
 
         console.error("Failed to rename room compartment:", error);
         Alert.alert("Error", "Failed to rename compartment.");
+      }
+    });
+  }
+
+
+  function handleMoveCompartment(compartment: Compartment) {
+    if (!compartment.id || !vehicleId || !room || isBusy()) return;
+
+    void runWithLock(async () => {
+      try {
+        const rooms = await getRoomsByStorageSpace(String(vehicleId));
+
+        if (!isMountedRef.current) return;
+
+        const destinations = rooms.filter((item) => item.id !== String(roomId));
+
+        if (destinations.length === 0) {
+          Alert.alert(
+            "No destination rooms",
+            "Create another room in this storage space before moving this compartment."
+          );
+          return;
+        }
+
+        Alert.alert(
+          "Move Compartment",
+          `Move "${compartment.name}" to which room?`,
+          [
+            { text: "Cancel", style: "cancel" },
+            ...destinations.map((destinationRoom) => ({
+              text: destinationRoom.name,
+              onPress: () => {
+                void runWithLock(async () => {
+                  try {
+                    await moveCompartment({
+                      compartmentId: compartment.id,
+                      compartmentName: compartment.name,
+                      vehicleId: String(vehicleId),
+                      vehicleName: room.storageSpaceName ?? "",
+                      roomId: destinationRoom.id,
+                      roomName: destinationRoom.name,
+                    });
+
+                    if (!isMountedRef.current) return;
+
+                    setCompartments((current) =>
+                      current.filter((item) => item.id !== compartment.id)
+                    );
+
+                    Alert.alert(
+                      "Compartment moved",
+                      `"${compartment.name}" moved to ${destinationRoom.name}.`
+                    );
+                  } catch (error) {
+                    if (!isMountedRef.current) return;
+
+                    console.error("Failed to move room compartment:", error);
+                    Alert.alert("Error", "Failed to move compartment.");
+                  }
+                });
+              },
+            })),
+          ]
+        );
+      } catch (error) {
+        if (!isMountedRef.current) return;
+
+        console.error("Failed to load destination rooms:", error);
+        Alert.alert("Error", "Failed to load destination rooms.");
       }
     });
   }
@@ -630,6 +701,14 @@ export default function RoomDetailScreen() {
                             disabled={isBusy()}
                           >
                             <Pencil size={16} color={colors.textSecondary} />
+                          </HapticPressable>
+
+                          <HapticPressable
+                            style={styles.iconButton}
+                            onPress={() => handleMoveCompartment(compartment)}
+                            disabled={isBusy()}
+                          >
+                            <MoveRight size={16} color={colors.textSecondary} />
                           </HapticPressable>
 
                           <HapticPressable
