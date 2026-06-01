@@ -2853,7 +2853,8 @@ export default function DashboardScreen() {
                 onChangeText={setSearchQuery}
                 placeholder="Search gear, checklist items, templates..."
                 placeholderTextColor={theme.colors.textMuted}
-                selectionColor={theme.isLight ? "#2563EB" : "#93C5FD"}
+                selectionColor={theme.isLight ? "#007AFF" : "#00E5FF"}
+                cursorColor={theme.isLight ? "#007AFF" : "#00E5FF"}
                 style={[
                   styles.searchInput,
                   {
