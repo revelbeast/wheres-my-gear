@@ -165,6 +165,7 @@ export default function VehicleDetailScreen() {
   const [showCreateBox, setShowCreateBox] = useState(false);
   const [showCreateRoomBox, setShowCreateRoomBox] = useState(false);
   const [newCompartmentName, setNewCompartmentName] = useState("");
+  const [newCompartmentRoomId, setNewCompartmentRoomId] = useState("");
   const [newRoomName, setNewRoomName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
@@ -415,6 +416,7 @@ export default function VehicleDetailScreen() {
 
       if (!next) {
         setNewCompartmentName("");
+        setNewCompartmentRoomId("");
       } else {
         scrollToBottom(180);
       }
@@ -527,6 +529,7 @@ export default function VehicleDetailScreen() {
     Keyboard.dismiss();
     setShowCreateBox(false);
     setNewCompartmentName("");
+    setNewCompartmentRoomId("");
     setEditingCompartmentId(null);
     setEditingCompartmentName("");
 
@@ -597,6 +600,36 @@ export default function VehicleDetailScreen() {
     });
   }
 
+  function getSelectedCompartmentRoomName() {
+    if (!newCompartmentRoomId) {
+      return "Unassigned";
+    }
+
+    return (
+      rooms.find((room) => room.id === newCompartmentRoomId)?.name ??
+      "Unassigned"
+    );
+  }
+
+  function handleChooseCompartmentRoom() {
+    if (isBusy()) return;
+
+    Alert.alert("Assign Compartment", "Choose where this compartment belongs.", [
+      {
+        text: "Unassigned",
+        onPress: () => setNewCompartmentRoomId(""),
+      },
+      ...rooms.map((room) => ({
+        text: room.name,
+        onPress: () => setNewCompartmentRoomId(room.id),
+      })),
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+    ]);
+  }
+
   async function handleCreateCompartment() {
     if (!vehicleId || isCreating || interactionLocked || actionLockRef.current) {
       return;
@@ -612,8 +645,15 @@ export default function VehicleDetailScreen() {
         setIsCreating(true);
         Keyboard.dismiss();
 
+        const selectedRoom = rooms.find(
+          (room) => room.id === newCompartmentRoomId
+        );
+
         const createdId = await Promise.race([
-          createCompartment(trimmed, String(vehicleId)),
+          createCompartment(trimmed, String(vehicleId), {
+            roomId: selectedRoom?.id ?? "",
+            roomName: selectedRoom?.name ?? "",
+          }),
           new Promise<string>((resolve) =>
             setTimeout(() => resolve(`offline-timeout-compartment-${Date.now()}`), 1200)
           ),
@@ -622,6 +662,7 @@ export default function VehicleDetailScreen() {
         if (!isScreenMountedRef.current) return;
 
         setNewCompartmentName("");
+        setNewCompartmentRoomId("");
         setShowCreateBox(false);
 
         if (createdId.startsWith("offline-compartment-")) {
@@ -630,6 +671,8 @@ export default function VehicleDetailScreen() {
               id: createdId,
               name: trimmed,
               vehicleId: String(vehicleId),
+              roomId: selectedRoom?.id ?? "",
+              roomName: selectedRoom?.name ?? "",
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
             },
@@ -1301,6 +1344,46 @@ export default function VehicleDetailScreen() {
                     <Plus size={18} color="#fff" />
                   </HapticPressable>
                 </View>
+
+                <HapticPressable
+                  style={[
+                    styles.assignmentButton,
+                    {
+                      backgroundColor: theme.isLight
+                        ? "rgba(255,255,255,0.82)"
+                        : "rgba(7,20,44,0.55)",
+                      borderColor: theme.isLight
+                        ? "rgba(0,0,0,0.12)"
+                        : "rgba(255,255,255,0.08)",
+                    },
+                  ]}
+                  onPress={handleChooseCompartmentRoom}
+                  disabled={isCreating || interactionLocked}
+                >
+                  <Text
+                    style={[
+                      styles.assignmentLabel,
+                      {
+                        color: theme.isLight
+                          ? "rgba(0,0,0,0.58)"
+                          : colors.textSecondary,
+                      },
+                    ]}
+                  >
+                    Assign to
+                  </Text>
+                  <Text
+                    style={[
+                      styles.assignmentValue,
+                      {
+                        color: theme.isLight ? "#000000" : colors.text,
+                      },
+                    ]}
+                  >
+                    {getSelectedCompartmentRoomName()}
+                  </Text>
+                </HapticPressable>
+
               </BlurView>
             )}
 
@@ -1851,6 +1934,25 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+  },
+
+  assignmentButton: {
+    marginTop: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+
+  assignmentLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    marginBottom: 2,
+  },
+
+  assignmentValue: {
+    fontSize: 14,
+    fontWeight: "800",
   },
 
   createInput: {
