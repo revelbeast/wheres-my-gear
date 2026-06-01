@@ -36,6 +36,7 @@ import {
   Room,
   StorageSpace,
   createCompartment,
+  createRoom,
   deleteCompartment,
   getCompartments,
   getRoomsByStorageSpace,
@@ -160,8 +161,11 @@ export default function VehicleDetailScreen() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [compartments, setCompartments] = useState<Compartment[]>([]);
   const [showCreateBox, setShowCreateBox] = useState(false);
+  const [showCreateRoomBox, setShowCreateRoomBox] = useState(false);
   const [newCompartmentName, setNewCompartmentName] = useState("");
+  const [newRoomName, setNewRoomName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+  const [isCreatingRoom, setIsCreatingRoom] = useState(false);
 
   const [editingCompartmentId, setEditingCompartmentId] = useState<string | null>(
     null
@@ -310,6 +314,7 @@ export default function VehicleDetailScreen() {
   function isBusy() {
     return (
       isCreating ||
+      isCreatingRoom ||
       savingEdit ||
       !!deletingCompartmentId ||
       interactionLocked ||
@@ -361,6 +366,8 @@ export default function VehicleDetailScreen() {
     Keyboard.dismiss();
     setEditingCompartmentId(null);
     setEditingCompartmentName("");
+    setShowCreateRoomBox(false);
+    setNewRoomName("");
 
     setShowCreateBox((prev) => {
       const next = !prev;
@@ -471,6 +478,82 @@ export default function VehicleDetailScreen() {
         style: "cancel",
       },
     ]);
+  }
+
+  function toggleCreateRoomBox() {
+    if (isBusy()) return;
+
+    Keyboard.dismiss();
+    setShowCreateBox(false);
+    setNewCompartmentName("");
+    setEditingCompartmentId(null);
+    setEditingCompartmentName("");
+
+    setShowCreateRoomBox((prev) => {
+      const next = !prev;
+
+      if (!next) {
+        setNewRoomName("");
+      } else {
+        scrollToBottom(180);
+      }
+
+      return next;
+    });
+  }
+
+  async function handleCreateRoom() {
+    if (!vehicleId || isCreatingRoom || interactionLocked || actionLockRef.current) {
+      return;
+    }
+
+    const trimmed = newRoomName.trim();
+    if (!trimmed) return;
+
+    await runWithLock(async () => {
+      try {
+        if (!isScreenMountedRef.current) return;
+
+        setIsCreatingRoom(true);
+        Keyboard.dismiss();
+
+        const createdId = await createRoom({
+          name: trimmed,
+          storageSpaceId: String(vehicleId),
+          storageSpaceName: storageSpace?.name ?? "",
+        });
+
+        if (!isScreenMountedRef.current) return;
+
+        setRooms((current) => [
+          {
+            id: createdId,
+            name: trimmed,
+            storageSpaceId: String(vehicleId),
+            storageSpaceName: storageSpace?.name ?? "",
+            notes: "",
+            photoUri: "",
+            isArchived: false,
+            archivedAt: null,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+          ...current,
+        ]);
+
+        setNewRoomName("");
+        setShowCreateRoomBox(false);
+      } catch (err) {
+        if (!isScreenMountedRef.current) return;
+
+        console.error("Failed to create room:", err);
+        Alert.alert("Error", "Failed to create room.");
+      } finally {
+        if (isScreenMountedRef.current) {
+          setIsCreatingRoom(false);
+        }
+      }
+    });
   }
 
   async function handleCreateCompartment() {
@@ -766,6 +849,71 @@ export default function VehicleDetailScreen() {
                     },
                   ]}
                 >
+                  Add Room
+                </Text>
+                <Text
+                  style={[
+                    styles.topActionSubtitle,
+                    {
+                      color: theme.isLight
+                        ? "#000000"
+                        : "rgba(255,255,255,0.75)",
+                    },
+                  ]}
+                >
+                  Create a room or area inside this storage space.
+                </Text>
+              </View>
+
+              <HapticPressable
+                style={[
+                  styles.topActionButton,
+                  isBusy() && styles.disabledInteraction,
+                ]}
+                onPress={toggleCreateRoomBox}
+                disabled={isBusy()}
+              >
+                <BlurView
+                  intensity={18}
+                  tint="dark"
+                  style={styles.topActionButtonInner}
+                >
+                  {showCreateBox ? (
+                    <Text style={styles.topActionButtonText}>Close</Text>
+                  ) : (
+                    <>
+                      <Plus size={16} color="#fff" />
+                      <Text style={styles.topActionButtonText}>Add</Text>
+                    </>
+                  )}
+                </BlurView>
+              </HapticPressable>
+            </BlurView>
+
+            <BlurView
+              intensity={theme.isLight ? 18 : 18}
+              tint={theme.isLight ? "light" : "dark"}
+              style={[
+                styles.topActionCard,
+                {
+                  backgroundColor: theme.isLight
+                    ? "#FFFFFF"
+                    : "rgba(255,255,255,0.04)",
+                  borderColor: theme.isLight
+                    ? "rgba(0,0,0,0.10)"
+                    : "rgba(255,255,255,0.12)",
+                },
+              ]}
+            >
+              <View style={styles.topActionTextWrap}>
+                <Text
+                  style={[
+                    styles.topActionTitle,
+                    {
+                      color: theme.isLight ? "#000000" : "#FFFFFF",
+                    },
+                  ]}
+                >
                   Add Compartment
                 </Text>
                 <Text
@@ -778,8 +926,7 @@ export default function VehicleDetailScreen() {
                     },
                   ]}
                 >
-                  Create a compartment inside this storage space for better
-                  organization.
+                  Create a compartment inside this storage space for better organization.
                 </Text>
               </View>
 
@@ -836,6 +983,79 @@ export default function VehicleDetailScreen() {
                 Share Storage Space
               </Text>
             </HapticPressable>
+
+            {showCreateRoomBox && (
+              <BlurView
+                intensity={18}
+                tint={theme.isLight ? "light" : "dark"}
+                style={[
+                  styles.createCard,
+                  {
+                    backgroundColor: theme.isLight
+                      ? "#FFFFFF"
+                      : "rgba(12,24,50,0.20)",
+                    borderColor: theme.isLight
+                      ? "rgba(0,0,0,0.10)"
+                      : "rgba(255,255,255,0.08)",
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.createTitle,
+                    {
+                      color: theme.isLight ? "#000000" : colors.text,
+                    },
+                  ]}
+                >
+                  Create Room
+                </Text>
+
+                <View style={styles.createRow}>
+                  <TextInput
+                    value={newRoomName}
+                    onChangeText={setNewRoomName}
+                    placeholder="Enter room or area name"
+                    placeholderTextColor={theme.isLight ? "rgba(0,0,0,0.45)" : colors.textMuted}
+                    style={[
+                      styles.createInput,
+                      {
+                        color: theme.isLight ? "#000000" : colors.text,
+                        backgroundColor: theme.isLight
+                          ? "rgba(255,255,255,0.82)"
+                          : "rgba(7,20,44,0.55)",
+                        borderColor: theme.isLight
+                          ? "rgba(0,0,0,0.12)"
+                          : "rgba(255,255,255,0.08)",
+                      },
+                    ]}
+                    returnKeyType="done"
+                    onFocus={() => scrollToBottom(180)}
+                    onSubmitEditing={handleCreateRoom}
+                    editable={!isCreatingRoom && !interactionLocked}
+                    autoFocus
+                  />
+
+                  <HapticPressable
+                    style={[
+                      styles.createButton,
+                      (!newRoomName.trim() ||
+                        isCreatingRoom ||
+                        interactionLocked) &&
+                      styles.createButtonDisabled,
+                    ]}
+                    onPress={handleCreateRoom}
+                    disabled={
+                      !newRoomName.trim() ||
+                      isCreatingRoom ||
+                      interactionLocked
+                    }
+                  >
+                    <Plus size={18} color="#fff" />
+                  </HapticPressable>
+                </View>
+              </BlurView>
+            )}
 
             {showCreateBox && (
               <BlurView
