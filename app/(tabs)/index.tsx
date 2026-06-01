@@ -361,12 +361,14 @@ function escapeCsvValue(value: string | number) {
 
 function buildDashboardStorageCsv(
   selectedStorageSpaces: StorageSpace[],
+  rooms: Room[],
   compartments: Compartment[],
   items: Item[]
 ) {
   const rows = [
     [
       "Storage Space",
+      "Room",
       "Compartment",
       "Item Name",
       "Quantity",
@@ -376,36 +378,61 @@ function buildDashboardStorageCsv(
   ];
 
   selectedStorageSpaces.forEach((storage) => {
+    const storageRooms = rooms.filter(
+      (room) => room.storageSpaceId === storage.id
+    );
+
     const storageCompartments = compartments.filter(
       (compartment) => compartment.vehicleId === storage.id
     );
 
-    storageCompartments.forEach((compartment) => {
-      const compartmentItems = items.filter(
-        (item) => item.compartmentId === compartment.id
-      );
+    const roomsForExport =
+      storageRooms.length > 0
+        ? storageRooms
+        : [
+            {
+              id: "",
+              name: "No room assigned",
+              storageSpaceId: storage.id,
+            } as Room,
+          ];
 
-      if (compartmentItems.length === 0) {
-        rows.push([
-          storage.name,
-          compartment.name,
-          "",
-          "",
-          "",
-          "",
-        ]);
-        return;
-      }
+    roomsForExport.forEach((room) => {
+      const roomCompartments = room.id
+        ? storageCompartments.filter(
+            (compartment) => compartment.roomId === room.id
+          )
+        : storageCompartments.filter((compartment) => !compartment.roomId);
 
-      compartmentItems.forEach((item) => {
-        rows.push([
-          storage.name,
-          compartment.name,
-          item.name,
-          String(getItemQuantity(item)),
-          item.status,
-          item.notes ?? "",
-        ]);
+      roomCompartments.forEach((compartment) => {
+        const compartmentItems = items.filter(
+          (item) => item.compartmentId === compartment.id
+        );
+
+        if (compartmentItems.length === 0) {
+          rows.push([
+            storage.name,
+            room.name,
+            compartment.name,
+            "",
+            "",
+            "",
+            "",
+          ]);
+          return;
+        }
+
+        compartmentItems.forEach((item) => {
+          rows.push([
+            storage.name,
+            room.name,
+            compartment.name,
+            item.name,
+            String(getItemQuantity(item)),
+            item.status,
+            item.notes ?? "",
+          ]);
+        });
       });
     });
   });
@@ -2131,6 +2158,7 @@ export default function DashboardScreen() {
           exportCategory === "storageSpaces"
             ? buildDashboardStorageCsv(
               selectedStorageSpaces,
+              allRooms,
               selectedCompartmentsForExport,
               allItems
             )
@@ -2207,39 +2235,77 @@ export default function DashboardScreen() {
               })
             );
 
+            const storageRooms = allRooms.filter(
+              (room) => room.storageSpaceId === storage.id
+            );
+
             const storageCompartments = allCompartments.filter(
               (compartment) =>
                 compartment.vehicleId === storage.id &&
                 selectedExportCompartmentIds.includes(compartment.id)
             );
 
-            storageCompartments.forEach((compartment) => {
+            const roomsForExport =
+              storageRooms.length > 0
+                ? storageRooms
+                : [
+                    {
+                      id: "",
+                      name: "No room assigned",
+                      storageSpaceId: storage.id,
+                    } as Room,
+                  ];
+
+            roomsForExport.forEach((room) => {
+              const roomCompartments = room.id
+                ? storageCompartments.filter(
+                    (compartment) => compartment.roomId === room.id
+                  )
+                : storageCompartments.filter((compartment) => !compartment.roomId);
+
+              if (roomCompartments.length === 0) {
+                return;
+              }
+
               docChildren.push(
                 new Paragraph({
                   children: [
                     new TextRun({
-                      text: `Compartment: ${compartment.name}`,
+                      text: `Room: ${room.name}`,
                       bold: true,
                     }),
                   ],
                 })
               );
 
-              const compartmentItems = allItems.filter(
-                (item) => item.compartmentId === compartment.id
-              );
-
-              if (compartmentItems.length === 0) {
-                docChildren.push(new Paragraph({ text: "- No items" }));
-                return;
-              }
-
-              compartmentItems.forEach((item) => {
+              roomCompartments.forEach((compartment) => {
                 docChildren.push(
                   new Paragraph({
-                    text: `- ${item.name} | Qty: ${getItemQuantity(item)} | Status: ${item.status}`,
+                    children: [
+                      new TextRun({
+                        text: `Compartment: ${compartment.name}`,
+                        bold: true,
+                      }),
+                    ],
                   })
                 );
+
+                const compartmentItems = allItems.filter(
+                  (item) => item.compartmentId === compartment.id
+                );
+
+                if (compartmentItems.length === 0) {
+                  docChildren.push(new Paragraph({ text: "- No items" }));
+                  return;
+                }
+
+                compartmentItems.forEach((item) => {
+                  docChildren.push(
+                    new Paragraph({
+                      text: `- ${item.name} | Qty: ${getItemQuantity(item)} | Status: ${item.status}`,
+                    })
+                  );
+                });
               });
             });
 
@@ -2376,38 +2442,75 @@ export default function DashboardScreen() {
           selectedStorageSpaces.forEach((storage) => {
             drawLine(storage.name, { bold: true, size: 15 });
 
+            const storageRooms = allRooms.filter(
+              (room) => room.storageSpaceId === storage.id
+            );
+
             const storageCompartments = allCompartments.filter(
               (compartment) =>
                 compartment.vehicleId === storage.id &&
                 selectedExportCompartmentIds.includes(compartment.id)
             );
 
-            if (storageCompartments.length === 0) {
+            const roomsForExport =
+              storageRooms.length > 0
+                ? storageRooms
+                : [
+                    {
+                      id: "",
+                      name: "No room assigned",
+                      storageSpaceId: storage.id,
+                    } as Room,
+                  ];
+
+            const exportedRooms = roomsForExport
+              .map((room) => {
+                const roomCompartments = room.id
+                  ? storageCompartments.filter(
+                      (compartment) => compartment.roomId === room.id
+                    )
+                  : storageCompartments.filter((compartment) => !compartment.roomId);
+
+                return {
+                  room,
+                  roomCompartments,
+                };
+              })
+              .filter((entry) => entry.roomCompartments.length > 0);
+
+            if (exportedRooms.length === 0) {
               drawLine("- No compartments", { indent: 16 });
               y -= 6;
               return;
             }
 
-            storageCompartments.forEach((compartment) => {
-              drawLine(`Compartment: ${compartment.name}`, {
+            exportedRooms.forEach(({ room, roomCompartments }) => {
+              drawLine(`Room: ${room.name}`, {
                 bold: true,
                 indent: 16,
               });
 
-              const compartmentItems = allItems.filter(
-                (item) => item.compartmentId === compartment.id
-              );
+              roomCompartments.forEach((compartment) => {
+                drawLine(`Compartment: ${compartment.name}`, {
+                  bold: true,
+                  indent: 32,
+                });
 
-              if (compartmentItems.length === 0) {
-                drawLine("- No items", { indent: 32 });
-                return;
-              }
-
-              compartmentItems.forEach((item) => {
-                drawLine(
-                  `- ${item.name} | Qty: ${getItemQuantity(item)} | Status: ${item.status}`,
-                  { indent: 32 }
+                const compartmentItems = allItems.filter(
+                  (item) => item.compartmentId === compartment.id
                 );
+
+                if (compartmentItems.length === 0) {
+                  drawLine("- No items", { indent: 48 });
+                  return;
+                }
+
+                compartmentItems.forEach((item) => {
+                  drawLine(
+                    `- ${item.name} | Qty: ${getItemQuantity(item)} | Status: ${item.status}`,
+                    { indent: 48 }
+                  );
+                });
               });
             });
 
@@ -3399,7 +3502,11 @@ export default function DashboardScreen() {
                       : `${selectedExportChecklistIds.length} selected`}
                   </ThemedText>
 
-                  <View style={styles.exportModalOptions}>
+                  <ScrollView
+                    style={styles.exportModalOptionsScroll}
+                    contentContainerStyle={styles.exportModalOptions}
+                    showsVerticalScrollIndicator={true}
+                  >
                     {(exportCategory === "storageSpaces"
                       ? storageSpaces
                       : allChecklists
@@ -3457,7 +3564,7 @@ export default function DashboardScreen() {
                             : "Select All Checklists"}
                       </ThemedText>
                     </HapticPressable>
-                  </View>
+                  </ScrollView>
                 </>
               ) : exportStep === "compartments" ? (
                 <>
@@ -3470,7 +3577,11 @@ export default function DashboardScreen() {
                     {`${selectedExportCompartmentIds.length} selected`}
                   </ThemedText>
 
-                  <View style={styles.exportModalOptions}>
+                  <ScrollView
+                    style={styles.exportModalOptionsScroll}
+                    contentContainerStyle={styles.exportModalOptions}
+                    showsVerticalScrollIndicator={true}
+                  >
                     {allCompartments
                       .filter((compartment) =>
                         selectedExportStorageIds.includes(compartment.vehicleId)
@@ -3540,7 +3651,7 @@ export default function DashboardScreen() {
                           : "Select All Compartments"}
                       </ThemedText>
                     </HapticPressable>
-                  </View>
+                  </ScrollView>
                 </>
               ) : (
                 <>
@@ -4622,9 +4733,14 @@ const styles = StyleSheet.create({
     gap: 12,
   },
 
+  exportModalOptionsScroll: {
+    marginTop: 8,
+    maxHeight: 420,
+  },
+
   exportModalOptions: {
     gap: 10,
-    marginTop: 8,
+    paddingBottom: 8,
   },
 
   exportModalOptionButton: {
