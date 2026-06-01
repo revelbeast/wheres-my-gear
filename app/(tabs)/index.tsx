@@ -170,6 +170,13 @@ type QuickCompartment = {
   itemCount: number;
 };
 
+type QuickRoom = {
+  id: string;
+  name: string;
+  compartmentCount: number;
+  itemCount: number;
+};
+
 type UpcomingTrip = {
   id: string;
   name: string;
@@ -607,6 +614,7 @@ export default function DashboardScreen() {
   const [quickCompartments, setQuickCompartments] = useState<QuickCompartment[]>(
     []
   );
+  const [quickRooms, setQuickRooms] = useState<QuickRoom[]>([]);
   const [upcomingTrips, setUpcomingTrips] = useState<UpcomingTrip[]>([]);
   const [exportModalVisible, setExportModalVisible] = useState(false);
   const [voiceAddModalVisible, setVoiceAddModalVisible] = useState(false);
