@@ -42,6 +42,7 @@ import {
   getRoomsByStorageSpace,
   getStorageSpaceById,
   updateCompartment,
+  updateRoom,
 } from "../../../lib/gearService";
 import { useInteractionLock } from "../../../lib/useInteractionLock";
 import { colors } from "../../../theme/tokens";
@@ -166,6 +167,9 @@ export default function VehicleDetailScreen() {
   const [newRoomName, setNewRoomName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
+  const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
+  const [editingRoomName, setEditingRoomName] = useState("");
+  const [savingRoomEdit, setSavingRoomEdit] = useState(false);
 
   const [editingCompartmentId, setEditingCompartmentId] = useState<string | null>(
     null
@@ -349,6 +353,7 @@ export default function VehicleDetailScreen() {
       isCreating ||
       isCreatingRoom ||
       savingEdit ||
+      savingRoomEdit ||
       !!deletingCompartmentId ||
       interactionLocked ||
       actionLockRef.current ||
@@ -642,6 +647,63 @@ export default function VehicleDetailScreen() {
         if (isScreenMountedRef.current) {
           setIsCreating(false);
         }
+      }
+    });
+  }
+
+
+  function startEditingRoom(room: Room) {
+    if (isBusy()) return;
+
+    setEditingRoomId(room.id);
+    setEditingRoomName(room.name);
+  }
+
+  function cancelRoomEditing() {
+    if (savingRoomEdit || interactionLocked) return;
+
+    setEditingRoomId(null);
+    setEditingRoomName("");
+  }
+
+  async function saveRoomEditing(room: Room) {
+    const trimmed = editingRoomName.trim();
+
+    if (
+      !trimmed ||
+      savingRoomEdit ||
+      interactionLocked ||
+      trimmed === room.name
+    ) {
+      return;
+    }
+
+    await runWithLock(async () => {
+      try {
+        setSavingRoomEdit(true);
+
+        await updateRoom(room.id, {
+          name: trimmed,
+        });
+
+        setRooms((current) =>
+          current.map((candidate) =>
+            candidate.id === room.id
+              ? {
+                  ...candidate,
+                  name: trimmed,
+                }
+              : candidate
+          )
+        );
+
+        setEditingRoomId(null);
+        setEditingRoomName("");
+      } catch (error) {
+        console.error("Failed to rename room:", error);
+        Alert.alert("Error", "Failed to rename room.");
+      } finally {
+        setSavingRoomEdit(false);
       }
     });
   }
@@ -1221,11 +1283,15 @@ export default function VehicleDetailScreen() {
                 </Text>
               </BlurView>
             ) : (
-              rooms.map((room) => (
+              rooms.map((room) => {
+                const isEditingRoom = editingRoomId === room.id;
+                const roomInteractionDisabled = isBusy();
+
+                return (
                 <HapticPressable
                   key={room.id}
                   onPress={() => handleOpenRoom(room.id)}
-                  disabled={isBusy()}
+                  disabled={roomInteractionDisabled || isEditingRoom}
                 >
                   <BlurView
                     intensity={18}
@@ -1242,50 +1308,129 @@ export default function VehicleDetailScreen() {
                     },
                   ]}
                 >
-                  <View style={styles.cardLeft}>
-                    <Text
-                      style={[
-                        styles.cardTitle,
-                        {
-                          color: theme.isLight ? "#000000" : colors.text,
-                        },
-                      ]}
-                    >
-                      {`${room.name} (${formatRoomCompartmentCount(room.id)})`}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.roomCardSubtitle,
-                        {
-                          color: theme.isLight
-                            ? "rgba(0,0,0,0.58)"
-                            : colors.textSecondary,
-                        },
-                      ]}
-                    >
-                      {formatRoomPreview(room.id)}
-                    </Text>
+                  {isEditingRoom ? (
+                    <View style={styles.editWrap}>
+                      <Text style={styles.editLabel}>Edit room name</Text>
 
-                    {!!room.notes && (
-                      <Text
-                        style={[
-                          styles.roomCardSubtitle,
-                          {
-                            color: theme.isLight
-                              ? "rgba(0,0,0,0.58)"
-                              : colors.textSecondary,
-                          },
-                        ]}
-                      >
-                        {room.notes}
-                      </Text>
-                    )}
-                  </View>
+                      <TextInput
+                        value={editingRoomName}
+                        onChangeText={setEditingRoomName}
+                        placeholder="Room name"
+                        placeholderTextColor={colors.textMuted}
+                        style={styles.editInput}
+                        autoFocus
+                        returnKeyType="done"
+                        onSubmitEditing={() => saveRoomEditing(room)}
+                        editable={!savingRoomEdit && !interactionLocked}
+                        selectTextOnFocus
+                      />
 
-                  <ChevronRight size={18} color={colors.textSecondary} />
+                      <View style={styles.editActions}>
+                        <HapticPressable
+                          style={[
+                            styles.saveEditButton,
+                            (!editingRoomName.trim() ||
+                              savingRoomEdit ||
+                              interactionLocked) &&
+                              styles.createButtonDisabled,
+                          ]}
+                          onPress={() => saveRoomEditing(room)}
+                          disabled={
+                            !editingRoomName.trim() ||
+                            savingRoomEdit ||
+                            interactionLocked
+                          }
+                        >
+                          <Check size={16} color="#fff" />
+                          <Text style={styles.saveEditText}>
+                            {savingRoomEdit ? "Saving..." : "Save"}
+                          </Text>
+                        </HapticPressable>
+
+                        <HapticPressable
+                          style={[
+                            styles.cancelEditButton,
+                            (savingRoomEdit || interactionLocked) &&
+                              styles.disabledInteraction,
+                          ]}
+                          onPress={cancelRoomEditing}
+                          disabled={savingRoomEdit || interactionLocked}
+                        >
+                          <X size={16} color={colors.text} />
+                          <Text style={styles.cancelEditText}>Cancel</Text>
+                        </HapticPressable>
+                      </View>
+                    </View>
+                  ) : (
+                    <>
+                      <View style={styles.cardLeft}>
+                        <Text
+                          style={[
+                            styles.cardTitle,
+                            {
+                              color: theme.isLight ? "#000000" : colors.text,
+                            },
+                          ]}
+                        >
+                          {`${room.name} (${formatRoomCompartmentCount(room.id)})`}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.roomCardSubtitle,
+                            {
+                              color: theme.isLight
+                                ? "rgba(0,0,0,0.58)"
+                                : colors.textSecondary,
+                            },
+                          ]}
+                        >
+                          {formatRoomPreview(room.id)}
+                        </Text>
+
+                        {!!room.notes && (
+                          <Text
+                            style={[
+                              styles.roomCardSubtitle,
+                              {
+                                color: theme.isLight
+                                  ? "rgba(0,0,0,0.58)"
+                                  : colors.textSecondary,
+                              },
+                            ]}
+                          >
+                            {room.notes}
+                          </Text>
+                        )}
+                      </View>
+
+                      <View style={styles.cardRight}>
+                        <HapticPressable
+                          style={[
+                            styles.iconButton,
+                            roomInteractionDisabled &&
+                              styles.disabledInteraction,
+                          ]}
+                          onPress={() => startEditingRoom(room)}
+                          disabled={roomInteractionDisabled}
+                        >
+                          <Pencil
+                            size={16}
+                            color={
+                              theme.isLight
+                                ? "rgba(0,0,0,0.55)"
+                                : colors.textSecondary
+                            }
+                          />
+                        </HapticPressable>
+
+                        <ChevronRight size={18} color={colors.textSecondary} />
+                      </View>
+                    </>
+                  )}
                   </BlurView>
                 </HapticPressable>
-              ))
+                );
+              })
             )}
 
             <View style={styles.sectionHeader}>

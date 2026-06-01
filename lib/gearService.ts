@@ -308,6 +308,28 @@ export async function updateRoom(
     payload.storageSpaceName = updates.storageSpaceName.trim();
   }
 
+  if (typeof updates.name === "string") {
+    const relatedCompartmentsQuery = query(
+      compartmentsCol(),
+      where("roomId", "==", trimmedRoomId)
+    );
+
+    const relatedCompartmentsSnapshot = await getDocs(relatedCompartmentsQuery);
+    const batch = writeBatch(db);
+
+    batch.update(roomDoc(trimmedRoomId), payload);
+
+    relatedCompartmentsSnapshot.docs.forEach((compartmentSnapshot) => {
+      batch.update(compartmentSnapshot.ref, {
+        roomName: payload.name,
+        updatedAt: serverTimestamp(),
+      });
+    });
+
+    await batch.commit();
+    return;
+  }
+
   await updateDoc(roomDoc(trimmedRoomId), payload);
 }
 
