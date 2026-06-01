@@ -30,6 +30,19 @@ export type StorageSpace = {
   updatedAt?: unknown;
 };
 
+export type Room = {
+  id: string;
+  name: string;
+  storageSpaceId: string;
+  storageSpaceName?: string;
+  notes?: string;
+  photoUri?: string;
+  isArchived?: boolean;
+  archivedAt?: unknown;
+  createdAt?: unknown;
+  updatedAt?: unknown;
+};
+
 export type Compartment = {
   id: string;
   name: string;
@@ -80,6 +93,14 @@ function storageSpacesCol() {
 
 function storageSpaceDoc(storageId: string) {
   return doc(db, "users", getCurrentUserId(), "storageSpaces", storageId);
+}
+
+function roomsCol() {
+  return collection(db, "users", getCurrentUserId(), "rooms");
+}
+
+function roomDoc(roomId: string) {
+  return doc(db, "users", getCurrentUserId(), "rooms", roomId);
 }
 
 function compartmentsCol() {
@@ -159,6 +180,56 @@ export async function getStorageSpaceById(
     } as StorageSpace;
   } catch (error) {
     console.warn("Unable to load storage space while offline.", error);
+    return null;
+  }
+}
+
+export async function getRoomsByStorageSpace(
+  storageSpaceId: string
+): Promise<Room[]> {
+  const trimmedStorageSpaceId = storageSpaceId.trim();
+
+  if (!trimmedStorageSpaceId) {
+    return [];
+  }
+
+  try {
+    const q = query(
+      roomsCol(),
+      where("storageSpaceId", "==", trimmedStorageSpaceId)
+    );
+    const snapshot = await withOfflineReadTimeout(getDocs(q));
+
+    return snapshot.docs
+      .map((d) => ({
+        id: d.id,
+        ...d.data(),
+      }) as Room)
+      .filter((room) => !room.isArchived);
+  } catch (error) {
+    console.warn("Unable to load rooms for storage space.", error);
+    return [];
+  }
+}
+
+export async function getRoomById(roomId: string): Promise<Room | null> {
+  const trimmedRoomId = roomId.trim();
+
+  if (!trimmedRoomId) {
+    return null;
+  }
+
+  try {
+    const snapshot = await withOfflineReadTimeout(getDoc(roomDoc(trimmedRoomId)));
+
+    if (!snapshot.exists()) return null;
+
+    return {
+      id: snapshot.id,
+      ...snapshot.data(),
+    } as Room;
+  } catch (error) {
+    console.warn("Unable to load room.", error);
     return null;
   }
 }
@@ -907,6 +978,8 @@ export async function searchItemsForUser(
 const gearService = {
   getStorageSpaces,
   getStorageSpaceById,
+  getRoomsByStorageSpace,
+  getRoomById,
   createStorageSpace,
   updateStorageSpace,
   updateStorageSpaceNotes,
