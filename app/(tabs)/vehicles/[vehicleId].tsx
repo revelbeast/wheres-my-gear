@@ -417,8 +417,6 @@ export default function VehicleDetailScreen() {
       if (!next) {
         setNewCompartmentName("");
         setNewCompartmentRoomId("");
-      } else {
-        scrollToBottom(180);
       }
 
       return next;
@@ -1269,7 +1267,6 @@ export default function VehicleDetailScreen() {
                     onFocus={() => scrollToBottom(180)}
                     onSubmitEditing={handleCreateRoom}
                     editable={!isCreatingRoom && !interactionLocked}
-                    autoFocus
                   />
 
                   <HapticPressable
@@ -1342,7 +1339,6 @@ export default function VehicleDetailScreen() {
                     onFocus={() => scrollToBottom(180)}
                     onSubmitEditing={handleCreateCompartment}
                     editable={!isCreating && !interactionLocked}
-                    autoFocus
                   />
 
                   <HapticPressable
