@@ -234,6 +234,121 @@ export async function getRoomById(roomId: string): Promise<Room | null> {
   }
 }
 
+export async function createRoom(input: {
+  name: string;
+  storageSpaceId: string;
+  storageSpaceName?: string;
+  notes?: string;
+  photoUri?: string;
+}) {
+  const trimmedName = input.name.trim();
+  const trimmedStorageSpaceId = input.storageSpaceId.trim();
+
+  if (!trimmedName) {
+    throw new Error("Room name is required.");
+  }
+
+  if (!trimmedStorageSpaceId) {
+    throw new Error("Storage space ID is required.");
+  }
+
+  const ref = await addDoc(roomsCol(), {
+    name: trimmedName,
+    storageSpaceId: trimmedStorageSpaceId,
+    storageSpaceName: input.storageSpaceName?.trim() ?? "",
+    notes: input.notes ?? "",
+    photoUri: input.photoUri ?? "",
+    isArchived: false,
+    archivedAt: null,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
+  return ref.id;
+}
+
+export async function updateRoom(
+  roomId: string,
+  updates: Partial<{
+    name: string;
+    storageSpaceId: string;
+    storageSpaceName: string;
+    notes: string;
+    photoUri: string;
+  }>
+) {
+  const trimmedRoomId = roomId.trim();
+
+  if (!trimmedRoomId) {
+    throw new Error("Room ID is required.");
+  }
+
+  const payload: Record<string, unknown> = {
+    ...updates,
+    updatedAt: serverTimestamp(),
+  };
+
+  if (typeof updates.name === "string") {
+    const trimmed = updates.name.trim();
+    if (!trimmed) {
+      throw new Error("Room name is required.");
+    }
+    payload.name = trimmed;
+  }
+
+  if (typeof updates.storageSpaceId === "string") {
+    const trimmedStorageSpaceId = updates.storageSpaceId.trim();
+    if (!trimmedStorageSpaceId) {
+      throw new Error("Storage space ID is required.");
+    }
+    payload.storageSpaceId = trimmedStorageSpaceId;
+  }
+
+  if (typeof updates.storageSpaceName === "string") {
+    payload.storageSpaceName = updates.storageSpaceName.trim();
+  }
+
+  await updateDoc(roomDoc(trimmedRoomId), payload);
+}
+
+export async function archiveRoom(roomId: string) {
+  const trimmedRoomId = roomId.trim();
+
+  if (!trimmedRoomId) {
+    throw new Error("Room ID is required.");
+  }
+
+  await updateDoc(roomDoc(trimmedRoomId), {
+    isArchived: true,
+    archivedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function restoreRoom(roomId: string) {
+  const trimmedRoomId = roomId.trim();
+
+  if (!trimmedRoomId) {
+    throw new Error("Room ID is required.");
+  }
+
+  await updateDoc(roomDoc(trimmedRoomId), {
+    isArchived: false,
+    archivedAt: null,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function deleteRoom(roomId: string) {
+  const trimmedRoomId = roomId.trim();
+
+  if (!trimmedRoomId) {
+    throw new Error("Room ID is required.");
+  }
+
+  await deleteDoc(roomDoc(trimmedRoomId));
+}
+
 export async function createStorageSpace(input: {
   name: string;
   category?: StorageSpaceCategory;
