@@ -33,12 +33,14 @@ import ScreenBackground from "../../../components/ui/ScreenBackground";
 import { useThemedValues } from "../../../components/ui/Themed";
 import {
   Compartment,
+  Item,
   Room,
   StorageSpace,
   createCompartment,
   createRoom,
   deleteCompartment,
   deleteRoom,
+  getAllItems,
   getCompartments,
   getRoomsByStorageSpace,
   getStorageSpaceById,
@@ -162,6 +164,7 @@ export default function VehicleDetailScreen() {
   const [storageSpace, setStorageSpace] = useState<StorageSpace | null>(null);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [compartments, setCompartments] = useState<Compartment[]>([]);
+  const [items, setItems] = useState<Item[]>([]);
   const [showCreateBox, setShowCreateBox] = useState(false);
   const [showCreateRoomBox, setShowCreateRoomBox] = useState(false);
   const [newCompartmentName, setNewCompartmentName] = useState("");
@@ -204,6 +207,45 @@ export default function VehicleDetailScreen() {
 
   function getRoomCompartments(roomId: string) {
     return compartments.filter((compartment) => compartment.roomId === roomId);
+  }
+
+  function getCompartmentItemSummary(compartmentId: string) {
+    const compartmentItems = items.filter(
+      (item) => item.compartmentId === compartmentId
+    );
+
+    const itemCount = compartmentItems.length;
+    const packedCount = compartmentItems.filter(
+      (item) => item.status === "packed"
+    ).length;
+    const toPackCount = itemCount - packedCount;
+
+    return {
+      itemCount,
+      packedCount,
+      toPackCount,
+    };
+  }
+
+  function getRoomItemSummary(roomId: string) {
+    const roomCompartmentIds = getRoomCompartments(roomId).map(
+      (compartment) => compartment.id
+    );
+
+    const roomItems = items.filter((item) =>
+      roomCompartmentIds.includes(String(item.compartmentId ?? ""))
+    );
+
+    const itemCount = roomItems.length;
+    const packedCount = roomItems.filter((item) => item.status === "packed")
+      .length;
+    const toPackCount = itemCount - packedCount;
+
+    return {
+      itemCount,
+      packedCount,
+      toPackCount,
+    };
   }
 
   function formatRoomPreview(roomId: string) {
@@ -255,15 +297,17 @@ export default function VehicleDetailScreen() {
       setStorageSpace(null);
       setRooms([]);
       setCompartments([]);
+      setItems([]);
       return;
     }
 
     async function loadScreenData() {
       try {
-        const [spaceData, roomData, compartmentData] = await Promise.all([
+        const [spaceData, roomData, compartmentData, itemData] = await Promise.all([
           getStorageSpaceById(String(vehicleId)),
           getRoomsByStorageSpace(String(vehicleId)),
           getCompartments(String(vehicleId)),
+          getAllItems(),
         ]);
 
         if (
@@ -276,6 +320,7 @@ export default function VehicleDetailScreen() {
         setStorageSpace(spaceData);
         setRooms(roomData);
         setCompartments(compartmentData);
+        setItems(itemData.filter((item) => item.vehicleId === String(vehicleId)));
       } catch (err) {
         if (
           !isScreenMountedRef.current ||
@@ -288,6 +333,7 @@ export default function VehicleDetailScreen() {
         setStorageSpace(null);
         setRooms([]);
         setCompartments([]);
+        setItems([]);
       }
     }
 
@@ -1570,6 +1616,37 @@ export default function VehicleDetailScreen() {
                         >
                           {`${room.name} (${formatRoomCompartmentCount(room.id)})`}
                         </Text>
+
+                        <Text
+                          style={[
+                            styles.roomCardSubtitle,
+                            {
+                              color: theme.isLight
+                                ? "rgba(0,0,0,0.58)"
+                                : colors.textSecondary,
+                            },
+                          ]}
+                        >
+                          {`${getRoomCompartmentCount(room.id)} boxes • ${
+                            getRoomItemSummary(room.id).itemCount
+                          } items`}
+                        </Text>
+
+                        <Text
+                          style={[
+                            styles.roomCardSubtitle,
+                            {
+                              color: theme.isLight
+                                ? "rgba(0,0,0,0.58)"
+                                : colors.textSecondary,
+                            },
+                          ]}
+                        >
+                          {`${getRoomItemSummary(room.id).packedCount} packed • ${
+                            getRoomItemSummary(room.id).toPackCount
+                          } to pack`}
+                        </Text>
+
                         <HapticPressable
                           style={styles.viewBoxesButton}
                           onPress={() => showRoomBoxes(room)}
@@ -1808,6 +1885,34 @@ export default function VehicleDetailScreen() {
                               ]}
                             >
                               {compartment.name}
+                            </Text>
+
+                            <Text
+                              style={[
+                                styles.roomCardSubtitle,
+                                {
+                                  color: theme.isLight
+                                    ? "rgba(0,0,0,0.58)"
+                                    : colors.textSecondary,
+                                },
+                              ]}
+                            >
+                              {`${getCompartmentItemSummary(compartment.id).itemCount} items`}
+                            </Text>
+
+                            <Text
+                              style={[
+                                styles.roomCardSubtitle,
+                                {
+                                  color: theme.isLight
+                                    ? "rgba(0,0,0,0.58)"
+                                    : colors.textSecondary,
+                                },
+                              ]}
+                            >
+                              {`${getCompartmentItemSummary(compartment.id).packedCount} packed • ${
+                                getCompartmentItemSummary(compartment.id).toPackCount
+                              } to pack`}
                             </Text>
                           </HapticPressable>
 
