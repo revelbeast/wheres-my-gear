@@ -18,7 +18,7 @@ export default {
 
     android: {
       package: "com.revelbeast.wheresmygear",
-      versionCode: 3,
+      versionCode: 6,
       googleServicesFile: "./google-services.json",
       adaptiveIcon: {
         foregroundImage: "./assets/images/app-icon.png",
