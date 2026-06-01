@@ -2,6 +2,7 @@ import { BlurView } from "expo-blur";
 import * as FileSystem from "expo-file-system/legacy";
 import { router, useLocalSearchParams } from "expo-router";
 import {
+  Archive,
   Check,
   ChevronRight,
   Pencil,
@@ -36,6 +37,7 @@ import {
   Item,
   Room,
   StorageSpace,
+  archiveRoom,
   createCompartment,
   createRoom,
   deleteCompartment,
@@ -175,6 +177,7 @@ export default function VehicleDetailScreen() {
   const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
   const [editingRoomName, setEditingRoomName] = useState("");
   const [savingRoomEdit, setSavingRoomEdit] = useState(false);
+  const [archivingRoomId, setArchivingRoomId] = useState<string | null>(null);
   const [deletingRoomId, setDeletingRoomId] = useState<string | null>(null);
 
   const [editingCompartmentId, setEditingCompartmentId] = useState<string | null>(
@@ -403,6 +406,7 @@ export default function VehicleDetailScreen() {
       isCreatingRoom ||
       savingEdit ||
       savingRoomEdit ||
+      !!archivingRoomId ||
       !!deletingRoomId ||
       !!deletingCompartmentId ||
       interactionLocked ||
@@ -761,6 +765,50 @@ export default function VehicleDetailScreen() {
   }
 
 
+
+  function confirmArchiveRoom(room: Room) {
+    if (isBusy()) return;
+
+    Alert.alert(
+      "Archive room?",
+      `Archive "${room.name}"? Compartments will stay attached and can be restored later.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Archive Room",
+          onPress: () => handleArchiveRoom(room),
+        },
+      ]
+    );
+  }
+
+  async function handleArchiveRoom(room: Room) {
+    if (archivingRoomId || interactionLocked || actionLockRef.current) {
+      return;
+    }
+
+    await runWithLock(async () => {
+      try {
+        setArchivingRoomId(room.id);
+
+        await archiveRoom(room.id);
+
+        setRooms((current) =>
+          current.filter((candidate) => candidate.id !== room.id)
+        );
+
+        if (editingRoomId === room.id) {
+          setEditingRoomId(null);
+          setEditingRoomName("");
+        }
+      } catch (error) {
+        console.error("Failed to archive room:", error);
+        Alert.alert("Error", "Failed to archive room.");
+      } finally {
+        setArchivingRoomId(null);
+      }
+    });
+  }
 
   function confirmDeleteRoom(room: Room) {
     if (isBusy()) return;
@@ -1694,6 +1742,25 @@ export default function VehicleDetailScreen() {
                           disabled={roomInteractionDisabled}
                         >
                           <Pencil
+                            size={16}
+                            color={
+                              theme.isLight
+                                ? "rgba(0,0,0,0.55)"
+                                : colors.textSecondary
+                            }
+                          />
+                        </HapticPressable>
+
+                        <HapticPressable
+                          style={[
+                            styles.iconButton,
+                            roomInteractionDisabled &&
+                              styles.disabledInteraction,
+                          ]}
+                          onPress={() => confirmArchiveRoom(room)}
+                          disabled={roomInteractionDisabled}
+                        >
+                          <Archive
                             size={16}
                             color={
                               theme.isLight
