@@ -3200,11 +3200,15 @@ export default function DashboardScreen() {
                           <ThemedCard
                             key={room.id}
                             style={styles.quickGridCard}
-                            contentStyle={styles.quickGridCardContent}
+                            contentStyle={[
+                              styles.quickGridCardContent,
+                              styles.roomQuickGridCardContent,
+                            ]}
                           >
                             <HapticPressable
                               style={[
                                 styles.quickGridRow,
+                                styles.roomQuickGridRow,
                                 navigationDisabled && styles.disabledInteraction,
                               ]}
                               onPress={() => handleOpenRoom(room.id)}
@@ -3213,21 +3217,13 @@ export default function DashboardScreen() {
                               <View style={styles.quickGridLeft}>
                                 <ThemedText
                                   variant="bodyStrong"
-                                  style={styles.quickGridTitle}
-                                  numberOfLines={2}
+                                  style={[
+                                    styles.quickGridTitle,
+                                    styles.roomQuickGridTitle,
+                                  ]}
+                                  numberOfLines={1}
                                 >
                                   {room.name}
-                                </ThemedText>
-                                <ThemedText
-                                  color="secondary"
-                                  style={styles.quickGridMeta}
-                                >
-                                  {room.compartmentCount}{" "}
-                                  {room.compartmentCount === 1
-                                    ? "compartment"
-                                    : "compartments"}{" "}
-                                  • {room.itemCount}{" "}
-                                  {room.itemCount === 1 ? "item" : "items"}
                                 </ThemedText>
                               </View>
                               <ChevronRight
@@ -4820,6 +4816,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+  },
+
+  roomQuickGridCardContent: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+
+  roomQuickGridRow: {
+    minHeight: 36,
+  },
+
+  roomQuickGridTitle: {
+    marginBottom: 0,
   },
 
   quickGridLeft: {
