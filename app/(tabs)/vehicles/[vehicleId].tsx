@@ -180,6 +180,22 @@ export default function VehicleDetailScreen() {
     ? `${storageSpace.name} Compartments`
     : "Compartments";
 
+  const unassignedCompartments = useMemo(
+    () => compartments.filter((compartment) => !compartment.roomId),
+    [compartments]
+  );
+
+  function getRoomCompartmentCount(roomId: string) {
+    return compartments.filter((compartment) => compartment.roomId === roomId)
+      .length;
+  }
+
+  function formatRoomCompartmentCount(roomId: string) {
+    const count = getRoomCompartmentCount(roomId);
+    return `${count} ${count === 1 ? "box" : "boxes"}`;
+  }
+
+
   useEffect(() => {
     isScreenMountedRef.current = true;
 
@@ -1218,7 +1234,7 @@ export default function VehicleDetailScreen() {
                         },
                       ]}
                     >
-                      {room.name}
+                      {`${room.name} (${formatRoomCompartmentCount(room.id)})`}
                     </Text>
                     {!!room.notes && (
                       <Text
@@ -1244,13 +1260,13 @@ export default function VehicleDetailScreen() {
 
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>
-                {compartments.length === 0
-                  ? "No compartments yet"
-                  : `Compartments (${compartments.length})`}
+                {unassignedCompartments.length === 0
+                  ? "No unassigned compartments"
+                  : `Unassigned Compartments (${unassignedCompartments.length})`}
               </Text>
             </View>
 
-            {compartments.length === 0 ? (
+            {unassignedCompartments.length === 0 ? (
               <BlurView
                 intensity={18}
                 tint={theme.isLight ? "light" : "dark"}
@@ -1274,7 +1290,7 @@ export default function VehicleDetailScreen() {
                     },
                   ]}
                 >
-                  No compartments found
+                  No unassigned compartments
                 </Text>
                 <Text
                   style={[
@@ -1286,12 +1302,12 @@ export default function VehicleDetailScreen() {
                     },
                   ]}
                 >
-                  Add your first compartment for this storage space to start
-                  organizing items.
+                  Compartments assigned to rooms will appear inside their rooms.
+                  Unassigned compartments will appear here.
                 </Text>
               </BlurView>
             ) : (
-              compartments.map((compartment) => {
+              unassignedCompartments.map((compartment) => {
                 const isEditing = editingCompartmentId === compartment.id;
                 const interactionDisabled =
                   isBusy() || deletingCompartmentId === compartment.id;
