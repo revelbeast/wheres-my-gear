@@ -1860,6 +1860,23 @@ export default function DashboardScreen() {
     });
   }
 
+  function handleOpenAllRooms() {
+    if (!selectedStorageId) return;
+
+    pushWithNavigationLock(() => {
+      router.push({
+        pathname: "/vehicles/[vehicleId]",
+        params: {
+          vehicleId: selectedStorageId,
+        },
+      });
+    });
+  }
+
+  function handleAddRoom() {
+    handleOpenAllRooms();
+  }
+
   function handleOpenAllCompartments() {
     if (!selectedStorageId) return;
 
@@ -3137,6 +3154,91 @@ export default function DashboardScreen() {
                         disabled={navigationDisabled}
                       />
                     </View>
+
+                    <View style={styles.sectionHeaderRow}>
+                      <View style={styles.sectionHeaderLeft}>
+                        <HapticPressable
+                          style={[
+                            styles.compartmentAddButton,
+                            !selectedStorageId && styles.compartmentAddButtonDisabled,
+                            navigationDisabled && styles.disabledInteraction,
+                          ]}
+                          onPress={handleAddRoom}
+                          disabled={!selectedStorageId || navigationDisabled}
+                        >
+                          <Plus size={18} color="#111827" />
+                        </HapticPressable>
+
+                        <ThemedText
+                          variant="title"
+                          style={[styles.sectionHeaderTitle, styles.whiteLabel]}
+                        >
+                          Room Quick View
+                        </ThemedText>
+                      </View>
+
+                      <HapticPressable
+                        onPress={handleOpenAllRooms}
+                        disabled={!selectedStorageId || navigationDisabled}
+                      >
+                        <ThemedText
+                          style={[
+                            styles.viewAllText,
+                            styles.whiteLabelMuted,
+                            (!selectedStorageId || navigationDisabled) &&
+                            styles.disabledText,
+                          ]}
+                        >
+                          View All
+                        </ThemedText>
+                      </HapticPressable>
+                    </View>
+
+                    {selectedStorageId != null && quickRooms.length > 0 && (
+                      <View style={styles.quickGrid}>
+                        {quickRooms.map((room) => (
+                          <ThemedCard
+                            key={room.id}
+                            style={styles.quickGridCard}
+                            contentStyle={styles.quickGridCardContent}
+                          >
+                            <HapticPressable
+                              style={[
+                                styles.quickGridRow,
+                                navigationDisabled && styles.disabledInteraction,
+                              ]}
+                              onPress={() => handleOpenRoom(room.id)}
+                              disabled={navigationDisabled}
+                            >
+                              <View style={styles.quickGridLeft}>
+                                <ThemedText
+                                  variant="bodyStrong"
+                                  style={styles.quickGridTitle}
+                                  numberOfLines={2}
+                                >
+                                  {room.name}
+                                </ThemedText>
+                                <ThemedText
+                                  color="secondary"
+                                  style={styles.quickGridMeta}
+                                >
+                                  {room.compartmentCount}{" "}
+                                  {room.compartmentCount === 1
+                                    ? "compartment"
+                                    : "compartments"}{" "}
+                                  • {room.itemCount}{" "}
+                                  {room.itemCount === 1 ? "item" : "items"}
+                                </ThemedText>
+                              </View>
+                              <ChevronRight
+                                size={16}
+                                color={theme.colors.textSecondary}
+                              />
+                            </HapticPressable>
+                          </ThemedCard>
+                        ))}
+                      </View>
+                    )}
 
                     <View style={styles.sectionHeaderRow}>
                       <View style={styles.sectionHeaderLeft}>
