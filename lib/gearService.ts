@@ -526,6 +526,17 @@ export async function getArchivedStorageSpaces(): Promise<StorageSpace[]> {
     .filter((space) => Boolean(space.isArchived));
 }
 
+export async function getArchivedRooms(): Promise<Room[]> {
+  const snapshot = await getDocs(roomsCol());
+
+  return snapshot.docs
+    .map((d) => ({
+      id: d.id,
+      ...d.data(),
+    }) as Room)
+    .filter((room) => Boolean(room.isArchived));
+}
+
 export async function deleteStorageSpace(storageId: string) {
   const trimmedStorageId = storageId.trim();
 

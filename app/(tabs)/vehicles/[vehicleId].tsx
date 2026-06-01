@@ -1,6 +1,6 @@
 import { BlurView } from "expo-blur";
 import * as FileSystem from "expo-file-system/legacy";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import {
   Archive,
   Check,
@@ -292,10 +292,7 @@ export default function VehicleDetailScreen() {
     };
   }, []);
 
-  useEffect(() => {
-    const loadVersion = loadVersionRef.current + 1;
-    loadVersionRef.current = loadVersion;
-
+  async function loadScreenData(loadVersion = loadVersionRef.current) {
     if (!vehicleId) {
       setStorageSpace(null);
       setRooms([]);
@@ -304,48 +301,60 @@ export default function VehicleDetailScreen() {
       return;
     }
 
-    async function loadScreenData() {
-      try {
-        const [spaceData, roomData, compartmentData, itemData] = await Promise.all([
-          getStorageSpaceById(String(vehicleId)),
-          getRoomsByStorageSpace(String(vehicleId)),
-          getCompartments(String(vehicleId)),
-          getAllItems(),
-        ]);
+    try {
+      const [spaceData, roomData, compartmentData, itemData] = await Promise.all([
+        getStorageSpaceById(String(vehicleId)),
+        getRoomsByStorageSpace(String(vehicleId)),
+        getCompartments(String(vehicleId)),
+        getAllItems(),
+      ]);
 
-        if (
-          !isScreenMountedRef.current ||
-          loadVersionRef.current !== loadVersion
-        ) {
-          return;
-        }
-
-        setStorageSpace(spaceData);
-        setRooms(roomData);
-        setCompartments(compartmentData);
-        setItems(itemData.filter((item) => item.vehicleId === String(vehicleId)));
-      } catch (err) {
-        if (
-          !isScreenMountedRef.current ||
-          loadVersionRef.current !== loadVersion
-        ) {
-          return;
-        }
-
-        console.error("Failed to load storage space details:", err);
-        setStorageSpace(null);
-        setRooms([]);
-        setCompartments([]);
-        setItems([]);
+      if (
+        !isScreenMountedRef.current ||
+        loadVersionRef.current !== loadVersion
+      ) {
+        return;
       }
-    }
 
-    void loadScreenData();
+      setStorageSpace(spaceData);
+      setRooms(roomData);
+      setCompartments(compartmentData);
+      setItems(itemData.filter((item) => item.vehicleId === String(vehicleId)));
+    } catch (err) {
+      if (
+        !isScreenMountedRef.current ||
+        loadVersionRef.current !== loadVersion
+      ) {
+        return;
+      }
+
+      console.error("Failed to load storage space details:", err);
+      setStorageSpace(null);
+      setRooms([]);
+      setCompartments([]);
+      setItems([]);
+    }
+  }
+
+  useEffect(() => {
+    const loadVersion = loadVersionRef.current + 1;
+    loadVersionRef.current = loadVersion;
+
+    void loadScreenData(loadVersion);
 
     return () => {
       loadVersionRef.current += 1;
     };
   }, [vehicleId]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const loadVersion = loadVersionRef.current + 1;
+      loadVersionRef.current = loadVersion;
+
+      void loadScreenData(loadVersion);
+    }, [vehicleId])
+  );
 
   async function runWithLock(action: () => Promise<void> | void) {
     if (

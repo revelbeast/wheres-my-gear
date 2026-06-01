@@ -1,5 +1,5 @@
 import { useFocusEffect, router } from "expo-router";
-import { Archive, ClipboardList, RotateCcw, Trash2, Warehouse } from "lucide-react-native";
+import { Archive, ClipboardList, DoorOpen, RotateCcw, Trash2, Warehouse } from "lucide-react-native";
 import React, { useEffect, useRef, useState } from "react";
 import { Alert, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -11,8 +11,11 @@ import ScreenBackground from "../../components/ui/ScreenBackground";
 import { ThemedCard, ThemedText, useThemedValues } from "../../components/ui/Themed";
 import {
   deleteStorageSpace,
+  getArchivedRooms,
   getArchivedStorageSpaces,
+  restoreRoom,
   restoreStorageSpace,
+  type Room,
   type StorageSpace,
 } from "../../lib/gearService";
 import {
@@ -34,6 +37,7 @@ export default function ArchiveScreen() {
   const [hasPremiumPlusAccess, setHasPremiumPlusAccess] = useState(false);
   const [checkingPremiumPlusAccess, setCheckingPremiumPlusAccess] = useState(true);
   const [archivedStorageSpaces, setArchivedStorageSpaces] = useState<StorageSpace[]>([]);
+  const [archivedRooms, setArchivedRooms] = useState<Room[]>([]);
   const [archivedChecklists, setArchivedChecklists] = useState<Checklist[]>([]);
   const [archivedTemplates, setArchivedTemplates] = useState<ChecklistTemplate[]>([]);
   const [loadingStorageSpaces, setLoadingStorageSpaces] = useState(true);
@@ -106,17 +110,22 @@ export default function ArchiveScreen() {
     async function loadArchivedStorageSpaces() {
       try {
         setLoadingStorageSpaces(true);
-        const spaces = await getArchivedStorageSpaces();
+        const [spaces, rooms] = await Promise.all([
+          getArchivedStorageSpaces(),
+          getArchivedRooms(),
+        ]);
 
         if (!isMountedRef.current) return;
 
         setArchivedStorageSpaces(spaces);
+        setArchivedRooms(rooms);
       } catch (error) {
-        console.error("Failed to load archived storage spaces:", error);
+        console.error("Failed to load archived storage spaces and rooms:", error);
 
         if (!isMountedRef.current) return;
 
         setArchivedStorageSpaces([]);
+        setArchivedRooms([]);
       } finally {
         if (isMountedRef.current) {
           setLoadingStorageSpaces(false);
@@ -171,6 +180,13 @@ export default function ArchiveScreen() {
     await restoreStorageSpace(storageId);
     setArchivedStorageSpaces((current) =>
       current.filter((space) => space.id !== storageId)
+    );
+  }
+
+  async function handleRestoreRoom(roomId: string) {
+    await restoreRoom(roomId);
+    setArchivedRooms((current) =>
+      current.filter((room) => room.id !== roomId)
     );
   }
 
@@ -373,6 +389,63 @@ export default function ArchiveScreen() {
                         <Trash2 size={16} color="#EF4444" />
                         <ThemedText style={styles.deleteButtonText}>
                           Delete
+                        </ThemedText>
+                      </HapticPressable>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+</ThemedCard>
+
+          <ThemedCard contentStyle={styles.sectionCardContent}>
+            <View style={styles.sectionHeaderRow}>
+              <DoorOpen size={22} color={theme.colors.text} />
+              <ThemedText variant="title" style={styles.sectionTitle}>
+                Archived Rooms
+              </ThemedText>
+            </View>
+
+            {loadingStorageSpaces ? (
+              <ThemedText color="secondary" style={styles.emptyText}>
+                Loading archived rooms...
+              </ThemedText>
+            ) : archivedRooms.length === 0 ? (
+              <ThemedText color="secondary" style={styles.emptyText}>
+                No archived rooms yet.
+              </ThemedText>
+            ) : (
+              <View style={styles.archiveList}>
+                {archivedRooms.map((room) => (
+                  <View
+                    key={room.id}
+                    style={[
+                      styles.archiveRow,
+                      { borderColor: theme.colors.border },
+                    ]}
+                  >
+                    <View style={styles.archiveRowText}>
+                      <ThemedText variant="bodyStrong" style={styles.archiveRowTitle}>
+                        {room.name}
+                      </ThemedText>
+                      <ThemedText color="secondary" style={styles.archiveRowSubtitle}>
+                        {room.storageSpaceName || "Room"}
+                      </ThemedText>
+                    </View>
+
+                    <View style={styles.archiveRowActions}>
+                      <HapticPressable
+                        style={[
+                          styles.archiveActionButton,
+                          styles.restoreActionButton,
+                        ]}
+                        onPress={() => {
+                          void handleRestoreRoom(room.id);
+                        }}
+                      >
+                        <RotateCcw size={16} color="#22C55E" />
+                        <ThemedText style={styles.restoreButtonText}>
+                          Restore
                         </ThemedText>
                       </HapticPressable>
                     </View>
