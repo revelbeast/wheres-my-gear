@@ -1117,6 +1117,8 @@ export async function syncInventoryItemStatusFromChecklist(
     packed: boolean;
     compartmentId?: string;
     compartmentName?: string;
+    roomId?: string;
+    roomName?: string;
     vehicleId?: string;
   }
 ) {

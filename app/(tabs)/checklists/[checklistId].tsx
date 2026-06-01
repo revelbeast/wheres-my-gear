@@ -139,11 +139,16 @@ function getCategoryLabel(
 const CHECKLIST_KEYBOARD_ACCESSORY_ID =
   "checklist-detail-keyboard-accessory";
 
+function formatChecklistItemStorageLocation(item: any) {
+  const parts = [item.roomName, item.compartmentName].filter(Boolean);
+
+  return parts.length > 0 ? parts.join(" → ") : "";
+}
+
 function formatChecklistItemForShare(item: any) {
   const quantity = getSafeQuantity(item.quantity);
-  const storage = item.compartmentName
-    ? `, Storage: ${item.compartmentName}`
-    : "";
+  const storageLocation = formatChecklistItemStorageLocation(item);
+  const storage = storageLocation ? `, Storage: ${storageLocation}` : "";
   return `- ${item.name} (Qty: ${quantity}${storage})`;
 }
 
@@ -164,7 +169,7 @@ function buildChecklistCsv(
       "Item",
       "Quantity",
       "Status",
-      "Storage / Compartment",
+      "Storage / Room / Compartment",
     ],
     ...items.map((item) => [
       checklistName,
@@ -172,7 +177,7 @@ function buildChecklistCsv(
       item.name,
       getSafeQuantity(item.quantity),
       item.packed ? "Packed" : "To Pack",
-      item.compartmentName ?? "",
+      formatChecklistItemStorageLocation(item),
     ]),
   ];
 
@@ -1136,7 +1141,9 @@ export default function ChecklistDetailScreen() {
           assigningItem.id,
           selectedCompartment.id,
           selectedCompartment.name,
-          selectedVehicleId
+          selectedVehicleId,
+          selectedCompartment.roomId ?? "",
+          selectedCompartment.roomName ?? ""
         );
 
         if (isNewAssignment || isReassignment) {
@@ -1160,6 +1167,8 @@ export default function ChecklistDetailScreen() {
             packed: !!assigningItem.packed,
             compartmentId: selectedCompartment.id,
             compartmentName: selectedCompartment.name,
+            roomId: selectedCompartment.roomId ?? "",
+            roomName: selectedCompartment.roomName ?? "",
             vehicleId: selectedVehicleId,
           });
         }
@@ -1523,7 +1532,7 @@ export default function ChecklistDetailScreen() {
                   ]}
                 >
                   Storage:{" "}
-                  {item.compartmentName ? item.compartmentName : "Not assigned"}
+                  {formatChecklistItemStorageLocation(item) || "Not assigned"}
                 </Text>
               </View>
 
@@ -2262,7 +2271,9 @@ export default function ChecklistDetailScreen() {
                             selected && styles.optionButtonTextSelected,
                           ]}
                         >
-                          {compartment.name}
+                          {compartment.roomName
+                            ? `${compartment.roomName} → ${compartment.name}`
+                            : compartment.name}
                         </Text>
                       </HapticPressable>
                     );

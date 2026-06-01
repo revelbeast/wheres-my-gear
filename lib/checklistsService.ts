@@ -175,6 +175,8 @@ function normalizeChecklistItem(
     itemPhotoUri: data.itemPhotoUri ?? "",
     compartmentId: data.compartmentId ?? "",
     compartmentName: data.compartmentName ?? "",
+    roomId: data.roomId ?? "",
+    roomName: data.roomName ?? "",
     vehicleId: data.vehicleId ?? "",
     createdAt: data.createdAt,
     updatedAt: data.updatedAt,
@@ -208,6 +210,8 @@ export type AssignedChecklistItemSummary = ChecklistItem & {
   vehicleId?: string;
   compartmentId?: string;
   compartmentName?: string;
+  roomId?: string;
+  roomName?: string;
 };
 
 export type ChecklistSearchResult = {
@@ -1231,7 +1235,9 @@ export async function updateChecklistItemCompartment(
   itemId: string,
   compartmentId: string,
   compartmentName: string,
-  vehicleId?: string
+  vehicleId?: string,
+  roomId?: string,
+  roomName?: string
 ) {
   const itemRef = doc(
     db,
@@ -1246,6 +1252,8 @@ export async function updateChecklistItemCompartment(
   await updateDoc(itemRef, {
     compartmentId,
     compartmentName,
+    roomId: roomId ?? "",
+    roomName: roomName ?? "",
     vehicleId: vehicleId ?? "",
     updatedAt: serverTimestamp(),
   });

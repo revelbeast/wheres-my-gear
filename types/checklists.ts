@@ -35,6 +35,11 @@ export type ChecklistTemplateItem = {
   packed?: boolean;
   sortOrder: number;
   itemPhotoUri?: string;
+  compartmentId?: string;
+  compartmentName?: string;
+  roomId?: string;
+  roomName?: string;
+  vehicleId?: string;
   createdAt?: any;
   updatedAt?: any;
 };
