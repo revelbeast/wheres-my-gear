@@ -1,6 +1,6 @@
 import { BlurView } from "expo-blur";
 import { router, useLocalSearchParams } from "expo-router";
-import { ChevronRight, Plus } from "lucide-react-native";
+import { ChevronRight, Pencil, Plus, Trash2 } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
@@ -23,8 +23,10 @@ import {
   Compartment,
   Room,
   createCompartment,
+  deleteCompartment,
   getCompartmentsByVehicle,
   getRoomById,
+  updateCompartment,
 } from "../../../../../lib/gearService";
 import { useInteractionLock } from "../../../../../lib/useInteractionLock";
 import { colors } from "../../../../../theme/tokens";
@@ -63,6 +65,8 @@ export default function RoomDetailScreen() {
   const [compartments, setCompartments] = useState<Compartment[]>([]);
   const [showCreateBox, setShowCreateBox] = useState(false);
   const [newCompartmentName, setNewCompartmentName] = useState("");
+  const [editingCompartmentId, setEditingCompartmentId] = useState("");
+  const [editingCompartmentName, setEditingCompartmentName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
   const headerTitle = room?.name ? room.name : "Room";
@@ -243,6 +247,102 @@ export default function RoomDetailScreen() {
         compartmentId,
       },
     });
+  }
+
+  function handleStartEditCompartment(compartment: Compartment) {
+    if (isBusy()) return;
+
+    Keyboard.dismiss();
+    setEditingCompartmentId(compartment.id);
+    setEditingCompartmentName(compartment.name);
+  }
+
+  function handleCancelEditCompartment() {
+    if (isBusy()) return;
+
+    setEditingCompartmentId("");
+    setEditingCompartmentName("");
+  }
+
+  async function handleSaveEditCompartment(compartment: Compartment) {
+    if (!compartment.id || isBusy()) return;
+
+    const trimmed = editingCompartmentName.trim();
+    if (!trimmed) {
+      Alert.alert("Name required", "Please enter a compartment name.");
+      return;
+    }
+
+    await runWithLock(async () => {
+      try {
+        await updateCompartment(compartment.id, {
+          name: trimmed,
+          vehicleId: String(vehicleId),
+          roomId: String(roomId),
+          roomName: room?.name ?? "",
+        });
+
+        if (!isMountedRef.current) return;
+
+        setCompartments((current) =>
+          current
+            .map((item) =>
+              item.id === compartment.id
+                ? {
+                    ...item,
+                    name: trimmed,
+                    vehicleId: String(vehicleId),
+                    roomId: String(roomId),
+                    roomName: room?.name ?? "",
+                  }
+                : item
+            )
+            .sort((a, b) => a.name.localeCompare(b.name))
+        );
+
+        setEditingCompartmentId("");
+        setEditingCompartmentName("");
+      } catch (error) {
+        if (!isMountedRef.current) return;
+
+        console.error("Failed to rename room compartment:", error);
+        Alert.alert("Error", "Failed to rename compartment.");
+      }
+    });
+  }
+
+  function handleDeleteCompartment(compartment: Compartment) {
+    if (!compartment.id || isBusy()) return;
+
+    Alert.alert(
+      "Delete compartment?",
+      `Delete "${compartment.name}" and all items inside it? This cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            void runWithLock(async () => {
+              try {
+                await deleteCompartment(compartment.id);
+
+                if (!isMountedRef.current) return;
+
+                setCompartments((current) =>
+                  current.filter((item) => item.id !== compartment.id)
+                );
+              } catch (error) {
+                if (!isMountedRef.current) return;
+
+                console.error("Failed to delete room compartment:", error);
+                Alert.alert("Error", "Failed to delete compartment.");
+              }
+            });
+          },
+        },
+      ]
+    );
   }
 
   return (
@@ -442,43 +542,117 @@ export default function RoomDetailScreen() {
                 </Text>
               </BlurView>
             ) : (
-              compartments.map((compartment) => (
-                <BlurView
-                  key={compartment.id}
-                  intensity={18}
-                  tint={theme.isLight ? "light" : "dark"}
-                  style={[
-                    styles.card,
-                    {
-                      backgroundColor: theme.isLight
-                        ? "#FFFFFF"
-                        : "rgba(12,24,50,0.20)",
-                      borderColor: theme.isLight
-                        ? "rgba(0,0,0,0.10)"
-                        : "rgba(255,255,255,0.08)",
-                    },
-                  ]}
-                >
-                  <HapticPressable
-                    style={styles.cardLeft}
-                    onPress={() => handleOpenCompartment(compartment.id)}
-                    disabled={isBusy()}
-                  >
-                    <Text
-                      style={[
-                        styles.cardTitle,
-                        {
-                          color: theme.isLight ? "#000000" : colors.text,
-                        },
-                      ]}
-                    >
-                      {compartment.name}
-                    </Text>
-                  </HapticPressable>
+              compartments.map((compartment) => {
+                const isEditing = editingCompartmentId === compartment.id;
 
-                  <ChevronRight size={18} color={colors.textSecondary} />
-                </BlurView>
-              ))
+                return (
+                  <BlurView
+                    key={compartment.id}
+                    intensity={18}
+                    tint={theme.isLight ? "light" : "dark"}
+                    style={[
+                      styles.card,
+                      {
+                        backgroundColor: theme.isLight
+                          ? "#FFFFFF"
+                          : "rgba(12,24,50,0.20)",
+                        borderColor: theme.isLight
+                          ? "rgba(0,0,0,0.10)"
+                          : "rgba(255,255,255,0.08)",
+                      },
+                    ]}
+                  >
+                    {isEditing ? (
+                      <View style={styles.editRow}>
+                        <TextInput
+                          value={editingCompartmentName}
+                          onChangeText={setEditingCompartmentName}
+                          placeholder="Compartment name"
+                          placeholderTextColor={colors.textSecondary}
+                          style={[
+                            styles.editInput,
+                            {
+                              color: theme.isLight ? "#000000" : colors.text,
+                              borderColor: theme.isLight
+                                ? "rgba(0,0,0,0.12)"
+                                : "rgba(255,255,255,0.14)",
+                              backgroundColor: theme.isLight
+                                ? "#FFFFFF"
+                                : "rgba(255,255,255,0.06)",
+                            },
+                          ]}
+                          autoCapitalize="words"
+                          returnKeyType="done"
+                          onSubmitEditing={() =>
+                            handleSaveEditCompartment(compartment)
+                          }
+                        />
+
+                        <HapticPressable
+                          style={styles.editTextButton}
+                          onPress={() => handleSaveEditCompartment(compartment)}
+                          disabled={isBusy()}
+                        >
+                          <Text style={styles.editSaveText}>Save</Text>
+                        </HapticPressable>
+
+                        <HapticPressable
+                          style={styles.editTextButton}
+                          onPress={handleCancelEditCompartment}
+                          disabled={isBusy()}
+                        >
+                          <Text style={styles.editCancelText}>Cancel</Text>
+                        </HapticPressable>
+                      </View>
+                    ) : (
+                      <>
+                        <HapticPressable
+                          style={styles.cardLeft}
+                          onPress={() => handleOpenCompartment(compartment.id)}
+                          disabled={isBusy()}
+                        >
+                          <Text
+                            style={[
+                              styles.cardTitle,
+                              {
+                                color: theme.isLight ? "#000000" : colors.text,
+                              },
+                            ]}
+                          >
+                            {compartment.name}
+                          </Text>
+                        </HapticPressable>
+
+                        <View style={styles.cardActions}>
+                          <HapticPressable
+                            style={styles.iconButton}
+                            onPress={() => handleStartEditCompartment(compartment)}
+                            disabled={isBusy()}
+                          >
+                            <Pencil size={16} color={colors.textSecondary} />
+                          </HapticPressable>
+
+                          <HapticPressable
+                            style={styles.iconButton}
+                            onPress={() => handleDeleteCompartment(compartment)}
+                            disabled={isBusy()}
+                          >
+                            <Trash2 size={16} color={colors.danger} />
+                          </HapticPressable>
+
+                          <HapticPressable
+                            style={styles.iconButton}
+                            onPress={() => handleOpenCompartment(compartment.id)}
+                            disabled={isBusy()}
+                          >
+                            <ChevronRight size={18} color={colors.textSecondary} />
+                          </HapticPressable>
+                        </View>
+                      </>
+                    )}
+                  </BlurView>
+                );
+              })
             )}
           </ScrollView>
         </KeyboardAvoidingView>
@@ -652,6 +826,57 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: "600",
     fontSize: 16,
+  },
+
+  cardActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+
+  iconButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.08)",
+  },
+
+  editRow: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+
+  editInput: {
+    flex: 1,
+    minHeight: 42,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    fontSize: 15,
+  },
+
+  editTextButton: {
+    minHeight: 42,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 10,
+  },
+
+  editSaveText: {
+    color: "rgba(55,130,245,0.98)",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+
+  editCancelText: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    fontWeight: "700",
   },
 
   disabledInteraction: {
