@@ -912,6 +912,101 @@ export default function VehicleDetailScreen() {
 
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>
+                {rooms.length === 0 ? "No rooms yet" : `Rooms (${rooms.length})`}
+              </Text>
+            </View>
+
+            {rooms.length === 0 ? (
+              <BlurView
+                intensity={18}
+                tint={theme.isLight ? "light" : "dark"}
+                style={[
+                  styles.emptyCard,
+                  {
+                    backgroundColor: theme.isLight
+                      ? "#FFFFFF"
+                      : "rgba(255,255,255,0.04)",
+                    borderColor: theme.isLight
+                      ? "rgba(0,0,0,0.10)"
+                      : "rgba(255,255,255,0.12)",
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.emptyTitle,
+                    {
+                      color: theme.isLight ? "#000000" : "#FFFFFF",
+                    },
+                  ]}
+                >
+                  No rooms found
+                </Text>
+                <Text
+                  style={[
+                    styles.emptyText,
+                    {
+                      color: theme.isLight
+                        ? "#000000"
+                        : "rgba(255,255,255,0.75)",
+                    },
+                  ]}
+                >
+                  Add rooms to organize this storage space into areas before assigning compartments.
+                </Text>
+              </BlurView>
+            ) : (
+              rooms.map((room) => (
+                <BlurView
+                  key={room.id}
+                  intensity={18}
+                  tint={theme.isLight ? "light" : "dark"}
+                  style={[
+                    styles.card,
+                    {
+                      backgroundColor: theme.isLight
+                        ? "#FFFFFF"
+                        : "rgba(12,24,50,0.20)",
+                      borderColor: theme.isLight
+                        ? "rgba(0,0,0,0.10)"
+                        : "rgba(255,255,255,0.08)",
+                    },
+                  ]}
+                >
+                  <View style={styles.cardLeft}>
+                    <Text
+                      style={[
+                        styles.cardTitle,
+                        {
+                          color: theme.isLight ? "#000000" : colors.text,
+                        },
+                      ]}
+                    >
+                      {room.name}
+                    </Text>
+                    {!!room.notes && (
+                      <Text
+                        style={[
+                          styles.roomCardSubtitle,
+                          {
+                            color: theme.isLight
+                              ? "rgba(0,0,0,0.58)"
+                              : colors.textSecondary,
+                          },
+                        ]}
+                      >
+                        {room.notes}
+                      </Text>
+                    )}
+                  </View>
+
+                  <ChevronRight size={18} color={colors.textSecondary} />
+                </BlurView>
+              ))
+            )}
+
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>
                 {compartments.length === 0
                   ? "No compartments yet"
                   : `Compartments (${compartments.length})`}
@@ -1333,6 +1428,12 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: "600",
     fontSize: 16,
+  },
+
+  roomCardSubtitle: {
+    fontSize: 12,
+    lineHeight: 16,
+    marginTop: 4,
   },
 
   iconButton: {
