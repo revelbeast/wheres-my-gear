@@ -195,6 +195,23 @@ export default function VehicleDetailScreen() {
     return `${count} ${count === 1 ? "box" : "boxes"}`;
   }
 
+  function getRoomCompartments(roomId: string) {
+    return compartments.filter((compartment) => compartment.roomId === roomId);
+  }
+
+  function formatRoomPreview(roomId: string) {
+    const roomCompartments = getRoomCompartments(roomId);
+
+    if (roomCompartments.length === 0) {
+      return "No compartments assigned yet";
+    }
+
+    return roomCompartments
+      .slice(0, 4)
+      .map((compartment) => compartment.name)
+      .join(", ");
+  }
+
 
   useEffect(() => {
     isScreenMountedRef.current = true;
@@ -1212,8 +1229,8 @@ export default function VehicleDetailScreen() {
                 >
                   <BlurView
                     intensity={18}
-                  tint={theme.isLight ? "light" : "dark"}
-                  style={[
+                    tint={theme.isLight ? "light" : "dark"}
+                    style={[
                     styles.card,
                     {
                       backgroundColor: theme.isLight
@@ -1236,6 +1253,19 @@ export default function VehicleDetailScreen() {
                     >
                       {`${room.name} (${formatRoomCompartmentCount(room.id)})`}
                     </Text>
+                    <Text
+                      style={[
+                        styles.roomCardSubtitle,
+                        {
+                          color: theme.isLight
+                            ? "rgba(0,0,0,0.58)"
+                            : colors.textSecondary,
+                        },
+                      ]}
+                    >
+                      {formatRoomPreview(room.id)}
+                    </Text>
+
                     {!!room.notes && (
                       <Text
                         style={[
