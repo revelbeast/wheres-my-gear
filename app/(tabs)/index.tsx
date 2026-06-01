@@ -1371,6 +1371,7 @@ export default function DashboardScreen() {
       setAllTemplateItems([]);
       setSelectedCompartments([]);
       setQuickCompartments([]);
+      setQuickRooms([]);
       setUpcomingTrips([]);
       setProfilePhotoUri("");
       setProfilePhotoFailed(false);
@@ -1561,6 +1562,7 @@ export default function DashboardScreen() {
       if (!chosenId) {
         setSelectedCompartments([]);
         setQuickCompartments([]);
+        setQuickRooms([]);
         return;
       }
 
@@ -1610,6 +1612,7 @@ export default function DashboardScreen() {
       setAllTemplateItems([]);
       setSelectedCompartments([]);
       setQuickCompartments([]);
+      setQuickRooms([]);
       setUpcomingTrips([]);
     }
   }
