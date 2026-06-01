@@ -1771,6 +1771,20 @@ export default function DashboardScreen() {
     });
   }
 
+  function handleOpenRoom(roomId: string) {
+    if (!selectedStorageId) return;
+
+    pushWithNavigationLock(() => {
+      router.push({
+        pathname: "/vehicles/[vehicleId]/rooms/[roomId]",
+        params: {
+          vehicleId: selectedStorageId,
+          roomId,
+        },
+      });
+    });
+  }
+
   function handleOpenAllCompartments() {
     if (!selectedStorageId) return;
 
