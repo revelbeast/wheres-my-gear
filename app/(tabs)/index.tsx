@@ -1590,6 +1590,38 @@ export default function DashboardScreen() {
         .slice(0, 4);
 
       setQuickCompartments(quickData);
+
+      const scopedRooms = roomGroups
+        .flat()
+        .filter((room) => room.storageSpaceId === chosenId);
+
+      const quickRoomData = scopedRooms
+        .map((room) => {
+          const roomCompartments = scopedCompartments.filter(
+            (compartment) => compartment.roomId === room.id
+          );
+
+          const roomCompartmentIds = new Set(
+            roomCompartments.map((compartment) => compartment.id)
+          );
+
+          return {
+            id: room.id,
+            name: room.name,
+            compartmentCount: roomCompartments.length,
+            itemCount: scopedItems
+              .filter(
+                (item) =>
+                  item.compartmentId != null &&
+                  roomCompartmentIds.has(item.compartmentId)
+              )
+              .reduce((total, item) => total + getItemQuantity(item), 0),
+          };
+        })
+        .sort((a, b) => b.itemCount - a.itemCount || a.name.localeCompare(b.name))
+        .slice(0, 4);
+
+      setQuickRooms(quickRoomData);
     } catch (err) {
       if (
         !isMountedRef.current ||
@@ -1657,6 +1689,38 @@ export default function DashboardScreen() {
           .slice(0, 4);
 
         setQuickCompartments(quickData);
+
+        const scopedRooms = allRooms.filter(
+          (room) => room.storageSpaceId === space.id
+        );
+
+        const quickRoomData = scopedRooms
+          .map((room) => {
+            const roomCompartments = compartments.filter(
+              (compartment) => compartment.roomId === room.id
+            );
+
+            const roomCompartmentIds = new Set(
+              roomCompartments.map((compartment) => compartment.id)
+            );
+
+            return {
+              id: room.id,
+              name: room.name,
+              compartmentCount: roomCompartments.length,
+              itemCount: scopedItems
+                .filter(
+                  (item) =>
+                    item.compartmentId != null &&
+                    roomCompartmentIds.has(item.compartmentId)
+                )
+                .reduce((total, item) => total + getItemQuantity(item), 0),
+            };
+          })
+          .sort((a, b) => b.itemCount - a.itemCount || a.name.localeCompare(b.name))
+          .slice(0, 4);
+
+        setQuickRooms(quickRoomData);
       } catch (err) {
         if (!isMountedRef.current) return;
 
