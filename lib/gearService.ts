@@ -368,7 +368,25 @@ export async function deleteRoom(roomId: string) {
     throw new Error("Room ID is required.");
   }
 
-  await deleteDoc(roomDoc(trimmedRoomId));
+  const relatedCompartmentsQuery = query(
+    compartmentsCol(),
+    where("roomId", "==", trimmedRoomId)
+  );
+
+  const relatedCompartmentsSnapshot = await getDocs(relatedCompartmentsQuery);
+  const batch = writeBatch(db);
+
+  relatedCompartmentsSnapshot.docs.forEach((compartmentSnapshot) => {
+    batch.update(compartmentSnapshot.ref, {
+      roomId: "",
+      roomName: "",
+      updatedAt: serverTimestamp(),
+    });
+  });
+
+  batch.delete(roomDoc(trimmedRoomId));
+
+  await batch.commit();
 }
 
 export async function createStorageSpace(input: {

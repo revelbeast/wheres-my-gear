@@ -38,6 +38,7 @@ import {
   createCompartment,
   createRoom,
   deleteCompartment,
+  deleteRoom,
   getCompartments,
   getRoomsByStorageSpace,
   getStorageSpaceById,
@@ -170,6 +171,7 @@ export default function VehicleDetailScreen() {
   const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
   const [editingRoomName, setEditingRoomName] = useState("");
   const [savingRoomEdit, setSavingRoomEdit] = useState(false);
+  const [deletingRoomId, setDeletingRoomId] = useState<string | null>(null);
 
   const [editingCompartmentId, setEditingCompartmentId] = useState<string | null>(
     null
@@ -354,6 +356,7 @@ export default function VehicleDetailScreen() {
       isCreatingRoom ||
       savingEdit ||
       savingRoomEdit ||
+      !!deletingRoomId ||
       !!deletingCompartmentId ||
       interactionLocked ||
       actionLockRef.current ||
@@ -651,6 +654,70 @@ export default function VehicleDetailScreen() {
     });
   }
 
+
+
+  function confirmDeleteRoom(room: Room) {
+    if (isBusy()) return;
+
+    const roomCompartmentCount = getRoomCompartmentCount(room.id);
+    const compartmentText =
+      roomCompartmentCount === 1
+        ? "1 compartment will move to Unassigned Compartments."
+        : `${roomCompartmentCount} compartments will move to Unassigned Compartments.`;
+
+    Alert.alert(
+      "Delete room?",
+      `Delete "${room.name}"? ${compartmentText}`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete Room",
+          style: "destructive",
+          onPress: () => handleDeleteRoom(room),
+        },
+      ]
+    );
+  }
+
+  async function handleDeleteRoom(room: Room) {
+    if (deletingRoomId || interactionLocked || actionLockRef.current) {
+      return;
+    }
+
+    await runWithLock(async () => {
+      try {
+        setDeletingRoomId(room.id);
+
+        await deleteRoom(room.id);
+
+        setRooms((current) =>
+          current.filter((candidate) => candidate.id !== room.id)
+        );
+
+        setCompartments((current) =>
+          current.map((compartment) =>
+            compartment.roomId === room.id
+              ? {
+                  ...compartment,
+                  roomId: "",
+                  roomName: "",
+                }
+              : compartment
+          )
+        );
+
+        if (editingRoomId === room.id) {
+          setEditingRoomId(null);
+          setEditingRoomName("");
+        }
+      } catch (error) {
+        console.error("Failed to delete room:", error);
+        Alert.alert("Error", "Failed to delete room.");
+      } finally {
+        setDeletingRoomId(null);
+      }
+    });
+  }
 
   function startEditingRoom(room: Room) {
     if (isBusy()) return;
@@ -1419,6 +1486,25 @@ export default function VehicleDetailScreen() {
                               theme.isLight
                                 ? "rgba(0,0,0,0.55)"
                                 : colors.textSecondary
+                            }
+                          />
+                        </HapticPressable>
+
+                        <HapticPressable
+                          style={[
+                            styles.iconButton,
+                            roomInteractionDisabled &&
+                              styles.disabledInteraction,
+                          ]}
+                          onPress={() => confirmDeleteRoom(room)}
+                          disabled={roomInteractionDisabled}
+                        >
+                          <Trash2
+                            size={16}
+                            color={
+                              theme.isLight
+                                ? "rgba(185,28,28,0.88)"
+                                : colors.danger
                             }
                           />
                         </HapticPressable>
