@@ -1614,7 +1614,7 @@ export default function VehicleDetailScreen() {
                             },
                           ]}
                         >
-                          {`${room.name} (${formatRoomCompartmentCount(room.id)})`}
+                          {room.name}
                         </Text>
 
                         <Text
