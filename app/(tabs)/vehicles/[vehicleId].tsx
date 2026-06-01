@@ -729,6 +729,18 @@ export default function VehicleDetailScreen() {
     );
   }
 
+  function handleOpenRoom(roomId: string) {
+    if (!vehicleId || !roomId || !isScreenMountedRef.current) return;
+
+    router.push({
+      pathname: "/vehicles/[vehicleId]/rooms/[roomId]",
+      params: {
+        vehicleId: String(vehicleId),
+        roomId: String(roomId),
+      },
+    });
+  }
+
   function handleOpenCompartment(compartmentId: string) {
     if (!vehicleId || !compartmentId || !isScreenMountedRef.current) return;
 
@@ -1177,9 +1189,13 @@ export default function VehicleDetailScreen() {
               </BlurView>
             ) : (
               rooms.map((room) => (
-                <BlurView
+                <HapticPressable
                   key={room.id}
-                  intensity={18}
+                  onPress={() => handleOpenRoom(room.id)}
+                  disabled={isBusy()}
+                >
+                  <BlurView
+                    intensity={18}
                   tint={theme.isLight ? "light" : "dark"}
                   style={[
                     styles.card,
@@ -1221,7 +1237,8 @@ export default function VehicleDetailScreen() {
                   </View>
 
                   <ChevronRight size={18} color={colors.textSecondary} />
-                </BlurView>
+                  </BlurView>
+                </HapticPressable>
               ))
             )}
 
