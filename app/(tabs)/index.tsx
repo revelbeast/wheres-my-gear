@@ -3199,7 +3199,10 @@ export default function DashboardScreen() {
                         {quickRooms.map((room) => (
                           <ThemedCard
                             key={room.id}
-                            style={styles.quickGridCard}
+                            style={[
+                              styles.quickGridCard,
+                              styles.roomQuickGridCard,
+                            ]}
                             contentStyle={[
                               styles.quickGridCardContent,
                               styles.roomQuickGridCardContent,
@@ -3310,7 +3313,10 @@ export default function DashboardScreen() {
                         {quickCompartments.map((compartment) => (
                           <ThemedCard
                             key={compartment.id}
-                            style={styles.quickGridCard}
+                            style={[
+                              styles.quickGridCard,
+                              styles.compartmentQuickGridCard,
+                            ]}
                             contentStyle={[
                               styles.quickGridCardContent,
                               styles.roomQuickGridCardContent,
@@ -4804,6 +4810,16 @@ const styles = StyleSheet.create({
   quickGridCard: {
     width: "48.5%",
     marginBottom: 8,
+  },
+
+  roomQuickGridCard: {
+    borderColor: "rgba(59,130,246,0.95)",
+    borderWidth: 1.5,
+  },
+
+  compartmentQuickGridCard: {
+    borderColor: "rgba(148,163,184,0.95)",
+    borderWidth: 1.5,
   },
 
   quickGridCardContent: {
