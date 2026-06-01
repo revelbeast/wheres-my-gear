@@ -3311,11 +3311,15 @@ export default function DashboardScreen() {
                           <ThemedCard
                             key={compartment.id}
                             style={styles.quickGridCard}
-                            contentStyle={styles.quickGridCardContent}
+                            contentStyle={[
+                              styles.quickGridCardContent,
+                              styles.roomQuickGridCardContent,
+                            ]}
                           >
                             <HapticPressable
                               style={[
                                 styles.quickGridRow,
+                                styles.roomQuickGridRow,
                                 navigationDisabled && styles.disabledInteraction,
                               ]}
                               onPress={() => handleOpenCompartment(compartment.id)}
@@ -3324,17 +3328,13 @@ export default function DashboardScreen() {
                               <View style={styles.quickGridLeft}>
                                 <ThemedText
                                   variant="bodyStrong"
-                                  style={styles.quickGridTitle}
-                                  numberOfLines={2}
+                                  style={[
+                                    styles.quickGridTitle,
+                                    styles.roomQuickGridTitle,
+                                  ]}
+                                  numberOfLines={1}
                                 >
                                   {compartment.name}
-                                </ThemedText>
-                                <ThemedText
-                                  color="secondary"
-                                  style={styles.quickGridMeta}
-                                >
-                                  {compartment.itemCount}{" "}
-                                  {compartment.itemCount === 1 ? "item" : "items"}
                                 </ThemedText>
                               </View>
                               <ChevronRight
