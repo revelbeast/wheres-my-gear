@@ -22,7 +22,7 @@ const FAQ_ITEMS: FAQItem[] = [
   {
     question: "What is Where's My Gear?",
     answer:
-      "Where's My Gear helps you track gear by storage space, compartment, and checklist so you know where items are located and what still needs to be packed.",
+      "Where's My Gear helps you track gear by storage space, room, compartment, item, and checklist so you know where items are located and what still needs to be packed.",
   },
   {
     question: "What is included with Premium +?",
@@ -77,7 +77,7 @@ const FAQ_ITEMS: FAQItem[] = [
   {
     question: "What can I search for?",
     answer:
-      "Dashboard search can find Items, Storage Spaces, Compartments, Checklists, and Templates. You can search by names, storage types, packed status, or To Pack status.",
+      "Dashboard search can find Items, Storage Spaces, Rooms, Compartments, Checklists, and Templates. You can search by names, storage types, packed status, or To Pack status.",
   },
   {
     question: "What does Packed mean?",
@@ -95,9 +95,19 @@ const FAQ_ITEMS: FAQItem[] = [
       "Delete All Data permanently removes all app data, including active and archived Storage Spaces, Compartments, Inventory Items, Checklists, Checklist Items, Checklist Templates, and saved notes. This action cannot be undone.",
   },
   {
+    question: "How is gear organized?",
+    answer:
+      "Where's My Gear uses a simple hierarchy: Storage Space, Room, Compartment, then Item. A Storage Space is the larger location, such as a van, RV, garage, shed, or storage unit. A Room is an area inside that storage space, such as Kitchen, Garage, Bedroom, Cab, or Rear Cargo. A Compartment is a smaller place inside a room, such as a drawer, cabinet, bin, box, shelf, or under-seat area. An Item is the actual piece of gear stored in a compartment.",
+  },
+  {
+    question: "What is a Room?",
+    answer:
+      "A Room is an area inside a Storage Space that helps organize compartments. Examples include Kitchen, Garage, Bedroom, Cab, Rear Cargo, Office Area, or Utility Area. Rooms make it easier to group compartments before adding individual items.",
+  },
+  {
     question: "What is a Compartment?",
     answer:
-      "A Compartment is a smaller area inside a Storage Space. Examples include a drawer, cabinet, bin, box, shelf, rear cargo area, or under-seat storage area.",
+      "A Compartment is a smaller area inside a Room or Storage Space. Examples include a drawer, cabinet, bin, box, shelf, rear cargo area, or under-seat storage area.",
   },
   {
     question: "What is a Storage Space?",
@@ -148,8 +158,8 @@ export default function FAQScreen() {
             </ThemedText>
 
             <ThemedText color="secondary" style={styles.heroText}>
-              Quick answers about storage spaces, compartments, items,
-              checklists, notes, photos, and account data.
+              Quick answers about storage spaces, rooms, compartments,
+              items, checklists, notes, photos, and account data.
             </ThemedText>
           </ThemedCard>
 
