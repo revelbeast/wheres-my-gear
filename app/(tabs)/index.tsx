@@ -63,8 +63,10 @@ import {
   createItem,
   getAllItems,
   getCompartments,
+  getRoomsByStorageSpace,
   getStorageSpaces,
   Item,
+  Room,
   StorageSpace,
 } from "../../lib/gearService";
 import { getTrips } from "../../lib/tripsService";
@@ -114,6 +116,14 @@ type SearchResultItem =
     id: string;
     name: string;
     subtitle: string;
+    vehicleId: string;
+  }
+  | {
+    type: "room";
+    id: string;
+    name: string;
+    subtitle: string;
+    roomId: string;
     vehicleId: string;
   }
   | {
@@ -554,6 +564,7 @@ export default function DashboardScreen() {
   const [showStorageDropdown, setShowStorageDropdown] = useState(false);
 
   const [allItems, setAllItems] = useState<Item[]>([]);
+  const [allRooms, setAllRooms] = useState<Room[]>([]);
   const [allCompartments, setAllCompartments] = useState<Compartment[]>([]);
   const [allChecklists, setAllChecklists] = useState<Checklist[]>([]);
   const [allChecklistItems, setAllChecklistItems] = useState<
@@ -626,6 +637,15 @@ export default function DashboardScreen() {
 
   const compartmentNameById = useMemo(() => {
     return new Map(allCompartments.map((compartment) => [compartment.id, compartment.name]));
+  }, [allCompartments]);
+
+  const compartmentRoomNameById = useMemo(() => {
+    return new Map(
+      allCompartments.map((compartment) => [
+        compartment.id,
+        compartment.roomName ?? "",
+      ])
+    );
   }, [allCompartments]);
 
   const selectedStorageItems = useMemo(
@@ -1098,6 +1118,7 @@ export default function DashboardScreen() {
               item.status === "packed" ? "packed items packed" : "to pack missing",
               item.compartmentName,
               compartmentNameById.get(item.compartmentId ?? ""),
+              compartmentRoomNameById.get(item.compartmentId ?? ""),
               item.vehicleName,
               storageNameById.get(item.vehicleId ?? ""),
             ]);
@@ -1106,12 +1127,17 @@ export default function DashboardScreen() {
             type: "item",
             id: item.id,
             name: item.name,
-            subtitle: `${item.compartmentName ||
-              compartmentNameById.get(item.compartmentId ?? "") ||
-              "Unassigned compartment"} • ${item.vehicleName ||
-              storageNameById.get(item.vehicleId ?? "") ||
-              "Unknown storage space"
-              }`,
+            subtitle: [
+              item.compartmentName ||
+                compartmentNameById.get(item.compartmentId ?? "") ||
+                "Unassigned compartment",
+              compartmentRoomNameById.get(item.compartmentId ?? ""),
+              item.vehicleName ||
+                storageNameById.get(item.vehicleId ?? "") ||
+                "Unknown storage space",
+            ]
+              .filter(Boolean)
+              .join(" • "),
             statusLabel: item.status === "packed" ? "Packed" : "To Pack",
             compartmentId:
               item.compartmentId && !String(item.compartmentId).startsWith("offline-compartment-")
@@ -1178,10 +1204,31 @@ export default function DashboardScreen() {
             vehicleId: space.id,
           }));
 
+        const roomResults: SearchResultItem[] = allRooms
+          .filter((room) =>
+            searchIncludes(trimmed, [
+              room.name,
+              room.storageSpaceName,
+              storageNameById.get(room.storageSpaceId),
+              "room",
+            ])
+          )
+          .map((room) => ({
+            type: "room",
+            id: room.id,
+            name: room.name,
+            subtitle: `${storageNameById.get(room.storageSpaceId) ||
+              room.storageSpaceName ||
+              "Unknown storage space"} • Room`,
+            roomId: room.id,
+            vehicleId: room.storageSpaceId,
+          }));
+
         const compartmentResults: SearchResultItem[] = allCompartments
           .filter((compartment) =>
             searchIncludes(trimmed, [
               compartment.name,
+              compartment.roomName,
               storageNameById.get(compartment.vehicleId),
               "compartment",
             ])
@@ -1190,8 +1237,8 @@ export default function DashboardScreen() {
             type: "compartment",
             id: compartment.id,
             name: compartment.name,
-            subtitle:
-              storageNameById.get(compartment.vehicleId) || "Unknown storage space",
+            subtitle: `${storageNameById.get(compartment.vehicleId) ||
+              "Unknown storage space"}${compartment.roomName ? ` • ${compartment.roomName}` : ""}`,
             compartmentId: compartment.id,
             vehicleId: compartment.vehicleId,
           }));
@@ -1225,6 +1272,7 @@ export default function DashboardScreen() {
           ...checklistItemResults,
           ...templateItemResults,
           ...storageResults,
+          ...roomResults,
           ...compartmentResults,
           ...checklistResults,
         ]);
@@ -1258,6 +1306,7 @@ export default function DashboardScreen() {
     allChecklistItems,
     allTemplateItems,
     storageSpaces,
+    allRooms,
     allCompartments,
     allChecklists,
     storageNameById,
@@ -1279,6 +1328,7 @@ export default function DashboardScreen() {
       setSelectedStorageId(null);
       setShowStorageDropdown(false);
       setAllItems([]);
+      setAllRooms([]);
       setAllCompartments([]);
       setAllChecklists([]);
       setAllChecklistItems([]);
@@ -1340,6 +1390,20 @@ export default function DashboardScreen() {
         return;
       }
       setStorageSpaces(spaces);
+
+      const roomGroups = await Promise.all(
+        spaces.map((space) => getRoomsByStorageSpace(space.id))
+      );
+
+      if (
+        !isMountedRef.current ||
+        !isActive() ||
+        dashboardLoadVersionRef.current !== loadVersion
+      ) {
+        return;
+      }
+
+      setAllRooms(roomGroups.flat());
 
       const chosenId =
         selectedStorageId && spaces.some((space) => space.id === selectedStorageId)
@@ -1503,6 +1567,7 @@ export default function DashboardScreen() {
       setStorageSpaces([]);
       setSelectedStorageId(null);
       setAllItems([]);
+      setAllRooms([]);
       setAllCompartments([]);
       setAllChecklists([]);
       setAllChecklistItems([]);
@@ -1609,6 +1674,17 @@ export default function DashboardScreen() {
           pathname: "/vehicles/[vehicleId]/compartments",
           params: {
             vehicleId: item.vehicleId,
+          },
+        });
+        return;
+      }
+
+      if (item.type === "room") {
+        router.push({
+          pathname: "/vehicles/[vehicleId]/rooms/[roomId]",
+          params: {
+            vehicleId: item.vehicleId,
+            roomId: item.roomId,
           },
         });
         return;
