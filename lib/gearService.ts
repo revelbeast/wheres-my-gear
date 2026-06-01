@@ -551,9 +551,18 @@ export async function deleteStorageSpace(storageId: string) {
   await batch.commit();
 }
 
-export async function createCompartment(name: string, vehicleId: string) {
+export async function createCompartment(
+  name: string,
+  vehicleId: string,
+  room?: {
+    roomId?: string;
+    roomName?: string;
+  }
+) {
   const trimmedName = name.trim();
   const trimmedVehicleId = vehicleId.trim();
+  const trimmedRoomId = room?.roomId?.trim() ?? "";
+  const trimmedRoomName = room?.roomName?.trim() ?? "";
 
   if (!trimmedName) {
     throw new Error("Compartment name is required.");
@@ -584,6 +593,8 @@ export async function createCompartment(name: string, vehicleId: string) {
       payload: {
         name: trimmedName,
         vehicleId: trimmedVehicleId,
+        roomId: trimmedRoomId,
+        roomName: trimmedRoomName,
       },
       createdAt: new Date().toISOString(),
     });
@@ -594,6 +605,8 @@ export async function createCompartment(name: string, vehicleId: string) {
   const ref = await addDoc(compartmentsCol(), {
     name: trimmedName,
     vehicleId: trimmedVehicleId,
+    roomId: trimmedRoomId,
+    roomName: trimmedRoomName,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
@@ -606,6 +619,8 @@ export async function updateCompartment(
   updates: Partial<{
     name: string;
     vehicleId: string;
+    roomId: string;
+    roomName: string;
   }>
 ) {
   const payload: Record<string, unknown> = {
@@ -627,6 +642,14 @@ export async function updateCompartment(
       throw new Error("Vehicle ID is required.");
     }
     payload.vehicleId = trimmedVehicleId;
+  }
+
+  if (typeof updates.roomId === "string") {
+    payload.roomId = updates.roomId.trim();
+  }
+
+  if (typeof updates.roomName === "string") {
+    payload.roomName = updates.roomName.trim();
   }
 
   await updateDoc(compartmentDoc(compartmentId), payload);
