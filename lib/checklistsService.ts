@@ -1400,7 +1400,29 @@ export async function deleteChecklistItem(
     requireDocumentId(itemId, "Checklist item ID")
   );
 
+  let previousStoragePath = "";
+
+  try {
+    const existingSnap = await getDoc(itemRef);
+    const existingData = existingSnap.exists() ? existingSnap.data() : null;
+    previousStoragePath =
+      typeof existingData?.itemPhotoStoragePath === "string"
+        ? existingData.itemPhotoStoragePath
+        : "";
+  } catch (err) {
+    console.warn("Unable to read checklist item photo before delete.", err);
+  }
+
   await deleteDoc(itemRef);
+
+  if (previousStoragePath) {
+    const folderPath = previousStoragePath.split("/").slice(0, -1).join("/");
+    await cleanupOldCloudPhotosInFolder({
+      folderPath,
+      keepStoragePath: "",
+    });
+  }
+
   await recomputeChecklistCounts(userId, checklistId);
 }
 
