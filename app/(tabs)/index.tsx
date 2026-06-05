@@ -2870,12 +2870,7 @@ export default function DashboardScreen() {
                     ? DASHBOARD_SEARCH_KEYBOARD_ACCESSORY_ID
                     : undefined
                 }
-                editable={
-                  !initializing &&
-                  !!user &&
-                  isPremium &&
-                  !navigationDisabled
-                }
+                editable={!initializing && !!user && !navigationDisabled}
               />
 
               {searchQuery.length > 0 && (
