@@ -2824,7 +2824,7 @@ export default function DashboardScreen() {
               </View>
 
               <View style={styles.brandTitleWrap}>
-                <ThemedText variant="header">
+                <ThemedText variant="header" style={styles.brandText}>
                   Where&apos;s My Gear
                 </ThemedText>
               </View>

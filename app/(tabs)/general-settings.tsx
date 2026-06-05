@@ -360,7 +360,7 @@ export default function GeneralSettingsScreen() {
                       true: "rgba(55,130,245,0.45)",
                     }}
                     thumbColor={
-                      theme === "light" ? activeTheme.colors.primary : activeTheme.colors.textMuted
+                      theme === "light" ? "#FFFFFF" : activeTheme.colors.textMuted
                     }
                     ios_backgroundColor={activeTheme.colors.inputSurface}
                   />
