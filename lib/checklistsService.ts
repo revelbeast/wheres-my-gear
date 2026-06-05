@@ -1912,6 +1912,9 @@ export async function deleteChecklistTemplate(
 
   const itemsSnapshot = await getDocs(templateItemsCol(userId, safeTemplateId));
   const batch = writeBatch(db);
+  const templatePhotoFolderPath = `users/${requireUserId(
+    userId
+  )}/checklistTemplates/${safeTemplateId}`;
 
   itemsSnapshot.forEach((itemDoc) => {
     batch.delete(itemDoc.ref);
@@ -1920,6 +1923,11 @@ export async function deleteChecklistTemplate(
   batch.delete(templateDoc(userId, safeTemplateId));
 
   await batch.commit();
+
+  await cleanupOldCloudPhotosInFolder({
+    folderPath: templatePhotoFolderPath,
+    keepStoragePath: "",
+  });
 }
 
 export async function updateChecklistTemplateName(
