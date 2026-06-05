@@ -359,9 +359,7 @@ export default function GeneralSettingsScreen() {
                       false: activeTheme.colors.inputSurface,
                       true: "rgba(55,130,245,0.45)",
                     }}
-                    thumbColor={
-                      theme === "light" ? "#FFFFFF" : activeTheme.colors.textMuted
-                    }
+                    thumbColor="#FFFFFF"
                     ios_backgroundColor={activeTheme.colors.inputSurface}
                   />
                 </View>
@@ -387,11 +385,7 @@ export default function GeneralSettingsScreen() {
                       false: activeTheme.colors.inputSurface,
                       true: "rgba(55,130,245,0.45)",
                     }}
-                    thumbColor={
-                      hapticsEnabled
-                        ? activeTheme.colors.primary
-                        : activeTheme.colors.textMuted
-                    }
+                    thumbColor="#FFFFFF"
                     ios_backgroundColor={activeTheme.colors.inputSurface}
                   />
                 </View>
