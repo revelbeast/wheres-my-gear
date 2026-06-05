@@ -1035,6 +1035,14 @@ export default function DashboardScreen() {
         return;
       }
 
+      if (!isPremium) {
+        router.replace({
+          pathname: "/paywall",
+          params: { plan: "premium" },
+        });
+        return;
+      }
+
       let isActive = true;
       const activeUserId = user.uid;
       const loadVersion = dashboardLoadVersionRef.current + 1;
@@ -2773,6 +2781,10 @@ export default function DashboardScreen() {
         </SafeAreaView>
       </ScreenBackground>
     );
+  }
+
+  if (!initializing && user && !isPremiumLoading && !isPremium) {
+    return null;
   }
 
   return (
