@@ -1,6 +1,7 @@
 import { BlurView } from "expo-blur";
 import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
+import { uploadChecklistTemplateItemPhotoToCloud } from "../../../lib/cloudPhotoStorage";
 import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import {
   Camera,
@@ -336,11 +337,40 @@ export default function TemplateItemsScreen() {
 
         updateLocalItem(item.id, { itemPhotoUri: localUri });
 
+        let cloudPhoto:
+          | {
+              itemPhotoStoragePath?: string;
+              itemPhotoDownloadUrl?: string;
+              photoBackedUp?: boolean;
+            }
+          | undefined;
+
+        try {
+          const uploadedPhoto = await uploadChecklistTemplateItemPhotoToCloud({
+            userId: user.uid,
+            templateId: safeTemplateId,
+            itemId: item.id,
+            localUri,
+          });
+
+          cloudPhoto = {
+            itemPhotoStoragePath: uploadedPhoto.storagePath,
+            itemPhotoDownloadUrl: uploadedPhoto.downloadUrl,
+            photoBackedUp: true,
+          };
+        } catch (uploadErr) {
+          console.error("Template item photo cloud backup failed:", uploadErr);
+          cloudPhoto = {
+            photoBackedUp: false,
+          };
+        }
+
         await updateChecklistTemplateItemPhoto(
           user.uid,
           safeTemplateId,
           item.id,
-          localUri
+          localUri,
+          cloudPhoto
         );
       } catch (err: any) {
         const message = String(err?.message ?? err ?? "");
@@ -393,11 +423,40 @@ export default function TemplateItemsScreen() {
 
         updateLocalItem(item.id, { itemPhotoUri: localUri });
 
+        let cloudPhoto:
+          | {
+              itemPhotoStoragePath?: string;
+              itemPhotoDownloadUrl?: string;
+              photoBackedUp?: boolean;
+            }
+          | undefined;
+
+        try {
+          const uploadedPhoto = await uploadChecklistTemplateItemPhotoToCloud({
+            userId: user.uid,
+            templateId: safeTemplateId,
+            itemId: item.id,
+            localUri,
+          });
+
+          cloudPhoto = {
+            itemPhotoStoragePath: uploadedPhoto.storagePath,
+            itemPhotoDownloadUrl: uploadedPhoto.downloadUrl,
+            photoBackedUp: true,
+          };
+        } catch (uploadErr) {
+          console.error("Template item photo cloud backup failed:", uploadErr);
+          cloudPhoto = {
+            photoBackedUp: false,
+          };
+        }
+
         await updateChecklistTemplateItemPhoto(
           user.uid,
           safeTemplateId,
           item.id,
-          localUri
+          localUri,
+          cloudPhoto
         );
       } catch (err) {
         console.error("Failed to choose template item photo:", err);

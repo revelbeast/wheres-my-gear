@@ -620,12 +620,48 @@ export async function updateChecklistTemplateItemPhoto(
   userId: string,
   templateId: string,
   itemId: string,
-  itemPhotoUri: string
+  itemPhotoUri: string,
+  cloudPhoto?: {
+    itemPhotoStoragePath?: string;
+    itemPhotoDownloadUrl?: string;
+    photoBackedUp?: boolean;
+  }
 ) {
-  await updateDoc(templateItemDoc(userId, templateId, itemId), {
+  const itemRef = templateItemDoc(userId, templateId, itemId);
+  let previousStoragePath = "";
+
+  try {
+    const existingSnap = await getDoc(itemRef);
+    const existingData = existingSnap.exists() ? existingSnap.data() : null;
+    previousStoragePath =
+      typeof existingData?.itemPhotoStoragePath === "string"
+        ? existingData.itemPhotoStoragePath
+        : "";
+  } catch (err) {
+    console.warn("Unable to read previous template item photo before update.", err);
+  }
+
+  const nextStoragePath = cloudPhoto?.itemPhotoStoragePath ?? "";
+
+  await updateDoc(itemRef, {
     itemPhotoUri: itemPhotoUri ?? "",
+    itemPhotoStoragePath: nextStoragePath,
+    itemPhotoDownloadUrl: cloudPhoto?.itemPhotoDownloadUrl ?? "",
+    photoBackedUp: cloudPhoto?.photoBackedUp ?? false,
     updatedAt: serverTimestamp(),
   });
+
+  if (previousStoragePath && previousStoragePath !== nextStoragePath) {
+    await deleteCloudPhotoByStoragePath(previousStoragePath);
+  }
+
+  if (nextStoragePath) {
+    const folderPath = nextStoragePath.split("/").slice(0, -1).join("/");
+    await cleanupOldCloudPhotosInFolder({
+      folderPath,
+      keepStoragePath: nextStoragePath,
+    });
+  }
 }
 
 export async function deleteChecklistTemplateItem(
@@ -633,7 +669,30 @@ export async function deleteChecklistTemplateItem(
   templateId: string,
   itemId: string
 ) {
-  await deleteDoc(templateItemDoc(userId, templateId, itemId));
+  const itemRef = templateItemDoc(userId, templateId, itemId);
+  let previousStoragePath = "";
+
+  try {
+    const existingSnap = await getDoc(itemRef);
+    const existingData = existingSnap.exists() ? existingSnap.data() : null;
+    previousStoragePath =
+      typeof existingData?.itemPhotoStoragePath === "string"
+        ? existingData.itemPhotoStoragePath
+        : "";
+  } catch (err) {
+    console.warn("Unable to read template item photo before delete.", err);
+  }
+
+  await deleteDoc(itemRef);
+
+  if (previousStoragePath) {
+    const folderPath = previousStoragePath.split("/").slice(0, -1).join("/");
+    await cleanupOldCloudPhotosInFolder({
+      folderPath,
+      keepStoragePath: "",
+    });
+  }
+
   await recomputeChecklistTemplateItemCount(userId, templateId);
 }
 

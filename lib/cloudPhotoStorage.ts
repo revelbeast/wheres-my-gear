@@ -155,3 +155,41 @@ export async function uploadChecklistItemPhotoToCloud(input: {
   } satisfies CloudItemPhotoUploadResult;
 }
 
+export async function uploadChecklistTemplateItemPhotoToCloud(input: {
+  userId: string;
+  templateId: string;
+  itemId: string;
+  localUri: string;
+}) {
+  const userId = input.userId.trim();
+  const templateId = input.templateId.trim();
+  const itemId = input.itemId.trim();
+  const localUri = input.localUri.trim();
+
+  if (!userId) throw new Error("User ID is required to upload a template item photo.");
+  if (!templateId) throw new Error("Template ID is required to upload a template item photo.");
+  if (!itemId) throw new Error("Item ID is required to upload a template item photo.");
+  if (!localUri) throw new Error("Local photo URI is required to upload a template item photo.");
+
+  const extension = getFileExtension(localUri);
+  const storagePath = `users/${safeSegment(userId)}/checklistTemplates/${safeSegment(
+    templateId
+  )}/items/${safeSegment(itemId)}/main-${Date.now()}.${extension}`;
+
+  const response = await fetch(localUri);
+  const blob = await response.blob();
+  const imageRef = ref(storage, storagePath);
+
+  await uploadBytes(imageRef, blob, {
+    contentType: getContentType(localUri),
+  });
+
+  const downloadUrl = await getDownloadURL(imageRef);
+
+  return {
+    localUri,
+    storagePath,
+    downloadUrl,
+  } satisfies CloudItemPhotoUploadResult;
+}
+
