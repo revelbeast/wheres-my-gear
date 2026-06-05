@@ -1,4 +1,4 @@
-import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
 
 import { storage } from "../firebaseConfig";
 
@@ -71,3 +71,18 @@ export async function uploadInventoryItemPhotoToCloud(input: {
     downloadUrl,
   } satisfies CloudItemPhotoUploadResult;
 }
+
+export async function deleteCloudPhotoByStoragePath(storagePath?: string) {
+  const trimmedPath = storagePath?.trim() ?? "";
+
+  if (!trimmedPath) {
+    return;
+  }
+
+  try {
+    await deleteObject(ref(storage, trimmedPath));
+  } catch (err) {
+    console.warn("Cloud photo cleanup skipped.", err);
+  }
+}
+

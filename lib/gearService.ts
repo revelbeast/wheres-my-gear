@@ -13,6 +13,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { auth, db } from "../firebaseConfig";
+import { deleteCloudPhotoByStoragePath } from "./cloudPhotoStorage";
 import { downloadPhotoToLocalDocumentStorage, localPhotoExists } from "./localPhotoStorage";
 import { cacheStorageSpaces, enqueueOfflineOperation, getCachedStorageSpaces, getOfflineCompartments, getOfflineCompartmentById, getOfflineItems, getOfflineItemsByCompartment, getOfflineItemsByStatus, getOfflineStorageSpaces, removeOfflineOperation, updateOfflineCreatedItem } from "./offlineQueue";
 
@@ -1083,9 +1084,26 @@ export async function updateItemPhoto(
     photoBackedUp?: boolean;
   }
 ) {
+  let previousStoragePath = "";
+
+  if (!id.startsWith("offline-item-")) {
+    try {
+      const existingSnap = await getDoc(inventoryDoc(id));
+      const existingData = existingSnap.exists() ? existingSnap.data() : null;
+      previousStoragePath =
+        typeof existingData?.itemPhotoStoragePath === "string"
+          ? existingData.itemPhotoStoragePath
+          : "";
+    } catch (err) {
+      console.warn("Unable to read previous item photo before update.", err);
+    }
+  }
+
+  const nextStoragePath = cloudPhoto?.itemPhotoStoragePath ?? "";
+
   await updateItem(id, {
     itemPhotoUri: itemPhotoUri ?? "",
-    itemPhotoStoragePath: cloudPhoto?.itemPhotoStoragePath ?? "",
+    itemPhotoStoragePath: nextStoragePath,
     itemPhotoDownloadUrl: cloudPhoto?.itemPhotoDownloadUrl ?? "",
     photoBackedUp: cloudPhoto?.photoBackedUp ?? false,
   } as Partial<{
@@ -1094,6 +1112,10 @@ export async function updateItemPhoto(
     itemPhotoDownloadUrl: string;
     photoBackedUp: boolean;
   }>);
+
+  if (previousStoragePath && previousStoragePath !== nextStoragePath) {
+    await deleteCloudPhotoByStoragePath(previousStoragePath);
+  }
 }
 
 export async function deleteItem(id: string) {
