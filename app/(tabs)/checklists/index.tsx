@@ -638,9 +638,9 @@ export default function ChecklistsTabScreen() {
                       value={activeChecklistCount}
                       label="Active"
                       tone={{
-                        borderColor: "rgba(59,130,246,0.95)",
-                        backgroundColor: "rgba(37,99,235,0.28)",
-                        textColor: "rgb(59,130,246)",
+                        borderColor: "#3B82F6",
+                        backgroundColor: "rgba(59,130,246,0.55)",
+                        textColor: "#FFFFFF",
                       }}
                       selected={selectedChecklistStatus === "active"}
                       onPress={() => handleSelectChecklistStatus("active")}
@@ -652,9 +652,9 @@ export default function ChecklistsTabScreen() {
                       value={packedCount}
                       label="Packed"
                       tone={{
-                        borderColor: "rgba(34,197,94,0.95)",
-                        backgroundColor: "rgba(34,197,94,0.24)",
-                        textColor: "rgb(34,197,94)",
+                        borderColor: "#22C55E",
+                        backgroundColor: "rgba(34,197,94,0.55)",
+                        textColor: "#FFFFFF",
                       }}
                       selected={selectedChecklistStatus === "packed"}
                       onPress={() => handleSelectChecklistStatus("packed")}
@@ -666,9 +666,9 @@ export default function ChecklistsTabScreen() {
                       value={toPackCount}
                       label="To Pack"
                       tone={{
-                        borderColor: "rgba(255,76,76,0.98)",
-                        backgroundColor: "rgba(120,20,32,0.34)",
-                        textColor: "rgb(255,110,110)",
+                        borderColor: "#EF4444",
+                        backgroundColor: "rgba(239,68,68,0.55)",
+                        textColor: "#FFFFFF",
                       }}
                       selected={selectedChecklistStatus === "toPack"}
                       onPress={() => handleSelectChecklistStatus("toPack")}
@@ -927,9 +927,9 @@ export default function ChecklistsTabScreen() {
                   value={activeChecklistCount}
                   label="Active"
                   tone={{
-                    borderColor: "rgba(59,130,246,0.95)",
-                    backgroundColor: "rgba(37,99,235,0.28)",
-                    textColor: "rgb(59,130,246)",
+                    borderColor: "#3B82F6",
+                    backgroundColor: "rgba(59,130,246,0.55)",
+                    textColor: "#FFFFFF",
                   }}
                   selected={selectedChecklistStatus === "active"}
                   onPress={() => handleSelectChecklistStatus("active")}
@@ -941,9 +941,9 @@ export default function ChecklistsTabScreen() {
                   value={packedCount}
                   label="Packed"
                   tone={{
-                    borderColor: "rgba(34,197,94,0.95)",
-                    backgroundColor: "rgba(34,197,94,0.24)",
-                    textColor: "rgb(34,197,94)",
+                    borderColor: "#22C55E",
+                    backgroundColor: "rgba(34,197,94,0.55)",
+                    textColor: "#FFFFFF",
                   }}
                   selected={selectedChecklistStatus === "packed"}
                   onPress={() => handleSelectChecklistStatus("packed")}
@@ -955,9 +955,9 @@ export default function ChecklistsTabScreen() {
                   value={toPackCount}
                   label="To Pack"
                   tone={{
-                    borderColor: "rgba(255,76,76,0.98)",
-                    backgroundColor: "rgba(120,20,32,0.34)",
-                    textColor: "rgb(255,110,110)",
+                    borderColor: "#EF4444",
+                    backgroundColor: "rgba(239,68,68,0.55)",
+                    textColor: "#FFFFFF",
                   }}
                   selected={selectedChecklistStatus === "toPack"}
                   onPress={() => handleSelectChecklistStatus("toPack")}
@@ -1291,7 +1291,7 @@ const styles = StyleSheet.create({
   statCard: {
     minHeight: 78,
     borderRadius: 14,
-    borderWidth: 1,
+    borderWidth: 2,
     paddingHorizontal: 8,
     paddingVertical: 8,
     justifyContent: "center",
