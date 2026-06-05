@@ -16,6 +16,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { cleanupOldCloudPhotosInFolder, deleteCloudPhotoByStoragePath } from "./cloudPhotoStorage";
+import { downloadPhotoToLocalDocumentStorage, localPhotoExists } from "./localPhotoStorage";
 import {
   enqueueOfflineOperation,
   getOfflineChecklistItems,
@@ -174,6 +175,9 @@ function normalizeChecklistItem(
     sortOrder: Number(data.sortOrder ?? 0),
     sourceTemplateItemId: data.sourceTemplateItemId ?? null,
     itemPhotoUri: data.itemPhotoUri ?? "",
+    itemPhotoStoragePath: data.itemPhotoStoragePath ?? "",
+    itemPhotoDownloadUrl: data.itemPhotoDownloadUrl ?? "",
+    photoBackedUp: Boolean(data.photoBackedUp ?? false),
     compartmentId: data.compartmentId ?? "",
     compartmentName: data.compartmentName ?? "",
     roomId: data.roomId ?? "",
@@ -199,6 +203,77 @@ function normalizeTemplateItem(
     createdAt: data.createdAt,
     updatedAt: data.updatedAt,
   } as ChecklistTemplateItem;
+}
+
+
+async function recoverMissingLocalChecklistItemPhoto(
+  userId: string,
+  checklistId: string,
+  item: ChecklistItem
+): Promise<ChecklistItem> {
+  const localUri = item.itemPhotoUri?.trim() ?? "";
+  const downloadUrl = (item as any).itemPhotoDownloadUrl?.trim() ?? "";
+
+  if (!downloadUrl) {
+    return item;
+  }
+
+  if (localUri && (await localPhotoExists(localUri))) {
+    return item;
+  }
+
+  try {
+    const recoveredLocalUri = await downloadPhotoToLocalDocumentStorage(
+      downloadUrl,
+      `checklist-item-${item.id}`
+    );
+
+    if (!recoveredLocalUri) {
+      return item;
+    }
+
+    try {
+      const itemRef = doc(
+        db,
+        "users",
+        requireUserId(userId),
+        "checklists",
+        requireDocumentId(checklistId, "Checklist ID"),
+        "items",
+        requireDocumentId(item.id, "Checklist item ID")
+      );
+
+      await updateDoc(itemRef, {
+        itemPhotoUri: recoveredLocalUri,
+        updatedAt: serverTimestamp(),
+      });
+    } catch (updateErr) {
+      console.warn(
+        "Recovered checklist item photo locally but could not update Firestore URI.",
+        updateErr
+      );
+    }
+
+    return {
+      ...item,
+      itemPhotoUri: recoveredLocalUri,
+    };
+  } catch (err) {
+    console.warn("Unable to recover missing local checklist item photo.", err);
+    return item;
+  }
+}
+
+async function recoverMissingLocalChecklistItemPhotos(
+  userId: string,
+  checklistId: string,
+  items: ChecklistItem[]
+): Promise<ChecklistItem[]> {
+  return Promise.all(
+    items.map((item) =>
+      recoverMissingLocalChecklistItemPhoto(userId, checklistId, item)
+    )
+  );
 }
 
 function getPackedCountFromTemplateItems(items: ChecklistTemplateItem[]) {
@@ -979,7 +1054,13 @@ export async function getChecklistItems(
       normalizeChecklistItem(d.id, d.data())
     );
 
-    return firebaseItems.sort(
+    const recoveredItems = await recoverMissingLocalChecklistItemPhotos(
+      userId,
+      checklistId,
+      firebaseItems
+    );
+
+    return recoveredItems.sort(
       (a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
     );
   } catch {
@@ -1023,9 +1104,14 @@ export function subscribeToChecklistItems(
         if (!isActive) return;
 
         const mergedItems = [...firebaseItems, ...offlineItems];
+        const recoveredItems = await recoverMissingLocalChecklistItemPhotos(
+          safeUserId,
+          safeChecklistId,
+          mergedItems
+        );
 
         callback(
-          mergedItems.sort(
+          recoveredItems.sort(
             (a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
           )
         );
