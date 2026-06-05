@@ -57,3 +57,43 @@ export async function savePhotoToLocalDocumentStorage(
 
   return destinationUri;
 }
+
+export async function localPhotoExists(uri?: string) {
+  const trimmedUri = uri?.trim() ?? "";
+
+  if (!trimmedUri || !trimmedUri.startsWith("file://")) {
+    return false;
+  }
+
+  try {
+    const info = await FileSystem.getInfoAsync(trimmedUri);
+    return info.exists === true;
+  } catch {
+    return false;
+  }
+}
+
+export async function downloadPhotoToLocalDocumentStorage(
+  remoteUri: string,
+  prefix = "photo"
+) {
+  const trimmedUri = remoteUri.trim();
+
+  if (!trimmedUri || !FileSystem.documentDirectory) {
+    return "";
+  }
+
+  await FileSystem.makeDirectoryAsync(LOCAL_PHOTO_DIR, {
+    intermediates: true,
+  });
+
+  const destinationUri = `${LOCAL_PHOTO_DIR}${createPhotoFileName(
+    prefix,
+    trimmedUri
+  )}`;
+
+  const result = await FileSystem.downloadAsync(trimmedUri, destinationUri);
+
+  return result.uri;
+}
+

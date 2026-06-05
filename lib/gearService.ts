@@ -13,6 +13,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { auth, db } from "../firebaseConfig";
+import { downloadPhotoToLocalDocumentStorage, localPhotoExists } from "./localPhotoStorage";
 import { cacheStorageSpaces, enqueueOfflineOperation, getCachedStorageSpaces, getOfflineCompartments, getOfflineCompartmentById, getOfflineItems, getOfflineItemsByCompartment, getOfflineItemsByStatus, getOfflineStorageSpaces, removeOfflineOperation, updateOfflineCreatedItem } from "./offlineQueue";
 
 export type ItemStatus = "packed" | "missing";
@@ -65,9 +66,58 @@ export type Item = {
   notes?: string;
   source?: string;
   itemPhotoUri?: string;
+  itemPhotoStoragePath?: string;
+  itemPhotoDownloadUrl?: string;
+  photoBackedUp?: boolean;
   createdAt?: unknown;
   updatedAt?: unknown;
 };
+
+
+async function recoverMissingLocalItemPhoto(item: Item): Promise<Item> {
+  const localUri = item.itemPhotoUri?.trim() ?? "";
+  const downloadUrl = item.itemPhotoDownloadUrl?.trim() ?? "";
+
+  if (!downloadUrl) {
+    return item;
+  }
+
+  if (localUri && (await localPhotoExists(localUri))) {
+    return item;
+  }
+
+  try {
+    const recoveredLocalUri = await downloadPhotoToLocalDocumentStorage(
+      downloadUrl,
+      `item-${item.id}`
+    );
+
+    if (!recoveredLocalUri) {
+      return item;
+    }
+
+    try {
+      await updateDoc(inventoryDoc(item.id), {
+        itemPhotoUri: recoveredLocalUri,
+        updatedAt: serverTimestamp(),
+      });
+    } catch (updateErr) {
+      console.warn("Recovered item photo locally but could not update Firestore URI.", updateErr);
+    }
+
+    return {
+      ...item,
+      itemPhotoUri: recoveredLocalUri,
+    };
+  } catch (err) {
+    console.warn("Unable to recover missing local item photo.", err);
+    return item;
+  }
+}
+
+async function recoverMissingLocalItemPhotos(items: Item[]): Promise<Item[]> {
+  return Promise.all(items.map((item) => recoverMissingLocalItemPhoto(item)));
+}
 
 function getCurrentUserId() {
   const userId = auth.currentUser?.uid;
@@ -895,7 +945,7 @@ export async function getItemsByCompartment(
     console.warn("Unable to load remote items. Showing offline queue.", error);
   }
 
-  return [...offlineItems, ...remoteItems];
+  return recoverMissingLocalItemPhotos([...offlineItems, ...remoteItems]);
 }
 
 export async function getItemsByStatus(
@@ -924,7 +974,7 @@ export async function getItemsByStatus(
     console.warn("Unable to load remote items by status. Showing offline queue.", error);
   }
 
-  return [...offlineItems, ...remoteItems];
+  return recoverMissingLocalItemPhotos([...offlineItems, ...remoteItems]);
 }
 
 export async function createItem(input: {
