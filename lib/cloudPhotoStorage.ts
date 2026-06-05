@@ -117,3 +117,41 @@ export async function cleanupOldCloudPhotosInFolder(input: {
   }
 }
 
+export async function uploadChecklistItemPhotoToCloud(input: {
+  userId: string;
+  checklistId: string;
+  itemId: string;
+  localUri: string;
+}) {
+  const userId = input.userId.trim();
+  const checklistId = input.checklistId.trim();
+  const itemId = input.itemId.trim();
+  const localUri = input.localUri.trim();
+
+  if (!userId) throw new Error("User ID is required to upload a checklist item photo.");
+  if (!checklistId) throw new Error("Checklist ID is required to upload a checklist item photo.");
+  if (!itemId) throw new Error("Item ID is required to upload a checklist item photo.");
+  if (!localUri) throw new Error("Local photo URI is required to upload a checklist item photo.");
+
+  const extension = getFileExtension(localUri);
+  const storagePath = `users/${safeSegment(userId)}/checklists/${safeSegment(
+    checklistId
+  )}/items/${safeSegment(itemId)}/main-${Date.now()}.${extension}`;
+
+  const response = await fetch(localUri);
+  const blob = await response.blob();
+  const imageRef = ref(storage, storagePath);
+
+  await uploadBytes(imageRef, blob, {
+    contentType: getContentType(localUri),
+  });
+
+  const downloadUrl = await getDownloadURL(imageRef);
+
+  return {
+    localUri,
+    storagePath,
+    downloadUrl,
+  } satisfies CloudItemPhotoUploadResult;
+}
+

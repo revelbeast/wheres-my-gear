@@ -15,6 +15,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
+import { cleanupOldCloudPhotosInFolder, deleteCloudPhotoByStoragePath } from "./cloudPhotoStorage";
 import {
   enqueueOfflineOperation,
   getOfflineChecklistItems,
@@ -1211,7 +1212,12 @@ export async function updateChecklistItemPhoto(
   userId: string,
   checklistId: string,
   itemId: string,
-  itemPhotoUri: string
+  itemPhotoUri: string,
+  cloudPhoto?: {
+    itemPhotoStoragePath?: string;
+    itemPhotoDownloadUrl?: string;
+    photoBackedUp?: boolean;
+  }
 ) {
   const itemRef = doc(
     db,
@@ -1223,10 +1229,40 @@ export async function updateChecklistItemPhoto(
     requireDocumentId(itemId, "Checklist item ID")
   );
 
+  let previousStoragePath = "";
+
+  try {
+    const existingSnap = await getDoc(itemRef);
+    const existingData = existingSnap.exists() ? existingSnap.data() : null;
+    previousStoragePath =
+      typeof existingData?.itemPhotoStoragePath === "string"
+        ? existingData.itemPhotoStoragePath
+        : "";
+  } catch (err) {
+    console.warn("Unable to read previous checklist item photo before update.", err);
+  }
+
+  const nextStoragePath = cloudPhoto?.itemPhotoStoragePath ?? "";
+
   await updateDoc(itemRef, {
     itemPhotoUri: itemPhotoUri ?? "",
+    itemPhotoStoragePath: nextStoragePath,
+    itemPhotoDownloadUrl: cloudPhoto?.itemPhotoDownloadUrl ?? "",
+    photoBackedUp: cloudPhoto?.photoBackedUp ?? false,
     updatedAt: serverTimestamp(),
   });
+
+  if (previousStoragePath && previousStoragePath !== nextStoragePath) {
+    await deleteCloudPhotoByStoragePath(previousStoragePath);
+  }
+
+  if (nextStoragePath) {
+    const folderPath = nextStoragePath.split("/").slice(0, -1).join("/");
+    await cleanupOldCloudPhotosInFolder({
+      folderPath,
+      keepStoragePath: nextStoragePath,
+    });
+  }
 }
 
 export async function updateChecklistItemCompartment(

@@ -2,6 +2,7 @@ import NetInfo from "@react-native-community/netinfo";
 import { BlurView } from "expo-blur";
 import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
+import { uploadChecklistItemPhotoToCloud } from "../../../lib/cloudPhotoStorage";
 import { router, useLocalSearchParams } from "expo-router";
 import {
   Boxes,
@@ -911,11 +912,40 @@ export default function ChecklistDetailScreen() {
           "checklist-item"
         );
 
+        let cloudPhoto:
+          | {
+              itemPhotoStoragePath?: string;
+              itemPhotoDownloadUrl?: string;
+              photoBackedUp?: boolean;
+            }
+          | undefined;
+
+        try {
+          const uploadedPhoto = await uploadChecklistItemPhotoToCloud({
+            userId: user.uid,
+            checklistId,
+            itemId: item.id,
+            localUri,
+          });
+
+          cloudPhoto = {
+            itemPhotoStoragePath: uploadedPhoto.storagePath,
+            itemPhotoDownloadUrl: uploadedPhoto.downloadUrl,
+            photoBackedUp: true,
+          };
+        } catch (uploadErr) {
+          console.error("Checklist item photo cloud backup failed:", uploadErr);
+          cloudPhoto = {
+            photoBackedUp: false,
+          };
+        }
+
         await updateChecklistItemPhoto(
           user.uid,
           checklistId,
           item.id,
-          localUri
+          localUri,
+          cloudPhoto
         );
 
         void triggerSuccessHaptic();
@@ -956,11 +986,40 @@ export default function ChecklistDetailScreen() {
           "checklist-item"
         );
 
+        let cloudPhoto:
+          | {
+              itemPhotoStoragePath?: string;
+              itemPhotoDownloadUrl?: string;
+              photoBackedUp?: boolean;
+            }
+          | undefined;
+
+        try {
+          const uploadedPhoto = await uploadChecklistItemPhotoToCloud({
+            userId: user.uid,
+            checklistId,
+            itemId: item.id,
+            localUri,
+          });
+
+          cloudPhoto = {
+            itemPhotoStoragePath: uploadedPhoto.storagePath,
+            itemPhotoDownloadUrl: uploadedPhoto.downloadUrl,
+            photoBackedUp: true,
+          };
+        } catch (uploadErr) {
+          console.error("Checklist item photo cloud backup failed:", uploadErr);
+          cloudPhoto = {
+            photoBackedUp: false,
+          };
+        }
+
         await updateChecklistItemPhoto(
           user.uid,
           checklistId,
           item.id,
-          localUri
+          localUri,
+          cloudPhoto
         );
 
         void triggerSuccessHaptic();
