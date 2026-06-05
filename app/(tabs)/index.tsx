@@ -5,7 +5,7 @@ import {
   ExpoSpeechRecognitionModule,
   useSpeechRecognitionEvent,
 } from "expo-speech-recognition";
-import { router, useFocusEffect } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { collection, getDocs } from "firebase/firestore";
 import {
   Archive,
@@ -599,6 +599,7 @@ function formatTripDate(date: Date) {
 
 export default function DashboardScreen() {
   const { user, initializing } = useAuth();
+  const params = useLocalSearchParams<{ replayTour?: string }>();
   const theme = useThemedValues();
   const { isTablet, isLandscape } = useDeviceLayout();
   const shouldUseDashboardSearchAccessory = Platform.OS === "ios" && !isTablet;
@@ -723,6 +724,14 @@ export default function DashboardScreen() {
       cancelled = true;
     };
   }, [initializing, user?.uid]);
+
+  useEffect(() => {
+    if (params.replayTour === "1") {
+      setDashboardTourStepIndex(0);
+      setDashboardTourVisible(true);
+      router.setParams({ replayTour: undefined });
+    }
+  }, [params.replayTour]);
 
   async function handleCloseDashboardTour() {
     setDashboardTourVisible(false);

@@ -9,6 +9,7 @@ import {
   Info,
   LogOut,
   Moon,
+  RotateCcw,
   ShieldCheck,
   Star,
   Trash2,
@@ -532,6 +533,15 @@ export default function ProfileScreen() {
     });
   }
 
+  function handleReplayAppTour() {
+    runNavigationAction(() => {
+      router.push({
+        pathname: "/",
+        params: { replayTour: "1" },
+      });
+    });
+  }
+
   function handleOpenGeneralSettings() {
     runNavigationAction(() => {
       router.push("/general-settings");
@@ -1021,6 +1031,21 @@ export default function ProfileScreen() {
                   />
 
                   <ProfileRow
+                    icon={<RotateCcw size={20} color={iconColor} />}
+                    title="Replay App Tour"
+                    subtitle="Review storage spaces, rooms, compartments, and app settings"
+                    onPress={handleReplayAppTour}
+                    disabled={rowActionsDisabled}
+                  />
+
+                  <View
+                    style={[
+                      styles.divider,
+                      { backgroundColor: theme.colors.border },
+                    ]}
+                  />
+
+                  <ProfileRow
                     icon={<Moon size={20} color={iconColor} />}
                     title="General Settings"
                     subtitle="Edit theme and display preferences"
@@ -1179,6 +1204,21 @@ export default function ProfileScreen() {
                   title="FAQ"
                   subtitle="Get answers to common questions"
                   onPress={handleOpenFaq}
+                  disabled={rowActionsDisabled}
+                />
+
+                <View
+                  style={[
+                    styles.divider,
+                    { backgroundColor: theme.colors.border },
+                  ]}
+                />
+
+                <ProfileRow
+                  icon={<RotateCcw size={20} color={iconColor} />}
+                  title="Replay App Tour"
+                  subtitle="Review storage spaces, rooms, compartments, and app settings"
+                  onPress={handleReplayAppTour}
                   disabled={rowActionsDisabled}
                 />
 
