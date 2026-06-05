@@ -1024,10 +1024,26 @@ export async function updateItem(
   await updateDoc(inventoryDoc(id), payload);
 }
 
-export async function updateItemPhoto(id: string, itemPhotoUri: string) {
+export async function updateItemPhoto(
+  id: string,
+  itemPhotoUri: string,
+  cloudPhoto?: {
+    itemPhotoStoragePath?: string;
+    itemPhotoDownloadUrl?: string;
+    photoBackedUp?: boolean;
+  }
+) {
   await updateItem(id, {
     itemPhotoUri: itemPhotoUri ?? "",
-  });
+    itemPhotoStoragePath: cloudPhoto?.itemPhotoStoragePath ?? "",
+    itemPhotoDownloadUrl: cloudPhoto?.itemPhotoDownloadUrl ?? "",
+    photoBackedUp: cloudPhoto?.photoBackedUp ?? false,
+  } as Partial<{
+    itemPhotoUri: string;
+    itemPhotoStoragePath: string;
+    itemPhotoDownloadUrl: string;
+    photoBackedUp: boolean;
+  }>);
 }
 
 export async function deleteItem(id: string) {

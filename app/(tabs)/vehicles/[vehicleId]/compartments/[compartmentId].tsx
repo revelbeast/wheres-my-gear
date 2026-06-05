@@ -1,5 +1,8 @@
 import { BlurView } from "expo-blur";
 import * as ImagePicker from "expo-image-picker";
+import { getAuth } from "firebase/auth";
+import { uploadInventoryItemPhotoToCloud } from "../../../../../lib/cloudPhotoStorage";
+import { savePhotoToLocalDocumentStorage } from "../../../../../lib/localPhotoStorage";
 import { useLocalSearchParams } from "expo-router";
 import {
   Camera,
@@ -336,7 +339,7 @@ export default function CompartmentDetailScreen() {
 
       const toPackText =
         toPackItems.length > 0
-          ? toPackItems.map(formatItemForShare).join("\n")
+          ? toPackItems.map(formatItemForShare).join("\nn")
           : "- Nothing left to pack";
 
       const packedText =
@@ -913,11 +916,47 @@ export default function CompartmentDetailScreen() {
           return;
         }
 
-        await updateItemPhoto(item.id, asset.uri);
+        const localPhotoUri = await savePhotoToLocalDocumentStorage(
+          asset.uri,
+          `item-${item.id}`
+        );
+
+        let cloudPhoto:
+          | {
+              itemPhotoStoragePath?: string;
+              itemPhotoDownloadUrl?: string;
+              photoBackedUp?: boolean;
+            }
+          | undefined;
+
+        const photoBackupUserId = getAuth().currentUser?.uid ?? "";
+
+        if (photoBackupUserId) {
+          try {
+            const uploadedPhoto = await uploadInventoryItemPhotoToCloud({
+              userId: photoBackupUserId,
+              itemId: item.id,
+              localUri: localPhotoUri,
+            });
+
+            cloudPhoto = {
+              itemPhotoStoragePath: uploadedPhoto.storagePath,
+              itemPhotoDownloadUrl: uploadedPhoto.downloadUrl,
+              photoBackedUp: true,
+            };
+          } catch (uploadErr) {
+            console.error("Item photo cloud backup failed:", uploadErr);
+            cloudPhoto = {
+              photoBackedUp: false,
+            };
+          }
+        }
+
+        await updateItemPhoto(item.id, localPhotoUri, cloudPhoto);
 
         if (!isMountedRef.current) return;
 
-        setSelectedPhotoItem({ ...item, itemPhotoUri: asset.uri });
+        setSelectedPhotoItem({ ...item, itemPhotoUri: localPhotoUri });
 
         await refreshItems();
       } catch (err: any) {
@@ -968,11 +1007,47 @@ export default function CompartmentDetailScreen() {
           return;
         }
 
-        await updateItemPhoto(item.id, asset.uri);
+        const localPhotoUri = await savePhotoToLocalDocumentStorage(
+          asset.uri,
+          `item-${item.id}`
+        );
+
+        let cloudPhoto:
+          | {
+              itemPhotoStoragePath?: string;
+              itemPhotoDownloadUrl?: string;
+              photoBackedUp?: boolean;
+            }
+          | undefined;
+
+        const photoBackupUserId = getAuth().currentUser?.uid ?? "";
+
+        if (photoBackupUserId) {
+          try {
+            const uploadedPhoto = await uploadInventoryItemPhotoToCloud({
+              userId: photoBackupUserId,
+              itemId: item.id,
+              localUri: localPhotoUri,
+            });
+
+            cloudPhoto = {
+              itemPhotoStoragePath: uploadedPhoto.storagePath,
+              itemPhotoDownloadUrl: uploadedPhoto.downloadUrl,
+              photoBackedUp: true,
+            };
+          } catch (uploadErr) {
+            console.error("Item photo cloud backup failed:", uploadErr);
+            cloudPhoto = {
+              photoBackedUp: false,
+            };
+          }
+        }
+
+        await updateItemPhoto(item.id, localPhotoUri, cloudPhoto);
 
         if (!isMountedRef.current) return;
 
-        setSelectedPhotoItem({ ...item, itemPhotoUri: asset.uri });
+        setSelectedPhotoItem({ ...item, itemPhotoUri: localPhotoUri });
 
         await refreshItems();
       } catch (err) {
