@@ -1,4 +1,4 @@
-import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { deleteObject, getDownloadURL, listAll, ref, uploadBytes } from "firebase/storage";
 
 import { storage } from "../firebaseConfig";
 
@@ -83,6 +83,37 @@ export async function deleteCloudPhotoByStoragePath(storagePath?: string) {
     await deleteObject(ref(storage, trimmedPath));
   } catch (err) {
     console.warn("Cloud photo cleanup skipped.", err);
+  }
+}
+
+export async function cleanupOldCloudPhotosInFolder(input: {
+  folderPath: string;
+  keepStoragePath?: string;
+}) {
+  const folderPath = input.folderPath.trim();
+  const keepStoragePath = input.keepStoragePath?.trim() ?? "";
+
+  if (!folderPath) {
+    return;
+  }
+
+  try {
+    const folderRef = ref(storage, folderPath);
+    const result = await listAll(folderRef);
+
+    await Promise.all(
+      result.items
+        .filter((itemRef) => itemRef.fullPath !== keepStoragePath)
+        .map(async (itemRef) => {
+          try {
+            await deleteObject(itemRef);
+          } catch (err) {
+            console.warn("Old cloud photo cleanup skipped one file.", err);
+          }
+        })
+    );
+  } catch (err) {
+    console.warn("Cloud photo folder cleanup skipped.", err);
   }
 }
 

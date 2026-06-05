@@ -13,7 +13,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { auth, db } from "../firebaseConfig";
-import { deleteCloudPhotoByStoragePath } from "./cloudPhotoStorage";
+import { cleanupOldCloudPhotosInFolder, deleteCloudPhotoByStoragePath } from "./cloudPhotoStorage";
 import { downloadPhotoToLocalDocumentStorage, localPhotoExists } from "./localPhotoStorage";
 import { cacheStorageSpaces, enqueueOfflineOperation, getCachedStorageSpaces, getOfflineCompartments, getOfflineCompartmentById, getOfflineItems, getOfflineItemsByCompartment, getOfflineItemsByStatus, getOfflineStorageSpaces, removeOfflineOperation, updateOfflineCreatedItem } from "./offlineQueue";
 
@@ -1115,6 +1115,14 @@ export async function updateItemPhoto(
 
   if (previousStoragePath && previousStoragePath !== nextStoragePath) {
     await deleteCloudPhotoByStoragePath(previousStoragePath);
+  }
+
+  if (nextStoragePath) {
+    const folderPath = nextStoragePath.split("/").slice(0, -1).join("/");
+    await cleanupOldCloudPhotosInFolder({
+      folderPath,
+      keepStoragePath: nextStoragePath,
+    });
   }
 }
 
