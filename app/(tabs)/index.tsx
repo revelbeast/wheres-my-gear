@@ -2926,7 +2926,7 @@ export default function DashboardScreen() {
             <View style={styles.brandRow}>
               <View style={styles.brandIconGlow}>
                 <Image
-                  source={require("../../assets/images/logo.png")}
+                  source={require("../../assets/images/app-icon.png")}
                   style={styles.brandLogo}
                   resizeMode="contain"
                 />
@@ -4542,6 +4542,7 @@ const styles = StyleSheet.create({
   brandLogo: {
     width: 80,
     height: 80,
+    borderRadius: 20,
   },
 
   brandTitleWrap: {
