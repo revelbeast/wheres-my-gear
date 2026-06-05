@@ -36,10 +36,50 @@ import {
   TextInput,
   View
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const DASHBOARD_SEARCH_KEYBOARD_ACCESSORY_ID =
   "dashboard-search-keyboard-accessory";
+
+const DASHBOARD_TOUR_STORAGE_KEY_PREFIX = "wmg.dashboardTourSeen.v1";
+
+const DASHBOARD_TOUR_STEPS = [
+  {
+    title: "Start with Search",
+    target: "Search bar",
+    body: "Search instantly across your gear, storage spaces, rooms, compartments, checklists, and templates.",
+  },
+  {
+    title: "Add a Storage Space",
+    target: "Add Storage Space",
+    body: "Create a vehicle, garage, shed, attic, RV, or other main storage location.",
+  },
+  {
+    title: "Organize with Rooms",
+    target: "Room Quick View",
+    body: "Rooms help divide larger spaces into areas like Cab, Rear Cargo, Workbench, or Kitchen.",
+  },
+  {
+    title: "Add Compartments",
+    target: "Compartment Quick View",
+    body: "Compartments are drawers, bins, shelves, cabinets, boxes, or other exact storage spots.",
+  },
+  {
+    title: "Use Quick Actions",
+    target: "Quick Actions",
+    body: "Use Gear Assistant, Scan w/AI, QR scanning, Archive, Export, and fast add actions from the dashboard.",
+  },
+  {
+    title: "Customize the App",
+    target: "Profile",
+    body: "Open Profile to change Light Mode, Dark Mode, appearance settings, and account preferences.",
+  },
+];
+
+function getDashboardTourStorageKey(userId: string) {
+  return `${DASHBOARD_TOUR_STORAGE_KEY_PREFIX}.${userId}`;
+}
 
 import { useAuth } from "../../components/auth/AuthProvider";
 import HapticPressable from "../../components/ui/HapticPressable";
@@ -628,6 +668,8 @@ export default function DashboardScreen() {
   const [showAllVoiceLocations, setShowAllVoiceLocations] = useState(false);
   const [isSavingVoiceItems, setIsSavingVoiceItems] = useState(false);
   const [isVoiceListening, setIsVoiceListening] = useState(false);
+  const [dashboardTourVisible, setDashboardTourVisible] = useState(false);
+  const [dashboardTourStepIndex, setDashboardTourStepIndex] = useState(0);
 
   const [exportStep, setExportStep] = useState<
     "category" | "selection" | "compartments" | "format"
@@ -650,6 +692,64 @@ export default function DashboardScreen() {
   const [profilePhotoFailed, setProfilePhotoFailed] = useState(false);
 
   const nextUpcomingTrip = upcomingTrips[0] ?? null;
+  const dashboardTourStep = DASHBOARD_TOUR_STEPS[dashboardTourStepIndex];
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadDashboardTourState() {
+      if (initializing || !user?.uid) {
+        setDashboardTourVisible(false);
+        return;
+      }
+
+      try {
+        const seen = await AsyncStorage.getItem(
+          getDashboardTourStorageKey(user.uid)
+        );
+
+        if (!cancelled && seen !== "true") {
+          setDashboardTourStepIndex(0);
+          setDashboardTourVisible(true);
+        }
+      } catch (error) {
+        console.error("Failed to load dashboard tour state:", error);
+      }
+    }
+
+    loadDashboardTourState();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initializing, user?.uid]);
+
+  async function handleCloseDashboardTour() {
+    setDashboardTourVisible(false);
+
+    if (!user?.uid) {
+      return;
+    }
+
+    try {
+      await AsyncStorage.setItem(getDashboardTourStorageKey(user.uid), "true");
+    } catch (error) {
+      console.error("Failed to save dashboard tour state:", error);
+    }
+  }
+
+  function handleNextDashboardTourStep() {
+    if (dashboardTourStepIndex >= DASHBOARD_TOUR_STEPS.length - 1) {
+      handleCloseDashboardTour();
+      return;
+    }
+
+    setDashboardTourStepIndex((current) => current + 1);
+  }
+
+  function handlePreviousDashboardTourStep() {
+    setDashboardTourStepIndex((current) => Math.max(0, current - 1));
+  }
 
   const selectedStorage = useMemo(
     () => storageSpaces.find((space) => space.id === selectedStorageId) ?? null,
@@ -3630,6 +3730,79 @@ export default function DashboardScreen() {
         </ScrollView>
 
         <Modal
+          visible={dashboardTourVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={handleCloseDashboardTour}
+        >
+          <View style={styles.dashboardTourOverlay}>
+            <View
+              style={[
+                styles.dashboardTourCard,
+                {
+                  backgroundColor: theme.colors.cardStrong,
+                  borderColor: theme.colors.border,
+                },
+              ]}
+            >
+              <ThemedText style={styles.dashboardTourEyebrow}>
+                App Tour
+              </ThemedText>
+
+              <ThemedText variant="title" style={styles.dashboardTourTitle}>
+                {dashboardTourStep.title}
+              </ThemedText>
+
+              <View style={styles.dashboardTourTargetPill}>
+                <ThemedText style={styles.dashboardTourTargetText}>
+                  Focus: {dashboardTourStep.target}
+                </ThemedText>
+              </View>
+
+              <ThemedText color="secondary" style={styles.dashboardTourBody}>
+                {dashboardTourStep.body}
+              </ThemedText>
+
+              <ThemedText color="secondary" style={styles.dashboardTourProgress}>
+                {dashboardTourStepIndex + 1} of {DASHBOARD_TOUR_STEPS.length}
+              </ThemedText>
+
+              <View style={styles.dashboardTourButtonRow}>
+                <HapticPressable
+                  style={[
+                    styles.dashboardTourSecondaryButton,
+                    dashboardTourStepIndex === 0 && styles.dashboardTourDisabledButton,
+                  ]}
+                  onPress={handlePreviousDashboardTourStep}
+                  disabled={dashboardTourStepIndex === 0}
+                >
+                  <ThemedText style={styles.dashboardTourSecondaryButtonText}>
+                    Back
+                  </ThemedText>
+                </HapticPressable>
+
+                <HapticPressable
+                  style={styles.dashboardTourPrimaryButton}
+                  onPress={handleNextDashboardTourStep}
+                >
+                  <ThemedText style={styles.dashboardTourPrimaryButtonText}>
+                    {dashboardTourStepIndex === DASHBOARD_TOUR_STEPS.length - 1
+                      ? "Finish"
+                      : "Next"}
+                  </ThemedText>
+                </HapticPressable>
+              </View>
+
+              <HapticPressable onPress={handleCloseDashboardTour}>
+                <ThemedText color="secondary" style={styles.dashboardTourSkipText}>
+                  Skip Tour
+                </ThemedText>
+              </HapticPressable>
+            </View>
+          </View>
+        </Modal>
+
+        <Modal
           visible={exportModalVisible}
           transparent
           animationType="fade"
@@ -4194,6 +4367,87 @@ export default function DashboardScreen() {
 }
 
 const styles = StyleSheet.create({
+  dashboardTourOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.72)",
+    justifyContent: "center",
+    padding: 24,
+  },
+  dashboardTourCard: {
+    borderWidth: 1,
+    borderRadius: 28,
+    padding: 22,
+    gap: 14,
+  },
+  dashboardTourEyebrow: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  dashboardTourTitle: {
+    color: "#FFFFFF",
+  },
+  dashboardTourTargetPill: {
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(255,255,255,0.14)",
+    borderColor: "rgba(255,255,255,0.22)",
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  dashboardTourTargetText: {
+    color: "#FFFFFF",
+    fontWeight: "800",
+    fontSize: 13,
+  },
+  dashboardTourBody: {
+    lineHeight: 22,
+  },
+  dashboardTourProgress: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  dashboardTourButtonRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 4,
+  },
+  dashboardTourPrimaryButton: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 14,
+  },
+  dashboardTourPrimaryButtonText: {
+    color: "#111827",
+    fontWeight: "900",
+  },
+  dashboardTourSecondaryButton: {
+    flex: 1,
+    borderColor: "rgba(255,255,255,0.28)",
+    borderWidth: 1,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 14,
+  },
+  dashboardTourSecondaryButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "900",
+  },
+  dashboardTourDisabledButton: {
+    opacity: 0.35,
+  },
+  dashboardTourSkipText: {
+    textAlign: "center",
+    fontWeight: "800",
+    marginTop: 2,
+  },
   safe: {
     flex: 1,
     backgroundColor: "transparent",
