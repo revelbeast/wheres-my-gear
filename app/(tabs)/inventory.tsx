@@ -39,10 +39,13 @@ const INVENTORY_SEARCH_KEYBOARD_ACCESSORY_ID =
   "inventory-search-keyboard-accessory";
 
 import {
+  Compartment,
   getAllItems,
+  getCompartments,
   getStorageSpaces,
   Item,
   StorageSpace,
+  updateItem,
 } from "../../lib/gearService";
 import { triggerSuccessHaptic } from "../../lib/haptics";
 import { useDeviceLayout } from "../../lib/useDeviceLayout";
@@ -439,11 +442,104 @@ export default function InventoryScreen() {
     setShowStorageDropdown(false);
   }
 
+  async function handleAssignUnassignedItem(item: Item) {
+    if (interactionLocked || navigationTransitionLockedRef.current) {
+      return;
+    }
+
+    if (storageSpaces.length === 0) {
+      Alert.alert(
+        "No storage spaces",
+        "Create a storage space before assigning this item."
+      );
+      return;
+    }
+
+    try {
+      const destinationOptions = (
+        await Promise.all(
+          storageSpaces.map(async (space) => {
+            const compartments = await getCompartments(space.id);
+
+            return {
+              space,
+              compartments,
+            };
+          })
+        )
+      ).filter((option) => option.compartments.length > 0);
+
+      if (destinationOptions.length === 0) {
+        Alert.alert(
+          "No compartments available",
+          "Create a compartment before assigning this item."
+        );
+        return;
+      }
+
+      Alert.alert(
+        "Assign item",
+        `Choose where to assign "${item.name}".`,
+        [
+          ...destinationOptions.map((option) => ({
+            text: option.space.name,
+            onPress: () => {
+              Alert.alert(
+                option.space.name,
+                "Choose a destination compartment.",
+                [
+                  ...option.compartments.map((destination: Compartment) => ({
+                    text: destination.name,
+                    onPress: async () => {
+                      try {
+                        await updateItem(item.id, {
+                          compartmentId: destination.id,
+                          compartmentName: destination.name,
+                          vehicleId: option.space.id,
+                          vehicleName: option.space.name,
+                        });
+
+                        const refreshedItems = await getAllItems();
+                        setInventoryItems(refreshedItems);
+
+                        Alert.alert(
+                          "Item assigned",
+                          `"${item.name}" was assigned to ${destination.name}.`
+                        );
+                      } catch (error) {
+                        console.error("Failed to assign item:", error);
+                        Alert.alert("Error", "Failed to assign item.");
+                      }
+                    },
+                  })),
+                  { text: "Cancel", style: "cancel" },
+                ]
+              );
+            },
+          })),
+          { text: "Cancel", style: "cancel" },
+        ]
+      );
+    } catch (error) {
+      console.error("Failed to prepare item assignment:", error);
+      Alert.alert("Error", "Failed to load assignment options.");
+    }
+  }
+
   function handleOpenItem(item: Item) {
     if (!item.vehicleId || !item.compartmentId) {
       Alert.alert(
         "Item not assigned",
-        "This item is not assigned to a compartment yet. It was saved to inventory and can be organized later."
+        "This item is not assigned to a compartment yet. Assign it now?",
+        [
+          { text: "Later", style: "cancel" },
+          {
+            text: "Assign Now",
+            onPress: () => {
+              void handleAssignUnassignedItem(item);
+            },
+          },
+        ]
       );
       return;
     }
