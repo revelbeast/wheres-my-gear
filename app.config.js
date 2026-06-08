@@ -40,6 +40,8 @@ export default {
     plugins: [
       "expo-apple-authentication",
       "expo-web-browser",
+      "expo-font",
+      "expo-router",
       [
         "expo-speech-recognition",
         {
