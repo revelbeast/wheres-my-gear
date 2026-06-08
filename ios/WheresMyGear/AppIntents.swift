@@ -1,6 +1,20 @@
 import AppIntents
 import UIKit
 
+
+@available(iOS 16.0, *)
+struct OpenDashboardIntent: AppIntent {
+  static var title: LocalizedStringResource = "Open Dashboard"
+  static var description = IntentDescription("Open the Where's My Gear dashboard.")
+  static var openAppWhenRun: Bool = true
+
+  @MainActor
+  func perform() async throws -> some IntentResult {
+    openDeepLink("wheres-my-gear://dashboard")
+    return .result()
+  }
+}
+
 @available(iOS 16.0, *)
 struct AddGearItemIntent: AppIntent {
   static var title: LocalizedStringResource = "Add Gear Item"
@@ -58,6 +72,17 @@ struct OpenTripsIntent: AppIntent {
 struct WheresMyGearShortcuts: AppShortcutsProvider {
   static var appShortcuts: [AppShortcut] {
     AppShortcut(
+      intent: OpenDashboardIntent(),
+      phrases: [
+        "Open dashboard in \(.applicationName)",
+        "Show dashboard in \(.applicationName)",
+        "Open the dashboard in \(.applicationName)"
+      ],
+      shortTitle: "Open Dashboard",
+      systemImageName: "square.grid.2x2"
+    )
+
+    AppShortcut(
       intent: AddGearItemIntent(),
       phrases: [
         "Add gear in \(.applicationName)",
@@ -81,7 +106,9 @@ struct WheresMyGearShortcuts: AppShortcutsProvider {
       intent: OpenChecklistsIntent(),
       phrases: [
         "Open checklists in \(.applicationName)",
-        "Show checklists in \(.applicationName)"
+        "Open checklist in \(.applicationName)",
+        "Show checklists in \(.applicationName)",
+        "Show checklist in \(.applicationName)"
       ],
       shortTitle: "Open Checklists",
       systemImageName: "checklist"
