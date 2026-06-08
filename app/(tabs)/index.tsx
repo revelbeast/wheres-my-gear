@@ -1061,6 +1061,18 @@ export default function DashboardScreen() {
   useSpeechRecognitionEvent("error", (event) => {
     console.log("VOICE ADD ERROR:", event.error, event.message);
     setIsVoiceListening(false);
+
+    if (event.error === "no-speech") {
+      setVoiceTranscript("Didn't catch anything. Tap the mic and try again.");
+      return;
+    }
+
+    if (event.error === "interrupted") {
+      setVoiceTranscript("Listening was interrupted. Tap the mic to try again.");
+      return;
+    }
+
+    setVoiceTranscript("Voice recognition stopped. Tap the mic to try again.");
   });
 
   useEffect(() => {
@@ -2154,7 +2166,13 @@ export default function DashboardScreen() {
     );
   }
 
-  function handleCloseVoiceAddModal() {
+  async function handleCloseVoiceAddModal() {
+    try {
+      await ExpoSpeechRecognitionModule.stop();
+    } catch {
+      // Speech recognition may not be active.
+    }
+
     setVoiceAddModalVisible(false);
     setVoiceTranscript("");
     setVoiceAddReview(null);
