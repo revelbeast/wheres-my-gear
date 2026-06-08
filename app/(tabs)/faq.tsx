@@ -42,7 +42,22 @@ const FAQ_ITEMS: FAQItem[] = [
   {
     question: "What is Gear Assistant?",
     answer:
-      "Gear Assistant lets you speak items into inventory, review what was detected, choose the correct Storage Space or Compartment, and save the items without manually typing each one. After saving, Where's My Gear can take you to the saved location so you can visually confirm the items were added.",
+      "Gear Assistant is a Premium + feature that lets you speak items into inventory, review what was detected, choose the correct Storage Space or Compartment, and save the items without manually typing each one. If no speech is detected or listening is interrupted, Gear Assistant will let you retry without closing the modal.",
+  },
+  {
+    question: "How do I use Gear Assistant?",
+    answer:
+      "Open Gear Assistant from the Dashboard, tap the mic, and say the items you want to add. For example, say: Add two headlamps, one first aid kit, and three batteries to garage box. After speaking, review the detected items, choose the save location, then save them to inventory.",
+  },
+  {
+    question: "What Siri Shortcuts are available?",
+    answer:
+      "On iPhone, Where's My Gear supports Siri Shortcuts for Add Gear, Search Gear, Open Checklists, and Open Trips. Add Gear opens a quick item entry screen so you can add an item to inventory faster. Search Gear opens Inventory, Open Checklists opens your checklist dashboard, and Open Trips opens your trips area.",
+  },
+  {
+    question: "How is Add Gear different from Gear Assistant?",
+    answer:
+      "Add Gear is a quick Siri Shortcut and manual entry screen for adding one item fast. Gear Assistant is a Premium + voice workflow that can detect multiple spoken items and help save them to a selected Storage Space or Compartment.",
   },
   {
     question: "Can I add photos to items?",
@@ -159,7 +174,8 @@ export default function FAQScreen() {
 
             <ThemedText color="secondary" style={styles.heroText}>
               Quick answers about storage spaces, rooms, compartments,
-              items, checklists, notes, photos, and account data.
+              items, checklists, Gear Assistant, Siri Shortcuts, photos,
+              notes, and account data.
             </ThemedText>
           </ThemedCard>
 
