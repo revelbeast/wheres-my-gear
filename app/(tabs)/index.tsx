@@ -73,7 +73,7 @@ const DASHBOARD_TOUR_STEPS = [
   {
     title: "Customize the App",
     target: "Profile",
-    body: "Open Profile to change Light Mode, Dark Mode, appearance settings, and account preferences.",
+    body: "Choose from multiple app backgrounds, switch between Light Mode and Dark Mode, and personalize your Where\'s My Gear experience.",
   },
 ];
 
@@ -3767,8 +3767,12 @@ export default function DashboardScreen() {
               style={[
                 styles.dashboardTourCard,
                 {
-                  backgroundColor: theme.colors.cardStrong,
-                  borderColor: theme.colors.border,
+                  backgroundColor: theme.isLight
+                    ? "rgba(255,255,255,0.98)"
+                    : "rgba(30,58,138,0.98)",
+                  borderColor: theme.isLight
+                    ? "rgba(15,23,42,0.12)"
+                    : "rgba(147,197,253,0.42)",
                 },
               ]}
             >
