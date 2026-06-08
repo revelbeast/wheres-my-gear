@@ -28,8 +28,8 @@ struct SearchGearIntent: AppIntent {
 }
 
 @available(iOS 16.0, *)
-struct OpenChecklistIntent: AppIntent {
-  static var title: LocalizedStringResource = "Open Checklist"
+struct OpenChecklistsIntent: AppIntent {
+  static var title: LocalizedStringResource = "Open Checklists"
   static var description = IntentDescription("Open Where's My Gear checklists.")
   static var openAppWhenRun: Bool = true
 
@@ -41,8 +41,8 @@ struct OpenChecklistIntent: AppIntent {
 }
 
 @available(iOS 16.0, *)
-struct StartTripPrepIntent: AppIntent {
-  static var title: LocalizedStringResource = "Start Trip Prep"
+struct OpenTripsIntent: AppIntent {
+  static var title: LocalizedStringResource = "Open Trips"
   static var description = IntentDescription("Open Where's My Gear to prepare for an upcoming trip.")
   static var openAppWhenRun: Bool = true
 
@@ -78,23 +78,23 @@ struct WheresMyGearShortcuts: AppShortcutsProvider {
     )
 
     AppShortcut(
-      intent: OpenChecklistIntent(),
+      intent: OpenChecklistsIntent(),
       phrases: [
-        "Open checklist in \(.applicationName)",
-        "Show checklist in \(.applicationName)"
+        "Open checklists in \(.applicationName)",
+        "Show checklists in \(.applicationName)"
       ],
-      shortTitle: "Open Checklist",
+      shortTitle: "Open Checklists",
       systemImageName: "checklist"
     )
 
     AppShortcut(
-      intent: StartTripPrepIntent(),
+      intent: OpenTripsIntent(),
       phrases: [
-        "Start trip prep in \(.applicationName)",
-        "Prepare for a trip in \(.applicationName)"
+        "Open trips in \(.applicationName)",
+        "Show trips in \(.applicationName)"
       ],
-      shortTitle: "Trip Prep",
-      systemImageName: "backpack"
+      shortTitle: "Open Trips",
+      systemImageName: "calendar"
     )
   }
 }
