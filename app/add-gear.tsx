@@ -15,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../components/auth/AuthProvider";
 import AppHeader from "../components/ui/AppHeader";
 import HapticPressable from "../components/ui/HapticPressable";
+import KeyboardDismissAccessory from "../components/ui/KeyboardDismissAccessory";
 import ScreenBackground from "../components/ui/ScreenBackground";
 import {
   ThemedButton,
@@ -26,10 +27,13 @@ import { createItem } from "../lib/gearService";
 import { triggerSuccessHaptic } from "../lib/haptics";
 import { useInteractionLock } from "../lib/useInteractionLock";
 
+const ADD_GEAR_KEYBOARD_ACCESSORY_ID = "add-gear-keyboard-accessory";
+
 export default function AddGearScreen() {
   const { user, initializing } = useAuth();
   const params = useLocalSearchParams<{ name?: string | string[] }>();
   const theme = useThemedValues();
+  const shouldUseKeyboardAccessory = Platform.OS === "ios";
   const { isLocked, lock, unlock } = useInteractionLock(650);
 
   const initialName = useMemo(() => {
@@ -133,6 +137,11 @@ export default function AddGearScreen() {
                   ]}
                   autoFocus
                   returnKeyType="next"
+                  inputAccessoryViewID={
+                    shouldUseKeyboardAccessory
+                      ? ADD_GEAR_KEYBOARD_ACCESSORY_ID
+                      : undefined
+                  }
                 />
               </View>
 
@@ -156,6 +165,11 @@ export default function AddGearScreen() {
                     },
                   ]}
                   keyboardType="number-pad"
+                  inputAccessoryViewID={
+                    shouldUseKeyboardAccessory
+                      ? ADD_GEAR_KEYBOARD_ACCESSORY_ID
+                      : undefined
+                  }
                 />
               </View>
 
@@ -180,6 +194,11 @@ export default function AddGearScreen() {
                   ]}
                   multiline
                   textAlignVertical="top"
+                  inputAccessoryViewID={
+                    shouldUseKeyboardAccessory
+                      ? ADD_GEAR_KEYBOARD_ACCESSORY_ID
+                      : undefined
+                  }
                 />
               </View>
 
@@ -205,6 +224,8 @@ export default function AddGearScreen() {
               </ThemedText>
             </View>
           </ScrollView>
+
+          <KeyboardDismissAccessory nativeID={ADD_GEAR_KEYBOARD_ACCESSORY_ID} />
         </KeyboardAvoidingView>
       </SafeAreaView>
     </ScreenBackground>

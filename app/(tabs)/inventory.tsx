@@ -19,6 +19,7 @@ import React, {
   useState,
 } from "react";
 import {
+  Alert,
   FlatList,
   Platform,
   ScrollView,
@@ -440,6 +441,10 @@ export default function InventoryScreen() {
 
   function handleOpenItem(item: Item) {
     if (!item.vehicleId || !item.compartmentId) {
+      Alert.alert(
+        "Item not assigned",
+        "This item is not assigned to a compartment yet. It was saved to inventory and can be organized later."
+      );
       return;
     }
 
@@ -908,10 +913,7 @@ export default function InventoryScreen() {
                 contentContainerStyle={styles.listContent}
                 ListEmptyComponent={renderEmptyState}
                 renderItem={({ item }) => {
-                  const canOpenItem = !!item.vehicleId && !!item.compartmentId;
-
                   const itemDisabled =
-                    !canOpenItem ||
                     interactionLocked ||
                     navigationTransitionLockedRef.current;
 
@@ -951,7 +953,7 @@ export default function InventoryScreen() {
                             </ThemedText>
                           </View>
 
-                          {canOpenItem && (
+                          {!!item.vehicleId && !!item.compartmentId && (
                             <ChevronRight
                               size={16}
                               color={theme.colors.textSecondary}
