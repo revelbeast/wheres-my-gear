@@ -43,6 +43,8 @@ LogBox.ignoreLogs([
   "subscriber was not found",
   "Error when syncing subscriber attributes",
   "There was an unknown backend error. The subscriber was not found.",
+  "Could not reach Cloud Firestore backend",
+  "The client will operate in offline mode",
 ]);
 
 function RootLayoutInner() {

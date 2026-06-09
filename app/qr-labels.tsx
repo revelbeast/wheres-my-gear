@@ -38,6 +38,7 @@ export default function QrLabelsScreen() {
   const [items, setItems] = useState<Item[]>([]);
   const [selectedStorageId, setSelectedStorageId] = useState("");
   const [selectedCompartmentId, setSelectedCompartmentId] = useState("");
+  const [selectedBulkCompartmentIds, setSelectedBulkCompartmentIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
   const [checkingPremiumPlus, setCheckingPremiumPlus] = useState(true);
@@ -160,6 +161,7 @@ export default function QrLabelsScreen() {
     );
 
     setSelectedCompartmentId(firstCompartment?.id ?? "");
+    setSelectedBulkCompartmentIds([]);
   }, [compartments, selectedStorageId]);
 
   useEffect(() => {
@@ -473,14 +475,36 @@ export default function QrLabelsScreen() {
     `;
   }
 
-  async function handlePrintAllLabels() {
-    if (!selectedStorage || visibleCompartments.length === 0 || working) return;
+  function toggleBulkCompartmentSelection(compartmentId: string) {
+    setSelectedBulkCompartmentIds((current) =>
+      current.includes(compartmentId)
+        ? current.filter((id) => id !== compartmentId)
+        : [...current, compartmentId]
+    );
+  }
+
+  function handleSelectAllBulkLabels() {
+    setSelectedBulkCompartmentIds(visibleCompartments.map((compartment) => compartment.id));
+  }
+
+  function handleClearBulkLabels() {
+    setSelectedBulkCompartmentIds([]);
+  }
+
+  async function printLabelsForCompartments(
+    compartmentsToPrint: Compartment[],
+    emptyMessage: string
+  ) {
+    if (!selectedStorage || compartmentsToPrint.length === 0 || working) {
+      Alert.alert("No labels selected", emptyMessage);
+      return;
+    }
 
     try {
       setWorking(true);
 
       const labelHtmlBlocks = await Promise.all(
-        visibleCompartments.map(async (compartment) => {
+        compartmentsToPrint.map(async (compartment) => {
           const compartmentItems = await getItemsByCompartment(compartment.id);
           const qrImageData = await getBulkQrImageData(compartment.id);
 
@@ -504,14 +528,32 @@ export default function QrLabelsScreen() {
         return;
       }
 
-      console.error("Failed to print all QR labels:", err);
+      console.error("Failed to print QR labels:", err);
       Alert.alert(
-        "Bulk labels not printed",
-        "Something went wrong while creating the bulk QR labels PDF."
+        "Labels not printed",
+        "Something went wrong while creating the selected QR labels PDF."
       );
     } finally {
       setWorking(false);
     }
+  }
+
+  async function handlePrintSelectedLabels() {
+    const compartmentsToPrint = visibleCompartments.filter((compartment) =>
+      selectedBulkCompartmentIds.includes(compartment.id)
+    );
+
+    await printLabelsForCompartments(
+      compartmentsToPrint,
+      "Select one or more compartments before printing selected labels."
+    );
+  }
+
+  async function handlePrintAllLabels() {
+    await printLabelsForCompartments(
+      visibleCompartments,
+      "This storage space does not have any compartments to print."
+    );
   }
 
   async function handleShareLabel() {
@@ -719,23 +761,6 @@ export default function QrLabelsScreen() {
                     {items.length} item{items.length === 1 ? "" : "s"}
                   </Text>
 
-                  <HapticPressable
-                    style={[
-                      styles.fullWidthActionButton,
-                      {
-                        borderColor: theme.colors.border,
-                        backgroundColor: theme.colors.card,
-                      },
-                      working && styles.disabled,
-                    ]}
-                    onPress={handlePrintAllLabels}
-                    disabled={working || visibleCompartments.length === 0}
-                  >
-                    <Text style={[styles.actionText, { color: theme.colors.text }]}>
-                      Print All Labels for This Storage Space
-                    </Text>
-                  </HapticPressable>
-
                   <View style={styles.actionRow}>
                     <HapticPressable
                       style={[
@@ -775,6 +800,158 @@ export default function QrLabelsScreen() {
                       </Text>
                     </HapticPressable>
                   </View>
+                </View>
+              ) : null}
+
+              {visibleCompartments.length > 0 ? (
+                <View
+                  style={[
+                    styles.bulkOuterCard,
+                    {
+                      borderColor: theme.colors.border,
+                      backgroundColor: theme.colors.card,
+                    },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.bulkSelectCard,
+                      {
+                        borderColor: theme.colors.border,
+                        backgroundColor: theme.colors.card,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.bulkSelectTitle, { color: theme.colors.text }]}>
+                      Select Labels to Print
+                    </Text>
+
+                    <Text
+                      style={[
+                        styles.bulkSelectSubtitle,
+                        { color: theme.colors.textSecondary },
+                      ]}
+                    >
+                      {selectedBulkCompartmentIds.length} of {visibleCompartments.length} selected
+                    </Text>
+
+                    <View style={styles.bulkSelectActions}>
+                      <HapticPressable
+                        style={[
+                          styles.smallActionButton,
+                          {
+                            borderColor: theme.colors.border,
+                            backgroundColor: theme.colors.card,
+                          },
+                        ]}
+                        onPress={handleSelectAllBulkLabels}
+                        disabled={working || visibleCompartments.length === 0}
+                      >
+                        <Text style={[styles.smallActionText, { color: theme.colors.text }]}>
+                          Select All
+                        </Text>
+                      </HapticPressable>
+
+                      <HapticPressable
+                        style={[
+                          styles.smallActionButton,
+                          {
+                            borderColor: theme.colors.border,
+                            backgroundColor: theme.colors.card,
+                          },
+                        ]}
+                        onPress={handleClearBulkLabels}
+                        disabled={working || selectedBulkCompartmentIds.length === 0}
+                      >
+                        <Text style={[styles.smallActionText, { color: theme.colors.text }]}>
+                          Clear
+                        </Text>
+                      </HapticPressable>
+                    </View>
+
+                    <ScrollView
+                      style={styles.bulkCompartmentList}
+                      nestedScrollEnabled
+                      showsVerticalScrollIndicator
+                    >
+                      {visibleCompartments.map((compartment) => {
+                        const selected = selectedBulkCompartmentIds.includes(compartment.id);
+
+                        return (
+                          <HapticPressable
+                            key={`bulk-select-${compartment.id}`}
+                            style={[
+                              styles.bulkCompartmentRow,
+                              {
+                                borderColor: selected ? "#EF4444" : theme.colors.border,
+                                backgroundColor: theme.colors.card,
+                              },
+                            ]}
+                            onPress={() => toggleBulkCompartmentSelection(compartment.id)}
+                            disabled={working}
+                          >
+                            <View style={styles.bulkCheckBox}>
+                              <Text style={[styles.bulkCheckText, { color: selected ? "#EF4444" : theme.colors.textSecondary }]}>
+                                {selected ? "✓" : ""}
+                              </Text>
+                            </View>
+
+                            <View style={styles.bulkCompartmentTextWrap}>
+                              <Text style={[styles.bulkCompartmentName, { color: theme.colors.text }]}>
+                                {compartment.name || "Compartment"}
+                              </Text>
+                              {compartment.roomName ? (
+                                <Text
+                                  style={[
+                                    styles.bulkCompartmentRoom,
+                                    { color: theme.colors.textSecondary },
+                                  ]}
+                                >
+                                  {compartment.roomName}
+                                </Text>
+                              ) : null}
+                            </View>
+                          </HapticPressable>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+
+                  <HapticPressable
+                    style={[
+                      styles.fullWidthActionButton,
+                      {
+                        borderColor: theme.colors.border,
+                        backgroundColor: theme.colors.card,
+                      },
+                      working && styles.disabled,
+                    ]}
+                    onPress={handlePrintSelectedLabels}
+                    disabled={working || selectedBulkCompartmentIds.length === 0}
+                  >
+                    <Text style={[styles.actionText, { color: theme.colors.text }]}>
+                      Print Selected Labels
+                    </Text>
+                  </HapticPressable>
+
+                  <HapticPressable
+                    style={[
+                      styles.fullWidthActionButton,
+                      {
+                        borderColor: theme.colors.border,
+                        backgroundColor: theme.colors.card,
+                      },
+                      working && styles.disabled,
+                    ]}
+                    onPress={handlePrintAllLabels}
+                    disabled={working || visibleCompartments.length === 0}
+                  >
+                    <Text style={[styles.actionText, { color: theme.colors.text }]}>
+                      Print All Labels for This Storage Space
+                    </Text>
+                  </HapticPressable>
+
+
                 </View>
               ) : null}
             </>
@@ -900,6 +1077,80 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     textAlign: "center",
+  },
+  bulkOuterCard: {
+    borderRadius: 22,
+    borderWidth: 1,
+    gap: 12,
+    padding: 14,
+    width: "100%",
+  },
+  bulkSelectCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: 10,
+    padding: 14,
+    width: "100%",
+  },
+  bulkSelectTitle: {
+    fontSize: 17,
+    fontWeight: "900",
+  },
+  bulkSelectSubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  bulkSelectActions: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  smallActionButton: {
+    alignItems: "center",
+    borderRadius: 14,
+    borderWidth: 1,
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  smallActionText: {
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  bulkCompartmentList: {
+    maxHeight: 260,
+  },
+  bulkCompartmentRow: {
+    alignItems: "center",
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  bulkCheckBox: {
+    alignItems: "center",
+    borderRadius: 8,
+    borderWidth: 1,
+    height: 24,
+    justifyContent: "center",
+    width: 24,
+  },
+  bulkCheckText: {
+    fontSize: 16,
+    fontWeight: "900",
+    lineHeight: 18,
+  },
+  bulkCompartmentTextWrap: {
+    flex: 1,
+  },
+  bulkCompartmentName: {
+    fontSize: 15,
+    fontWeight: "900",
+  },
+  bulkCompartmentRoom: {
+    fontSize: 12,
+    marginTop: 2,
   },
   fullWidthActionButton: {
     alignItems: "center",
