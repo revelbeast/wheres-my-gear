@@ -13,6 +13,7 @@ import {
 import QRCode from "react-native-qrcode-svg";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useAuth } from "../components/auth/AuthProvider";
 import HapticPressable from "../components/ui/HapticPressable";
 import ScreenBackground from "../components/ui/ScreenBackground";
 import { useThemedValues } from "../components/ui/Themed";
@@ -24,9 +25,11 @@ import {
   getItemsByCompartment,
   getStorageSpaces,
 } from "../lib/gearService";
+import { isPremiumPlusUser } from "../lib/revenuecat";
 
 export default function QrLabelsScreen() {
   const theme = useThemedValues();
+  const { user } = useAuth();
   const qrCodeRef = useRef<any>(null);
 
   const [storageSpaces, setStorageSpaces] = useState<StorageSpace[]>([]);
@@ -36,6 +39,8 @@ export default function QrLabelsScreen() {
   const [selectedCompartmentId, setSelectedCompartmentId] = useState("");
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
+  const [checkingPremiumPlus, setCheckingPremiumPlus] = useState(true);
+  const [hasPremiumPlus, setHasPremiumPlus] = useState(false);
 
   const selectedStorage = useMemo(
     () => storageSpaces.find((space) => space.id === selectedStorageId) ?? null,
@@ -66,7 +71,56 @@ export default function QrLabelsScreen() {
   useEffect(() => {
     let active = true;
 
+    async function checkPremiumPlus() {
+      try {
+        const allowed = await isPremiumPlusUser();
+        if (!active) return;
+
+        setHasPremiumPlus(allowed);
+
+        if (!allowed) {
+          Alert.alert(
+            "Unlock Premium +",
+            "Create QR Labels is a Premium + feature for printing compartment labels and opening stored contents faster.",
+            [
+              {
+                text: "Not Now",
+                style: "cancel",
+                onPress: () => router.back(),
+              },
+              {
+                text: "Upgrade to Premium +",
+                onPress: () => {
+                  router.replace({
+                    pathname: "/paywall",
+                    params: { plan: "premium_plus" },
+                  });
+                },
+              },
+            ]
+          );
+        }
+      } catch (err) {
+        console.error("Failed to check Premium + access:", err);
+        if (active) setHasPremiumPlus(false);
+      } finally {
+        if (active) setCheckingPremiumPlus(false);
+      }
+    }
+
+    void checkPremiumPlus();
+
+    return () => {
+      active = false;
+    };
+  }, [user?.uid]);
+
+  useEffect(() => {
+    let active = true;
+
     async function loadData() {
+      if (checkingPremiumPlus || !hasPremiumPlus) return;
+
       try {
         const [spacesData, compartmentsData] = await Promise.all([
           getStorageSpaces(),
@@ -97,7 +151,7 @@ export default function QrLabelsScreen() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [checkingPremiumPlus, hasPremiumPlus]);
 
   useEffect(() => {
     const firstCompartment = compartments.find(
@@ -367,7 +421,15 @@ export default function QrLabelsScreen() {
             Create, print, or share QR labels for your compartments and storage locations.
           </Text>
 
-          {loading ? (
+          {checkingPremiumPlus ? (
+            <Text style={[styles.message, { color: theme.colors.textSecondary }]}>
+              Checking Premium + access...
+            </Text>
+          ) : !hasPremiumPlus ? (
+            <Text style={[styles.message, { color: theme.colors.textSecondary }]}>
+              Create QR Labels requires Premium +.
+            </Text>
+          ) : loading ? (
             <Text style={[styles.message, { color: theme.colors.textSecondary }]}>
               Loading QR labels...
             </Text>
