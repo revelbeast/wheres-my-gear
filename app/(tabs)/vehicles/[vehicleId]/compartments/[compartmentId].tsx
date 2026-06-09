@@ -489,7 +489,13 @@ export default function CompartmentDetailScreen() {
         await Print.printAsync({
           html: buildQrLabelHtml(qrImageData),
         });
-      } catch (err) {
+      } catch (err: any) {
+        const message = String(err?.message ?? err ?? "");
+
+        if (message.toLowerCase().includes("printing did not complete")) {
+          return;
+        }
+
         console.error("Failed to print QR label:", err);
         Alert.alert(
           "QR label not printed",
