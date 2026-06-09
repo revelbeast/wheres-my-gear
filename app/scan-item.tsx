@@ -10,6 +10,7 @@ import { useAuth } from "../components/auth/AuthProvider";
 import { isPremiumPlusUser } from "../lib/revenuecat";
 import HapticPressable from "../components/ui/HapticPressable";
 import { resolveBarcode } from "../lib/barcodeResolver";
+import { getRoomById } from "../lib/gearService";
 
 export default function ScanItemScreen() {
   const { mode } = useLocalSearchParams();
@@ -385,6 +386,32 @@ export default function ScanItemScreen() {
           scanHistoryRef.current.push(value);
 
           const compartmentQrPrefix = "wheresmygear://compartment/";
+          const roomQrPrefix = "wheresmygear://room/";
+
+          if (String(value).startsWith(roomQrPrefix)) {
+            const scannedRoomId = String(value).replace(roomQrPrefix, "").trim();
+
+            if (scannedRoomId) {
+              const room = await getRoomById(scannedRoomId);
+
+              if (room?.storageSpaceId) {
+                router.replace({
+                  pathname: "/vehicles/[vehicleId]/rooms/[roomId]",
+                  params: {
+                    vehicleId: room.storageSpaceId,
+                    roomId: scannedRoomId,
+                  },
+                });
+                return;
+              }
+
+              Alert.alert(
+                "Room not found",
+                "Where's My Gear could not find the room connected to this QR label."
+              );
+              return;
+            }
+          }
 
           if (String(value).startsWith(compartmentQrPrefix)) {
             const scannedCompartmentId = String(value)
