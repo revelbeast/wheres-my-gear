@@ -20,9 +20,11 @@ import { useThemedValues } from "../components/ui/Themed";
 import {
   Compartment,
   Item,
+  Room,
   StorageSpace,
   getAllCompartments,
   getItemsByCompartment,
+  getRoomsByStorageSpace,
   getStorageSpaces,
 } from "../lib/gearService";
 import { isPremiumPlusUser } from "../lib/revenuecat";
@@ -35,9 +37,12 @@ export default function QrLabelsScreen() {
 
   const [storageSpaces, setStorageSpaces] = useState<StorageSpace[]>([]);
   const [compartments, setCompartments] = useState<Compartment[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
   const [items, setItems] = useState<Item[]>([]);
+  const [labelType, setLabelType] = useState<"compartment" | "room">("compartment");
   const [selectedStorageId, setSelectedStorageId] = useState("");
   const [selectedCompartmentId, setSelectedCompartmentId] = useState("");
+  const [selectedRoomId, setSelectedRoomId] = useState("");
   const [selectedBulkCompartmentIds, setSelectedBulkCompartmentIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
@@ -57,6 +62,11 @@ export default function QrLabelsScreen() {
     [compartments, selectedStorageId]
   );
 
+  const visibleRooms = useMemo(
+    () => rooms.filter((room) => room.storageSpaceId === selectedStorageId),
+    [rooms, selectedStorageId]
+  );
+
   const selectedCompartment = useMemo(
     () =>
       compartments.find(
@@ -65,10 +75,20 @@ export default function QrLabelsScreen() {
     [compartments, selectedCompartmentId]
   );
 
+  const selectedRoom = useMemo(
+    () => rooms.find((room) => room.id === selectedRoomId) ?? null,
+    [rooms, selectedRoomId]
+  );
+
   const qrValue = useMemo(() => {
+    if (labelType === "room") {
+      if (!selectedRoom?.id) return "";
+      return `wheresmygear://room/${selectedRoom.id}`;
+    }
+
     if (!selectedCompartment?.id) return "";
     return `wheresmygear://compartment/${selectedCompartment.id}`;
-  }, [selectedCompartment?.id]);
+  }, [labelType, selectedCompartment?.id, selectedRoom?.id]);
 
   useEffect(() => {
     let active = true;
@@ -156,6 +176,38 @@ export default function QrLabelsScreen() {
   }, [checkingPremiumPlus, hasPremiumPlus]);
 
   useEffect(() => {
+    let active = true;
+
+    async function loadRooms() {
+      if (!selectedStorageId) {
+        setRooms([]);
+        setSelectedRoomId("");
+        return;
+      }
+
+      try {
+        const data = await getRoomsByStorageSpace(selectedStorageId);
+        if (!active) return;
+
+        setRooms(data);
+        setSelectedRoomId(data[0]?.id ?? "");
+      } catch (err) {
+        console.error("Failed to load rooms for QR labels:", err);
+        if (active) {
+          setRooms([]);
+          setSelectedRoomId("");
+        }
+      }
+    }
+
+    void loadRooms();
+
+    return () => {
+      active = false;
+    };
+  }, [selectedStorageId]);
+
+  useEffect(() => {
     const firstCompartment = compartments.find(
       (compartment) => compartment.vehicleId === selectedStorageId
     );
@@ -235,11 +287,40 @@ export default function QrLabelsScreen() {
     );
   }
 
+  function handleChooseRoom() {
+    if (visibleRooms.length === 0) {
+      Alert.alert(
+        "No rooms",
+        "This storage space does not have any rooms yet."
+      );
+      return;
+    }
+
+    Alert.alert(
+      "Choose Room",
+      "Select the room label you want to print.",
+      [
+        ...visibleRooms.map((room) => ({
+          text: room.name || "Room",
+          onPress: () => setSelectedRoomId(room.id),
+        })),
+        {
+          text: "Cancel",
+          style: "cancel" as const,
+        },
+      ]
+    );
+  }
+
   function buildQrLabelHtml(qrImageData: string) {
     const storageName = selectedStorage?.name?.trim() || "Storage Space";
-    const compartmentName =
-      selectedCompartment?.name?.trim() || "Compartment";
-    const roomName = selectedCompartment?.roomName?.trim();
+    const isRoomLabel = labelType === "room";
+    const compartmentName = isRoomLabel
+      ? selectedRoom?.name?.trim() || "Room"
+      : selectedCompartment?.name?.trim() || "Compartment";
+    const roomName = isRoomLabel
+      ? selectedRoom?.name?.trim()
+      : selectedCompartment?.roomName?.trim();
 
     return `
       <html>
@@ -303,8 +384,9 @@ export default function QrLabelsScreen() {
             <div class="meta">
               <div><strong>Storage:</strong> ${storageName}</div>
               ${roomName ? `<div><strong>Room:</strong> ${roomName}</div>` : ""}
-              <div><strong>Compartment:</strong> ${compartmentName}</div>
-              <div><strong>Items:</strong> ${items.length}</div>
+              ${isRoomLabel ? "" : `<div><strong>Compartment:</strong> ${compartmentName}</div>`}
+              ${isRoomLabel ? `<div><strong>Room:</strong> ${compartmentName}</div>` : ""}
+              <div><strong>${isRoomLabel ? "Compartments" : "Items"}:</strong> ${isRoomLabel ? visibleCompartments.filter((compartment) => compartment.roomId === selectedRoom?.id).length : items.length}</div>
             </div>
             <img class="qr" src="data:image/png;base64,${qrImageData}" />
             <div class="hint">Scan this label in Where's My Gear to view the contents.</div>
@@ -668,8 +750,46 @@ export default function QrLabelsScreen() {
               </HapticPressable>
 
               <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                Compartment
+                Label Type
               </Text>
+
+              <View style={styles.labelTypeRow}>
+                <HapticPressable
+                  style={[
+                    styles.labelTypeButton,
+                    {
+                      borderColor: labelType === "compartment" ? "#EF4444" : theme.colors.border,
+                      backgroundColor: theme.colors.card,
+                    },
+                  ]}
+                  onPress={() => setLabelType("compartment")}
+                >
+                  <Text style={[styles.labelTypeText, { color: theme.colors.text }]}>
+                    Compartment
+                  </Text>
+                </HapticPressable>
+
+                <HapticPressable
+                  style={[
+                    styles.labelTypeButton,
+                    {
+                      borderColor: labelType === "room" ? "#EF4444" : theme.colors.border,
+                      backgroundColor: theme.colors.card,
+                    },
+                  ]}
+                  onPress={() => setLabelType("room")}
+                >
+                  <Text style={[styles.labelTypeText, { color: theme.colors.text }]}>
+                    Room
+                  </Text>
+                </HapticPressable>
+              </View>
+
+              {labelType === "compartment" ? (
+                <>
+                  <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                    Compartment
+                  </Text>
 
               <HapticPressable
                 style={[
@@ -704,7 +824,45 @@ export default function QrLabelsScreen() {
                 </Text>
               </HapticPressable>
 
-              {visibleCompartments.length === 0 ? (
+                </>
+              ) : (
+                <>
+                  <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                    Room
+                  </Text>
+
+                  <HapticPressable
+                    style={[
+                      styles.dropdownButton,
+                      {
+                        borderColor: theme.colors.border,
+                        backgroundColor: theme.colors.card,
+                      },
+                    ]}
+                    onPress={handleChooseRoom}
+                  >
+                    <View>
+                      <Text style={[styles.dropdownLabel, { color: theme.colors.textSecondary }]}>
+                        Selected Room
+                      </Text>
+                      <Text style={[styles.dropdownValue, { color: theme.colors.text }]}>
+                        {selectedRoom?.name ?? "Choose room"}
+                      </Text>
+                    </View>
+                    <Text style={[styles.dropdownChevron, { color: theme.colors.textSecondary }]}>
+                      ˅
+                    </Text>
+                  </HapticPressable>
+
+                  {visibleRooms.length === 0 ? (
+                    <Text style={[styles.message, { color: theme.colors.textSecondary }]}>
+                      No rooms found for this storage space.
+                    </Text>
+                  ) : null}
+                </>
+              )}
+
+              {labelType === "compartment" && visibleCompartments.length === 0 ? (
                 <Text style={[styles.message, { color: theme.colors.textSecondary }]}>
                   No compartments found for this storage space.
                 </Text>
@@ -723,7 +881,7 @@ export default function QrLabelsScreen() {
                 ))}
               </View>
 
-              {qrValue && selectedCompartment ? (
+              {qrValue && (labelType === "room" ? selectedRoom : selectedCompartment) ? (
                 <View
                   style={[
                     styles.previewCard,
@@ -734,7 +892,7 @@ export default function QrLabelsScreen() {
                   ]}
                 >
                   <Text style={[styles.previewTitle, { color: theme.colors.text }]}>
-                    {selectedCompartment.name}
+                    {labelType === "room" ? selectedRoom?.name : selectedCompartment?.name}
                   </Text>
 
                   <View style={styles.qrWrap}>
@@ -754,11 +912,13 @@ export default function QrLabelsScreen() {
                     ]}
                   >
                     {selectedStorage?.name ?? "Storage Space"}
-                    {selectedCompartment.roomName
+                    {labelType === "compartment" && selectedCompartment?.roomName
                       ? ` • ${selectedCompartment.roomName}`
                       : ""}
                     {"\n"}
-                    {items.length} item{items.length === 1 ? "" : "s"}
+                    {labelType === "room"
+                      ? `${visibleCompartments.filter((compartment) => compartment.roomId === selectedRoom?.id).length} compartment${visibleCompartments.filter((compartment) => compartment.roomId === selectedRoom?.id).length === 1 ? "" : "s"}`
+                      : `${items.length} item${items.length === 1 ? "" : "s"}`}
                   </Text>
 
                   <View style={styles.actionRow}>
@@ -803,7 +963,7 @@ export default function QrLabelsScreen() {
                 </View>
               ) : null}
 
-              {visibleCompartments.length > 0 ? (
+              {labelType === "compartment" && visibleCompartments.length > 0 ? (
                 <View
                   style={[
                     styles.bulkOuterCard,
@@ -998,6 +1158,22 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "900",
     marginTop: 4,
+  },
+  labelTypeRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  labelTypeButton: {
+    alignItems: "center",
+    borderRadius: 16,
+    borderWidth: 2,
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+  },
+  labelTypeText: {
+    fontSize: 15,
+    fontWeight: "900",
   },
   dropdownButton: {
     alignItems: "center",
