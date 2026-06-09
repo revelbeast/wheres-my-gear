@@ -1,6 +1,6 @@
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
@@ -31,6 +31,12 @@ import { isPremiumPlusUser } from "../lib/revenuecat";
 
 export default function QrLabelsScreen() {
   const theme = useThemedValues();
+  const params = useLocalSearchParams<{
+    type?: string | string[];
+    storageId?: string | string[];
+    roomId?: string | string[];
+    compartmentId?: string | string[];
+  }>();
   const { user } = useAuth();
   const qrCodeRef = useRef<any>(null);
   const bulkQrCodeRefs = useRef<Record<string, any>>({});
@@ -47,8 +53,31 @@ export default function QrLabelsScreen() {
   const [selectedBulkRoomIds, setSelectedBulkRoomIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
+  const [routeParamsApplied, setRouteParamsApplied] = useState(false);
   const [checkingPremiumPlus, setCheckingPremiumPlus] = useState(true);
   const [hasPremiumPlus, setHasPremiumPlus] = useState(false);
+
+  const requestedLabelType = useMemo(() => {
+    const value = Array.isArray(params.type) ? params.type[0] : params.type;
+    return value === "room" ? "room" : value === "compartment" ? "compartment" : "";
+  }, [params.type]);
+
+  const requestedStorageId = useMemo(() => {
+    const value = Array.isArray(params.storageId) ? params.storageId[0] : params.storageId;
+    return value ?? "";
+  }, [params.storageId]);
+
+  const requestedRoomId = useMemo(() => {
+    const value = Array.isArray(params.roomId) ? params.roomId[0] : params.roomId;
+    return value ?? "";
+  }, [params.roomId]);
+
+  const requestedCompartmentId = useMemo(() => {
+    const value = Array.isArray(params.compartmentId)
+      ? params.compartmentId[0]
+      : params.compartmentId;
+    return value ?? "";
+  }, [params.compartmentId]);
 
   const selectedStorage = useMemo(
     () => storageSpaces.find((space) => space.id === selectedStorageId) ?? null,
@@ -208,6 +237,36 @@ export default function QrLabelsScreen() {
       active = false;
     };
   }, [selectedStorageId]);
+
+  useEffect(() => {
+    if (routeParamsApplied) return;
+    if (loading) return;
+
+    if (requestedLabelType) {
+      setLabelType(requestedLabelType);
+    }
+
+    if (requestedStorageId) {
+      setSelectedStorageId(requestedStorageId);
+    }
+
+    if (requestedCompartmentId) {
+      setSelectedCompartmentId(requestedCompartmentId);
+    }
+
+    if (requestedRoomId) {
+      setSelectedRoomId(requestedRoomId);
+    }
+
+    setRouteParamsApplied(true);
+  }, [
+    loading,
+    requestedCompartmentId,
+    requestedLabelType,
+    requestedRoomId,
+    requestedStorageId,
+    routeParamsApplied,
+  ]);
 
   useEffect(() => {
     const firstCompartment = compartments.find(
