@@ -84,7 +84,7 @@ export default function QrLabelsScreen() {
       } catch (err) {
         console.error("Failed to load QR label data:", err);
         Alert.alert(
-          "QR Labels unavailable",
+          "Create QR Labels unavailable",
           "Something went wrong while loading your storage spaces and compartments."
         );
       } finally {
@@ -192,14 +192,18 @@ export default function QrLabelsScreen() {
             body {
               font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
               margin: 0;
-              padding: 24px;
+              padding: 0;
               color: #111827;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              min-height: 100vh;
             }
             .label {
               border: 2px solid #111827;
               border-radius: 18px;
-              padding: 24px;
-              width: 360px;
+              padding: 12px;
+              width: 320px;
               text-align: center;
             }
             .app {
@@ -211,27 +215,27 @@ export default function QrLabelsScreen() {
               margin-bottom: 10px;
             }
             .title {
-              font-size: 26px;
+              font-size: 20px;
               font-weight: 800;
               margin-bottom: 16px;
             }
             .qr {
-              width: 220px;
-              height: 220px;
-              margin: 0 auto 16px auto;
+              width: 160px;
+              height: 160px;
+              margin: 10px auto 10px auto;
             }
             .meta {
               font-size: 15px;
               line-height: 1.45;
               text-align: left;
-              margin-top: 14px;
+              margin-top: 8px;
               border-top: 1px solid #d1d5db;
-              padding-top: 14px;
+              padding-top: 8px;
             }
             .hint {
               font-size: 12px;
               color: #4b5563;
-              margin-top: 14px;
+              margin-top: 8px;
             }
           </style>
         </head>
@@ -239,13 +243,13 @@ export default function QrLabelsScreen() {
           <div class="label">
             <div class="app">Where's My Gear</div>
             <div class="title">${compartmentName}</div>
-            <img class="qr" src="data:image/png;base64,${qrImageData}" />
             <div class="meta">
               <div><strong>Storage:</strong> ${storageName}</div>
               ${roomName ? `<div><strong>Room:</strong> ${roomName}</div>` : ""}
               <div><strong>Compartment:</strong> ${compartmentName}</div>
               <div><strong>Items:</strong> ${items.length}</div>
             </div>
+            <img class="qr" src="data:image/png;base64,${qrImageData}" />
             <div class="hint">Scan this label in Where's My Gear to view the contents.</div>
           </div>
         </body>
@@ -360,7 +364,7 @@ export default function QrLabelsScreen() {
           </View>
 
           <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
-            Choose a storage space and compartment, then print or share a QR label.
+            Create, print, or share QR labels for your compartments and storage locations.
           </Text>
 
           {loading ? (

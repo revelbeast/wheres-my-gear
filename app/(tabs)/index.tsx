@@ -621,7 +621,8 @@ export default function DashboardScreen() {
     addItem: "#22C55E",
     compartment: "#A855F7",
     storage: "#06B6D4",
-    trip: "#F59E0B",
+    trip: "#EAB308",
+    qrLabels: "#EF4444",
     export: "#94A3B8",
   };
   const dashboardLoadVersionRef = useRef(0);
@@ -3644,6 +3645,11 @@ export default function DashboardScreen() {
                             <ThemedText>Gear Assistant</ThemedText>
                           </HapticPressable>
 
+                          <HapticPressable style={[styles.selectorButton, styles.stackedQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.qrLabels }]} onPress={handleOpenQrLabelsQuickAction}>
+                            <FolderPlus size={18} color={quickActionColors.qrLabels} />
+                            <ThemedText>Create QR Labels</ThemedText>
+                          </HapticPressable>
+
                           <HapticPressable style={[styles.selectorButton, styles.stackedQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.trip }]} onPress={handleOpenAiScanQuickAction}>
                             <Camera size={18} color={quickActionColors.trip} />
                             <ThemedText>Scan w/AI</ThemedText>
@@ -3652,11 +3658,6 @@ export default function DashboardScreen() {
                           <HapticPressable style={[styles.selectorButton, styles.stackedQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.scan }]} onPress={handleOpenScanQuickAction}>
                             <Camera size={18} color={quickActionColors.scan} />
                             <ThemedText>QR / Barcode Scanner</ThemedText>
-                          </HapticPressable>
-
-                          <HapticPressable style={[styles.selectorButton, styles.stackedQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.compartment }]} onPress={handleOpenQrLabelsQuickAction}>
-                            <FolderPlus size={18} color={quickActionColors.compartment} />
-                            <ThemedText>QR Labels</ThemedText>
                           </HapticPressable>
 
                           <HapticPressable
@@ -3717,6 +3718,18 @@ export default function DashboardScreen() {
                               <ThemedText>Gear Assistant</ThemedText>
                             </HapticPressable>
 
+                            <HapticPressable
+                              style={[
+                                styles.selectorButton,
+                                styles.tabletQuickActionButton,
+                                { borderWidth: 2, borderColor: quickActionColors.compartment },
+                              ]}
+                              onPress={handleOpenQrLabelsQuickAction}
+                            >
+                              <FolderPlus size={18} color={quickActionColors.compartment} />
+                              <ThemedText>Create QR Labels</ThemedText>
+                            </HapticPressable>
+
                             <HapticPressable style={[styles.selectorButton, styles.tabletQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.trip }]} onPress={handleOpenAiScanQuickAction}>
                               <Camera size={18} color={quickActionColors.trip} />
                               <ThemedText>Scan w/AI</ThemedText>
@@ -3736,17 +3749,6 @@ export default function DashboardScreen() {
                               <ThemedText>QR / Barcode Scanner</ThemedText>
                             </HapticPressable>
 
-                            <HapticPressable
-                              style={[
-                                styles.selectorButton,
-                                styles.tabletQuickActionButton,
-                                { borderWidth: 2, borderColor: quickActionColors.compartment }
-                              ]}
-                              onPress={handleOpenQrLabelsQuickAction}
-                            >
-                              <FolderPlus size={18} color={quickActionColors.compartment} />
-                              <ThemedText>QR Labels</ThemedText>
-                            </HapticPressable>
                           </View>
 
                           <View style={styles.tabletQuickActionsRow}>
