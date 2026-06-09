@@ -31,6 +31,7 @@ export default function QrLabelsScreen() {
   const theme = useThemedValues();
   const { user } = useAuth();
   const qrCodeRef = useRef<any>(null);
+  const bulkQrCodeRefs = useRef<Record<string, any>>({});
 
   const [storageSpaces, setStorageSpaces] = useState<StorageSpace[]>([]);
   const [compartments, setCompartments] = useState<Compartment[]>([]);
@@ -328,6 +329,25 @@ export default function QrLabelsScreen() {
     });
   }
 
+  async function getBulkQrImageData(compartmentId: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const qrRef = bulkQrCodeRefs.current[compartmentId];
+
+      if (!qrRef?.toDataURL) {
+        reject(new Error("QR code is not ready yet."));
+        return;
+      }
+
+      qrRef.toDataURL((data: string) => {
+        if (data) {
+          resolve(data);
+        } else {
+          reject(new Error("Unable to generate QR code image."));
+        }
+      });
+    });
+  }
+
   async function handlePrintLabel() {
     if (!qrValue || working) return;
 
@@ -349,6 +369,145 @@ export default function QrLabelsScreen() {
       Alert.alert(
         "QR label not printed",
         "Something went wrong while creating the printable QR label."
+      );
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  function buildSingleLabelHtml({
+    storageName,
+    compartmentName,
+    roomName,
+    itemCount,
+    qrImageData,
+  }: {
+    storageName: string;
+    compartmentName: string;
+    roomName?: string;
+    itemCount: number;
+    qrImageData: string;
+  }) {
+    return `
+      <div class="label">
+        <div class="app">Where's My Gear</div>
+        <div class="title">${compartmentName}</div>
+        <div class="meta">
+          <div><strong>Storage:</strong> ${storageName}</div>
+          ${roomName ? `<div><strong>Room:</strong> ${roomName}</div>` : ""}
+          <div><strong>Compartment:</strong> ${compartmentName}</div>
+          <div><strong>Items:</strong> ${itemCount}</div>
+        </div>
+        <img class="qr" src="data:image/png;base64,${qrImageData}" />
+        <div class="hint">Scan this label in Where's My Gear to view the contents.</div>
+      </div>
+    `;
+  }
+
+  function buildBulkQrLabelsHtml(labels: string[]) {
+    return `
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          <style>
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+              margin: 0;
+              padding: 16px;
+              color: #111827;
+            }
+            .sheet {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 14px;
+              justify-content: center;
+            }
+            .label {
+              border: 2px solid #111827;
+              border-radius: 18px;
+              box-sizing: border-box;
+              page-break-inside: avoid;
+              padding: 12px;
+              text-align: center;
+              width: 320px;
+            }
+            .app {
+              font-size: 14px;
+              font-weight: 700;
+              letter-spacing: 0.08em;
+              text-transform: uppercase;
+              color: #2563eb;
+              margin-bottom: 10px;
+            }
+            .title {
+              font-size: 20px;
+              font-weight: 800;
+              margin-bottom: 12px;
+            }
+            .qr {
+              width: 160px;
+              height: 160px;
+              margin: 10px auto 10px auto;
+            }
+            .meta {
+              font-size: 15px;
+              line-height: 1.45;
+              text-align: left;
+              margin-top: 8px;
+              border-top: 1px solid #d1d5db;
+              padding-top: 8px;
+            }
+            .hint {
+              font-size: 12px;
+              color: #4b5563;
+              margin-top: 8px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="sheet">
+            ${labels.join("\n")}
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  async function handlePrintAllLabels() {
+    if (!selectedStorage || visibleCompartments.length === 0 || working) return;
+
+    try {
+      setWorking(true);
+
+      const labelHtmlBlocks = await Promise.all(
+        visibleCompartments.map(async (compartment) => {
+          const compartmentItems = await getItemsByCompartment(compartment.id);
+          const qrImageData = await getBulkQrImageData(compartment.id);
+
+          return buildSingleLabelHtml({
+            storageName: selectedStorage.name,
+            compartmentName: compartment.name || "Compartment",
+            roomName: compartment.roomName,
+            itemCount: compartmentItems.length,
+            qrImageData,
+          });
+        })
+      );
+
+      await Print.printAsync({
+        html: buildBulkQrLabelsHtml(labelHtmlBlocks),
+      });
+    } catch (err: any) {
+      const message = String(err?.message ?? err ?? "");
+
+      if (message.toLowerCase().includes("printing did not complete")) {
+        return;
+      }
+
+      console.error("Failed to print all QR labels:", err);
+      Alert.alert(
+        "Bulk labels not printed",
+        "Something went wrong while creating the bulk QR labels PDF."
       );
     } finally {
       setWorking(false);
@@ -509,6 +668,19 @@ export default function QrLabelsScreen() {
                 </Text>
               ) : null}
 
+              <View style={styles.hiddenQrRenderArea}>
+                {visibleCompartments.map((compartment) => (
+                  <QRCode
+                    key={`bulk-qr-${compartment.id}`}
+                    value={`wheresmygear://compartment/${compartment.id}`}
+                    size={190}
+                    getRef={(ref) => {
+                      bulkQrCodeRefs.current[compartment.id] = ref;
+                    }}
+                  />
+                ))}
+              </View>
+
               {qrValue && selectedCompartment ? (
                 <View
                   style={[
@@ -546,6 +718,23 @@ export default function QrLabelsScreen() {
                     {"\n"}
                     {items.length} item{items.length === 1 ? "" : "s"}
                   </Text>
+
+                  <HapticPressable
+                    style={[
+                      styles.fullWidthActionButton,
+                      {
+                        borderColor: theme.colors.border,
+                        backgroundColor: theme.colors.card,
+                      },
+                      working && styles.disabled,
+                    ]}
+                    onPress={handlePrintAllLabels}
+                    disabled={working || visibleCompartments.length === 0}
+                  >
+                    <Text style={[styles.actionText, { color: theme.colors.text }]}>
+                      Print All Labels for This Storage Space
+                    </Text>
+                  </HapticPressable>
 
                   <View style={styles.actionRow}>
                     <HapticPressable
@@ -695,6 +884,13 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     textAlign: "center",
   },
+  hiddenQrRenderArea: {
+    height: 1,
+    opacity: 0,
+    overflow: "hidden",
+    position: "absolute",
+    width: 1,
+  },
   qrWrap: {
     backgroundColor: "#FFFFFF",
     borderRadius: 18,
@@ -704,6 +900,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     textAlign: "center",
+  },
+  fullWidthActionButton: {
+    alignItems: "center",
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    width: "100%",
   },
   actionRow: {
     flexDirection: Platform.OS === "web" ? "row" : "row",
