@@ -132,6 +132,52 @@ export default function QrLabelsScreen() {
     };
   }, [selectedCompartmentId]);
 
+  function handleChooseStorageSpace() {
+    if (storageSpaces.length === 0) return;
+
+    Alert.alert(
+      "Choose Storage Space",
+      "Select where the QR label compartment is stored.",
+      [
+        ...storageSpaces.map((space) => ({
+          text: space.name || "Storage Space",
+          onPress: () => setSelectedStorageId(space.id),
+        })),
+        {
+          text: "Cancel",
+          style: "cancel" as const,
+        },
+      ]
+    );
+  }
+
+  function handleChooseCompartment() {
+    if (visibleCompartments.length === 0) {
+      Alert.alert(
+        "No compartments",
+        "This storage space does not have any compartments yet."
+      );
+      return;
+    }
+
+    Alert.alert(
+      "Choose Compartment",
+      "Select the compartment label you want to print.",
+      [
+        ...visibleCompartments.map((compartment) => ({
+          text: compartment.roomName
+            ? `${compartment.name} • ${compartment.roomName}`
+            : compartment.name || "Compartment",
+          onPress: () => setSelectedCompartmentId(compartment.id),
+        })),
+        {
+          text: "Cancel",
+          style: "cancel" as const,
+        },
+      ]
+    );
+  }
+
   function buildQrLabelHtml(qrImageData: string) {
     const storageName = selectedStorage?.name?.trim() || "Storage Space";
     const compartmentName =
@@ -331,81 +377,71 @@ export default function QrLabelsScreen() {
                 Storage Space
               </Text>
 
-              <View style={styles.optionWrap}>
-                {storageSpaces.map((space) => {
-                  const selected = selectedStorageId === space.id;
-
-                  return (
-                    <HapticPressable
-                      key={space.id}
-                      style={[
-                        styles.optionButton,
-                        {
-                          borderColor: selected
-                            ? "#2563EB"
-                            : theme.colors.border,
-                          backgroundColor: theme.colors.card,
-                        },
-                      ]}
-                      onPress={() => setSelectedStorageId(space.id)}
-                    >
-                      <Text style={[styles.optionText, { color: theme.colors.text }]}>
-                        {space.name}
-                      </Text>
-                    </HapticPressable>
-                  );
-                })}
-              </View>
+              <HapticPressable
+                style={[
+                  styles.dropdownButton,
+                  {
+                    borderColor: theme.colors.border,
+                    backgroundColor: theme.colors.card,
+                  },
+                ]}
+                onPress={handleChooseStorageSpace}
+              >
+                <View>
+                  <Text style={[styles.dropdownLabel, { color: theme.colors.textSecondary }]}>
+                    Selected Storage Space
+                  </Text>
+                  <Text style={[styles.dropdownValue, { color: theme.colors.text }]}>
+                    {selectedStorage?.name ?? "Choose storage space"}
+                  </Text>
+                </View>
+                <Text style={[styles.dropdownChevron, { color: theme.colors.textSecondary }]}>
+                  ˅
+                </Text>
+              </HapticPressable>
 
               <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
                 Compartment
               </Text>
 
+              <HapticPressable
+                style={[
+                  styles.dropdownButton,
+                  {
+                    borderColor: theme.colors.border,
+                    backgroundColor: theme.colors.card,
+                  },
+                ]}
+                onPress={handleChooseCompartment}
+              >
+                <View>
+                  <Text style={[styles.dropdownLabel, { color: theme.colors.textSecondary }]}>
+                    Selected Compartment
+                  </Text>
+                  <Text style={[styles.dropdownValue, { color: theme.colors.text }]}>
+                    {selectedCompartment?.name ?? "Choose compartment"}
+                  </Text>
+                  {selectedCompartment?.roomName ? (
+                    <Text
+                      style={[
+                        styles.dropdownSubvalue,
+                        { color: theme.colors.textSecondary },
+                      ]}
+                    >
+                      {selectedCompartment.roomName}
+                    </Text>
+                  ) : null}
+                </View>
+                <Text style={[styles.dropdownChevron, { color: theme.colors.textSecondary }]}>
+                  ˅
+                </Text>
+              </HapticPressable>
+
               {visibleCompartments.length === 0 ? (
-                <Text
-                  style={[styles.message, { color: theme.colors.textSecondary }]}
-                >
+                <Text style={[styles.message, { color: theme.colors.textSecondary }]}>
                   No compartments found for this storage space.
                 </Text>
-              ) : (
-                <View style={styles.optionWrap}>
-                  {visibleCompartments.map((compartment) => {
-                    const selected = selectedCompartmentId === compartment.id;
-
-                    return (
-                      <HapticPressable
-                        key={compartment.id}
-                        style={[
-                          styles.optionButton,
-                          {
-                            borderColor: selected
-                              ? "#2563EB"
-                              : theme.colors.border,
-                            backgroundColor: theme.colors.card,
-                          },
-                        ]}
-                        onPress={() => setSelectedCompartmentId(compartment.id)}
-                      >
-                        <Text
-                          style={[styles.optionText, { color: theme.colors.text }]}
-                        >
-                          {compartment.name}
-                        </Text>
-                        {compartment.roomName ? (
-                          <Text
-                            style={[
-                              styles.optionSubtext,
-                              { color: theme.colors.textSecondary },
-                            ]}
-                          >
-                            {compartment.roomName}
-                          </Text>
-                        ) : null}
-                      </HapticPressable>
-                    );
-                  })}
-                </View>
-              )}
+              ) : null}
 
               {qrValue && selectedCompartment ? (
                 <View
@@ -530,6 +566,35 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "900",
     marginTop: 4,
+  },
+  dropdownButton: {
+    alignItems: "center",
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    minHeight: 74,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  dropdownLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: 4,
+    textTransform: "uppercase",
+  },
+  dropdownValue: {
+    fontSize: 18,
+    fontWeight: "900",
+  },
+  dropdownSubvalue: {
+    fontSize: 14,
+    marginTop: 3,
+  },
+  dropdownChevron: {
+    fontSize: 28,
+    fontWeight: "900",
+    paddingLeft: 14,
   },
   optionWrap: {
     gap: 10,
