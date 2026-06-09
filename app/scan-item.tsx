@@ -384,6 +384,25 @@ export default function ScanItemScreen() {
           scanSessionRef.current.timestamp = now;
           scanHistoryRef.current.push(value);
 
+          const compartmentQrPrefix = "wheresmygear://compartment/";
+
+          if (String(value).startsWith(compartmentQrPrefix)) {
+            const scannedCompartmentId = String(value)
+              .replace(compartmentQrPrefix, "")
+              .trim();
+
+            if (scannedCompartmentId) {
+              router.replace({
+                pathname: "/vehicles/[vehicleId]/compartments/[compartmentId]",
+                params: {
+                  vehicleId: "unknown",
+                  compartmentId: scannedCompartmentId,
+                },
+              });
+              return;
+            }
+          }
+
           // 🧠 SINGLE SOURCE OF TRUTH (NEW)
           const result = await resolveBarcode(value);
 
