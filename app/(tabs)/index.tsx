@@ -2106,6 +2106,60 @@ export default function DashboardScreen() {
     );
   }
 
+  function handleOpenQrLabelsQuickAction() {
+    if (!isPremiumPlus) {
+      Alert.alert(
+        "Unlock Premium +",
+        "QR compartment labels are a Premium + feature for printing box labels and opening stored contents faster.",
+        [
+          {
+            text: "Maybe Later",
+            style: "cancel",
+          },
+          {
+            text: "Upgrade to Premium +",
+            onPress: () => {
+              pushWithNavigationLock(() => {
+                router.push({
+                  pathname: "/paywall",
+                  params: { plan: "premium_plus" },
+                });
+              });
+            },
+          },
+        ]
+      );
+      return;
+    }
+
+    const labelOptions = allCompartments
+      .filter((compartment) => compartment.id && compartment.vehicleId)
+      .slice(0, 5);
+
+    if (labelOptions.length === 0) {
+      Alert.alert(
+        "No compartments yet",
+        "Create a compartment first, then you can print a QR label for it from the compartment detail screen."
+      );
+      return;
+    }
+
+    Alert.alert(
+      "Print QR Label",
+      "Choose a compartment to open, then use Print Label or Share PDF.",
+      [
+        ...labelOptions.map((compartment) => ({
+          text: compartment.name || "Compartment",
+          onPress: () => handleOpenCompartment(compartment.id),
+        })),
+        {
+          text: "Cancel",
+          style: "cancel" as const,
+        },
+      ]
+    );
+  }
+
   function handleOpenScanQuickAction() {
     if (isPremiumPlus) {
       pushWithNavigationLock(() => {
@@ -3623,6 +3677,11 @@ export default function DashboardScreen() {
                             <ThemedText>QR / Barcode Scanner</ThemedText>
                           </HapticPressable>
 
+                          <HapticPressable style={[styles.selectorButton, styles.stackedQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.compartment }]} onPress={handleOpenQrLabelsQuickAction}>
+                            <FolderPlus size={18} color={quickActionColors.compartment} />
+                            <ThemedText>QR Labels</ThemedText>
+                          </HapticPressable>
+
                           <HapticPressable
                             style={[
                               styles.selectorButton,
@@ -3700,6 +3759,20 @@ export default function DashboardScreen() {
                               <ThemedText>QR / Barcode Scanner</ThemedText>
                             </HapticPressable>
 
+                            <HapticPressable
+                              style={[
+                                styles.selectorButton,
+                                styles.tabletQuickActionButton,
+                                { borderWidth: 2, borderColor: quickActionColors.compartment }
+                              ]}
+                              onPress={handleOpenQrLabelsQuickAction}
+                            >
+                              <FolderPlus size={18} color={quickActionColors.compartment} />
+                              <ThemedText>QR Labels</ThemedText>
+                            </HapticPressable>
+                          </View>
+
+                          <View style={styles.tabletQuickActionsRow}>
                             <HapticPressable
                               style={[
                                 styles.selectorButton,

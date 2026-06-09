@@ -1,5 +1,7 @@
 import { BlurView } from "expo-blur";
 import * as ImagePicker from "expo-image-picker";
+import * as Print from "expo-print";
+import * as Sharing from "expo-sharing";
 import { getAuth } from "firebase/auth";
 import { uploadInventoryItemPhotoToCloud } from "../../../../../lib/cloudPhotoStorage";
 import { savePhotoToLocalDocumentStorage } from "../../../../../lib/localPhotoStorage";
@@ -32,6 +34,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import QRCode from "react-native-qrcode-svg";
 
 import AppHeader from "../../../../../components/ui/AppHeader";
 import HapticPressable from "../../../../../components/ui/HapticPressable";
@@ -158,6 +161,7 @@ export default function CompartmentDetailScreen() {
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
   const [movingItemId, setMovingItemId] = useState<string | null>(null);
   const [movingCompartment, setMovingCompartment] = useState(false);
+  const qrCodeRef = useRef<any>(null);
 
   const [photoViewerVisible, setPhotoViewerVisible] = useState(false);
   const [selectedPhotoItem, setSelectedPhotoItem] = useState<Item | null>(null);
@@ -375,6 +379,156 @@ export default function CompartmentDetailScreen() {
         Alert.alert(
           "Compartment not shared",
           "Something went wrong while sharing this compartment."
+        );
+      }
+    });
+  }
+
+  const compartmentQrValue = useMemo(() => {
+    return compartmentId ? `wheresmygear://compartment/${compartmentId}` : "";
+  }, [compartmentId]);
+
+  function buildQrLabelHtml(qrImageData: string) {
+    const compartmentName = compartment?.name?.trim() || "Compartment";
+    const storageName = vehicleId ? `Storage ID: ${vehicleId}` : "Storage Space";
+    const roomName = compartment?.roomName?.trim();
+    const itemCount = sortedItems.length;
+
+    return `
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          <style>
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+              margin: 0;
+              padding: 24px;
+              color: #111827;
+            }
+            .label {
+              border: 2px solid #111827;
+              border-radius: 18px;
+              padding: 24px;
+              width: 360px;
+              text-align: center;
+            }
+            .app {
+              font-size: 14px;
+              font-weight: 700;
+              letter-spacing: 0.08em;
+              text-transform: uppercase;
+              color: #2563eb;
+              margin-bottom: 10px;
+            }
+            .title {
+              font-size: 26px;
+              font-weight: 800;
+              margin-bottom: 16px;
+            }
+            .qr {
+              width: 220px;
+              height: 220px;
+              margin: 0 auto 16px auto;
+            }
+            .meta {
+              font-size: 15px;
+              line-height: 1.45;
+              text-align: left;
+              margin-top: 14px;
+              border-top: 1px solid #d1d5db;
+              padding-top: 14px;
+            }
+            .hint {
+              font-size: 12px;
+              color: #4b5563;
+              margin-top: 14px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="label">
+            <div class="app">Where's My Gear</div>
+            <div class="title">${compartmentName}</div>
+            <img class="qr" src="data:image/png;base64,${qrImageData}" />
+            <div class="meta">
+              <div><strong>Storage:</strong> ${storageName}</div>
+              ${roomName ? `<div><strong>Room:</strong> ${roomName}</div>` : ""}
+              <div><strong>Compartment:</strong> ${compartmentName}</div>
+              <div><strong>Items:</strong> ${itemCount}</div>
+            </div>
+            <div class="hint">Scan this label in Where's My Gear to view the contents.</div>
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  async function getQrImageData(): Promise<string> {
+    return new Promise((resolve, reject) => {
+      if (!qrCodeRef.current?.toDataURL) {
+        reject(new Error("QR code is not ready yet."));
+        return;
+      }
+
+      qrCodeRef.current.toDataURL((data: string) => {
+        if (data) {
+          resolve(data);
+        } else {
+          reject(new Error("Unable to generate QR code image."));
+        }
+      });
+    });
+  }
+
+  async function handlePrintQrLabel() {
+    if (interactionLocked || !compartmentQrValue) return;
+
+    await runWithLock(async () => {
+      try {
+        const qrImageData = await getQrImageData();
+        await Print.printAsync({
+          html: buildQrLabelHtml(qrImageData),
+        });
+      } catch (err) {
+        console.error("Failed to print QR label:", err);
+        Alert.alert(
+          "QR label not printed",
+          "Something went wrong while creating the printable QR label."
+        );
+      }
+    });
+  }
+
+  async function handleShareQrLabel() {
+    if (interactionLocked || !compartmentQrValue) return;
+
+    await runWithLock(async () => {
+      try {
+        const qrImageData = await getQrImageData();
+        const file = await Print.printToFileAsync({
+          html: buildQrLabelHtml(qrImageData),
+        });
+
+        const canShare = await Sharing.isAvailableAsync();
+
+        if (!canShare) {
+          Alert.alert(
+            "Sharing unavailable",
+            "This device does not currently support sharing the QR label PDF."
+          );
+          return;
+        }
+
+        await Sharing.shareAsync(file.uri, {
+          mimeType: "application/pdf",
+          dialogTitle: "Share QR Label",
+          UTI: "com.adobe.pdf",
+        });
+      } catch (err) {
+        console.error("Failed to share QR label:", err);
+        Alert.alert(
+          "QR label not shared",
+          "Something went wrong while creating the QR label PDF."
         );
       }
     });
@@ -1511,6 +1665,79 @@ export default function CompartmentDetailScreen() {
               </Text>
             </HapticPressable>
 
+            {compartmentQrValue ? (
+              <FrostedCard style={styles.qrLabelCard}>
+                <Text style={[styles.qrLabelTitle, { color: theme.colors.text }]}>
+                  QR Compartment Label
+                </Text>
+
+                <Text
+                  style={[
+                    styles.qrLabelSubtitle,
+                    { color: theme.colors.textSecondary },
+                  ]}
+                >
+                  Print this label and attach it to the box, bin, shelf, or compartment.
+                </Text>
+
+                <View style={styles.qrCodeWrap}>
+                  <QRCode
+                    value={compartmentQrValue}
+                    size={170}
+                    getRef={(ref) => {
+                      qrCodeRef.current = ref;
+                    }}
+                  />
+                </View>
+
+                <View style={styles.qrLabelActions}>
+                  <HapticPressable
+                    style={[
+                      styles.qrLabelActionButton,
+                      {
+                        borderColor: theme.colors.border,
+                        backgroundColor: theme.colors.card,
+                      },
+                      interactionLocked && styles.createButtonDisabled,
+                    ]}
+                    onPress={handlePrintQrLabel}
+                    disabled={interactionLocked}
+                  >
+                    <Text
+                      style={[
+                        styles.qrLabelActionText,
+                        { color: theme.colors.text },
+                      ]}
+                    >
+                      Print Label
+                    </Text>
+                  </HapticPressable>
+
+                  <HapticPressable
+                    style={[
+                      styles.qrLabelActionButton,
+                      {
+                        borderColor: theme.colors.border,
+                        backgroundColor: theme.colors.card,
+                      },
+                      interactionLocked && styles.createButtonDisabled,
+                    ]}
+                    onPress={handleShareQrLabel}
+                    disabled={interactionLocked}
+                  >
+                    <Text
+                      style={[
+                        styles.qrLabelActionText,
+                        { color: theme.colors.text },
+                      ]}
+                    >
+                      Share PDF
+                    </Text>
+                  </HapticPressable>
+                </View>
+              </FrostedCard>
+            ) : null}
+
             <HapticPressable
               style={[
                 styles.shareCompartmentButton,
@@ -1767,6 +1994,43 @@ const styles = StyleSheet.create({
     gap: 8,
   },
 
+  qrLabelCard: {
+    gap: 12,
+    marginBottom: 14,
+    padding: 16,
+  },
+  qrLabelTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  qrLabelSubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  qrCodeWrap: {
+    alignItems: "center",
+    alignSelf: "center",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    marginVertical: 8,
+    padding: 16,
+  },
+  qrLabelActions: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  qrLabelActionButton: {
+    alignItems: "center",
+    borderRadius: 14,
+    borderWidth: 1,
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  qrLabelActionText: {
+    fontSize: 14,
+    fontWeight: "800",
+  },
   shareCompartmentButtonText: {
     fontSize: 15,
     fontWeight: "800",
