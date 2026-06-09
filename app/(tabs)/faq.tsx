@@ -40,6 +40,11 @@ const FAQ_ITEMS: FAQItem[] = [
       "Use Scan w/AI when an item has no barcode, the label is worn, or you want to identify gear from a photo. Use QR / Barcode Scanner when a product has a visible UPC or barcode for faster and more accurate identification.",
   },
   {
+    question: "How do I use Create QR Labels?",
+    answer:
+      "Create QR Labels lets you generate a printable QR label for a compartment, box, bin, shelf, drawer, or storage area. After printing the label, attach it to the physical compartment. To view the contents later, open Where's My Gear, go to Dashboard, tap QR / Barcode Scanner, and scan the printed QR label inside the app. The app will open the matching compartment and show the items stored there. These labels are designed to be scanned with the Where's My Gear QR / Barcode Scanner. Your phone's regular camera app may show No usable data found because the QR code contains app-specific information.",
+  },
+  {
     question: "What is Gear Assistant?",
     answer:
       "Gear Assistant is a Premium + feature that lets you speak items into inventory, review what was detected, choose the correct Storage Space or Compartment, and save the items without manually typing each one. If no speech is detected or listening is interrupted, Gear Assistant will let you retry without closing the modal.",
