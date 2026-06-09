@@ -44,6 +44,7 @@ export default function QrLabelsScreen() {
   const [selectedCompartmentId, setSelectedCompartmentId] = useState("");
   const [selectedRoomId, setSelectedRoomId] = useState("");
   const [selectedBulkCompartmentIds, setSelectedBulkCompartmentIds] = useState<string[]>([]);
+  const [selectedBulkRoomIds, setSelectedBulkRoomIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
   const [checkingPremiumPlus, setCheckingPremiumPlus] = useState(true);
@@ -191,6 +192,7 @@ export default function QrLabelsScreen() {
 
         setRooms(data);
         setSelectedRoomId(data[0]?.id ?? "");
+        setSelectedBulkRoomIds([]);
       } catch (err) {
         console.error("Failed to load rooms for QR labels:", err);
         if (active) {
@@ -620,6 +622,86 @@ export default function QrLabelsScreen() {
     }
   }
 
+  function toggleBulkRoomSelection(roomId: string) {
+    setSelectedBulkRoomIds((current) =>
+      current.includes(roomId)
+        ? current.filter((id) => id !== roomId)
+        : [...current, roomId]
+    );
+  }
+
+  function handleSelectAllBulkRooms() {
+    setSelectedBulkRoomIds(visibleRooms.map((room) => room.id));
+  }
+
+  function handleClearBulkRooms() {
+    setSelectedBulkRoomIds([]);
+  }
+
+  async function printLabelsForRooms(roomsToPrint: Room[], emptyMessage: string) {
+    if (!selectedStorage || roomsToPrint.length === 0 || working) {
+      Alert.alert("No room labels selected", emptyMessage);
+      return;
+    }
+
+    try {
+      setWorking(true);
+
+      const labelHtmlBlocks = await Promise.all(
+        roomsToPrint.map(async (room) => {
+          const qrImageData = await getBulkQrImageData(`room-${room.id}`);
+          const roomCompartmentCount = visibleCompartments.filter(
+            (compartment) => compartment.roomId === room.id
+          ).length;
+
+          return buildSingleLabelHtml({
+            storageName: selectedStorage.name,
+            compartmentName: room.name || "Room",
+            roomName: room.name || "Room",
+            itemCount: roomCompartmentCount,
+            qrImageData,
+          });
+        })
+      );
+
+      await Print.printAsync({
+        html: buildBulkQrLabelsHtml(labelHtmlBlocks),
+      });
+    } catch (err: any) {
+      const message = String(err?.message ?? err ?? "");
+
+      if (message.toLowerCase().includes("printing did not complete")) {
+        return;
+      }
+
+      console.error("Failed to print room QR labels:", err);
+      Alert.alert(
+        "Room labels not printed",
+        "Something went wrong while creating the selected room QR labels PDF."
+      );
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function handlePrintSelectedRoomLabels() {
+    const roomsToPrint = visibleRooms.filter((room) =>
+      selectedBulkRoomIds.includes(room.id)
+    );
+
+    await printLabelsForRooms(
+      roomsToPrint,
+      "Select one or more rooms before printing selected room labels."
+    );
+  }
+
+  async function handlePrintAllRoomLabels() {
+    await printLabelsForRooms(
+      visibleRooms,
+      "This storage space does not have any rooms to print."
+    );
+  }
+
   async function handlePrintSelectedLabels() {
     const compartmentsToPrint = visibleCompartments.filter((compartment) =>
       selectedBulkCompartmentIds.includes(compartment.id)
@@ -879,6 +961,17 @@ export default function QrLabelsScreen() {
                     }}
                   />
                 ))}
+
+                {visibleRooms.map((room) => (
+                  <QRCode
+                    key={`bulk-room-qr-${room.id}`}
+                    value={`wheresmygear://room/${room.id}`}
+                    size={190}
+                    getRef={(ref) => {
+                      bulkQrCodeRefs.current[`room-${room.id}`] = ref;
+                    }}
+                  />
+                ))}
               </View>
 
               {qrValue && (labelType === "room" ? selectedRoom : selectedCompartment) ? (
@@ -960,6 +1053,157 @@ export default function QrLabelsScreen() {
                       </Text>
                     </HapticPressable>
                   </View>
+                </View>
+              ) : null}
+
+              {labelType === "room" && visibleRooms.length > 0 ? (
+                <View
+                  style={[
+                    styles.bulkOuterCard,
+                    {
+                      borderColor: theme.colors.border,
+                      backgroundColor: theme.colors.card,
+                    },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.bulkSelectCard,
+                      {
+                        borderColor: theme.colors.border,
+                        backgroundColor: theme.colors.card,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.bulkSelectTitle, { color: theme.colors.text }]}>
+                      Select Room Labels to Print
+                    </Text>
+
+                    <Text
+                      style={[
+                        styles.bulkSelectSubtitle,
+                        { color: theme.colors.textSecondary },
+                      ]}
+                    >
+                      {selectedBulkRoomIds.length} of {visibleRooms.length} selected
+                    </Text>
+
+                    <View style={styles.bulkSelectActions}>
+                      <HapticPressable
+                        style={[
+                          styles.smallActionButton,
+                          {
+                            borderColor: theme.colors.border,
+                            backgroundColor: theme.colors.card,
+                          },
+                        ]}
+                        onPress={handleSelectAllBulkRooms}
+                        disabled={working || visibleRooms.length === 0}
+                      >
+                        <Text style={[styles.smallActionText, { color: theme.colors.text }]}>
+                          Select All
+                        </Text>
+                      </HapticPressable>
+
+                      <HapticPressable
+                        style={[
+                          styles.smallActionButton,
+                          {
+                            borderColor: theme.colors.border,
+                            backgroundColor: theme.colors.card,
+                          },
+                        ]}
+                        onPress={handleClearBulkRooms}
+                        disabled={working || selectedBulkRoomIds.length === 0}
+                      >
+                        <Text style={[styles.smallActionText, { color: theme.colors.text }]}>
+                          Clear
+                        </Text>
+                      </HapticPressable>
+                    </View>
+
+                    <ScrollView
+                      style={styles.bulkCompartmentList}
+                      nestedScrollEnabled
+                      showsVerticalScrollIndicator
+                    >
+                      {visibleRooms.map((room) => {
+                        const selected = selectedBulkRoomIds.includes(room.id);
+                        const roomCompartmentCount = visibleCompartments.filter(
+                          (compartment) => compartment.roomId === room.id
+                        ).length;
+
+                        return (
+                          <HapticPressable
+                            key={`bulk-room-select-${room.id}`}
+                            style={[
+                              styles.bulkCompartmentRow,
+                              {
+                                borderColor: selected ? "#EF4444" : theme.colors.border,
+                                backgroundColor: theme.colors.card,
+                              },
+                            ]}
+                            onPress={() => toggleBulkRoomSelection(room.id)}
+                            disabled={working}
+                          >
+                            <View style={styles.bulkCheckBox}>
+                              <Text style={[styles.bulkCheckText, { color: selected ? "#EF4444" : theme.colors.textSecondary }]}>
+                                {selected ? "✓" : ""}
+                              </Text>
+                            </View>
+
+                            <View style={styles.bulkCompartmentTextWrap}>
+                              <Text style={[styles.bulkCompartmentName, { color: theme.colors.text }]}>
+                                {room.name || "Room"}
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.bulkCompartmentRoom,
+                                  { color: theme.colors.textSecondary },
+                                ]}
+                              >
+                                {roomCompartmentCount} compartment{roomCompartmentCount === 1 ? "" : "s"}
+                              </Text>
+                            </View>
+                          </HapticPressable>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+
+                  <HapticPressable
+                    style={[
+                      styles.fullWidthActionButton,
+                      {
+                        borderColor: theme.colors.border,
+                        backgroundColor: theme.colors.card,
+                      },
+                      working && styles.disabled,
+                    ]}
+                    onPress={handlePrintSelectedRoomLabels}
+                    disabled={working || selectedBulkRoomIds.length === 0}
+                  >
+                    <Text style={[styles.actionText, { color: theme.colors.text }]}>
+                      Print Selected Room Labels
+                    </Text>
+                  </HapticPressable>
+
+                  <HapticPressable
+                    style={[
+                      styles.fullWidthActionButton,
+                      {
+                        borderColor: theme.colors.border,
+                        backgroundColor: theme.colors.card,
+                      },
+                      working && styles.disabled,
+                    ]}
+                    onPress={handlePrintAllRoomLabels}
+                    disabled={working || visibleRooms.length === 0}
+                  >
+                    <Text style={[styles.actionText, { color: theme.colors.text }]}>
+                      Print All Room Labels
+                    </Text>
+                  </HapticPressable>
                 </View>
               ) : null}
 
