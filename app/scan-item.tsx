@@ -332,6 +332,8 @@ export default function ScanItemScreen() {
         onBarcodeScanned={async (event) => {
           const value = event?.data;
 
+          let currentScanAnchor: { top: number; left: number } | null = null;
+
           if (event?.bounds?.origin && event?.bounds?.size) {
             const screenWidth = Dimensions.get("window").width;
             const cardWidth = 285;
@@ -348,10 +350,12 @@ export default function ScanItemScreen() {
 
             left = Math.max(margin, Math.min(left, screenWidth - cardWidth - margin));
 
-            setArAnchor({
+            currentScanAnchor = {
               top: Math.max(115, qrY - 185),
               left,
-            });
+            };
+
+            setArAnchor(currentScanAnchor);
           }
 
           if (!value) return;
@@ -490,12 +494,15 @@ export default function ScanItemScreen() {
                   ...withoutExisting,
                   {
                     ...nextOverlay,
-                    anchor: arAnchor,
+                    anchor: currentScanAnchor,
                   },
                 ].slice(-5);
               });
 
-              setArOverlay(nextOverlay);
+              setArOverlay({
+                ...nextOverlay,
+                anchor: currentScanAnchor,
+              });
               setIsScanning(false);
 
               return;
