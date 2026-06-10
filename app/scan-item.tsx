@@ -587,7 +587,7 @@ export default function ScanItemScreen() {
             );
           })}
 
-          {arLabels.length > 1 ? (
+          {false && arLabels.length > 1 ? (
             <View style={styles.nearbyLabelsPanel}>
               <Text style={styles.nearbyLabelsTitle}>
                 Labels In View ({arLabels.length})
@@ -641,8 +641,10 @@ export default function ScanItemScreen() {
           ) : null}
 
           <View
+            pointerEvents="none"
             style={[
               styles.arCard,
+              { display: "none" },
               arLabels.length > 1
                 ? { top: 128 + arLabels.length * 82 }
                 : null,
@@ -852,10 +854,10 @@ const styles = StyleSheet.create({
   },
   arCalloutChip: {
     position: "absolute",
-    width: 116,
+    width: 158,
     zIndex: 50,
     backgroundColor: "#F8FAFC",
-    borderRadius: 8,
+    borderRadius: 10,
     overflow: "hidden",
     borderWidth: 1,
     borderColor: "rgba(15,23,42,0.18)",
@@ -863,29 +865,30 @@ const styles = StyleSheet.create({
   arCalloutChipSelected: {
     borderColor: "#2563EB",
     borderWidth: 2,
+    transform: [{ scale: 1.04 }],
   },
   arCalloutHeader: {
     backgroundColor: "#2563EB",
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 6,
   },
   arCalloutBody: {
     paddingHorizontal: 8,
-    paddingVertical: 5,
+    paddingVertical: 8,
   },
   arCalloutName: {
     color: "#fff",
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: "900",
   },
   arCalloutMeta: {
     color: "#111827",
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: "800",
   },
   arCalloutDate: {
     color: "#374151",
-    fontSize: 9,
+    fontSize: 11,
     marginTop: 2,
   },
   nearbyLabelsPanel: {
@@ -946,7 +949,7 @@ const styles = StyleSheet.create({
   nearbyStatusBadge: {
     borderRadius: 999,
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 8,
     marginRight: 8,
   },
   nearbyStatusGood: {
