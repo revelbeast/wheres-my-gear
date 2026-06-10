@@ -27,6 +27,7 @@ export default function ScanItemScreen() {
   const [isScanning, setIsScanning] = useState(false);
   const [arOverlay, setArOverlay] = useState<any>(null);
   const [arAnchor, setArAnchor] = useState<{ top: number; left: number } | null>(null);
+  const [arLabels, setArLabels] = useState<any[]>([]);
 
   // camera lifecycle control
   const [cameraActive, setCameraActive] = useState(true);
@@ -359,9 +360,8 @@ export default function ScanItemScreen() {
           if (!cameraActive) return;
           if (!scanSessionRef.current.active) return;
 
-          // HARD LOCK
-          scanSessionRef.current.active = false;
-          setCameraActive(false);
+          // SOFT LOCK
+          // Keep camera active so multiple QR labels can be detected in one session.
           setIsScanning(true);
 
           // duplicate protection
@@ -370,6 +370,7 @@ export default function ScanItemScreen() {
             scanHistoryRef.current.includes(value)
           ) {
             console.log("DUPLICATE BLOCKED:", value);
+            setIsScanning(false);
             return;
           }
 
@@ -463,7 +464,7 @@ export default function ScanItemScreen() {
                 .map((item: any) => item.name)
                 .filter(Boolean);
 
-              setArOverlay({
+              const nextOverlay = {
                 type: "compartment",
                 code: value,
                 found: !!compartment,
@@ -478,7 +479,24 @@ export default function ScanItemScreen() {
                 packedCount,
                 topItems,
                 matchStatus: compartment ? "found" : "unknown",
+              };
+
+              setArLabels((current) => {
+                const withoutExisting = current.filter(
+                  (label) => label.compartmentId !== scannedCompartmentId
+                );
+
+                return [
+                  ...withoutExisting,
+                  {
+                    ...nextOverlay,
+                    anchor: arAnchor,
+                  },
+                ].slice(-5);
               });
+
+              setArOverlay(nextOverlay);
+              setIsScanning(false);
 
               return;
             }
@@ -510,7 +528,34 @@ export default function ScanItemScreen() {
       />
 
       {arOverlay ? (
-        <View style={[styles.arCard, arAnchor ? { top: arAnchor.top, left: arAnchor.left, right: undefined } : null]}>
+        <>
+          {arLabels.map((label) => (
+            <HapticPressable
+              key={label.compartmentId}
+              style={[
+                styles.arMiniLabel,
+                label.anchor
+                  ? {
+                      top: Math.max(96, label.anchor.top + 10),
+                      left: Math.max(14, Math.min(label.anchor.left, Dimensions.get("window").width - 176)),
+                    }
+                  : null,
+              ]}
+              onPress={() => {
+                setArOverlay(label);
+                setArAnchor(label.anchor ?? null);
+              }}
+            >
+              <Text style={styles.arMiniLabelTitle} numberOfLines={1}>
+                {label.suggestedName || "Compartment"}
+              </Text>
+              <Text style={styles.arMiniLabelMeta}>
+                {label.itemCount ?? 0} items
+              </Text>
+            </HapticPressable>
+          ))}
+
+          <View style={[styles.arCard, arAnchor ? { top: arAnchor.top, left: arAnchor.left, right: undefined } : null]}>
           <View style={styles.arCardHeader}>
             <Text style={styles.arCardTitle}>
               {arOverlay?.suggestedName || "Gear Scan Result"}
@@ -645,7 +690,8 @@ export default function ScanItemScreen() {
           >
             <Text style={styles.arPrimaryButtonText}>Open Details</Text>
           </HapticPressable>
-        </View>
+          </View>
+        </>
       ) : null}
 
       <View style={styles.footer}>
@@ -663,7 +709,10 @@ export default function ScanItemScreen() {
 
         <HapticPressable
           style={styles.closeButton}
-          onPress={() => router.back()}
+          onPress={() => {
+            setArLabels([]);
+            router.back();
+          }}
         >
           <Text style={styles.buttonText}>Close</Text>
         </HapticPressable>
@@ -703,6 +752,27 @@ const styles = StyleSheet.create({
   aiButton: {
     marginBottom: 12,
     backgroundColor: "#2563EB",
+  },
+  arMiniLabel: {
+    position: "absolute",
+    width: 160,
+    zIndex: 18,
+    backgroundColor: "rgba(37, 99, 235, 0.92)",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.25)",
+  },
+  arMiniLabelTitle: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  arMiniLabelMeta: {
+    color: "#fff",
+    fontSize: 11,
+    marginTop: 2,
   },
   arCard: {
     position: "absolute",
