@@ -536,33 +536,44 @@ export default function ScanItemScreen() {
 
       {arOverlay ? (
         <>
-          {arLabels.map((label) => (
-            <HapticPressable
-              key={label.compartmentId}
-              style={[
-                styles.arMiniLabel,
-                label.anchor
-                  ? {
-                      top: Math.max(96, label.anchor.top + 10),
-                      left: Math.max(14, Math.min(label.anchor.left, Dimensions.get("window").width - 176)),
-                    }
-                  : null,
-              ]}
-              onPress={() => {
-                setArOverlay(label);
-                setArAnchor(label.anchor ?? null);
-              }}
-            >
-              <Text style={styles.arMiniLabelTitle} numberOfLines={1}>
-                {label.suggestedName || "Compartment"}
+          {arLabels.length > 1 ? (
+            <View style={styles.nearbyLabelsPanel}>
+              <Text style={styles.nearbyLabelsTitle}>
+                Nearby Labels ({arLabels.length})
               </Text>
-              <Text style={styles.arMiniLabelMeta}>
-                {label.itemCount ?? 0} items
-              </Text>
-            </HapticPressable>
-          ))}
 
-          <View style={[styles.arCard, arAnchor ? { top: arAnchor.top, left: arAnchor.left, right: undefined } : null]}>
+              {arLabels.map((label) => {
+                const isSelected = arOverlay?.compartmentId === label.compartmentId;
+
+                return (
+                  <HapticPressable
+                    key={label.compartmentId}
+                    style={[
+                      styles.nearbyLabelRow,
+                      isSelected ? styles.nearbyLabelRowSelected : null,
+                    ]}
+                    onPress={() => {
+                      setArOverlay(label);
+                      setArAnchor(label.anchor ?? null);
+                    }}
+                  >
+                    <View style={styles.nearbyLabelTextBox}>
+                      <Text style={styles.nearbyLabelName} numberOfLines={1}>
+                        {label.suggestedName || "Compartment"}
+                      </Text>
+                      <Text style={styles.nearbyLabelMeta}>
+                        {(label.itemCount ?? 0)} items · {label.roomName || "No room"}
+                      </Text>
+                    </View>
+
+                    <Text style={styles.nearbyLabelChevron}>›</Text>
+                  </HapticPressable>
+                );
+              })}
+            </View>
+          ) : null}
+
+          <View style={styles.arCard}>
           <View style={styles.arCardHeader}>
             <Text style={styles.arCardTitle}>
               {arOverlay?.suggestedName || "Gear Scan Result"}
@@ -760,30 +771,64 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     backgroundColor: "#2563EB",
   },
-  arMiniLabel: {
+  nearbyLabelsPanel: {
     position: "absolute",
-    width: 160,
+    top: 92,
+    left: 16,
+    right: 16,
     zIndex: 18,
-    backgroundColor: "rgba(37, 99, 235, 0.92)",
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
+    backgroundColor: "rgba(15, 23, 42, 0.78)",
+    borderRadius: 16,
+    padding: 10,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.25)",
+    borderColor: "rgba(255,255,255,0.14)",
   },
-  arMiniLabelTitle: {
-    color: "#fff",
+  nearbyLabelsTitle: {
+    color: "rgba(255,255,255,0.72)",
     fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    marginBottom: 8,
+    letterSpacing: 0.6,
+  },
+  nearbyLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 12,
+    paddingVertical: 9,
+    paddingHorizontal: 10,
+    marginBottom: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: "rgba(37, 99, 235, 0.95)",
+  },
+  nearbyLabelRowSelected: {
+    backgroundColor: "rgba(37, 99, 235, 0.22)",
+  },
+  nearbyLabelTextBox: {
+    flex: 1,
+    paddingRight: 10,
+  },
+  nearbyLabelName: {
+    color: "#fff",
+    fontSize: 14,
     fontWeight: "900",
   },
-  arMiniLabelMeta: {
-    color: "#fff",
-    fontSize: 11,
+  nearbyLabelMeta: {
+    color: "rgba(255,255,255,0.72)",
+    fontSize: 12,
     marginTop: 2,
+  },
+  nearbyLabelChevron: {
+    color: "#fff",
+    fontSize: 28,
+    lineHeight: 28,
+    opacity: 0.85,
   },
   arCard: {
     position: "absolute",
-    top: 118,
+    top: 315,
     right: 16,
     width: 285,
     zIndex: 20,
