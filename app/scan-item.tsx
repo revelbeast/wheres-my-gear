@@ -358,7 +358,7 @@ export default function ScanItemScreen() {
 
             currentCalloutAnchor = {
               top: Math.max(84, qrY - 38),
-              left: Math.max(12, Math.min(qrX + qrWidth + 8, screenWidth - 150)),
+              left: Math.max(12, Math.min(qrX + qrWidth + 10, screenWidth - 202)),
             };
 
             setArAnchor(currentScanAnchor);
@@ -854,41 +854,50 @@ const styles = StyleSheet.create({
   },
   arCalloutChip: {
     position: "absolute",
-    width: 158,
+    width: 190,
     zIndex: 50,
     backgroundColor: "#F8FAFC",
-    borderRadius: 10,
+    borderRadius: 14,
     overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "rgba(15,23,42,0.18)",
+    borderWidth: 2,
+    borderColor: "rgba(37,99,235,0.75)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 10,
+    transform: [{ perspective: 900 }, { rotateY: "-4deg" }],
   },
   arCalloutChipSelected: {
-    borderColor: "#2563EB",
+    borderColor: "#93C5FD",
     borderWidth: 2,
-    transform: [{ scale: 1.04 }],
+    transform: [{ perspective: 900 }, { rotateY: "-4deg" }, { scale: 1.06 }],
   },
   arCalloutHeader: {
     backgroundColor: "#2563EB",
-    paddingHorizontal: 8,
-    paddingVertical: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.30)",
   },
   arCalloutBody: {
-    paddingHorizontal: 8,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: "#F8FAFC",
   },
   arCalloutName: {
     color: "#fff",
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: "900",
   },
   arCalloutMeta: {
     color: "#111827",
-    fontSize: 12,
+    fontSize: 15,
     fontWeight: "800",
   },
   arCalloutDate: {
     color: "#374151",
-    fontSize: 11,
+    fontSize: 14,
     marginTop: 2,
   },
   nearbyLabelsPanel: {
