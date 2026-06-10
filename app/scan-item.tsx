@@ -387,6 +387,21 @@ export default function ScanItemScreen() {
 
           const compartmentQrPrefix = "wheresmygear://compartment/";
           const roomQrPrefix = "wheresmygear://room/";
+          const storageQrPrefix = "wheresmygear://storage/";
+
+          if (String(value).startsWith(storageQrPrefix)) {
+            const scannedStorageId = String(value).replace(storageQrPrefix, "").trim();
+
+            if (scannedStorageId) {
+              router.replace({
+                pathname: "/vehicles/[vehicleId]",
+                params: {
+                  vehicleId: scannedStorageId,
+                },
+              });
+              return;
+            }
+          }
 
           if (String(value).startsWith(roomQrPrefix)) {
             const scannedRoomId = String(value).replace(roomQrPrefix, "").trim();
