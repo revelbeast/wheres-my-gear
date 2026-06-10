@@ -2054,15 +2054,15 @@ export default function DashboardScreen() {
     }
 
     Alert.alert(
-      "Unlock Premium +",
-      "Archive is a Premium + add-on feature for organizing hidden or completed gear records.",
+      "Unlock Premium+",
+      "Archive is a Premium+ add-on feature for organizing hidden or completed gear records.",
       [
         {
           text: "Maybe Later",
           style: "cancel",
         },
         {
-          text: "Upgrade to Premium +",
+          text: "Upgrade to Premium+",
           onPress: () => {
             pushWithNavigationLock(() => {
               router.push({
@@ -2088,15 +2088,15 @@ export default function DashboardScreen() {
     }
 
     Alert.alert(
-      "Unlock Premium +",
-      "AI scanning is a Premium + add-on feature for smart gear recognition and faster item setup.",
+      "Unlock Premium+",
+      "AI scanning is a Premium+ add-on feature for smart gear recognition and faster item setup.",
       [
         {
           text: "Not Now",
           style: "cancel",
         },
         {
-          text: "Upgrade to Premium +",
+          text: "Upgrade to Premium+",
           onPress: () =>
             router.push({
               pathname: "/paywall",
@@ -2116,15 +2116,15 @@ export default function DashboardScreen() {
     }
 
     Alert.alert(
-      "Unlock Premium +",
-      "QR compartment labels are a Premium + feature for printing box labels and opening stored contents faster.",
+      "Unlock Premium+",
+      "QR compartment labels are a Premium+ feature for printing box labels and opening stored contents faster.",
       [
         {
           text: "Maybe Later",
           style: "cancel",
         },
         {
-          text: "Upgrade to Premium +",
+          text: "Upgrade to Premium+",
           onPress: () => {
             pushWithNavigationLock(() => {
               router.push({
@@ -2147,7 +2147,7 @@ export default function DashboardScreen() {
     }
 
     Alert.alert(
-      "Unlock Premium +",
+      "Unlock Premium+",
       "QR and Barcode scanning is an Add-on feature to unlock smart gear scanning and faster item setup.",
       [
         {
@@ -2155,7 +2155,7 @@ export default function DashboardScreen() {
           style: "cancel",
         },
         {
-          text: "Upgrade to Premium +",
+          text: "Upgrade to Premium+",
           onPress: () => {
             pushWithNavigationLock(() => {
               router.push({
@@ -2176,15 +2176,15 @@ export default function DashboardScreen() {
     }
 
     Alert.alert(
-      "Unlock Premium +",
-      "Gear Assistant is a Premium + add-on feature for quickly adding gear with voice commands.",
+      "Unlock Premium+",
+      "Gear Assistant is a Premium+ add-on feature for quickly adding gear with voice commands.",
       [
         {
           text: "Not Now",
           style: "cancel",
         },
         {
-          text: "Upgrade to Premium +",
+          text: "Upgrade to Premium+",
           onPress: () => {
             pushWithNavigationLock(() => {
               router.push({

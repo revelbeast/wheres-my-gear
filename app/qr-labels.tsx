@@ -132,8 +132,8 @@ export default function QrLabelsScreen() {
 
         if (!allowed) {
           Alert.alert(
-            "Unlock Premium +",
-            "Create QR Labels is a Premium + feature for printing compartment labels and opening stored contents faster.",
+            "Unlock Premium+",
+            "Create QR Labels is a Premium+ feature for printing compartment labels and opening stored contents faster.",
             [
               {
                 text: "Not Now",
@@ -141,7 +141,7 @@ export default function QrLabelsScreen() {
                 onPress: () => router.back(),
               },
               {
-                text: "Upgrade to Premium +",
+                text: "Upgrade to Premium+",
                 onPress: () => {
                   router.replace({
                     pathname: "/paywall",
@@ -153,7 +153,7 @@ export default function QrLabelsScreen() {
           );
         }
       } catch (err) {
-        console.error("Failed to check Premium + access:", err);
+        console.error("Failed to check Premium+ access:", err);
         if (active) setHasPremiumPlus(false);
       } finally {
         if (active) setCheckingPremiumPlus(false);
@@ -847,11 +847,11 @@ export default function QrLabelsScreen() {
 
           {checkingPremiumPlus ? (
             <Text style={[styles.message, { color: theme.colors.textSecondary }]}>
-              Checking Premium + access...
+              Checking Premium+ access...
             </Text>
           ) : !hasPremiumPlus ? (
             <Text style={[styles.message, { color: theme.colors.textSecondary }]}>
-              Create QR Labels requires Premium +.
+              Create QR Labels requires Premium+.
             </Text>
           ) : loading ? (
             <Text style={[styles.message, { color: theme.colors.textSecondary }]}>
