@@ -49,6 +49,7 @@ import {
   updateCompartment,
   updateRoom,
 } from "../../../lib/gearService";
+import { isPremiumPlusUser } from "../../../lib/revenuecat";
 import { useInteractionLock } from "../../../lib/useInteractionLock";
 import { colors } from "../../../theme/tokens";
 
@@ -1064,8 +1065,44 @@ export default function VehicleDetailScreen() {
     });
   }
 
-  function handleCreateRoomQrLabel(roomId: string) {
+
+  async function requirePremiumPlusForQrLabels(): Promise<boolean> {
+    try {
+      const allowed = await isPremiumPlusUser();
+
+      if (allowed) {
+        return true;
+      }
+    } catch (error) {
+      console.error("Premium+ QR label access check failed:", error);
+    }
+
+    Alert.alert(
+      "Unlock Premium+",
+      "Create QR Labels is a Premium+ feature for printing storage, room, and compartment labels.",
+      [
+        {
+          text: "Maybe Later",
+          style: "cancel",
+        },
+        {
+          text: "Upgrade to Premium+",
+          onPress: () => {
+            router.push({
+              pathname: "/paywall",
+              params: { plan: "premium_plus" },
+            });
+          },
+        },
+      ]
+    );
+
+    return false;
+  }
+
+  async function handleCreateRoomQrLabel(roomId: string) {
     if (!vehicleId || !roomId || !isScreenMountedRef.current) return;
+    if (!(await requirePremiumPlusForQrLabels())) return;
 
     router.push({
       pathname: "/qr-labels",
@@ -1077,8 +1114,9 @@ export default function VehicleDetailScreen() {
     });
   }
 
-  function handleCreateStorageQrLabel() {
+  async function handleCreateStorageQrLabel() {
     if (!vehicleId || !isScreenMountedRef.current) return;
+    if (!(await requirePremiumPlusForQrLabels())) return;
 
     router.push({
       pathname: "/qr-labels",
@@ -1089,8 +1127,9 @@ export default function VehicleDetailScreen() {
     });
   }
 
-  function handleCreateCompartmentQrLabel(compartmentId: string) {
+  async function handleCreateCompartmentQrLabel(compartmentId: string) {
     if (!vehicleId || !compartmentId || !isScreenMountedRef.current) return;
+    if (!(await requirePremiumPlusForQrLabels())) return;
 
     router.push({
       pathname: "/qr-labels",

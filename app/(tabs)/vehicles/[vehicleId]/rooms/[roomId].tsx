@@ -30,6 +30,7 @@ import {
   moveCompartment,
   updateCompartment,
 } from "../../../../../lib/gearService";
+import { isPremiumPlusUser } from "../../../../../lib/revenuecat";
 import { useInteractionLock } from "../../../../../lib/useInteractionLock";
 import { colors } from "../../../../../theme/tokens";
 
@@ -251,8 +252,44 @@ export default function RoomDetailScreen() {
     });
   }
 
-  function handleCreateRoomQrLabel() {
+
+  async function requirePremiumPlusForQrLabels(): Promise<boolean> {
+    try {
+      const allowed = await isPremiumPlusUser();
+
+      if (allowed) {
+        return true;
+      }
+    } catch (error) {
+      console.error("Premium+ QR label access check failed:", error);
+    }
+
+    Alert.alert(
+      "Unlock Premium+",
+      "Create QR Labels is a Premium+ feature for printing room and compartment labels.",
+      [
+        {
+          text: "Maybe Later",
+          style: "cancel",
+        },
+        {
+          text: "Upgrade to Premium+",
+          onPress: () => {
+            router.push({
+              pathname: "/paywall",
+              params: { plan: "premium_plus" },
+            });
+          },
+        },
+      ]
+    );
+
+    return false;
+  }
+
+  async function handleCreateRoomQrLabel() {
     if (!vehicleId || !roomId || isBusy()) return;
+    if (!(await requirePremiumPlusForQrLabels())) return;
 
     router.push({
       pathname: "/qr-labels",
