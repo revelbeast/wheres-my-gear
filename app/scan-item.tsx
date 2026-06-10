@@ -496,7 +496,13 @@ export default function ScanItemScreen() {
                     ...nextOverlay,
                     anchor: currentScanAnchor,
                   },
-                ].slice(-5);
+                ]
+                  .sort((a, b) => {
+                    const aTop = a?.anchor?.top ?? 9999;
+                    const bTop = b?.anchor?.top ?? 9999;
+                    return aTop - bTop;
+                  })
+                  .slice(0, 5);
               });
 
               setArOverlay({
