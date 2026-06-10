@@ -545,7 +545,7 @@ export default function ScanItemScreen() {
           {arLabels.length > 1 ? (
             <View style={styles.nearbyLabelsPanel}>
               <Text style={styles.nearbyLabelsTitle}>
-                Nearby Labels ({arLabels.length})
+                Labels In View ({arLabels.length})
               </Text>
 
               <Text style={styles.nearbyLabelsHint}>
@@ -570,10 +570,21 @@ export default function ScanItemScreen() {
                   >
                     <View style={styles.nearbyLabelTextBox}>
                       <Text style={styles.nearbyLabelName} numberOfLines={1}>
-                        {label.suggestedName || "Compartment"}
+                        {isSelected ? "✓ " : ""}{label.suggestedName || "Compartment"}
                       </Text>
                       <Text style={styles.nearbyLabelMeta}>
-                        {(label.itemCount ?? 0)} items · {notPacked === 0 ? "All Present" : `${notPacked} not packed`}
+                        {(label.itemCount ?? 0)} items
+                      </Text>
+                    </View>
+
+                    <View
+                      style={[
+                        styles.nearbyStatusBadge,
+                        notPacked === 0 ? styles.nearbyStatusGood : styles.nearbyStatusWarn,
+                      ]}
+                    >
+                      <Text style={styles.nearbyStatusText}>
+                        {notPacked === 0 ? "All Present" : `${notPacked} Missing`}
                       </Text>
                     </View>
 
@@ -584,7 +595,14 @@ export default function ScanItemScreen() {
             </View>
           ) : null}
 
-          <View style={styles.arCard}>
+          <View
+            style={[
+              styles.arCard,
+              arLabels.length > 1
+                ? { top: 128 + arLabels.length * 82 }
+                : null,
+            ]}
+          >
           <View style={styles.arCardHeader}>
             <Text style={styles.arCardTitle}>
               {arOverlay?.suggestedName || "Gear Scan Result"}
@@ -630,7 +648,8 @@ export default function ScanItemScreen() {
                 <View style={styles.arTopItemsBox}>
                   <Text style={styles.arTopItemsTitle}>Top Items</Text>
                   <Text style={styles.arTopItemsText}>
-                    {arOverlay.topItems.join(", ")}
+                    {arOverlay.topItems.slice(0, 3).join(", ")}
+                    {arOverlay.topItems.length > 3 ? ` +${arOverlay.topItems.length - 3} more` : ""}
                   </Text>
                 </View>
               ) : null}
@@ -792,7 +811,7 @@ const styles = StyleSheet.create({
     left: 16,
     right: 16,
     zIndex: 18,
-    backgroundColor: "rgba(15, 23, 42, 0.78)",
+    backgroundColor: "rgba(15, 23, 42, 0.84)",
     borderRadius: 16,
     padding: 10,
     borderWidth: 1,
@@ -841,6 +860,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 2,
   },
+  nearbyStatusBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginRight: 8,
+  },
+  nearbyStatusGood: {
+    backgroundColor: "rgba(34, 197, 94, 0.20)",
+  },
+  nearbyStatusWarn: {
+    backgroundColor: "rgba(245, 158, 11, 0.22)",
+  },
+  nearbyStatusText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "800",
+  },
   nearbyLabelChevron: {
     color: "#fff",
     fontSize: 28,
@@ -853,7 +889,7 @@ const styles = StyleSheet.create({
     right: 16,
     width: 285,
     zIndex: 20,
-    backgroundColor: "rgba(15, 23, 42, 0.86)",
+    backgroundColor: "rgba(15, 23, 42, 0.88)",
     borderRadius: 18,
     padding: 11,
     borderWidth: 1,
