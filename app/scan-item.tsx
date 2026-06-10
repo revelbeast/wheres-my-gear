@@ -846,7 +846,7 @@ const styles = StyleSheet.create({
   arCalloutChip: {
     position: "absolute",
     width: 138,
-    zIndex: 17,
+    zIndex: 50,
     backgroundColor: "rgba(37, 99, 235, 0.92)",
     borderRadius: 11,
     paddingHorizontal: 10,
