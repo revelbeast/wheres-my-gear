@@ -5,7 +5,7 @@ import {
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { Alert } from "react-native";
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Dimensions, StyleSheet, Text, View } from "react-native";
 import { useAuth } from "../components/auth/AuthProvider";
 import { isPremiumPlusUser } from "../lib/revenuecat";
 import HapticPressable from "../components/ui/HapticPressable";
@@ -26,6 +26,7 @@ export default function ScanItemScreen() {
   // scan lock
   const [isScanning, setIsScanning] = useState(false);
   const [arOverlay, setArOverlay] = useState<any>(null);
+  const [arAnchor, setArAnchor] = useState<{ top: number; left: number } | null>(null);
 
   // camera lifecycle control
   const [cameraActive, setCameraActive] = useState(true);
@@ -330,6 +331,28 @@ export default function ScanItemScreen() {
         onBarcodeScanned={async (event) => {
           const value = event?.data;
 
+          if (event?.bounds?.origin && event?.bounds?.size) {
+            const screenWidth = Dimensions.get("window").width;
+            const cardWidth = 330;
+            const margin = 16;
+            const qrX = event.bounds.origin.x;
+            const qrY = event.bounds.origin.y;
+            const qrWidth = event.bounds.size.width;
+
+            let left = qrX + qrWidth + 12;
+
+            if (left + cardWidth > screenWidth - margin) {
+              left = qrX - cardWidth - 12;
+            }
+
+            left = Math.max(margin, Math.min(left, screenWidth - cardWidth - margin));
+
+            setArAnchor({
+              top: Math.max(110, qrY - 220),
+              left,
+            });
+          }
+
           if (!value) return;
 
           // HARD GUARD
@@ -482,7 +505,7 @@ export default function ScanItemScreen() {
       />
 
       {arOverlay ? (
-        <View style={styles.arCard}>
+        <View style={[styles.arCard, arAnchor ? { top: arAnchor.top, left: arAnchor.left, right: undefined } : null]}>
           <View style={styles.arCardHeader}>
             <Text style={styles.arCardTitle}>
               {arOverlay?.suggestedName || "Gear Scan Result"}
@@ -492,6 +515,7 @@ export default function ScanItemScreen() {
               style={styles.arCloseButton}
               onPress={() => {
                 setArOverlay(null);
+                setArAnchor(null);
                 scanSessionRef.current.active = true;
                 setCameraActive(true);
                 setIsScanning(false);
@@ -566,6 +590,7 @@ export default function ScanItemScreen() {
             style={styles.arPrimaryButton}
             onPress={() => {
               setArOverlay(null);
+              setArAnchor(null);
               if (arOverlay?.type === "compartment" && arOverlay?.compartmentId) {
                 router.replace({
                   pathname: "/vehicles/[vehicleId]/compartments/[compartmentId]",
