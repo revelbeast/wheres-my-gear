@@ -561,13 +561,7 @@ export default function ScanItemScreen() {
                   styles.arCalloutChip,
                   {
                     top: label.calloutAnchor.top,
-                    left: Math.max(
-                      12,
-                      Math.min(
-                        label.calloutAnchor.left,
-                        Dimensions.get("window").width - (isSelected ? 292 : 202)
-                      )
-                    ),
+                    left: label.calloutAnchor.left,
                   },
                   isSelected ? styles.arCalloutChipSelected : null,
                 ]}
@@ -910,7 +904,7 @@ const styles = StyleSheet.create({
     transform: [{ perspective: 900 }, { rotateY: "-4deg" }],
   },
   arCalloutChipSelected: {
-    width: 280,
+    width: 230,
     borderColor: "#93C5FD",
     borderWidth: 2,
     transform: [{ perspective: 900 }, { rotateY: "-4deg" }, { scale: 1.03 }],
