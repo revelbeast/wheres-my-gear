@@ -548,6 +548,10 @@ export default function ScanItemScreen() {
                 Nearby Labels ({arLabels.length})
               </Text>
 
+              <Text style={styles.nearbyLabelsHint}>
+                Tap a label to preview contents
+              </Text>
+
               {arLabels.map((label) => {
                 const isSelected = arOverlay?.compartmentId === label.compartmentId;
                 const notPacked = Math.max(0, (label.itemCount ?? 0) - (label.packedCount ?? 0));
@@ -801,6 +805,12 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     marginBottom: 8,
     letterSpacing: 0.6,
+  },
+  nearbyLabelsHint: {
+    color: "rgba(255,255,255,0.58)",
+    fontSize: 12,
+    marginTop: -4,
+    marginBottom: 8,
   },
   nearbyLabelRow: {
     flexDirection: "row",
