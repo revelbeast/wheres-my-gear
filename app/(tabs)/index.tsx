@@ -68,7 +68,7 @@ const DASHBOARD_TOUR_STEPS = [
   {
     title: "Use Quick Actions",
     target: "Quick Actions",
-    body: "Use Gear Assistant, Scan w/AI, QR scanning, Archive, Export, and fast add actions from the dashboard.",
+    body: "Use Gear Assistant, Scan w/AI, QR / Barcode Scanner, Archive, Export, and fast add actions from the dashboard.",
   },
   {
     title: "Customize the App",
