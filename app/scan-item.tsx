@@ -333,7 +333,6 @@ export default function ScanItemScreen() {
           const value = event?.data;
 
           let currentScanAnchor: { top: number; left: number } | null = null;
-          let currentCalloutAnchor: { top: number; left: number } | null = null;
 
           if (event?.bounds?.origin && event?.bounds?.size) {
             const screenWidth = Dimensions.get("window").width;
@@ -354,11 +353,6 @@ export default function ScanItemScreen() {
             currentScanAnchor = {
               top: Math.max(115, qrY - 185),
               left,
-            };
-
-            currentCalloutAnchor = {
-              top: Math.max(84, qrY - 38),
-              left: Math.max(12, Math.min(qrX + qrWidth + 8, screenWidth - 150)),
             };
 
             setArAnchor(currentScanAnchor);
@@ -493,7 +487,6 @@ export default function ScanItemScreen() {
               const visibleOverlay = {
                 ...nextOverlay,
                 anchor: currentScanAnchor,
-                calloutAnchor: currentCalloutAnchor,
                 lastSeenAt: Date.now(),
               };
 
@@ -552,7 +545,7 @@ export default function ScanItemScreen() {
             const notPacked = Math.max(0, (label.itemCount ?? 0) - (label.packedCount ?? 0));
             const isSelected = arOverlay?.compartmentId === label.compartmentId;
 
-            if (!label.calloutAnchor) return null;
+            if (!label.anchor) return null;
 
             return (
               <HapticPressable
@@ -560,8 +553,8 @@ export default function ScanItemScreen() {
                 style={[
                   styles.arCalloutChip,
                   {
-                    top: label.calloutAnchor.top,
-                    left: label.calloutAnchor.left,
+                    top: Math.max(88, label.anchor.top + 165),
+                    left: Math.max(12, Math.min(label.anchor.left, Dimensions.get("window").width - 150)),
                   },
                   isSelected ? styles.arCalloutChipSelected : null,
                 ]}
