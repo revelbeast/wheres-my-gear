@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 
@@ -58,6 +59,53 @@ const defaultProfile: AppProfile = {
   hapticsEnabled: true,
   address: defaultAddress,
 };
+
+const PROFILE_SETTINGS_CACHE_PREFIX = "wmg.cache.profileSettings.";
+const PROFILE_SETTINGS_OFFLINE_TIMEOUT_MS = 2500;
+
+function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  timeoutMessage: string
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      reject(new Error(timeoutMessage));
+    }, timeoutMs);
+
+    promise
+      .then((value) => {
+        clearTimeout(timeoutId);
+        resolve(value);
+      })
+      .catch((error) => {
+        clearTimeout(timeoutId);
+        reject(error);
+      });
+  });
+}
+
+async function cacheProfileSettings(userId: string, profile: AppProfile) {
+  await AsyncStorage.setItem(
+    `${PROFILE_SETTINGS_CACHE_PREFIX}${userId}`,
+    JSON.stringify(profile)
+  );
+}
+
+async function getCachedProfileSettings(userId: string): Promise<AppProfile | null> {
+  const raw = await AsyncStorage.getItem(`${PROFILE_SETTINGS_CACHE_PREFIX}${userId}`);
+
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    return mergeProfileData(parsed as Partial<AppProfile>);
+  } catch {
+    return null;
+  }
+}
 
 const defaultNotificationSettings: NotificationSettings = {
   checklistReminders: true,
@@ -259,13 +307,25 @@ export async function getProfileSettings(userId: string): Promise<AppProfile> {
     return defaultProfile;
   }
 
-  const ref = profileDoc(userId.trim());
+  const trimmedUserId = userId.trim();
+  const ref = profileDoc(trimmedUserId);
 
   let snapshot;
   try {
-    snapshot = await getDoc(ref);
+    snapshot = await withTimeout(
+      getDoc(ref),
+      PROFILE_SETTINGS_OFFLINE_TIMEOUT_MS,
+      "Profile settings request timed out. Using cached settings."
+    );
   } catch (error) {
-    console.warn("Profile settings unavailable offline. Using defaults.", error);
+    console.warn("Profile settings unavailable offline. Using cached settings.", error);
+
+    const cachedProfile = await getCachedProfileSettings(trimmedUserId);
+
+    if (cachedProfile) {
+      return cachedProfile;
+    }
+
     return sanitizeProfilePayload(defaultProfile);
   }
 
@@ -276,7 +336,9 @@ export async function getProfileSettings(userId: string): Promise<AppProfile> {
       console.warn("Unable to create default profile settings.", error);
     }
 
-    return sanitizeProfilePayload(defaultProfile);
+    const sanitizedDefaultProfile = sanitizeProfilePayload(defaultProfile);
+    await cacheProfileSettings(trimmedUserId, sanitizedDefaultProfile);
+    return sanitizedDefaultProfile;
   }
 
   const data = snapshot.data() as Partial<AppProfile>;
@@ -286,6 +348,8 @@ export async function getProfileSettings(userId: string): Promise<AppProfile> {
   if (JSON.stringify(cleanedProfile) !== JSON.stringify(data)) {
     await setDoc(ref, cleanedProfile, { merge: true });
   }
+
+  await cacheProfileSettings(trimmedUserId, cleanedProfile);
 
   return cleanedProfile;
 }
@@ -300,7 +364,10 @@ export async function saveProfileSettings(
 
   const sanitizedProfile = sanitizeProfilePayload(profile);
 
-  await setDoc(profileDoc(userId.trim()), sanitizedProfile, { merge: true });
+  const trimmedUserId = userId.trim();
+
+  await setDoc(profileDoc(trimmedUserId), sanitizedProfile, { merge: true });
+  await cacheProfileSettings(trimmedUserId, sanitizedProfile);
 }
 
 export async function getNotificationSettings(): Promise<NotificationSettings> {

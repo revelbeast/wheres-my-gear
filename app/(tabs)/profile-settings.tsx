@@ -34,6 +34,7 @@ import {
 } from "../../components/ui/Themed";
 import { storage } from "../../firebaseConfig";
 import { publishAppBackgroundUpdate } from "../../lib/backgroundUpdateBus";
+import { savePhotoToLocalDocumentStorage } from "../../lib/localPhotoStorage";
 import {
   AppAddress,
   AppProfile,
@@ -482,6 +483,11 @@ export default function ProfileSettingsScreen() {
           return;
         }
 
+        const localProfilePhotoUri = await savePhotoToLocalDocumentStorage(
+          asset.uri,
+          `profile-${activeUserId}`
+        );
+
         const uploadedUrl = await uploadProfileImage(
           activeUserId,
           asset.uri,
@@ -494,7 +500,7 @@ export default function ProfileSettingsScreen() {
 
         const nextProfile = {
           ...activeProfile,
-          profilePhotoUri: uploadedUrl,
+          profilePhotoUri: localProfilePhotoUri || uploadedUrl,
         };
 
         setProfile(nextProfile);
@@ -504,7 +510,7 @@ export default function ProfileSettingsScreen() {
           return;
         }
 
-        if (previousProfilePhotoUri !== uploadedUrl) {
+        if (previousProfilePhotoUri !== uploadedUrl && previousProfilePhotoUri !== localProfilePhotoUri) {
           await safelyDeleteStoredImage(previousProfilePhotoUri);
         }
 
@@ -557,7 +563,12 @@ export default function ProfileSettingsScreen() {
           return;
         }
 
-        setBackgroundPreviewUri(asset.uri);
+        const localBackgroundPhotoUri = await savePhotoToLocalDocumentStorage(
+          asset.uri,
+          `background-${activeUserId}`
+        );
+
+        setBackgroundPreviewUri(localBackgroundPhotoUri || asset.uri);
 
         const uploadedUrl = await uploadProfileImage(
           activeUserId,
@@ -571,7 +582,7 @@ export default function ProfileSettingsScreen() {
 
         const nextProfile = {
           ...activeProfile,
-          backgroundPhotoUri: uploadedUrl,
+          backgroundPhotoUri: localBackgroundPhotoUri || uploadedUrl,
         };
 
         setProfile(nextProfile);
@@ -586,11 +597,14 @@ export default function ProfileSettingsScreen() {
 
         publishAppBackgroundUpdate(
           activeUserId,
-          uploadedUrl,
+          nextProfile.backgroundPhotoUri || null,
           nextProfile.backgroundResizeMode
         );
 
-        if (previousBackgroundPhotoUri !== uploadedUrl) {
+        if (
+          previousBackgroundPhotoUri !== uploadedUrl &&
+          previousBackgroundPhotoUri !== localBackgroundPhotoUri
+        ) {
           await safelyDeleteStoredImage(previousBackgroundPhotoUri);
         }
 
@@ -784,7 +798,10 @@ export default function ProfileSettingsScreen() {
 
   if (loading || !profile) {
     return (
-      <ScreenBackground>
+      <ScreenBackground
+        backgroundUriOverride={activeBackgroundUri}
+        backgroundResizeModeOverride={profile?.backgroundResizeMode ?? "cover"}
+      >
         <SafeAreaView style={styles.safe}>
           <View style={styles.container}>
             <AppHeader

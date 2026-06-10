@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -33,6 +34,7 @@ type CachedBackgroundState = {
 };
 
 const DEFAULT_BACKGROUND = require("../../assets/images/background_v4.jpg");
+const SCREEN_BACKGROUND_CACHE_PREFIX = "wmg.cache.screenBackground.";
 
 let cachedBackgroundState: CachedBackgroundState | null = null;
 
@@ -72,6 +74,49 @@ function setCachedBackgroundForUser(
     uri: getSafeUri(uri),
     resizeMode: getSafeResizeMode(resizeMode),
   };
+}
+
+async function cacheDurableBackgroundForUser(
+  userId: string,
+  uri: string | null,
+  resizeMode: BackgroundResizeMode
+) {
+  const payload: CachedBackgroundState = {
+    userId,
+    uri: getSafeUri(uri),
+    resizeMode: getSafeResizeMode(resizeMode),
+  };
+
+  await AsyncStorage.setItem(
+    `${SCREEN_BACKGROUND_CACHE_PREFIX}${userId}`,
+    JSON.stringify(payload)
+  );
+}
+
+async function getDurableBackgroundForUser(
+  userId: string
+): Promise<CachedBackgroundState | null> {
+  const raw = await AsyncStorage.getItem(`${SCREEN_BACKGROUND_CACHE_PREFIX}${userId}`);
+
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<CachedBackgroundState>;
+
+    if (parsed.userId !== userId) {
+      return null;
+    }
+
+    return {
+      userId,
+      uri: getSafeUri(parsed.uri),
+      resizeMode: getSafeResizeMode(parsed.resizeMode),
+    };
+  } catch {
+    return null;
+  }
 }
 
 function getInitialBackgroundForUser(
@@ -238,6 +283,22 @@ export default function ScreenBackground({
 
         if (cachedState) {
           applyBackgroundState(cachedState.uri, cachedState.resizeMode);
+        } else {
+          const durableCachedState = await getDurableBackgroundForUser(user.uid);
+
+          if (!isActive) return;
+
+          if (durableCachedState) {
+            setCachedBackgroundForUser(
+              user.uid,
+              durableCachedState.uri,
+              durableCachedState.resizeMode
+            );
+            applyBackgroundState(
+              durableCachedState.uri,
+              durableCachedState.resizeMode
+            );
+          }
         }
 
         try {
@@ -258,6 +319,7 @@ export default function ScreenBackground({
           );
 
           setCachedBackgroundForUser(user.uid, safeUri, safeResizeMode);
+          await cacheDurableBackgroundForUser(user.uid, safeUri, safeResizeMode);
           applyBackgroundState(safeUri, safeResizeMode);
         } catch (err) {
           console.log("Failed to load saved background. Using default.", err);
@@ -329,7 +391,7 @@ export default function ScreenBackground({
       <View
         style={[
           styles.baseOverlay,
-          { backgroundColor: "rgba(0,0,0,0.18)" }
+          { backgroundColor: "rgba(0,0,0,0.06)" }
         ]}
       />
       <View style={styles.topGlow} />
