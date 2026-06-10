@@ -311,33 +311,7 @@ export default function ScanItemScreen() {
 
   return (
     <View style={styles.container}>
-      {/* DEBUG OVERLAY */}
-      <View
-        style={{
-          position: "absolute",
-          top: 60,
-          left: 20,
-          right: 20,
-          zIndex: 10,
-          backgroundColor: "rgba(0,0,0,0.6)",
-          padding: 12,
-          borderRadius: 12,
-        }}
-      >
-        <Text style={{ color: "#fff", fontWeight: "600" }}>
-          Session Active
-        </Text>
-
-        <Text style={{ color: "#fff", marginTop: 4 }}>
-          Scans: {scanCount}
-        </Text>
-
-        <Text style={{ color: "#fff", marginTop: 4 }}>
-          Last: {lastScan ?? "None"}
-        </Text>
-      </View>
-
-      <CameraView
+<CameraView
         ref={cameraRef}
         style={styles.camera}
         facing="back"
@@ -625,15 +599,17 @@ export default function ScanItemScreen() {
       ) : null}
 
       <View style={styles.footer}>
-        <HapticPressable
-          style={[styles.closeButton, styles.aiButton]}
-          onPress={handleAnalyzeImageWithAI}
-          disabled={isScanning}
-        >
-          <Text style={styles.buttonText}>
-            {isScanning ? "Scanning..." : "Scan with AI"}
-          </Text>
-        </HapticPressable>
+        {!arOverlay ? (
+          <HapticPressable
+            style={[styles.closeButton, styles.aiButton]}
+            onPress={handleAnalyzeImageWithAI}
+            disabled={isScanning}
+          >
+            <Text style={styles.buttonText}>
+              {isScanning ? "Scanning..." : "Scan with AI"}
+            </Text>
+          </HapticPressable>
+        ) : null}
 
         <HapticPressable
           style={styles.closeButton}
@@ -680,15 +656,15 @@ const styles = StyleSheet.create({
   },
   arCard: {
     position: "absolute",
-    top: 145,
-    left: 20,
-    right: 20,
+    top: 118,
+    right: 16,
+    width: 330,
     zIndex: 20,
-    backgroundColor: "rgba(15, 23, 42, 0.92)",
+    backgroundColor: "rgba(15, 23, 42, 0.86)",
     borderRadius: 18,
-    padding: 16,
+    padding: 13,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.18)",
+    borderColor: "rgba(255,255,255,0.16)",
   },
   arCardHeader: {
     flexDirection: "row",
@@ -697,15 +673,15 @@ const styles = StyleSheet.create({
   },
   arCardTitle: {
     color: "#fff",
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "800",
     flex: 1,
-    paddingRight: 12,
+    paddingRight: 10,
   },
   arCloseButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: "rgba(255,255,255,0.12)",
     alignItems: "center",
     justifyContent: "center",
@@ -716,26 +692,27 @@ const styles = StyleSheet.create({
     lineHeight: 26,
   },
   arCardSubtitle: {
-    color: "rgba(255,255,255,0.75)",
-    marginTop: 6,
-    marginBottom: 12,
+    color: "rgba(255,255,255,0.72)",
+    marginTop: 4,
+    marginBottom: 8,
+    fontSize: 13,
   },
   arStatsRow: {
     flexDirection: "row",
-    gap: 10,
-    marginTop: 10,
+    gap: 8,
+    marginTop: 8,
     marginBottom: 8,
   },
   arStatBox: {
     flex: 1,
     backgroundColor: "rgba(255,255,255,0.10)",
     borderRadius: 12,
-    paddingVertical: 10,
+    paddingVertical: 7,
     alignItems: "center",
   },
   arStatNumber: {
     color: "#fff",
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "900",
   },
   arStatLabel: {
@@ -746,8 +723,8 @@ const styles = StyleSheet.create({
   arTopItemsBox: {
     backgroundColor: "rgba(255,255,255,0.08)",
     borderRadius: 12,
-    padding: 10,
-    marginBottom: 8,
+    padding: 8,
+    marginBottom: 6,
   },
   arTopItemsTitle: {
     color: "rgba(255,255,255,0.68)",
@@ -782,10 +759,10 @@ const styles = StyleSheet.create({
     lineHeight: 19,
   },
   arPrimaryButton: {
-    marginTop: 14,
+    marginTop: 10,
     backgroundColor: "#2563EB",
     borderRadius: 12,
-    paddingVertical: 12,
+    paddingVertical: 10,
     alignItems: "center",
   },
   arPrimaryButtonText: {
