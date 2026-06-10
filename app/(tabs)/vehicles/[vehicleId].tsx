@@ -1077,6 +1077,18 @@ export default function VehicleDetailScreen() {
     });
   }
 
+  function handleCreateStorageQrLabel() {
+    if (!vehicleId || !isScreenMountedRef.current) return;
+
+    router.push({
+      pathname: "/qr-labels",
+      params: {
+        type: "storage",
+        storageId: String(vehicleId),
+      },
+    });
+  }
+
   function handleCreateCompartmentQrLabel(compartmentId: string) {
     if (!vehicleId || !compartmentId || !isScreenMountedRef.current) return;
 
@@ -1342,6 +1354,35 @@ export default function VehicleDetailScreen() {
                 ]}
               >
                 Share Storage Space
+              </Text>
+            </HapticPressable>
+
+            <HapticPressable
+              style={[
+                styles.shareStorageButton,
+                {
+                  backgroundColor: theme.isLight
+                    ? "#FFFFFF"
+                    : "rgba(12,24,50,0.28)",
+                  borderColor: theme.isLight
+                    ? "rgba(0,0,0,0.10)"
+                    : "rgba(255,255,255,0.08)",
+                },
+                isBusy() && styles.disabledInteraction,
+              ]}
+              onPress={handleCreateStorageQrLabel}
+              disabled={isBusy()}
+            >
+              <Text style={styles.qrIconText}>QR</Text>
+              <Text
+                style={[
+                  styles.shareStorageButtonText,
+                  {
+                    color: theme.isLight ? "#000000" : "#FFFFFF",
+                  },
+                ]}
+              >
+                Create Storage QR Label
               </Text>
             </HapticPressable>
 
@@ -1765,18 +1806,6 @@ export default function VehicleDetailScreen() {
                       </View>
 
                       <View style={styles.cardRight}>
-                        <HapticPressable
-                          style={[
-                            styles.iconButton,
-                            roomInteractionDisabled &&
-                              styles.disabledInteraction,
-                          ]}
-                          onPress={() => handleCreateRoomQrLabel(room.id)}
-                          disabled={roomInteractionDisabled}
-                        >
-                          <Text style={styles.qrIconText}>QR</Text>
-                        </HapticPressable>
-
                         <HapticPressable
                           style={[
                             styles.iconButton,
