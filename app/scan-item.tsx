@@ -333,7 +333,7 @@ export default function ScanItemScreen() {
 
           if (event?.bounds?.origin && event?.bounds?.size) {
             const screenWidth = Dimensions.get("window").width;
-            const cardWidth = 330;
+            const cardWidth = 285;
             const margin = 16;
             const qrX = event.bounds.origin.x;
             const qrY = event.bounds.origin.y;
@@ -348,7 +348,7 @@ export default function ScanItemScreen() {
             left = Math.max(margin, Math.min(left, screenWidth - cardWidth - margin));
 
             setArAnchor({
-              top: Math.max(110, qrY - 220),
+              top: Math.max(115, qrY - 185),
               left,
             });
           }
@@ -671,7 +671,7 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingVertical: 9,
     backgroundColor: "#111",
     borderRadius: 12,
   },
@@ -683,11 +683,11 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 118,
     right: 16,
-    width: 330,
+    width: 285,
     zIndex: 20,
     backgroundColor: "rgba(15, 23, 42, 0.86)",
     borderRadius: 18,
-    padding: 13,
+    padding: 11,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.16)",
   },
@@ -698,7 +698,7 @@ const styles = StyleSheet.create({
   },
   arCardTitle: {
     color: "#fff",
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "800",
     flex: 1,
     paddingRight: 10,
@@ -737,7 +737,7 @@ const styles = StyleSheet.create({
   },
   arStatNumber: {
     color: "#fff",
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "900",
   },
   arStatLabel: {
@@ -787,7 +787,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     backgroundColor: "#2563EB",
     borderRadius: 12,
-    paddingVertical: 10,
+    paddingVertical: 9,
     alignItems: "center",
   },
   arPrimaryButtonText: {
