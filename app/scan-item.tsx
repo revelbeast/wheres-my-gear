@@ -485,6 +485,12 @@ export default function ScanItemScreen() {
                 matchStatus: compartment ? "found" : "unknown",
               };
 
+              const visibleOverlay = {
+                ...nextOverlay,
+                anchor: currentScanAnchor,
+                lastSeenAt: Date.now(),
+              };
+
               setArLabels((current) => {
                 const withoutExisting = current.filter(
                   (label) => label.compartmentId !== scannedCompartmentId
@@ -492,10 +498,7 @@ export default function ScanItemScreen() {
 
                 return [
                   ...withoutExisting,
-                  {
-                    ...nextOverlay,
-                    anchor: currentScanAnchor,
-                  },
+                  visibleOverlay,
                 ]
                   .sort((a, b) => {
                     const aTop = a?.anchor?.top ?? 9999;
@@ -505,10 +508,7 @@ export default function ScanItemScreen() {
                   .slice(0, 5);
               });
 
-              setArOverlay({
-                ...nextOverlay,
-                anchor: currentScanAnchor,
-              });
+              setArOverlay(visibleOverlay);
               setIsScanning(false);
 
               return;
@@ -550,6 +550,7 @@ export default function ScanItemScreen() {
 
               {arLabels.map((label) => {
                 const isSelected = arOverlay?.compartmentId === label.compartmentId;
+                const notPacked = Math.max(0, (label.itemCount ?? 0) - (label.packedCount ?? 0));
 
                 return (
                   <HapticPressable
@@ -568,7 +569,7 @@ export default function ScanItemScreen() {
                         {label.suggestedName || "Compartment"}
                       </Text>
                       <Text style={styles.nearbyLabelMeta}>
-                        {(label.itemCount ?? 0)} items · {label.roomName || "No room"}
+                        {(label.itemCount ?? 0)} items · {notPacked === 0 ? "All Present" : `${notPacked} not packed`}
                       </Text>
                     </View>
 
@@ -600,7 +601,11 @@ export default function ScanItemScreen() {
           </View>
 
           <Text style={styles.arCardSubtitle}>
-            {arOverlay?.found ? "Recognized label or item" : "Unknown item"}
+            {arOverlay?.type === "compartment"
+              ? "Compartment Inventory"
+              : arOverlay?.found
+                ? "Recognized label or item"
+                : "Unknown item"}
           </Text>
 
           {arOverlay?.type === "compartment" ? (
