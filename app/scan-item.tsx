@@ -784,7 +784,7 @@ const styles = StyleSheet.create({
   text: { marginBottom: 12 },
   button: {
     padding: 12,
-    backgroundColor: "#2563EB",
+    backgroundColor: "#3B82F6",
     borderRadius: 10,
   },
   buttonText: { color: "#fff" },
@@ -802,7 +802,7 @@ const styles = StyleSheet.create({
   },
   aiButton: {
     marginBottom: 12,
-    backgroundColor: "#2563EB",
+    backgroundColor: "#3B82F6",
   },
   nearbyLabelsPanel: {
     position: "absolute",
@@ -810,11 +810,11 @@ const styles = StyleSheet.create({
     left: 16,
     right: 16,
     zIndex: 18,
-    backgroundColor: "rgba(15, 23, 42, 0.84)",
+    backgroundColor: "rgba(10, 25, 55, 0.78)",
     borderRadius: 16,
     padding: 10,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.14)",
+    borderColor: "rgba(59,130,246,0.30)",
   },
   nearbyLabelsTitle: {
     color: "rgba(255,255,255,0.72)",
@@ -843,7 +843,7 @@ const styles = StyleSheet.create({
     borderLeftColor: "rgba(37, 99, 235, 0.95)",
   },
   nearbyLabelRowSelected: {
-    backgroundColor: "rgba(37, 99, 235, 0.22)",
+    backgroundColor: "rgba(37,99,235,0.28)",
   },
   nearbyLabelTextBox: {
     flex: 1,
@@ -888,11 +888,11 @@ const styles = StyleSheet.create({
     right: 16,
     width: 285,
     zIndex: 20,
-    backgroundColor: "rgba(15, 23, 42, 0.88)",
+    backgroundColor: "rgba(10,25,55,0.82)",
     borderRadius: 18,
     padding: 11,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.16)",
+    borderColor: "rgba(59,130,246,0.35)",
   },
   arCardHeader: {
     flexDirection: "row",
@@ -988,7 +988,7 @@ const styles = StyleSheet.create({
   },
   arPrimaryButton: {
     marginTop: 10,
-    backgroundColor: "#2563EB",
+    backgroundColor: "#3B82F6",
     borderRadius: 12,
     paddingVertical: 9,
     alignItems: "center",
