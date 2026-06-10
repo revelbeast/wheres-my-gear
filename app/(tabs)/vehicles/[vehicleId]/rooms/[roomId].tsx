@@ -251,6 +251,19 @@ export default function RoomDetailScreen() {
     });
   }
 
+  function handleCreateRoomQrLabel() {
+    if (!vehicleId || !roomId || isBusy()) return;
+
+    router.push({
+      pathname: "/qr-labels",
+      params: {
+        type: "room",
+        storageId: String(vehicleId),
+        roomId: String(roomId),
+      },
+    });
+  }
+
   function handleStartEditCompartment(compartment: Compartment) {
     if (isBusy()) return;
 
@@ -433,6 +446,33 @@ export default function RoomDetailScreen() {
             automaticallyAdjustKeyboardInsets
           >
             <AppHeader title={headerTitle} showBackButton />
+
+            <HapticPressable
+              style={[
+                styles.qrShortcutButton,
+                {
+                  backgroundColor: theme.isLight
+                    ? "#FFFFFF"
+                    : "rgba(255,255,255,0.04)",
+                  borderColor: theme.isLight
+                    ? "rgba(0,0,0,0.10)"
+                    : "rgba(255,255,255,0.12)",
+                },
+                isBusy() && styles.disabledInteraction,
+              ]}
+              onPress={handleCreateRoomQrLabel}
+              disabled={isBusy()}
+            >
+              <Text style={styles.qrShortcutText}>QR</Text>
+              <Text
+                style={[
+                  styles.qrShortcutLabel,
+                  { color: theme.isLight ? "#000000" : colors.text },
+                ]}
+              >
+                Create Room QR Label
+              </Text>
+            </HapticPressable>
 
             <BlurView
               intensity={theme.isLight ? 18 : 18}
@@ -911,6 +951,34 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+  },
+
+  qrShortcutButton: {
+    alignItems: "center",
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 10,
+    justifyContent: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+
+  qrShortcutText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: "900",
+  },
+
+  qrShortcutLabel: {
+    fontSize: 15,
+    fontWeight: "900",
+  },
+
+  qrIconText: {
+    color: colors.primary,
+    fontSize: 11,
+    fontWeight: "900",
   },
 
   iconButton: {
