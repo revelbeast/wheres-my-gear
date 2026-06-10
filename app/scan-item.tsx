@@ -373,7 +373,6 @@ export default function ScanItemScreen() {
             scanSessionRef.current.lastCode === value ||
             scanHistoryRef.current.includes(value)
           ) {
-            console.log("DUPLICATE BLOCKED:", value);
             setIsScanning(false);
             return;
           }
