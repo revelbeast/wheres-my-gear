@@ -15,7 +15,7 @@ import {
 import { auth, db } from "../firebaseConfig";
 import { cleanupOldCloudPhotosInFolder, deleteCloudPhotoByStoragePath } from "./cloudPhotoStorage";
 import { downloadPhotoToLocalDocumentStorage, localPhotoExists } from "./localPhotoStorage";
-import { cacheStorageSpaces, enqueueOfflineOperation, getCachedStorageSpaces, getOfflineCompartments, getOfflineCompartmentById, getOfflineItems, getOfflineItemsByCompartment, getOfflineItemsByStatus, getOfflineStorageSpaces, removeOfflineOperation, updateOfflineCreatedItem } from "./offlineQueue";
+import { cacheCompartments, cacheRooms, cacheStorageSpaces, enqueueOfflineOperation, getCachedCompartments, getCachedRooms, getCachedStorageSpaces, getOfflineCompartments, getOfflineCompartmentById, getOfflineItems, getOfflineItemsByCompartment, getOfflineItemsByStatus, getOfflineStorageSpaces, removeOfflineOperation, updateOfflineCreatedItem } from "./offlineQueue";
 
 export type ItemStatus = "packed" | "missing";
 export type StorageSpaceCategory = "storage" | "office" | "vehicle";
@@ -251,15 +251,23 @@ export async function getRoomsByStorageSpace(
     );
     const snapshot = await withOfflineReadTimeout(getDocs(q));
 
-    return snapshot.docs
+    const rooms = snapshot.docs
       .map((d) => ({
         id: d.id,
         ...d.data(),
       }) as Room)
       .filter((room) => !room.isArchived);
+
+    await cacheRooms(getCurrentUserId(), trimmedStorageSpaceId, rooms);
+
+    return rooms;
   } catch (error) {
-    console.warn("Unable to load rooms for storage space.", error);
-    return [];
+    console.warn("Unable to load rooms for storage space. Showing cached rooms.", error);
+
+    return (await getCachedRooms(
+      getCurrentUserId(),
+      trimmedStorageSpaceId
+    )) as Room[];
   }
 }
 
@@ -863,8 +871,17 @@ export async function getCompartmentsByVehicle(
       id: d.id,
       ...d.data(),
     })) as Compartment[];
+
+    await cacheCompartments(userId, vehicleId, remoteCompartments);
   } catch (error) {
-    console.warn("Unable to load remote compartments. Showing offline queue.", error);
+    console.warn("Unable to load remote compartments. Showing cached compartments.", error);
+
+    const cachedCompartments = (await getCachedCompartments(
+      userId,
+      vehicleId
+    )) as Compartment[];
+
+    remoteCompartments = cachedCompartments;
   }
 
   return [...offlineCompartments, ...remoteCompartments];
@@ -898,7 +915,17 @@ export async function getCompartmentById(
       ...snapshot.data(),
     } as Compartment;
   } catch (error) {
-    console.warn("Unable to load compartment while offline.", error);
+    console.warn("Unable to load compartment remotely. Checking offline cache.", error);
+
+    const cachedCompartment = (await getOfflineCompartmentById(
+      userId,
+      compartmentId
+    )) as Compartment | null;
+
+    if (cachedCompartment) {
+      return cachedCompartment;
+    }
+
     return null;
   }
 }

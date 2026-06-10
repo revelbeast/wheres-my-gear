@@ -113,11 +113,11 @@ export default function QrLabelsScreen() {
   const qrValue = useMemo(() => {
     if (labelType === "room") {
       if (!selectedRoom?.id) return "";
-      return `wheresmygear://room/${selectedRoom.id}`;
+      return `wheresmygear://room/${selectedStorage?.id ?? ""}/${selectedRoom.id}`;
     }
 
     if (!selectedCompartment?.id) return "";
-    return `wheresmygear://compartment/${selectedCompartment.id}`;
+    return `wheresmygear://compartment/${selectedStorage?.id ?? selectedCompartment.vehicleId ?? ""}/${selectedCompartment.id}`;
   }, [labelType, selectedCompartment?.id, selectedRoom?.id]);
 
   useEffect(() => {
@@ -1013,7 +1013,7 @@ export default function QrLabelsScreen() {
                 {visibleCompartments.map((compartment) => (
                   <QRCode
                     key={`bulk-qr-${compartment.id}`}
-                    value={`wheresmygear://compartment/${compartment.id}`}
+                    value={`wheresmygear://compartment/${selectedStorage?.id ?? compartment.vehicleId ?? ""}/${compartment.id}`}
                     size={190}
                     getRef={(ref) => {
                       bulkQrCodeRefs.current[compartment.id] = ref;
@@ -1024,7 +1024,7 @@ export default function QrLabelsScreen() {
                 {visibleRooms.map((room) => (
                   <QRCode
                     key={`bulk-room-qr-${room.id}`}
-                    value={`wheresmygear://room/${room.id}`}
+                    value={`wheresmygear://room/${selectedStorage?.id ?? room.storageSpaceId ?? ""}/${room.id}`}
                     size={190}
                     getRef={(ref) => {
                       bulkQrCodeRefs.current[`room-${room.id}`] = ref;

@@ -878,6 +878,62 @@ export async function getCachedStorageSpaces(userId: string) {
   }
 }
 
+const COMPARTMENTS_CACHE_PREFIX = "wmg.cache.compartments.";
+
+export async function cacheCompartments(
+  userId: string,
+  vehicleId: string,
+  compartments: unknown[]
+) {
+  await AsyncStorage.setItem(
+    `${COMPARTMENTS_CACHE_PREFIX}${userId}.${vehicleId}`,
+    JSON.stringify(compartments)
+  );
+}
+
+export async function getCachedCompartments(userId: string, vehicleId: string) {
+  const raw = await AsyncStorage.getItem(
+    `${COMPARTMENTS_CACHE_PREFIX}${userId}.${vehicleId}`
+  );
+
+  if (!raw) return [];
+
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+const ROOMS_CACHE_PREFIX = "wmg.cache.rooms.";
+
+export async function cacheRooms(
+  userId: string,
+  storageSpaceId: string,
+  rooms: unknown[]
+) {
+  await AsyncStorage.setItem(
+    `${ROOMS_CACHE_PREFIX}${userId}.${storageSpaceId}`,
+    JSON.stringify(rooms)
+  );
+}
+
+export async function getCachedRooms(userId: string, storageSpaceId: string) {
+  const raw = await AsyncStorage.getItem(
+    `${ROOMS_CACHE_PREFIX}${userId}.${storageSpaceId}`
+  );
+
+  if (!raw) return [];
+
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function getOfflineChecklistItems(
   userId: string,
   checklistId: string

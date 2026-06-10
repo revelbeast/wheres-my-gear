@@ -404,9 +404,24 @@ export default function ScanItemScreen() {
           }
 
           if (String(value).startsWith(roomQrPrefix)) {
-            const scannedRoomId = String(value).replace(roomQrPrefix, "").trim();
+            const roomPayload = String(value).replace(roomQrPrefix, "").trim();
+            const [maybeStorageId, maybeRoomId] = roomPayload.split("/").filter(Boolean);
+
+            const scannedStorageId = maybeRoomId ? maybeStorageId : "";
+            const scannedRoomId = maybeRoomId || maybeStorageId;
 
             if (scannedRoomId) {
+              if (scannedStorageId) {
+                router.replace({
+                  pathname: "/vehicles/[vehicleId]/rooms/[roomId]",
+                  params: {
+                    vehicleId: scannedStorageId,
+                    roomId: scannedRoomId,
+                  },
+                });
+                return;
+              }
+
               const room = await getRoomById(scannedRoomId);
 
               if (room?.storageSpaceId) {
@@ -429,15 +444,22 @@ export default function ScanItemScreen() {
           }
 
           if (String(value).startsWith(compartmentQrPrefix)) {
-            const scannedCompartmentId = String(value)
+            const compartmentPayload = String(value)
               .replace(compartmentQrPrefix, "")
               .trim();
+
+            const [maybeStorageId, maybeCompartmentId] = compartmentPayload
+              .split("/")
+              .filter(Boolean);
+
+            const scannedStorageId = maybeCompartmentId ? maybeStorageId : "unknown";
+            const scannedCompartmentId = maybeCompartmentId || maybeStorageId;
 
             if (scannedCompartmentId) {
               router.replace({
                 pathname: "/vehicles/[vehicleId]/compartments/[compartmentId]",
                 params: {
-                  vehicleId: "unknown",
+                  vehicleId: scannedStorageId,
                   compartmentId: scannedCompartmentId,
                 },
               });
