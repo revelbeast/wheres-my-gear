@@ -10,7 +10,7 @@ import { useAuth } from "../components/auth/AuthProvider";
 import { isPremiumPlusUser } from "../lib/revenuecat";
 import HapticPressable from "../components/ui/HapticPressable";
 import { resolveBarcode } from "../lib/barcodeResolver";
-import { getCompartmentById, getItemsByCompartment, getRoomById } from "../lib/gearService";
+import { getCompartmentById, getItemsByCompartment, getRoomById, getStorageSpaceById } from "../lib/gearService";
 
 export default function ScanItemScreen() {
   const { mode } = useLocalSearchParams();
@@ -452,6 +452,9 @@ export default function ScanItemScreen() {
 
             if (scannedCompartmentId) {
               const compartment = await getCompartmentById(scannedCompartmentId);
+              const storageSpace = compartment?.vehicleId
+                ? await getStorageSpaceById(compartment.vehicleId)
+                : null;
               const items = await getItemsByCompartment(scannedCompartmentId);
 
               const packedCount = items.filter((item: any) => item.status === "packed").length;
@@ -469,6 +472,8 @@ export default function ScanItemScreen() {
                 roomId: compartment?.roomId || "",
                 suggestedName: compartment?.name || "Compartment",
                 source: "QR Label",
+                roomName: compartment?.roomName || "No room assigned",
+                storageSpaceName: storageSpace?.name || "Unknown storage",
                 itemCount: items.length,
                 packedCount,
                 topItems,
@@ -554,17 +559,37 @@ export default function ScanItemScreen() {
             </>
           ) : null}
 
-          <View style={styles.arMetricRow}>
-            <Text style={styles.arMetricLabel}>Source</Text>
-            <Text style={styles.arMetricValue}>{arOverlay?.source || "Unknown"}</Text>
-          </View>
+          {arOverlay?.type === "compartment" ? (
+            <>
+              <View style={styles.arMetricRow}>
+                <Text style={styles.arMetricLabel}>Room</Text>
+                <Text style={styles.arMetricValue} numberOfLines={1}>
+                  {arOverlay?.roomName || "No room assigned"}
+                </Text>
+              </View>
 
-          <View style={styles.arMetricRow}>
-            <Text style={styles.arMetricLabel}>Code</Text>
-            <Text style={styles.arMetricValue} numberOfLines={1}>
-              {arOverlay?.code || "N/A"}
-            </Text>
-          </View>
+              <View style={styles.arMetricRow}>
+                <Text style={styles.arMetricLabel}>Storage</Text>
+                <Text style={styles.arMetricValue} numberOfLines={1}>
+                  {arOverlay?.storageSpaceName || "Unknown storage"}
+                </Text>
+              </View>
+            </>
+          ) : (
+            <>
+              <View style={styles.arMetricRow}>
+                <Text style={styles.arMetricLabel}>Source</Text>
+                <Text style={styles.arMetricValue}>{arOverlay?.source || "Unknown"}</Text>
+              </View>
+
+              <View style={styles.arMetricRow}>
+                <Text style={styles.arMetricLabel}>Code</Text>
+                <Text style={styles.arMetricValue} numberOfLines={1}>
+                  {arOverlay?.code || "N/A"}
+                </Text>
+              </View>
+            </>
+          )}
 
           {arOverlay?.brand ? (
             <View style={styles.arMetricRow}>
