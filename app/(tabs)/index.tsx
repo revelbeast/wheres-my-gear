@@ -3687,7 +3687,6 @@ export default function DashboardScreen() {
                             <ThemedText>Export To...</ThemedText>
                           </HapticPressable>
 
-                          <View style={styles.stackedQuickActionButton} />
                         </View>
                       </ThemedCard>
                     )}
@@ -3704,98 +3703,45 @@ export default function DashboardScreen() {
                         </ThemedText>
 
                         <View style={styles.tabletQuickActionsGrid}>
+                          <HapticPressable style={[styles.selectorButton, styles.tabletQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.export }]} onPress={handleOpenVoiceAddQuickAction}>
+                            <Mic size={18} color={quickActionColors.export} />
+                            <ThemedText>Gear Assistant</ThemedText>
+                          </HapticPressable>
 
-                          <View style={styles.tabletQuickActionsRow}>
-                            <HapticPressable
-                              style={[
-                                styles.selectorButton,
-                                styles.tabletQuickActionButton,
-                                { borderWidth: 2, borderColor: quickActionColors.export },
-                              ]}
-                              onPress={handleOpenVoiceAddQuickAction}
-                            >
-                              <Mic size={18} color={quickActionColors.export} />
-                              <ThemedText>Gear Assistant</ThemedText>
-                            </HapticPressable>
+                          <HapticPressable style={[styles.selectorButton, styles.tabletQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.qrLabels }]} onPress={handleOpenQrLabelsQuickAction}>
+                            <FolderPlus size={18} color={quickActionColors.qrLabels} />
+                            <ThemedText>Create QR Labels</ThemedText>
+                          </HapticPressable>
 
-                            <HapticPressable
-                              style={[
-                                styles.selectorButton,
-                                styles.tabletQuickActionButton,
-                                { borderWidth: 2, borderColor: quickActionColors.compartment },
-                              ]}
-                              onPress={handleOpenQrLabelsQuickAction}
-                            >
-                              <FolderPlus size={18} color={quickActionColors.compartment} />
-                              <ThemedText>Create QR Labels</ThemedText>
-                            </HapticPressable>
+                          <HapticPressable style={[styles.selectorButton, styles.tabletQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.trip }]} onPress={handleOpenAiScanQuickAction}>
+                            <Camera size={18} color={quickActionColors.trip} />
+                            <ThemedText>Scan w/AI</ThemedText>
+                          </HapticPressable>
 
-                            <HapticPressable style={[styles.selectorButton, styles.tabletQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.trip }]} onPress={handleOpenAiScanQuickAction}>
-                              <Camera size={18} color={quickActionColors.trip} />
-                              <ThemedText>Scan w/AI</ThemedText>
-                            </HapticPressable>
-                          </View>
+                          <HapticPressable style={[styles.selectorButton, styles.tabletQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.scan }]} onPress={handleOpenScanQuickAction}>
+                            <Camera size={18} color={quickActionColors.scan} />
+                            <ThemedText>QR / Barcode Scanner</ThemedText>
+                          </HapticPressable>
 
-                          <View style={styles.tabletQuickActionsRow}>
-                            <HapticPressable
-                              style={[
-                                styles.selectorButton,
-                                styles.tabletQuickActionButton,
-                                { borderWidth: 2, borderColor: quickActionColors.scan }
-                              ]}
-                              onPress={handleOpenScanQuickAction}
-                            >
-                              <Camera size={18} color={quickActionColors.scan} />
-                              <ThemedText>QR / Barcode Scanner</ThemedText>
-                            </HapticPressable>
+                          <HapticPressable style={[styles.selectorButton, styles.tabletQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.addItem }]} onPress={handleOpenArchive}>
+                            <Archive size={18} color={quickActionColors.addItem} />
+                            <ThemedText>Archive</ThemedText>
+                          </HapticPressable>
 
-                          </View>
+                          <HapticPressable style={[styles.selectorButton, styles.tabletQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.compartment }]} onPress={handleAddCompartment}>
+                            <FolderPlus size={18} color={quickActionColors.compartment} />
+                            <ThemedText>Add Compartment</ThemedText>
+                          </HapticPressable>
 
-                          <View style={styles.tabletQuickActionsRow}>
-                            <HapticPressable
-                              style={[
-                                styles.selectorButton,
-                                styles.tabletQuickActionButton,
-                                { borderWidth: 2, borderColor: quickActionColors.addItem }
-                              ]}
-                              onPress={handleOpenArchive}
-                            >
-                              <Archive size={18} color={quickActionColors.addItem} />
-                              <ThemedText>Archive</ThemedText>
-                            </HapticPressable>
-                          </View>
+                          <HapticPressable style={[styles.selectorButton, styles.tabletQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.storage }]} onPress={handleAddStorageSpace}>
+                            <Plus size={18} color={quickActionColors.storage} />
+                            <ThemedText>Add Storage Space</ThemedText>
+                          </HapticPressable>
 
-                          <View style={styles.tabletQuickActionsRow}>
-                            <HapticPressable style={[styles.selectorButton, styles.tabletQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.compartment }]} onPress={handleAddCompartment}>
-                              <FolderPlus size={18} color={quickActionColors.compartment} />
-                              <ThemedText>Add Compartment</ThemedText>
-                            </HapticPressable>
-
-                            <HapticPressable style={[styles.selectorButton, styles.tabletQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.storage }]} onPress={handleAddStorageSpace}>
-                              <Plus size={18} color={quickActionColors.storage} />
-                              <ThemedText>Add Storage Space</ThemedText>
-                            </HapticPressable>
-                          </View>
-
-                          <View style={styles.tabletQuickActionsRow}>
-                            <HapticPressable
-                              style={[
-                                styles.selectorButton,
-                                styles.tabletQuickActionButton,
-                                {
-                                  borderWidth: 2,
-                                  borderColor: quickActionColors.export,
-                                },
-                              ]}
-                              onPress={handleOpenDashboardExport}
-                            >
-                              <Share size={18} color={quickActionColors.export} />
-                              <ThemedText>Export To...</ThemedText>
-                            </HapticPressable>
-
-                            <View style={styles.tabletQuickActionButton} />
-                          </View>
-
+                          <HapticPressable style={[styles.selectorButton, styles.tabletQuickActionButton, { borderWidth: 2, borderColor: quickActionColors.export }]} onPress={handleOpenDashboardExport}>
+                            <Share size={18} color={quickActionColors.export} />
+                            <ThemedText>Export To...</ThemedText>
+                          </HapticPressable>
                         </View>
                       </ThemedCard>
 
