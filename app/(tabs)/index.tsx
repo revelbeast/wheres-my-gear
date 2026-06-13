@@ -5088,7 +5088,7 @@ const styles = StyleSheet.create({
   },
 
   tabletRightColumn: {
-    width: 360,
+    width: 420,
     flexShrink: 0,
   },
 
@@ -5099,17 +5099,18 @@ const styles = StyleSheet.create({
   tabletQuickActionsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
+    gap: 12,
     marginTop: 12,
   },
 
   tabletQuickActionButton: {
     width: "48%",
-    minHeight: 72,
-    marginBottom: 10,
+    minHeight: 78,
     borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
     gap: 6,
+    paddingHorizontal: 10,
   },
 
   stackedQuickActionsCard: {
@@ -5207,9 +5208,10 @@ const styles = StyleSheet.create({
 
   tabletQuickActionsRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    gap: 12,
     flexWrap: "wrap",
-    marginBottom: 10,
+    marginBottom: 0,
+    width: "100%",
   },
 
   voiceAddIconWrap: {
