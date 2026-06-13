@@ -15,6 +15,8 @@ function routeFromAppIntentUrl(url: string): string | null {
   const path = parsed.path ?? "";
 
   switch (path) {
+    case "dashboard":
+      return "/(tabs)";
     case "add-item":
       return "/(tabs)/inventory";
     case "search":
