@@ -906,6 +906,56 @@ export async function getCachedCompartments(userId: string, vehicleId: string) {
   }
 }
 
+
+const INVENTORY_ITEMS_CACHE_PREFIX = "wmg.cache.inventoryItems.";
+
+export async function cacheInventoryItems(
+  userId: string,
+  items: unknown[]
+) {
+  await AsyncStorage.setItem(
+    `${INVENTORY_ITEMS_CACHE_PREFIX}${userId}`,
+    JSON.stringify(items)
+  );
+}
+
+export async function getCachedInventoryItems(userId: string) {
+  const raw = await AsyncStorage.getItem(
+    `${INVENTORY_ITEMS_CACHE_PREFIX}${userId}`
+  );
+
+  if (!raw) return [];
+
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function getCachedInventoryItemsByCompartment(
+  userId: string,
+  compartmentId: string
+) {
+  const items = await getCachedInventoryItems(userId);
+
+  return items.filter(
+    (item: any) => item?.compartmentId === compartmentId
+  );
+}
+
+export async function getCachedInventoryItemsByStatus(
+  userId: string,
+  status: string
+) {
+  const items = await getCachedInventoryItems(userId);
+
+  return items.filter(
+    (item: any) => item?.status === status
+  );
+}
+
 const ROOMS_CACHE_PREFIX = "wmg.cache.rooms.";
 
 export async function cacheRooms(

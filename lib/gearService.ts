@@ -15,7 +15,7 @@ import {
 import { auth, db } from "../firebaseConfig";
 import { cleanupOldCloudPhotosInFolder, deleteCloudPhotoByStoragePath } from "./cloudPhotoStorage";
 import { downloadPhotoToLocalDocumentStorage, localPhotoExists } from "./localPhotoStorage";
-import { cacheCompartments, cacheRooms, cacheStorageSpaces, enqueueOfflineOperation, getCachedCompartments, getCachedRooms, getCachedStorageSpaces, getOfflineCompartments, getOfflineCompartmentById, getOfflineItems, getOfflineItemsByCompartment, getOfflineItemsByStatus, getOfflineStorageSpaces, removeOfflineOperation, updateOfflineCreatedItem } from "./offlineQueue";
+import { cacheCompartments, cacheInventoryItems, cacheRooms, cacheStorageSpaces, enqueueOfflineOperation, getCachedCompartments, getCachedInventoryItems, getCachedInventoryItemsByCompartment, getCachedInventoryItemsByStatus, getCachedRooms, getCachedStorageSpaces, getOfflineCompartments, getOfflineCompartmentById, getOfflineItems, getOfflineItemsByCompartment, getOfflineItemsByStatus, getOfflineStorageSpaces, removeOfflineOperation, updateOfflineCreatedItem } from "./offlineQueue";
 
 export type ItemStatus = "packed" | "missing";
 export type StorageSpaceCategory = "storage" | "office" | "vehicle";
@@ -943,11 +943,14 @@ export async function getAllItems(): Promise<Item[]> {
       id: d.id,
       ...d.data(),
     })) as Item[];
+
+    await cacheInventoryItems(userId, remoteItems);
   } catch (error) {
-    console.warn("Unable to load remote inventory items. Showing offline queue.", error);
+    console.warn("Unable to load remote inventory items. Showing cached inventory.", error);
+    remoteItems = (await getCachedInventoryItems(userId)) as Item[];
   }
 
-  return [...offlineItems, ...remoteItems];
+  return recoverMissingLocalItemPhotos([...offlineItems, ...remoteItems]);
 }
 
 export async function getItemsByCompartment(
@@ -969,8 +972,19 @@ export async function getItemsByCompartment(
       id: d.id,
       ...d.data(),
     })) as Item[];
+
+    const cachedItems = (await getCachedInventoryItems(userId)) as Item[];
+    const remainingCachedItems = cachedItems.filter(
+      (item) => item.compartmentId !== compartmentId
+    );
+
+    await cacheInventoryItems(userId, [...remainingCachedItems, ...remoteItems]);
   } catch (error) {
-    console.warn("Unable to load remote items. Showing offline queue.", error);
+    console.warn("Unable to load remote items. Showing cached inventory.", error);
+    remoteItems = (await getCachedInventoryItemsByCompartment(
+      userId,
+      compartmentId
+    )) as Item[];
   }
 
   return recoverMissingLocalItemPhotos([...offlineItems, ...remoteItems]);
@@ -999,7 +1013,11 @@ export async function getItemsByStatus(
       ...d.data(),
     })) as Item[];
   } catch (error) {
-    console.warn("Unable to load remote items by status. Showing offline queue.", error);
+    console.warn("Unable to load remote items by status. Showing cached inventory.", error);
+    remoteItems = (await getCachedInventoryItemsByStatus(
+      userId,
+      normalizedStatus
+    )) as Item[];
   }
 
   return recoverMissingLocalItemPhotos([...offlineItems, ...remoteItems]);

@@ -479,37 +479,47 @@ export default function CompartmentDetailScreen() {
   }
 
   async function handleChangeQuantity(item: Item, delta: number) {
-    if (interactionLocked || updatingQuantityId === item.id) return;
+    if (updatingQuantityId === item.id) return;
 
-    await runWithLock(async () => {
-      const currentQuantity = getSafeQuantity(item.quantity);
-      const nextQuantity = currentQuantity + delta;
+    const currentQuantity = getSafeQuantity(item.quantity);
+    const nextQuantity = currentQuantity + delta;
+    const previousItems = items;
 
-      try {
-        if (!isMountedRef.current) return;
+    try {
+      if (!isMountedRef.current) return;
 
-        setUpdatingQuantityId(item.id);
+      setUpdatingQuantityId(item.id);
 
-        if (nextQuantity <= 0) {
-          await deleteItem(item.id);
-        } else {
-          await updateItem(item.id, {
-            quantity: nextQuantity,
-          });
-        }
-
-        await refreshItems();
-      } catch (err) {
-        if (!isMountedRef.current) return;
-
-        console.error("Failed to update item quantity:", err);
-        Alert.alert("Error", "Failed to update quantity.");
-      } finally {
-        if (isMountedRef.current) {
-          setUpdatingQuantityId(null);
-        }
+      if (nextQuantity <= 0) {
+        setItems((currentItems) =>
+          currentItems.filter((currentItem) => currentItem.id !== item.id)
+        );
+        await deleteItem(item.id);
+      } else {
+        setItems((currentItems) =>
+          currentItems.map((currentItem) =>
+            currentItem.id === item.id
+              ? { ...currentItem, quantity: nextQuantity }
+              : currentItem
+          )
+        );
+        await updateItem(item.id, {
+          quantity: nextQuantity,
+        });
       }
-    });
+
+      await refreshItems();
+    } catch (err) {
+      if (!isMountedRef.current) return;
+
+      setItems(previousItems);
+      console.error("Failed to update item quantity:", err);
+      Alert.alert("Error", "Failed to update quantity.");
+    } finally {
+      if (isMountedRef.current) {
+        setUpdatingQuantityId(null);
+      }
+    }
   }
 
   async function handleTogglePacked(item: Item) {
