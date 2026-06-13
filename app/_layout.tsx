@@ -10,7 +10,7 @@ import { setHapticsEnabled } from "../lib/haptics";
 import { getProfileSettings } from "../lib/settingsService";
 
 
-function routeFromAppIntentUrl(url: string): string | null {
+function routeFromAppIntentUrl(url: string): string | Record<string, unknown> | null {
   const parsed = Linking.parse(url);
   const path = parsed.path ?? "";
 
@@ -19,8 +19,20 @@ function routeFromAppIntentUrl(url: string): string | null {
       return "/(tabs)";
     case "add-item":
       return "/(tabs)/inventory";
-    case "search":
+    case "search": {
+      const query = parsed.queryParams?.query;
+
+      if (typeof query === "string" && query.trim()) {
+        return {
+          pathname: "/(tabs)/inventory",
+          params: {
+            query: query.trim(),
+          },
+        };
+      }
+
       return "/(tabs)/inventory";
+    }
     case "checklist":
       return "/(tabs)/checklists";
     case "trip-prep":

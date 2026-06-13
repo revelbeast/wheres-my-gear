@@ -69,7 +69,10 @@ function isPackedItem(item: Item) {
 
 export default function InventoryScreen() {
   const { user, initializing } = useAuth();
-  const params = useLocalSearchParams<{ status?: string | string[] }>();
+  const params = useLocalSearchParams<{
+    status?: string | string[];
+    query?: string | string[];
+  }>();
   const theme = useTheme();
   const { isTablet, isLandscape } = useDeviceLayout();
   const isTabletLandscape = isTablet && isLandscape;
@@ -119,6 +122,18 @@ export default function InventoryScreen() {
 
     setStatusFilter("all");
   }, [params.status]);
+
+  useEffect(() => {
+    const rawQuery = Array.isArray(params.query)
+      ? params.query[0]
+      : params.query;
+
+    const incomingQuery = String(rawQuery ?? "").trim();
+
+    if (incomingQuery) {
+      setSearchQuery(incomingQuery);
+    }
+  }, [params.query]);
 
   useEffect(() => {
     isScreenMountedRef.current = true;

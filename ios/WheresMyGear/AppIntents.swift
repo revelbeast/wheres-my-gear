@@ -42,6 +42,23 @@ struct SearchGearIntent: AppIntent {
 }
 
 @available(iOS 16.0, *)
+struct FindGearIntent: AppIntent {
+  static var title: LocalizedStringResource = "Find Gear"
+  static var description = IntentDescription("Search for a gear item in Where's My Gear.")
+  static var openAppWhenRun: Bool = true
+
+  @Parameter(title: "Gear Name")
+  var gearName: String
+
+  @MainActor
+  func perform() async throws -> some IntentResult {
+    let encodedGearName = gearName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? gearName
+    openDeepLink("wheres-my-gear://search?query=\(encodedGearName)")
+    return .result()
+  }
+}
+
+@available(iOS 16.0, *)
 struct OpenChecklistsIntent: AppIntent {
   static var title: LocalizedStringResource = "Open Checklists"
   static var description = IntentDescription("Open Where's My Gear checklists.")
@@ -100,6 +117,18 @@ struct WheresMyGearShortcuts: AppShortcutsProvider {
       ],
       shortTitle: "Search Gear",
       systemImageName: "magnifyingglass"
+    )
+
+    AppShortcut(
+      intent: FindGearIntent(),
+      phrases: [
+        "Find \(.applicationName)",
+        "Find gear in \(.applicationName)",
+        "Search for gear in \(.applicationName)",
+        "Where is my gear in \(.applicationName)"
+      ],
+      shortTitle: "Find Gear",
+      systemImageName: "magnifyingglass.circle"
     )
 
     AppShortcut(
