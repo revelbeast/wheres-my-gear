@@ -903,7 +903,7 @@ export default function CompartmentDetailScreen() {
         const result = await ImagePicker.launchCameraAsync({
           mediaTypes: ["images"],
           allowsEditing: true,
-          quality: 0.8,
+          quality: 0.5,
         });
 
         if (result.canceled) return;
@@ -921,42 +921,34 @@ export default function CompartmentDetailScreen() {
           `item-${item.id}`
         );
 
-        let cloudPhoto:
-          | {
-              itemPhotoStoragePath?: string;
-              itemPhotoDownloadUrl?: string;
-              photoBackedUp?: boolean;
-            }
-          | undefined;
-
-        const photoBackupUserId = getAuth().currentUser?.uid ?? "";
-
-        if (photoBackupUserId) {
-          try {
-            const uploadedPhoto = await uploadInventoryItemPhotoToCloud({
-              userId: photoBackupUserId,
-              itemId: item.id,
-              localUri: localPhotoUri,
-            });
-
-            cloudPhoto = {
-              itemPhotoStoragePath: uploadedPhoto.storagePath,
-              itemPhotoDownloadUrl: uploadedPhoto.downloadUrl,
-              photoBackedUp: true,
-            };
-          } catch (uploadErr) {
-            console.error("Item photo cloud backup failed:", uploadErr);
-            cloudPhoto = {
-              photoBackedUp: false,
-            };
-          }
-        }
-
-        await updateItemPhoto(item.id, localPhotoUri, cloudPhoto);
+        await updateItemPhoto(item.id, localPhotoUri);
 
         if (!isMountedRef.current) return;
 
         setSelectedPhotoItem({ ...item, itemPhotoUri: localPhotoUri });
+
+        const photoBackupUserId = getAuth().currentUser?.uid ?? "";
+
+        if (photoBackupUserId) {
+          void uploadInventoryItemPhotoToCloud({
+            userId: photoBackupUserId,
+            itemId: item.id,
+            localUri: localPhotoUri,
+          })
+            .then((uploadedPhoto) =>
+              updateItemPhoto(item.id, localPhotoUri, {
+                itemPhotoStoragePath: uploadedPhoto.storagePath,
+                itemPhotoDownloadUrl: uploadedPhoto.downloadUrl,
+                photoBackedUp: true,
+              })
+            )
+            .catch((uploadErr) => {
+              console.error("Item photo cloud backup failed:", uploadErr);
+              void updateItemPhoto(item.id, localPhotoUri, {
+                photoBackedUp: false,
+              });
+            });
+        }
 
         await refreshItems();
       } catch (err: any) {
@@ -994,7 +986,7 @@ export default function CompartmentDetailScreen() {
         const result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ["images"],
           allowsEditing: true,
-          quality: 0.8,
+          quality: 0.5,
         });
 
         if (result.canceled) return;
@@ -1012,42 +1004,34 @@ export default function CompartmentDetailScreen() {
           `item-${item.id}`
         );
 
-        let cloudPhoto:
-          | {
-              itemPhotoStoragePath?: string;
-              itemPhotoDownloadUrl?: string;
-              photoBackedUp?: boolean;
-            }
-          | undefined;
-
-        const photoBackupUserId = getAuth().currentUser?.uid ?? "";
-
-        if (photoBackupUserId) {
-          try {
-            const uploadedPhoto = await uploadInventoryItemPhotoToCloud({
-              userId: photoBackupUserId,
-              itemId: item.id,
-              localUri: localPhotoUri,
-            });
-
-            cloudPhoto = {
-              itemPhotoStoragePath: uploadedPhoto.storagePath,
-              itemPhotoDownloadUrl: uploadedPhoto.downloadUrl,
-              photoBackedUp: true,
-            };
-          } catch (uploadErr) {
-            console.error("Item photo cloud backup failed:", uploadErr);
-            cloudPhoto = {
-              photoBackedUp: false,
-            };
-          }
-        }
-
-        await updateItemPhoto(item.id, localPhotoUri, cloudPhoto);
+        await updateItemPhoto(item.id, localPhotoUri);
 
         if (!isMountedRef.current) return;
 
         setSelectedPhotoItem({ ...item, itemPhotoUri: localPhotoUri });
+
+        const photoBackupUserId = getAuth().currentUser?.uid ?? "";
+
+        if (photoBackupUserId) {
+          void uploadInventoryItemPhotoToCloud({
+            userId: photoBackupUserId,
+            itemId: item.id,
+            localUri: localPhotoUri,
+          })
+            .then((uploadedPhoto) =>
+              updateItemPhoto(item.id, localPhotoUri, {
+                itemPhotoStoragePath: uploadedPhoto.storagePath,
+                itemPhotoDownloadUrl: uploadedPhoto.downloadUrl,
+                photoBackedUp: true,
+              })
+            )
+            .catch((uploadErr) => {
+              console.error("Item photo cloud backup failed:", uploadErr);
+              void updateItemPhoto(item.id, localPhotoUri, {
+                photoBackedUp: false,
+              });
+            });
+        }
 
         await refreshItems();
       } catch (err) {

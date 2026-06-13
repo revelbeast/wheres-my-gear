@@ -848,7 +848,7 @@ export default function StorageManagementScreen() {
         const result = await ImagePicker.launchCameraAsync({
           mediaTypes: ["images"],
           allowsEditing: true,
-          quality: 0.8,
+          quality: 0.5,
         });
 
         if (result.canceled) return;
@@ -891,7 +891,7 @@ export default function StorageManagementScreen() {
         const result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ["images"],
           allowsEditing: true,
-          quality: 0.8,
+          quality: 0.5,
         });
 
         if (result.canceled) return;
