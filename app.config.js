@@ -2,7 +2,7 @@ export default {
   expo: {
     name: "Where's My Gear",
     slug: "wheres-my-gear",
-    version: "1.0.15",
+    version: "1.0.16",
     orientation: "default",
     scheme: "wheres-my-gear",
 
