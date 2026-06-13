@@ -27,42 +27,47 @@ const FAQ_ITEMS: FAQItem[] = [
   {
     question: "What is included with Premium +?",
     answer:
-      "Premium + adds Gear Assistant, Scan w/AI, QR / Barcode Scanner access, and Archive access. Gear Assistant lets you quickly speak items into inventory and save them to a Storage Space or Compartment. Scan w/AI helps identify gear by taking a photo and using smart image recognition, while QR / Barcode Scanner helps identify items using product barcodes when available. Archive lets you move inactive Storage Spaces, Compartments, Inventory Items, Checklists, Checklist Items, Checklist Templates, and saved notes out of your active workspace without permanently deleting them.",
+      "Premium + adds Gear Assistant, Scan w/AI, QR / Barcode Scanner access, Create QR Labels, and Archive access. Gear Assistant lets you quickly speak items into inventory and save them to a Storage Space or Compartment. Scan w/AI helps identify gear by taking a photo and using smart image recognition. QR / Barcode Scanner can scan Where's My Gear QR labels or product barcodes, then open the matching compartment or Scan Result screen. Archive lets you move inactive Storage Spaces, Compartments, Inventory Items, Checklists, Checklist Items, Checklist Templates, and saved notes out of your active workspace without permanently deleting them.",
   },
   {
     question: "What is Scan w/AI?",
     answer:
-      "Scan w/AI uses your camera to automatically capture a photo of your gear and identify the item using smart image recognition. It works best for tools, camping gear, tactical gear, electronics, storage items, and products without barcodes. After scanning, you can review the suggested item name, add details, and use Find or Reorder Online to look for similar products.",
+      "Scan w/AI uses your camera to capture a photo of your gear and suggest an item name using image recognition. It works best for tools, camping gear, tactical gear, electronics, storage items, and products without visible barcodes. After scanning, you can review the suggested item name, add details, choose a Storage Space or Compartment, and save the item to inventory.",
   },
   {
     question: "When should I use Scan w/AI vs QR / Barcode Scanner?",
     answer:
-      "Use Scan w/AI when an item has no barcode, the label is worn, or you want to identify gear from a photo. Use QR / Barcode Scanner when a product has a visible UPC or barcode for faster and more accurate identification.",
+      "Use Scan w/AI when an item has no barcode, the label is worn, or you want to identify gear from a photo. Use QR / Barcode Scanner when a product has a visible UPC, barcode, or Where's My Gear QR label. Product barcodes open the Scan Result screen automatically when a match is found, while QR labels open the linked compartment.",
   },
   {
     question: "How do I use Create QR Labels?",
     answer:
-      "Create QR Labels lets you generate a printable QR label for a compartment, box, bin, shelf, drawer, or storage area. After printing the label, attach it to the physical compartment. To view the contents later, open Where's My Gear, go to Dashboard, tap QR / Barcode Scanner, and scan the printed QR label inside the app. The app will open the matching compartment and show the items stored there. These labels are designed to be scanned with the Where's My Gear QR / Barcode Scanner. Your phone's regular camera app may show No usable data found because the QR code contains app-specific information.",
+      "Create QR Labels lets you generate a printable QR label for a compartment, box, bin, shelf, drawer, or storage area. After printing the label, attach it to the physical compartment. To view the contents later, open Where's My Gear, go to Dashboard, tap QR / Barcode Scanner, and scan the printed QR label inside the app. The app will open the matching compartment and show the items stored there. These labels are designed for the Where's My Gear QR / Barcode Scanner. Your phone's regular camera app may show No usable data found because the QR code contains app-specific information.",
   },
   {
     question: "What is Gear Assistant?",
     answer:
-      "Gear Assistant is a Premium + feature that lets you speak items into inventory, review what was detected, choose the correct Storage Space or Compartment, and save the items without manually typing each one. If no speech is detected or listening is interrupted, Gear Assistant will let you retry without closing the modal.",
+      "Gear Assistant is a Premium + feature that lets you speak items into inventory, review what was detected, choose the correct Storage Space or Compartment, and save the items without manually typing each one. On supported iOS devices, Gear Assistant can also be opened from Siri or Apple Shortcuts.",
   },
   {
     question: "How do I use Gear Assistant?",
     answer:
-      "Open Gear Assistant from the Dashboard, tap the mic, and say the items you want to add. For example, say: Add two headlamps, one first aid kit, and three batteries to garage box. After speaking, review the detected items, choose the save location, then save them to inventory.",
+      "Open Gear Assistant from the Dashboard or use Siri on supported iOS devices. Tap the mic and say the items you want to add. For example, say: Add two headlamps, one first aid kit, and three batteries to garage box. After speaking, review the detected items, choose the save location, then save them to inventory.",
   },
   {
     question: "What Siri Shortcuts are available?",
     answer:
-      "On iPhone, Where's My Gear supports Siri Shortcuts for Add Gear, Search Gear, Open Checklists, and Open Trips. Add Gear opens a quick item entry screen so you can add an item to inventory faster. Search Gear opens Inventory, Open Checklists opens your checklist dashboard, and Open Trips opens your trips area.",
+      "On supported iOS devices, Where's My Gear supports Siri and Apple Shortcuts for Open Dashboard, Add Gear, Search Gear, Find Gear, Open Scanner, Gear Assistant, Open Checklists, and Open Trips. Find Gear opens Inventory with your search already filled in. Open Scanner launches the QR / Barcode Scanner, and Gear Assistant opens the voice workflow.",
   },
   {
     question: "How is Add Gear different from Gear Assistant?",
     answer:
       "Add Gear is a quick Siri Shortcut and manual entry screen for adding one item fast. Gear Assistant is a Premium + voice workflow that can detect multiple spoken items and help save them to a selected Storage Space or Compartment.",
+  },
+  {
+    question: "Does Where's My Gear work offline?",
+    answer:
+      "Yes. Where's My Gear supports offline use for many inventory workflows. You can view previously loaded Storage Spaces, Rooms, Compartments, Inventory Items, and Checklists while offline. You can also update item photos, packed status, and quantities offline. Changes sync when an internet connection becomes available.",
   },
   {
     question: "Can I add photos to items?",
@@ -179,7 +184,7 @@ export default function FAQScreen() {
 
             <ThemedText color="secondary" style={styles.heroText}>
               Quick answers about storage spaces, rooms, compartments,
-              items, checklists, Gear Assistant, Siri Shortcuts, photos,
+              items, checklists, offline use, Gear Assistant, Siri Shortcuts, photos,
               notes, and account data.
             </ThemedText>
           </ThemedCard>
