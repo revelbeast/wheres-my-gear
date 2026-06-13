@@ -19,6 +19,15 @@ function routeFromAppIntentUrl(url: string): string | Record<string, unknown> | 
       return "/(tabs)";
     case "add-item":
       return "/(tabs)/inventory";
+    case "scanner":
+      return "/scan-item";
+    case "gear-assistant":
+      return {
+        pathname: "/(tabs)",
+        params: {
+          quickAction: "gearAssistant",
+        },
+      };
     case "search": {
       const query = parsed.queryParams?.query;
 

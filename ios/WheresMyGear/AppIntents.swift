@@ -59,6 +59,32 @@ struct FindGearIntent: AppIntent {
 }
 
 @available(iOS 16.0, *)
+struct OpenScannerIntent: AppIntent {
+  static var title: LocalizedStringResource = "Open Scanner"
+  static var description = IntentDescription("Open the Where's My Gear QR and barcode scanner.")
+  static var openAppWhenRun: Bool = true
+
+  @MainActor
+  func perform() async throws -> some IntentResult {
+    openDeepLink("wheres-my-gear://scanner")
+    return .result()
+  }
+}
+
+@available(iOS 16.0, *)
+struct OpenGearAssistantIntent: AppIntent {
+  static var title: LocalizedStringResource = "Open Gear Assistant"
+  static var description = IntentDescription("Open Gear Assistant in Where's My Gear.")
+  static var openAppWhenRun: Bool = true
+
+  @MainActor
+  func perform() async throws -> some IntentResult {
+    openDeepLink("wheres-my-gear://gear-assistant")
+    return .result()
+  }
+}
+
+@available(iOS 16.0, *)
 struct OpenChecklistsIntent: AppIntent {
   static var title: LocalizedStringResource = "Open Checklists"
   static var description = IntentDescription("Open Where's My Gear checklists.")
@@ -129,6 +155,29 @@ struct WheresMyGearShortcuts: AppShortcutsProvider {
       ],
       shortTitle: "Find Gear",
       systemImageName: "magnifyingglass.circle"
+    )
+
+    AppShortcut(
+      intent: OpenScannerIntent(),
+      phrases: [
+        "Open scanner in \(.applicationName)",
+        "Scan gear in \(.applicationName)",
+        "Open QR scanner in \(.applicationName)",
+        "Open barcode scanner in \(.applicationName)"
+      ],
+      shortTitle: "Open Scanner",
+      systemImageName: "qrcode.viewfinder"
+    )
+
+    AppShortcut(
+      intent: OpenGearAssistantIntent(),
+      phrases: [
+        "Open Gear Assistant in \(.applicationName)",
+        "Start Gear Assistant in \(.applicationName)",
+        "Add gear with \(.applicationName)"
+      ],
+      shortTitle: "Gear Assistant",
+      systemImageName: "mic.circle"
     )
 
     AppShortcut(

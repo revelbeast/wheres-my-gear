@@ -599,7 +599,10 @@ function formatTripDate(date: Date) {
 
 export default function DashboardScreen() {
   const { user, initializing } = useAuth();
-  const params = useLocalSearchParams<{ replayTour?: string }>();
+  const params = useLocalSearchParams<{
+    replayTour?: string;
+    quickAction?: string | string[];
+  }>();
   const theme = useThemedValues();
   const { isTablet, isLandscape } = useDeviceLayout();
   const shouldUseDashboardSearchAccessory = Platform.OS === "ios" && !isTablet;
@@ -660,6 +663,17 @@ export default function DashboardScreen() {
   const [upcomingTrips, setUpcomingTrips] = useState<UpcomingTrip[]>([]);
   const [exportModalVisible, setExportModalVisible] = useState(false);
   const [voiceAddModalVisible, setVoiceAddModalVisible] = useState(false);
+
+  useEffect(() => {
+    const rawQuickAction = Array.isArray(params.quickAction)
+      ? params.quickAction[0]
+      : params.quickAction;
+
+    if (rawQuickAction === "gearAssistant") {
+      setVoiceAddModalVisible(true);
+    }
+  }, [params.quickAction]);
+
   const [voiceTranscript, setVoiceTranscript] = useState("");
   const [voiceAddReview, setVoiceAddReview] = useState<VoiceAddReview | null>(
     null
