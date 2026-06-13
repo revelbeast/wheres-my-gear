@@ -519,23 +519,32 @@ export default function ScanItemScreen() {
 
           console.log("SCAN RESULT:", result);
 
-          // route
-          setArOverlay({
-            type: "barcode",
-            code: result.barcode,
-            found: result.found,
-            suggestedName: result.bestName ?? "",
-            source: result.sources.upcitemdb ? "UPCitemDB" : result.sources.openFoodFacts ? "OpenFoodFacts" : "Unknown",
-            brand: result.sources.upcitemdb?.brand ?? "",
-            image: result.sources.upcitemdb?.image ?? "",
-            description: result.sources.upcitemdb?.description ?? "",
-            matchConfidence: result.sources.upcitemdb?.confidence != null ? String(result.sources.upcitemdb.confidence) : "",
-            matchStatus: result.found ? "found" : "unknown",
-          });
+          const source = result.sources.upcitemdb
+            ? "UPCitemDB"
+            : result.sources.openFoodFacts
+              ? "OpenFoodFacts"
+              : "Unknown";
 
-          setTimeout(() => {
-            setIsScanning(false);
-          }, 800);
+          setCameraActive(false);
+          setIsScanning(false);
+
+          router.replace({
+            pathname: "/scan-result",
+            params: {
+              code: result.barcode,
+              found: String(!!result.found),
+              suggestedName: result.bestName ?? "",
+              source,
+              brand: result.sources.upcitemdb?.brand ?? "",
+              image: result.sources.upcitemdb?.image ?? "",
+              description: result.sources.upcitemdb?.description ?? "",
+              matchConfidence:
+                result.sources.upcitemdb?.confidence != null
+                  ? String(result.sources.upcitemdb.confidence)
+                  : "",
+              matchStatus: result.found ? "found" : "unknown",
+            },
+          });
         }}
       />
 
