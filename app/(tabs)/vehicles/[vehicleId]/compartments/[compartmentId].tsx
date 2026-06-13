@@ -513,29 +513,36 @@ export default function CompartmentDetailScreen() {
   }
 
   async function handleTogglePacked(item: Item) {
-    if (interactionLocked || updatingStatusId === item.id) return;
+    if (updatingStatusId === item.id) return;
 
-    await runWithLock(async () => {
-      const nextStatus = isPackedItem(item) ? "missing" : "packed";
+    const nextStatus = isPackedItem(item) ? "missing" : "packed";
+    const previousItems = items;
 
-      try {
-        if (!isMountedRef.current) return;
+    try {
+      if (!isMountedRef.current) return;
 
-        setUpdatingStatusId(item.id);
-        await updateItem(item.id, { status: nextStatus });
+      setUpdatingStatusId(item.id);
+      setItems((currentItems) =>
+        currentItems.map((currentItem) =>
+          currentItem.id === item.id
+            ? { ...currentItem, status: nextStatus }
+            : currentItem
+        )
+      );
 
-        await refreshItems();
-      } catch (err) {
-        if (!isMountedRef.current) return;
+      await updateItem(item.id, { status: nextStatus });
+      await refreshItems();
+    } catch (err) {
+      if (!isMountedRef.current) return;
 
-        console.error("Failed to update item status:", err);
-        Alert.alert("Error", "Failed to update packed status.");
-      } finally {
-        if (isMountedRef.current) {
-          setUpdatingStatusId(null);
-        }
+      setItems(previousItems);
+      console.error("Failed to update item status:", err);
+      Alert.alert("Error", "Failed to update packed status.");
+    } finally {
+      if (isMountedRef.current) {
+        setUpdatingStatusId(null);
       }
-    });
+    }
   }
 
   async function handleMoveItem(item: Item) {
@@ -1138,7 +1145,6 @@ export default function CompartmentDetailScreen() {
     const packedQty = packed ? neededQty : 0;
     const stillToPackQty = packed ? 0 : neededQty;
     const isBusy =
-      interactionLocked ||
       updatingQuantityId === item.id ||
       updatingPhotoId === item.id ||
       updatingStatusId === item.id;
