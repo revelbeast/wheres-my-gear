@@ -90,14 +90,9 @@ const FAQ_ITEMS: FAQItem[] = [
       "Checklists help you plan what to pack. You can create a checklist, add items, assign checklist items to a storage space and compartment, and mark items as Packed or To Pack.",
   },
   {
-    question: "How do I use Upcoming Trips?",
+    question: "What are Upcoming Trips and how do I use them?",
     answer:
-      "Create a trip from the Dashboard, select your trip date, and add or link a checklist. As your trip approaches, you can track your progress using Packed and To Pack items.",
-  },
-  {
-    question: "What are Upcoming Trips?",
-    answer:
-      "Upcoming Trips help you plan ahead by organizing your packing needs by date. You can create a trip, assign a date, and track what needs to be packed before you leave.",
+      "Upcoming Trips help you plan ahead by organizing your packing needs by date. Create a trip from the Dashboard, select your trip date, and add or link a checklist. As your trip approaches, you can track your progress using Packed and To Pack items.",
   },
   {
     question: "What can I search for?",
