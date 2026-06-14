@@ -319,28 +319,6 @@ export async function getOfflineChecklists(userId: string) {
 }
 
 
-const CHECKLISTS_CACHE_PREFIX = "wmg.cache.checklists.";
-
-export async function cacheChecklists(userId: string, checklists: unknown[]) {
-  await AsyncStorage.setItem(
-    `${CHECKLISTS_CACHE_PREFIX}${userId}`,
-    JSON.stringify(checklists)
-  );
-}
-
-export async function getCachedChecklists(userId: string) {
-  const raw = await AsyncStorage.getItem(`${CHECKLISTS_CACHE_PREFIX}${userId}`);
-
-  if (!raw) return [];
-
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
 export async function getOfflineQueue() {
   return readQueue();
 }
@@ -902,30 +880,6 @@ export async function cacheStorageSpaces(userId: string, spaces: unknown[]) {
 
 export async function getCachedStorageSpaces(userId: string) {
   const raw = await AsyncStorage.getItem(`${STORAGE_SPACES_CACHE_PREFIX}${userId}`);
-  if (!raw) return [];
-
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-const ALL_COMPARTMENTS_CACHE_PREFIX = "wmg.cache.allCompartments.";
-
-export async function cacheAllCompartments(userId: string, compartments: unknown[]) {
-  await AsyncStorage.setItem(
-    `${ALL_COMPARTMENTS_CACHE_PREFIX}${userId}`,
-    JSON.stringify(compartments)
-  );
-}
-
-export async function getCachedAllCompartments(userId: string) {
-  const raw = await AsyncStorage.getItem(
-    `${ALL_COMPARTMENTS_CACHE_PREFIX}${userId}`
-  );
-
   if (!raw) return [];
 
   try {
