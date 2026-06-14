@@ -3,6 +3,7 @@ import * as LocalAuthentication from "expo-local-authentication";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   AppState,
+  Image,
   Modal,
   StyleSheet,
   Text,
@@ -118,6 +119,11 @@ export default function AppLockGate({ children }: Props) {
 
       <Modal visible={status === "locked"} animationType="fade" transparent={false}>
         <View style={styles.lockScreen}>
+          <Image
+            source={require("../../assets/images/app-icon-googleplay.png")}
+            style={styles.logo}
+          />
+
           <Text style={styles.title}>Where's My Gear</Text>
           <Text style={styles.subtitle}>Unlock to continue</Text>
 
@@ -130,9 +136,7 @@ export default function AppLockGate({ children }: Props) {
             <Text style={styles.primaryButtonText}>Unlock with Face ID</Text>
           </HapticPressable>
 
-          <Text style={styles.helperText}>
-            If Face ID is unavailable, iOS will offer your device passcode.
-          </Text>
+
         </View>
       </Modal>
     </>
@@ -156,6 +160,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     padding: 24,
+  },
+  logo: {
+    width: 104,
+    height: 104,
+    borderRadius: 24,
+    marginBottom: 24,
   },
   title: {
     color: "#FFFFFF",
