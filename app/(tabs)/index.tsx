@@ -1628,6 +1628,7 @@ export default function DashboardScreen() {
         .sort((a, b) => a.date.getTime() - b.date.getTime());
 
       setUpcomingTrips(trips);
+      setInitialDashboardLoading(false);
 
       const compartmentsSnapshot = await getDocs(
         collection(db, "users", activeUserId, "compartments")
