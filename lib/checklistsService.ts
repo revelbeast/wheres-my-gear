@@ -18,7 +18,9 @@ import { db } from "../firebaseConfig";
 import { cleanupOldCloudPhotosInFolder, deleteCloudPhotoByStoragePath } from "./cloudPhotoStorage";
 import { downloadPhotoToLocalDocumentStorage, localPhotoExists } from "./localPhotoStorage";
 import {
+  cacheChecklists,
   enqueueOfflineOperation,
+  getCachedChecklists,
   getOfflineChecklistItems,
   getOfflineChecklistTemplateArchiveOverrides,
   getOfflineChecklistTemplateItems,
@@ -34,6 +36,18 @@ import type {
   ChecklistTemplate,
   ChecklistTemplateItem,
 } from "../types/checklists";
+
+async function withOfflineReadTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs = 900
+): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error("Offline read timeout")), timeoutMs)
+    ),
+  ]);
+}
 
 function requireUserId(userId: string) {
   const trimmedUserId = userId?.trim();
@@ -1604,6 +1618,38 @@ export async function deleteChecklist(userId: string, checklistId: string) {
   await batch.commit();
 }
 
+export async function getChecklistsForUser(
+  userId: string
+): Promise<Checklist[]> {
+  const offlineChecklists = (await getOfflineChecklists(userId)) as Checklist[];
+
+  try {
+    const snapshot = await withOfflineReadTimeout(getDocs(checklistsCol(userId)));
+    const remoteChecklists = snapshot.docs.map((d) =>
+      normalizeChecklist(d.id, d.data())
+    );
+
+    await cacheChecklists(userId, remoteChecklists);
+
+    const mergedById = new Map<string, Checklist>();
+
+    for (const checklist of remoteChecklists) {
+      mergedById.set(checklist.id, checklist);
+    }
+
+    for (const checklist of offlineChecklists) {
+      mergedById.set(checklist.id, checklist);
+    }
+
+    return Array.from(mergedById.values());
+  } catch (error) {
+    console.warn("Unable to load remote checklists. Showing cached checklists.", error);
+
+    const cachedChecklists = (await getCachedChecklists(userId)) as Checklist[];
+    return [...offlineChecklists, ...cachedChecklists];
+  }
+}
+
 export async function getAssignedChecklistItems(
   userId: string,
   options?: {
@@ -1611,65 +1657,70 @@ export async function getAssignedChecklistItems(
     packed?: boolean;
   }
 ): Promise<AssignedChecklistItemSummary[]> {
-  const checklistSnapshot = await getDocs(checklistsCol(userId));
-  const checklistDocs = checklistSnapshot.docs.map((d) =>
-    normalizeChecklist(d.id, d.data())
-  );
-
-  const compartmentSnapshot = await getDocs(
-    collection(db, "users", requireUserId(userId), "compartments")
-  );
-
-  const compartmentVehicleMap = new Map<string, string>();
-  compartmentSnapshot.docs.forEach((docSnap) => {
-    const data = docSnap.data() as { vehicleId?: string };
-    compartmentVehicleMap.set(docSnap.id, data.vehicleId ?? "");
-  });
-
-  const results: AssignedChecklistItemSummary[] = [];
-
-  for (const checklist of checklistDocs) {
-    if (checklist.isArchived) continue;
-
-    const itemsSnapshot = await getDocs(checklistItemsCol(userId, checklist.id));
-    const checklistItems = itemsSnapshot.docs.map((d) =>
-      normalizeChecklistItem(d.id, d.data())
+  try {
+    const checklistSnapshot = await withOfflineReadTimeout(getDocs(checklistsCol(userId)));
+    const checklistDocs = checklistSnapshot.docs.map((d) =>
+      normalizeChecklist(d.id, d.data())
     );
 
-    for (const item of checklistItems) {
-      const compartmentId =
-        (item as ChecklistItem & { compartmentId?: string }).compartmentId ?? "";
-      const compartmentName =
-        (item as ChecklistItem & { compartmentName?: string }).compartmentName ??
-        "";
-      const storedVehicleId =
-        (item as ChecklistItem & { vehicleId?: string }).vehicleId ?? "";
-      const resolvedVehicleId =
-        storedVehicleId || compartmentVehicleMap.get(compartmentId) || "";
+    const compartmentSnapshot = await withOfflineReadTimeout(
+      getDocs(collection(db, "users", requireUserId(userId), "compartments"))
+    );
 
-      if (options?.vehicleId && resolvedVehicleId !== options.vehicleId) {
-        continue;
+    const compartmentVehicleMap = new Map<string, string>();
+    compartmentSnapshot.docs.forEach((docSnap) => {
+      const data = docSnap.data() as { vehicleId?: string };
+      compartmentVehicleMap.set(docSnap.id, data.vehicleId ?? "");
+    });
+
+    const results: AssignedChecklistItemSummary[] = [];
+
+    for (const checklist of checklistDocs) {
+      if (checklist.isArchived) continue;
+
+      const itemsSnapshot = await withOfflineReadTimeout(getDocs(checklistItemsCol(userId, checklist.id)));
+      const checklistItems = itemsSnapshot.docs.map((d) =>
+        normalizeChecklistItem(d.id, d.data())
+      );
+
+      for (const item of checklistItems) {
+        const compartmentId =
+          (item as ChecklistItem & { compartmentId?: string }).compartmentId ?? "";
+        const compartmentName =
+          (item as ChecklistItem & { compartmentName?: string }).compartmentName ??
+          "";
+        const storedVehicleId =
+          (item as ChecklistItem & { vehicleId?: string }).vehicleId ?? "";
+        const resolvedVehicleId =
+          storedVehicleId || compartmentVehicleMap.get(compartmentId) || "";
+
+        if (options?.vehicleId && resolvedVehicleId !== options.vehicleId) {
+          continue;
+        }
+
+        if (
+          typeof options?.packed === "boolean" &&
+          !!item.packed !== options.packed
+        ) {
+          continue;
+        }
+
+        results.push({
+          ...item,
+          checklistId: checklist.id,
+          checklistName: checklist.name,
+          compartmentId,
+          compartmentName,
+          vehicleId: resolvedVehicleId,
+        });
       }
-
-      if (
-        typeof options?.packed === "boolean" &&
-        !!item.packed !== options.packed
-      ) {
-        continue;
-      }
-
-      results.push({
-        ...item,
-        checklistId: checklist.id,
-        checklistName: checklist.name,
-        compartmentId,
-        compartmentName,
-        vehicleId: resolvedVehicleId,
-      });
     }
-  }
 
-  return results;
+    return results;
+  } catch (error) {
+    console.warn("Unable to load assigned checklist items. Showing empty offline dashboard checklist summary.", error);
+    return [];
+  }
 }
 
 export async function searchChecklistsForUser(

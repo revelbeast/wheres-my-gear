@@ -15,7 +15,7 @@ import {
 import { auth, db } from "../firebaseConfig";
 import { cleanupOldCloudPhotosInFolder, deleteCloudPhotoByStoragePath } from "./cloudPhotoStorage";
 import { downloadPhotoToLocalDocumentStorage, localPhotoExists } from "./localPhotoStorage";
-import { cacheCompartments, cacheInventoryItems, cacheRooms, cacheStorageSpaces, enqueueOfflineOperation, getCachedCompartments, getCachedInventoryItems, getCachedInventoryItemsByCompartment, getCachedInventoryItemsByStatus, getCachedRooms, getCachedStorageSpaces, getOfflineCompartments, getOfflineCompartmentById, getOfflineItems, getOfflineItemsByCompartment, getOfflineItemsByStatus, getOfflineStorageSpaces, removeOfflineOperation, updateOfflineCreatedItem } from "./offlineQueue";
+import { cacheAllCompartments, cacheCompartments, cacheInventoryItems, cacheRooms, cacheStorageSpaces, enqueueOfflineOperation, getCachedAllCompartments, getCachedCompartments, getCachedInventoryItems, getCachedInventoryItemsByCompartment, getCachedInventoryItemsByStatus, getCachedRooms, getCachedStorageSpaces, getOfflineCompartments, getOfflineCompartmentById, getOfflineItems, getOfflineItemsByCompartment, getOfflineItemsByStatus, getOfflineStorageSpaces, removeOfflineOperation, updateOfflineCreatedItem } from "./offlineQueue";
 
 export type ItemStatus = "packed" | "missing";
 export type StorageSpaceCategory = "storage" | "office" | "vehicle";
@@ -844,12 +844,24 @@ export async function deleteCompartment(compartmentId: string) {
 }
 
 export async function getAllCompartments(): Promise<Compartment[]> {
-  const snapshot = await getDocs(compartmentsCol());
+  const userId = getCurrentUserId();
 
-  return snapshot.docs.map((d) => ({
-    id: d.id,
-    ...d.data(),
-  })) as Compartment[];
+  try {
+    const snapshot = await withOfflineReadTimeout(getDocs(compartmentsCol()));
+
+    const compartments = snapshot.docs.map((d) => ({
+      id: d.id,
+      ...d.data(),
+    })) as Compartment[];
+
+    await cacheAllCompartments(userId, compartments);
+
+    return compartments;
+  } catch (error) {
+    console.warn("Unable to load remote compartments. Showing cached all compartments.", error);
+
+    return (await getCachedAllCompartments(userId)) as Compartment[];
+  }
 }
 
 export async function getCompartmentsByVehicle(

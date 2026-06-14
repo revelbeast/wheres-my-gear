@@ -6,7 +6,6 @@ import {
   useSpeechRecognitionEvent,
 } from "expo-speech-recognition";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { collection, getDocs } from "firebase/firestore";
 import {
   Archive,
   Camera,
@@ -92,9 +91,9 @@ import {
   ThemedText,
   useThemedValues,
 } from "../../components/ui/Themed";
-import { db } from "../../firebaseConfig";
 import {
   getAssignedChecklistItems,
+  getChecklistsForUser,
   getChecklistTemplateItems,
   getChecklistTemplates,
   type AssignedChecklistItemSummary,
@@ -102,6 +101,7 @@ import {
 import {
   Compartment,
   createItem,
+  getAllCompartments,
   getAllItems,
   getCompartments,
   getRoomsByStorageSpace,
@@ -1630,13 +1630,7 @@ export default function DashboardScreen() {
       setUpcomingTrips(trips);
       setInitialDashboardLoading(false);
 
-      const compartmentsSnapshot = await getDocs(
-        collection(db, "users", activeUserId, "compartments")
-      );
-      const compartments = compartmentsSnapshot.docs.map((docSnap) => ({
-        id: docSnap.id,
-        ...docSnap.data(),
-      })) as Compartment[];
+      const compartments = await getAllCompartments();
 
       if (
         !isMountedRef.current ||
@@ -1648,13 +1642,7 @@ export default function DashboardScreen() {
 
       setAllCompartments(compartments);
 
-      const checklistsSnapshot = await getDocs(
-        collection(db, "users", activeUserId, "checklists")
-      );
-      const checklists = checklistsSnapshot.docs.map((docSnap) => ({
-        id: docSnap.id,
-        ...docSnap.data(),
-      })) as Checklist[];
+      const checklists = await getChecklistsForUser(activeUserId);
 
       if (
         !isMountedRef.current ||
