@@ -1,7 +1,7 @@
 import React from "react";
-import { Image, Modal, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Image, Modal, StyleSheet, View } from "react-native";
 
-import { ThemedCard, ThemedText } from "./Themed";
+import { ThemedText } from "./Themed";
 
 type SyncStepStatus = "done" | "loading" | "pending";
 
@@ -33,25 +33,23 @@ export default function GearSyncOverlay({
   return (
     <Modal visible={visible} transparent animationType="fade">
       <View style={styles.backdrop}>
-        <ThemedCard style={styles.card}>
+        <View style={styles.card}>
           <Image
-            source={require("../../assets/images/logo.png")}
+            source={require("../../assets/images/app-icon-googleplay.png")}
             style={styles.logo}
-            resizeMode="contain"
+            resizeMode="cover"
           />
+
+          <ActivityIndicator size="large" color="#FFFFFF" style={styles.spinner} />
 
           <ThemedText variant="title" style={styles.title}>
             Syncing your gear...
           </ThemedText>
 
-          <ThemedText color="secondary" style={styles.subtitle}>
-            Loading your inventory...
+          <ThemedText style={styles.subtitle}>
+            Loading your gear.
           </ThemedText>
-
-          <ThemedText color="secondary" style={styles.waitText}>
-            Please wait.
-          </ThemedText>
-        </ThemedCard>
+        </View>
       </View>
     </Modal>
   );
@@ -62,31 +60,39 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    padding: 24,
-    backgroundColor: "rgba(0,0,0,0.55)",
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    backgroundColor: "rgba(0,0,0,0.72)",
   },
   card: {
     width: "100%",
-    maxWidth: 360,
+    maxWidth: 280,
     alignItems: "center",
-    padding: 24,
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    borderWidth: 1,
+    borderRadius: 28,
+    backgroundColor: "rgba(30,58,138,0.98)",
+    borderColor: "rgba(147,197,253,0.42)",
   },
   logo: {
-    width: 92,
-    height: 92,
-    marginBottom: 18,
-    borderRadius: 22,
+    width: 76,
+    height: 76,
+    marginBottom: 8,
+    borderRadius: 18,
+  },
+  spinner: {
+    marginBottom: 12,
   },
   title: {
+    color: "#FFFFFF",
     textAlign: "center",
-    marginBottom: 8,
+    marginBottom: 4,
   },
   subtitle: {
+    color: "rgba(255,255,255,0.78)",
     textAlign: "center",
-    marginBottom: 18,
-  },
-  waitText: {
-    textAlign: "center",
-    marginTop: 16,
+    fontSize: 15,
+    lineHeight: 20,
   },
 });
