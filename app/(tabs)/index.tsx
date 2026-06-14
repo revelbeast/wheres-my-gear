@@ -95,6 +95,7 @@ import {
 import { db } from "../../firebaseConfig";
 import {
   getAssignedChecklistItems,
+  getChecklistsForUser,
   getChecklistTemplateItems,
   getChecklistTemplates,
   type AssignedChecklistItemSummary,
@@ -1648,13 +1649,9 @@ export default function DashboardScreen() {
 
       setAllCompartments(compartments);
 
-      const checklistsSnapshot = await getDocs(
-        collection(db, "users", activeUserId, "checklists")
+      const checklists = (await getChecklistsForUser(activeUserId)).filter(
+        (checklist) => !checklist.isArchived
       );
-      const checklists = checklistsSnapshot.docs.map((docSnap) => ({
-        id: docSnap.id,
-        ...docSnap.data(),
-      })) as Checklist[];
 
       if (
         !isMountedRef.current ||

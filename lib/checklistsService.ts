@@ -1037,6 +1037,14 @@ export async function getArchivedChecklists(userId: string): Promise<Checklist[]
     .filter((checklist) => Boolean(checklist.isArchived));
 }
 
+export async function getChecklistsForUser(userId: string): Promise<Checklist[]> {
+  const safeUserId = requireUserId(userId);
+  const q = query(checklistsCol(safeUserId), orderBy("createdAt", "desc"));
+  const snapshot = await getDocs(q);
+
+  return snapshot.docs.map((d) => normalizeChecklist(d.id, d.data()));
+}
+
 export function subscribeToChecklists(
   userId: string,
   callback: (items: Checklist[]) => void
