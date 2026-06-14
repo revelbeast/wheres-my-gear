@@ -148,10 +148,12 @@ struct WheresMyGearShortcuts: AppShortcutsProvider {
     AppShortcut(
       intent: FindGearIntent(),
       phrases: [
-        "Find \(.applicationName)",
-        "Find gear in \(.applicationName)",
-        "Search for gear in \(.applicationName)",
-        "Where is my gear in \(.applicationName)"
+        "Where's my \(\.$gearName) in \(.applicationName)",
+        "Where is my \(\.$gearName) in \(.applicationName)",
+        "Find my \(\.$gearName) in \(.applicationName)",
+        "Find \(\.$gearName) in \(.applicationName)",
+        "Search for \(\.$gearName) in \(.applicationName)",
+        "Help me find \(\.$gearName) in \(.applicationName)"
       ],
       shortTitle: "Find Gear",
       systemImageName: "magnifyingglass.circle"
