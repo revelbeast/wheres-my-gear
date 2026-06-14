@@ -60,6 +60,16 @@ const FAQ_ITEMS: FAQItem[] = [
       "On supported iOS devices, Where's My Gear supports Siri and Apple Shortcuts for Open Dashboard, Add Gear, Search Gear, Find Gear, Open Scanner, Gear Assistant, Open Checklists, and Open Trips. Find Gear opens Inventory with your search already filled in. Open Scanner launches the QR / Barcode Scanner, and Gear Assistant opens the voice workflow.",
   },
   {
+    question: "How can Siri help me find gear?",
+    answer:
+      "On supported iOS devices, you can ask Siri to find an item in Where's My Gear. For example, say: Hey Siri, where's my headlamp in Where's My Gear? You can also ask: Hey Siri, do I already have a headlamp in Where's My Gear? The app will open Inventory and search for that item.",
+  },
+  {
+    question: "Why do I see Syncing your gear?",
+    answer:
+      "Syncing your gear appears while Where's My Gear is loading your saved Storage Spaces, Rooms, Compartments, Inventory Items, Checklists, and Trips. This helps confirm that your gear is still loading and prevents empty screens from showing while your data syncs.",
+  },
+  {
     question: "How is Add Gear different from Gear Assistant?",
     answer:
       "Add Gear is a quick Siri Shortcut and manual entry screen for adding one item fast. Gear Assistant is a Premium + voice workflow that can detect multiple spoken items and help save them to a selected Storage Space or Compartment.",
