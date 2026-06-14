@@ -315,8 +315,13 @@ export default function EditTripScreen() {
   function safeGoBack() {
     if (!isMountedRef.current || navigationLockedRef.current) return;
 
+    setIsSaving(false);
+    setIsDeleting(false);
+    actionLockRef.current = false;
+    unlockInteraction();
+
     navigationLockedRef.current = true;
-    router.back();
+    router.replace("/trips");
   }
 
   async function runWithLock(action: () => Promise<void> | void) {

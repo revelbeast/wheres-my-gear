@@ -1,3 +1,5 @@
+import { updateTripCalendarEvent } from "./tripCalendarService";
+import { createTripCalendarEvent } from "./tripCalendarService";
 import NetInfo from "@react-native-community/netinfo";
 import {
   addDoc,
@@ -28,6 +30,7 @@ export type Trip = {
   reminderEnabled?: boolean;
   reminderDaysBefore?: number;
   notificationId?: string | null;
+  calendarEventId?: string | null;
   createdAt?: unknown;
   updatedAt?: unknown;
 };
@@ -331,12 +334,18 @@ export async function createTrip(input: {
     return offlineId;
   }
 
+  const calendarEventId = await createTripCalendarEvent({
+    title: trimmedName,
+    startDate: input.startDate,
+  });
+
   const ref = await addDoc(tripsCol(activeUserId), {
     name: trimmedName,
     startDate: input.startDate,
     reminderEnabled: input.reminderEnabled === true,
     reminderDaysBefore: input.reminderDaysBefore ?? 1,
     notificationId: input.notificationId ?? null,
+    calendarEventId: calendarEventId ?? null,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
@@ -403,12 +412,39 @@ export async function updateTrip(input: {
     return;
   }
 
+  const snapshot = await getDoc(tripDoc(activeUserId, activeTripId));
+  const existingData = snapshot.exists() ? snapshot.data() : {};
+  const existingCalendarEventId =
+    typeof existingData.calendarEventId === "string"
+      ? existingData.calendarEventId
+      : null;
+
+  let calendarEventId = existingCalendarEventId;
+
+  try {
+    if (existingCalendarEventId) {
+      await updateTripCalendarEvent({
+        eventId: existingCalendarEventId,
+        title: trimmedName,
+        startDate: input.startDate,
+      });
+    } else {
+      calendarEventId = await createTripCalendarEvent({
+        title: trimmedName,
+        startDate: input.startDate,
+      });
+    }
+  } catch (error) {
+    console.warn("Trip calendar sync failed:", error);
+  }
+
   await updateDoc(tripDoc(activeUserId, activeTripId), {
     name: trimmedName,
     startDate: input.startDate,
     reminderEnabled: input.reminderEnabled === true,
     reminderDaysBefore: input.reminderDaysBefore ?? 1,
     notificationId: input.notificationId ?? null,
+    calendarEventId: calendarEventId ?? null,
     updatedAt: serverTimestamp(),
   });
 }

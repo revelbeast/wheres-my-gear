@@ -193,6 +193,10 @@ export default function CreateTripScreen() {
   function safeGoBack() {
     if (!isMountedRef.current || navigationLockedRef.current) return;
 
+    setIsSaving(false);
+    actionLockRef.current = false;
+    unlockInteraction();
+
     navigationLockedRef.current = true;
     router.replace(returnRoute);
   }
