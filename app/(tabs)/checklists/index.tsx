@@ -17,6 +17,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../../components/auth/AuthProvider";
 import HapticPressable from "../../../components/ui/HapticPressable";
+import GearSyncOverlay from "../../../components/ui/GearSyncOverlay";
 import ScreenBackground from "../../../components/ui/ScreenBackground";
 import {
   ThemedButton,
@@ -317,6 +318,7 @@ export default function ChecklistsTabScreen() {
     null
   );
 
+  const [initialChecklistsLoading, setInitialChecklistsLoading] = useState(true);
   const [checklists, setChecklists] = useState<Checklist[]>([]);
   const [templateRows, setTemplateRows] = useState<Checklist[]>([]);
   const [selectedChecklistStatus, setSelectedChecklistStatus] = useState<
@@ -374,6 +376,7 @@ export default function ChecklistsTabScreen() {
       if (isMountedRef.current) {
         setChecklists([]);
         setTemplateRows([]);
+        setInitialChecklistsLoading(false);
       }
 
       return;
@@ -390,6 +393,7 @@ export default function ChecklistsTabScreen() {
       }
 
       setChecklists(items.filter((item) => !item.isArchived));
+      setInitialChecklistsLoading(false);
     });
 
     return () => {
@@ -601,6 +605,7 @@ export default function ChecklistsTabScreen() {
   return (
     <ScreenBackground>
       <SafeAreaView style={styles.safe}>
+        <GearSyncOverlay visible={initialChecklistsLoading && !!user && !initializing} />
         <ScrollView
           contentContainerStyle={[
             styles.content,

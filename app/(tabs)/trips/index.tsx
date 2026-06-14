@@ -21,6 +21,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../../components/auth/AuthProvider";
 import HapticPressable from "../../../components/ui/HapticPressable";
+import GearSyncOverlay from "../../../components/ui/GearSyncOverlay";
 import ScreenBackground from "../../../components/ui/ScreenBackground";
 import {
   ThemedCard,
@@ -389,6 +390,7 @@ export default function TripsScreen() {
   return (
     <ScreenBackground>
       <SafeAreaView style={styles.safe}>
+        <GearSyncOverlay visible={isLoading && !!user && !initializing} />
         <ScrollView
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
