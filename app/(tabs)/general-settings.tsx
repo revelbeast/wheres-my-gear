@@ -215,11 +215,22 @@ export default function GeneralSettingsScreen() {
     setHapticsEnabled(value);
   }
 
-  function handleAppLockChange(value: boolean) {
+  async function handleAppLockChange(value: boolean) {
     if (saving || loading || actionLockRef.current) return;
 
+    const previousValue = appLockEnabled;
     setAppLockEnabled(value);
-    
+
+    try {
+      await AsyncStorage.setItem(APP_LOCK_ENABLED_KEY, value ? "true" : "false");
+    } catch (err) {
+      console.error("Failed to save App Lock setting:", err);
+
+      if (isMountedRef.current) {
+        setAppLockEnabled(previousValue);
+        Alert.alert("Error", "Failed to update App Lock setting.");
+      }
+    }
   }
 
   async function handleRestorePurchases() {
