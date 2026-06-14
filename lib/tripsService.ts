@@ -1,5 +1,8 @@
-import { updateTripCalendarEvent } from "./tripCalendarService";
-import { createTripCalendarEvent } from "./tripCalendarService";
+import {
+  createTripCalendarEvent,
+  deleteTripCalendarEvent,
+  updateTripCalendarEvent,
+} from "./tripCalendarService";
 import NetInfo from "@react-native-community/netinfo";
 import {
   addDoc,
@@ -479,6 +482,19 @@ export async function deleteTrip(input: { userId: string; tripId: string }) {
     });
 
     return;
+  }
+
+  const snapshot = await getDoc(tripDoc(activeUserId, activeTripId));
+  const existingData = snapshot.exists() ? snapshot.data() : {};
+  const existingCalendarEventId =
+    typeof existingData.calendarEventId === "string"
+      ? existingData.calendarEventId
+      : null;
+
+  try {
+    await deleteTripCalendarEvent(existingCalendarEventId);
+  } catch (error) {
+    console.warn("Trip calendar delete sync failed:", error);
   }
 
   await deleteDoc(tripDoc(activeUserId, activeTripId));
