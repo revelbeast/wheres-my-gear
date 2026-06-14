@@ -48,19 +48,6 @@ export default function GearSyncOverlay({
             Loading your inventory...
           </ThemedText>
 
-          <View style={styles.steps}>
-            {steps.map((step) => (
-              <View key={step.label} style={styles.stepRow}>
-                <ThemedText style={styles.stepIcon}>
-                  {getStepIcon(step.status)}
-                </ThemedText>
-                <ThemedText color={step.status === "pending" ? "secondary" : "primary"}>
-                  {step.label}
-                </ThemedText>
-              </View>
-            ))}
-          </View>
-
           <ThemedText color="secondary" style={styles.waitText}>
             Please wait.
           </ThemedText>
@@ -98,22 +85,8 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 18,
   },
-  steps: {
-    width: "100%",
-    gap: 10,
-    marginTop: 4,
-    marginBottom: 18,
-  },
-  stepRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  stepIcon: {
-    width: 24,
-    textAlign: "center",
-  },
   waitText: {
     textAlign: "center",
+    marginTop: 16,
   },
 });
