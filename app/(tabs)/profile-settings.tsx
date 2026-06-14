@@ -33,12 +33,6 @@ import {
   useThemedValues,
 } from "../../components/ui/Themed";
 import { storage } from "../../firebaseConfig";
-import {
-  getBiometricLabel,
-  isAppLockEnabled,
-  isBiometricUnlockAvailable,
-  setAppLockEnabled,
-} from "../../lib/appLockService";
 import { publishAppBackgroundUpdate } from "../../lib/backgroundUpdateBus";
 import { savePhotoToLocalDocumentStorage } from "../../lib/localPhotoStorage";
 import {
@@ -309,10 +303,6 @@ export default function ProfileSettingsScreen() {
     string | null
   >(null);
   const [showBackgroundOptions, setShowBackgroundOptions] = useState(false);
-  const [appLockEnabled, setAppLockEnabledState] = useState(false);
-  const [appLockAvailable, setAppLockAvailable] = useState(false);
-  const [biometricLabel, setBiometricLabel] = useState("Face ID");
-  const [savingAppLock, setSavingAppLock] = useState(false);
   const [, setActionLockRevision] = useState(0);
 
   const userId = user?.uid ?? "";
@@ -334,34 +324,6 @@ export default function ProfileSettingsScreen() {
         clearTimeout(scrollTimeoutRef.current);
         scrollTimeoutRef.current = null;
       }
-    };
-  }, []);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    async function loadAppLockSettings() {
-      try {
-        const [enabled, available, label] = await Promise.all([
-          isAppLockEnabled(),
-          isBiometricUnlockAvailable(),
-          getBiometricLabel(),
-        ]);
-
-        if (!isMounted) return;
-
-        setAppLockEnabledState(enabled);
-        setAppLockAvailable(available);
-        setBiometricLabel(label);
-      } catch (error) {
-        console.error("Failed to load app lock settings:", error);
-      }
-    }
-
-    void loadAppLockSettings();
-
-    return () => {
-      isMounted = false;
     };
   }, []);
 
@@ -770,36 +732,6 @@ export default function ProfileSettingsScreen() {
         );
       }
     });
-  }
-
-  async function handleToggleAppLock() {
-    if (savingAppLock) return;
-
-    if (!appLockAvailable && !appLockEnabled) {
-      Alert.alert(
-        "Face ID Unavailable",
-        "Set up Face ID or Touch ID on this device first, then return to enable App Lock."
-      );
-      return;
-    }
-
-    try {
-      setSavingAppLock(true);
-      const nextEnabled = !appLockEnabled;
-      await setAppLockEnabled(nextEnabled);
-      setAppLockEnabledState(nextEnabled);
-
-      Alert.alert(
-        "App Lock",
-        nextEnabled
-          ? `${biometricLabel} will be required to unlock Where's My Gear.`
-          : "App Lock has been turned off."
-      );
-    } catch (error: any) {
-      Alert.alert("App Lock Error", error?.message ?? "Unable to update App Lock.");
-    } finally {
-      setSavingAppLock(false);
-    }
   }
 
   async function handleSignOut() {
@@ -1249,54 +1181,6 @@ export default function ProfileSettingsScreen() {
             </ThemedCard>
 
             <ThemedCard
-              style={styles.formCard}
-              contentStyle={styles.formCardContent}
-            >
-              <ThemedText variant="bodyStrong" style={styles.sectionTitle}>
-                Account Security
-              </ThemedText>
-
-              <View style={styles.securityRow}>
-                <View style={styles.securityTextWrap}>
-                  <ThemedText variant="bodyStrong" style={styles.securityTitle}>
-                    App Lock
-                  </ThemedText>
-                  <ThemedText color="secondary" style={styles.securitySubtitle}>
-                    {appLockEnabled
-                      ? `${biometricLabel} is required to unlock the app.`
-                      : `Use ${biometricLabel} to protect your gear on this device.`}
-                  </ThemedText>
-                </View>
-
-                <HapticPressable
-                  onPress={handleToggleAppLock}
-                  disabled={interactionBusy || savingAppLock}
-                  style={[
-                    styles.appLockToggle,
-                    {
-                      backgroundColor: appLockEnabled
-                        ? theme.colors.primary
-                        : theme.colors.inputSurface,
-                      borderColor: appLockEnabled
-                        ? theme.colors.primary
-                        : theme.colors.border,
-                    },
-                    (interactionBusy || savingAppLock) && styles.disabledInteraction,
-                  ]}
-                >
-                  <ThemedText
-                    style={[
-                      styles.appLockToggleText,
-                      { color: appLockEnabled ? "#FFFFFF" : theme.colors.text },
-                    ]}
-                  >
-                    {savingAppLock ? "Saving..." : appLockEnabled ? "On" : "Off"}
-                  </ThemedText>
-                </HapticPressable>
-              </View>
-            </ThemedCard>
-
-            <ThemedCard
               style={styles.actionsCard}
               contentStyle={styles.actionsCardContent}
             >
@@ -1520,39 +1404,6 @@ const styles = StyleSheet.create({
 
   formCardContent: {
     padding: 14,
-  },
-
-  securityRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-
-  securityTextWrap: {
-    flex: 1,
-  },
-
-  securityTitle: {
-    marginBottom: 4,
-  },
-
-  securitySubtitle: {
-    lineHeight: 18,
-  },
-
-  appLockToggle: {
-    minWidth: 72,
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  appLockToggleText: {
-    fontWeight: "900",
   },
 
   sectionTitle: {

@@ -13,6 +13,12 @@ import {
   ThemedText,
   useThemedValues,
 } from "../../components/ui/Themed";
+import {
+  getBiometricLabel,
+  isAppLockEnabled,
+  isBiometricUnlockAvailable,
+  setAppLockEnabled,
+} from "../../lib/appLockService";
 import { setHapticsEnabled as setGlobalHapticsEnabled } from "../../lib/haptics";
 import {
   AppProfile,
@@ -40,6 +46,10 @@ export default function GeneralSettingsScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isRestoringPurchases, setIsRestoringPurchases] = useState(false);
+  const [appLockEnabled, setAppLockEnabledState] = useState(false);
+  const [appLockAvailable, setAppLockAvailable] = useState(false);
+  const [biometricLabel, setBiometricLabel] = useState("Face ID");
+  const [savingAppLock, setSavingAppLock] = useState(false);
   const restorePurchasesVersionRef = useRef(0);
 
   useEffect(() => {
@@ -116,6 +126,34 @@ export default function GeneralSettingsScreen() {
   useEffect(() => {
     loadSettings();
   }, [loadSettings]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadAppLockSettings() {
+      try {
+        const [enabled, available, label] = await Promise.all([
+          isAppLockEnabled(),
+          isBiometricUnlockAvailable(),
+          getBiometricLabel(),
+        ]);
+
+        if (!isMounted) return;
+
+        setAppLockEnabledState(enabled);
+        setAppLockAvailable(available);
+        setBiometricLabel(label);
+      } catch (error) {
+        console.error("Failed to load app lock settings:", error);
+      }
+    }
+
+    void loadAppLockSettings();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   async function handleSaveSettings() {
     if (!user || !profile || saving || loading || actionLockRef.current) return;
@@ -205,6 +243,36 @@ export default function GeneralSettingsScreen() {
     if (saving || loading || actionLockRef.current) return;
 
     setHapticsEnabled(value);
+  }
+
+  async function handleToggleAppLock() {
+    if (savingAppLock || saving || loading || actionLockRef.current) return;
+
+    if (!appLockAvailable && !appLockEnabled) {
+      Alert.alert(
+        "Face ID Unavailable",
+        "Set up Face ID or Touch ID on this device first, then return to enable App Lock."
+      );
+      return;
+    }
+
+    try {
+      setSavingAppLock(true);
+      const nextEnabled = !appLockEnabled;
+      await setAppLockEnabled(nextEnabled);
+      setAppLockEnabledState(nextEnabled);
+
+      Alert.alert(
+        "App Lock",
+        nextEnabled
+          ? `${biometricLabel} will be required to unlock Where's My Gear.`
+          : "App Lock has been turned off."
+      );
+    } catch (error: any) {
+      Alert.alert("App Lock Error", error?.message ?? "Unable to update App Lock.");
+    } finally {
+      setSavingAppLock(false);
+    }
   }
 
   async function handleRestorePurchases() {
@@ -391,6 +459,31 @@ export default function GeneralSettingsScreen() {
                 </View>
               </ThemedCard>
 
+              <ThemedCard style={styles.accountSecurityCard}>
+                <View style={styles.settingRow}>
+                  <View style={styles.settingTextBlock}>
+                    <ThemedText variant="bodyStrong">Account Security</ThemedText>
+                    <ThemedText color="secondary" style={styles.settingHelper}>
+                      {appLockEnabled
+                        ? `${biometricLabel} is required to unlock the app.`
+                        : `Use ${biometricLabel} to protect your gear on this device.`}
+                    </ThemedText>
+                  </View>
+
+                  <Switch
+                    value={appLockEnabled}
+                    onValueChange={handleToggleAppLock}
+                    disabled={saving || loading || savingAppLock || actionLockRef.current}
+                    trackColor={{
+                      false: activeTheme.colors.inputSurface,
+                      true: "rgba(55,130,245,0.45)",
+                    }}
+                    thumbColor="#FFFFFF"
+                    ios_backgroundColor={activeTheme.colors.inputSurface}
+                  />
+                </View>
+              </ThemedCard>
+
               <ThemedCard style={styles.restoreCard}>
                 <View style={styles.settingRow}>
                   <View style={styles.settingTextBlock}>
@@ -483,6 +576,10 @@ const styles = StyleSheet.create({
   },
 
   feedbackCard: {
+    marginTop: 16,
+  },
+
+  accountSecurityCard: {
     marginTop: 16,
   },
 
