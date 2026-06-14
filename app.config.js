@@ -2,7 +2,7 @@ export default {
   expo: {
     name: "Where's My Gear",
     slug: "wheres-my-gear",
-    version: "1.0.17",
+    version: "1.0.18",
     orientation: "default",
     scheme: "wheres-my-gear",
 
@@ -10,7 +10,7 @@ export default {
 
     ios: {
       bundleIdentifier: "com.richgarcia.wheresmygear",
-      buildNumber: "65",
+      buildNumber: "66",
       supportsTablet: true,
       usesIap: true,
       usesAppleSignIn: true,
@@ -18,7 +18,7 @@ export default {
 
     android: {
       package: "com.revelbeast.wheresmygear",
-      versionCode: 55,
+      versionCode: 56,
       googleServicesFile: "./google-services.json",
       adaptiveIcon: {
         foregroundImage: "./assets/images/app-icon.png",
