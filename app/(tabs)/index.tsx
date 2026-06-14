@@ -84,6 +84,7 @@ function getDashboardTourStorageKey(userId: string) {
 import { useAuth } from "../../components/auth/AuthProvider";
 import HapticPressable from "../../components/ui/HapticPressable";
 import KeyboardDismissAccessory from "../../components/ui/KeyboardDismissAccessory";
+import GearSyncOverlay from "../../components/ui/GearSyncOverlay";
 import ScreenBackground from "../../components/ui/ScreenBackground";
 import {
   ThemedButton,
@@ -638,6 +639,7 @@ export default function DashboardScreen() {
   const [isPremiumPlus, setIsPremiumPlus] = useState(false);
   const [isPremiumLoading, setIsPremiumLoading] = useState(true);
 
+  const [initialDashboardLoading, setInitialDashboardLoading] = useState(true);
   const [storageSpaces, setStorageSpaces] = useState<StorageSpace[]>([]);
   const [selectedStorageId, setSelectedStorageId] = useState<string | null>(null);
   const [showStorageDropdown, setShowStorageDropdown] = useState(false);
@@ -1561,6 +1563,8 @@ export default function DashboardScreen() {
     isActive: () => boolean
   ) {
     try {
+      setInitialDashboardLoading(true);
+
       const spaces = await getStorageSpaces();
       if (
         !isMountedRef.current ||
@@ -1776,6 +1780,7 @@ export default function DashboardScreen() {
       }
 
       console.error("Failed to load dashboard data:", err);
+      setInitialDashboardLoading(false);
 
       setStorageSpaces([]);
       setSelectedStorageId(null);
@@ -2941,6 +2946,7 @@ export default function DashboardScreen() {
     return (
       <ScreenBackground>
         <SafeAreaView style={styles.safe}>
+        <GearSyncOverlay visible={initialDashboardLoading && !!user && !initializing && !isPremiumLoading && isPremium} />
           <View style={styles.loadingGateWrap}>
             <ThemedCard style={styles.emptyCard}>
               <ThemedText variant="bodyStrong" style={styles.emptyTitle}>

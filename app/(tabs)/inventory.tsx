@@ -33,6 +33,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../components/auth/AuthProvider";
 import HapticPressable from "../../components/ui/HapticPressable";
 import KeyboardDismissAccessory from "../../components/ui/KeyboardDismissAccessory";
+import GearSyncOverlay from "../../components/ui/GearSyncOverlay";
 import ScreenBackground from "../../components/ui/ScreenBackground";
 import { ThemedButton, ThemedText } from "../../components/ui/Themed";
 const INVENTORY_SEARCH_KEYBOARD_ACCESSORY_ID =
@@ -100,6 +101,7 @@ export default function InventoryScreen() {
   const [showStorageDropdown, setShowStorageDropdown] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [initialInventoryLoading, setInitialInventoryLoading] = useState(true);
 
   useEffect(() => {
     const rawStatus = Array.isArray(params.status)
@@ -164,6 +166,7 @@ export default function InventoryScreen() {
           setStorageSpaces([]);
           setSelectedStorageId(null);
           setShowStorageDropdown(false);
+          setInitialInventoryLoading(false);
         }
 
         return;
@@ -228,6 +231,8 @@ export default function InventoryScreen() {
     if (!user) return;
 
     try {
+      setInitialInventoryLoading(true);
+
       const [items, spaces] = await Promise.all([
         getAllItems(),
         getStorageSpaces(),
@@ -242,6 +247,7 @@ export default function InventoryScreen() {
 
       setInventoryItems(items);
       setStorageSpaces(spaces);
+      setInitialInventoryLoading(false);
 
       setSelectedStorageId((currentStorageId) => {
         if (
@@ -265,6 +271,7 @@ export default function InventoryScreen() {
       setStorageSpaces([]);
       setSelectedStorageId(null);
       setShowStorageDropdown(false);
+      setInitialInventoryLoading(false);
     }
   }
 
@@ -717,6 +724,7 @@ export default function InventoryScreen() {
   return (
     <ScreenBackground>
       <SafeAreaView style={styles.safe}>
+        <GearSyncOverlay visible={initialInventoryLoading && !!user && !initializing} />
         <ScrollView
           contentContainerStyle={[
             styles.container,
