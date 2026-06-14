@@ -153,7 +153,11 @@ struct WheresMyGearShortcuts: AppShortcutsProvider {
         "Find my \(\.$gearName) in \(.applicationName)",
         "Find \(\.$gearName) in \(.applicationName)",
         "Search for \(\.$gearName) in \(.applicationName)",
-        "Help me find \(\.$gearName) in \(.applicationName)"
+        "Help me find \(\.$gearName) in \(.applicationName)",
+        "Do I have \(\.$gearName) in \(.applicationName)",
+        "Do I already have \(\.$gearName) in \(.applicationName)",
+        "Check if I have \(\.$gearName) in \(.applicationName)",
+        "Do I own \(\.$gearName) in \(.applicationName)"
       ],
       shortTitle: "Find Gear",
       systemImageName: "magnifyingglass.circle"
