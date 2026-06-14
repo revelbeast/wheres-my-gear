@@ -31,6 +31,10 @@ import {
   useThemedValues,
 } from "../../../components/ui/Themed";
 import {
+  cancelTripReminder,
+  scheduleTripReminder,
+} from "../../../lib/tripReminderService";
+import {
   deleteTrip,
   getTripById,
   updateTrip,
@@ -186,6 +190,9 @@ export default function EditTripScreen() {
   const [tripDate, setTripDate] = useState(getNoonDate(new Date()));
   const [calendarMonth, setCalendarMonth] = useState(getStartOfDay(new Date()));
   const [isCalendarVisible, setIsCalendarVisible] = useState(false);
+  const [reminderEnabled, setReminderEnabled] = useState(false);
+  const [reminderDaysBefore, setReminderDaysBefore] = useState(1);
+  const [notificationId, setNotificationId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -266,6 +273,9 @@ export default function EditTripScreen() {
 
         setTripName(loadedName);
         setTripDate(getNoonDate(loadedDate));
+        setReminderEnabled(trip.reminderEnabled === true);
+        setReminderDaysBefore(trip.reminderDaysBefore ?? 1);
+        setNotificationId(trip.notificationId ?? null);
         setCalendarMonth(
           new Date(loadedDate.getFullYear(), loadedDate.getMonth(), 1)
         );
@@ -442,15 +452,48 @@ export default function EditTripScreen() {
 
         setIsSaving(true);
 
+        await cancelTripReminder(notificationId);
+
+        let nextNotificationId: string | null = null;
+
+        if (reminderEnabled) {
+          nextNotificationId = await scheduleTripReminder({
+            tripName: trimmedName,
+            tripDate,
+            daysBefore: reminderDaysBefore,
+          });
+        }
+
         await updateTrip({
           userId: uid,
           tripId: currentTripId,
           name: trimmedName,
           startDate: tripDate,
+          reminderEnabled,
+          reminderDaysBefore,
+          notificationId: nextNotificationId,
         });
 
+        setNotificationId(nextNotificationId);
+
+        if (reminderEnabled && !nextNotificationId) {
+          Alert.alert(
+            "Reminder not scheduled",
+            "The trip was saved, but the reminder could not be scheduled. Check notification permissions or choose a future reminder date."
+          );
+        }
+
         if (isMountedRef.current) {
-          safeGoBack();
+          setIsSaving(false);
+          actionLockRef.current = false;
+          navigationLockedRef.current = false;
+          unlockInteraction();
+
+          setTimeout(() => {
+            if (isMountedRef.current) {
+              router.replace("/trips");
+            }
+          }, 50);
         }
       } catch (error) {
         console.error("Failed to update trip:", error);
@@ -497,6 +540,8 @@ export default function EditTripScreen() {
                 if (!isMountedRef.current) return;
 
                 setIsDeleting(true);
+
+                await cancelTripReminder(notificationId);
 
                 await deleteTrip({ userId: uid, tripId: currentTripId });
 
@@ -634,6 +679,66 @@ export default function EditTripScreen() {
                       Tap the date to choose from the calendar.
                     </ThemedText>
                   </View>
+                </FrostedCard>
+
+                <FrostedCard style={styles.formCard}>
+                  <View style={styles.reminderHeaderRow}>
+                    <View style={styles.reminderTextWrap}>
+                      <ThemedText
+                        variant="bodyStrong"
+                        color="primary"
+                        style={[
+                          styles.inputLabel,
+                          theme.isLight ? null : { color: "#FFFFFF" },
+                        ]}
+                      >
+                        Trip Reminder
+                      </ThemedText>
+                      <ThemedText color="secondary" style={styles.inputHint}>
+                        Get a packing reminder before this trip starts.
+                      </ThemedText>
+                    </View>
+
+                    <HapticPressable
+                      style={[
+                        styles.reminderToggle,
+                        reminderEnabled && styles.reminderToggleOn,
+                        isActionBusy() && styles.disabledButton,
+                      ]}
+                      onPress={() => setReminderEnabled((current) => !current)}
+                      disabled={isActionBusy()}
+                    >
+                      <ThemedText style={styles.reminderToggleText}>
+                        {reminderEnabled ? "On" : "Off"}
+                      </ThemedText>
+                    </HapticPressable>
+                  </View>
+
+                  {reminderEnabled ? (
+                    <View style={styles.reminderOptionsRow}>
+                      {[1, 3, 7].map((days) => (
+                        <HapticPressable
+                          key={days}
+                          style={[
+                            styles.reminderOption,
+                            reminderDaysBefore === days && styles.reminderOptionSelected,
+                            isActionBusy() && styles.disabledButton,
+                          ]}
+                          onPress={() => setReminderDaysBefore(days)}
+                          disabled={isActionBusy()}
+                        >
+                          <ThemedText
+                            style={[
+                              styles.reminderOptionText,
+                              reminderDaysBefore === days && styles.reminderOptionTextSelected,
+                            ]}
+                          >
+                            {days === 1 ? "1 day" : `${days} days`}
+                          </ThemedText>
+                        </HapticPressable>
+                      ))}
+                    </View>
+                  ) : null}
                 </FrostedCard>
 
                 <HapticPressable
@@ -969,6 +1074,68 @@ const styles = StyleSheet.create({
   deleteButtonText: {
     color: LABEL_WHITE,
     fontWeight: "700",
+  },
+
+  reminderHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+
+  reminderTextWrap: {
+    flex: 1,
+  },
+
+  reminderToggle: {
+    minWidth: 64,
+    minHeight: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.22)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.32)",
+  },
+
+  reminderToggleOn: {
+    backgroundColor: "#16A34A",
+    borderColor: "#16A34A",
+  },
+
+  reminderToggleText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+  },
+
+  reminderOptionsRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 14,
+  },
+
+  reminderOption: {
+    flex: 1,
+    minHeight: 42,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.16)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.26)",
+  },
+
+  reminderOptionSelected: {
+    backgroundColor: "#FFFFFF",
+  },
+
+  reminderOptionText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+  },
+
+  reminderOptionTextSelected: {
+    color: "#111827",
   },
 
   helperCard: {

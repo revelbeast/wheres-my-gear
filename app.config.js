@@ -38,6 +38,7 @@ export default {
     },
 
     plugins: [
+      '@react-native-community/datetimepicker',
       "expo-apple-authentication",
       "expo-web-browser",
       "expo-font",

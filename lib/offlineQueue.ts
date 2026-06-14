@@ -174,6 +174,9 @@ export type OfflineQueueOperation =
       payload: {
         name: string;
         startDateIso: string;
+        reminderEnabled?: boolean;
+        reminderDaysBefore?: number;
+        notificationId?: string | null;
       };
       createdAt: string;
     }
@@ -185,6 +188,9 @@ export type OfflineQueueOperation =
         tripId: string;
         name: string;
         startDateIso: string;
+        reminderEnabled?: boolean;
+        reminderDaysBefore?: number;
+        notificationId?: string | null;
       };
       createdAt: string;
     }
@@ -562,6 +568,9 @@ export async function flushOfflineQueue() {
         {
           name: operation.payload.name,
           startDate: new Date(operation.payload.startDateIso),
+          reminderEnabled: operation.payload.reminderEnabled === true,
+          reminderDaysBefore: operation.payload.reminderDaysBefore ?? 1,
+          notificationId: operation.payload.notificationId ?? null,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         },
@@ -583,6 +592,9 @@ export async function flushOfflineQueue() {
         {
           name: operation.payload.name,
           startDate: new Date(operation.payload.startDateIso),
+          reminderEnabled: operation.payload.reminderEnabled === true,
+          reminderDaysBefore: operation.payload.reminderDaysBefore ?? 1,
+          notificationId: operation.payload.notificationId ?? null,
           updatedAt: serverTimestamp(),
         }
       );
@@ -1349,7 +1361,14 @@ export async function getOfflineTrips(userId: string) {
   const queue = await readQueue();
   const updatedByTripId = new Map<
     string,
-    { name: string; startDateIso: string; updatedAt: string }
+    {
+      name: string;
+      startDateIso: string;
+      reminderEnabled?: boolean;
+      reminderDaysBefore?: number;
+      notificationId?: string | null;
+      updatedAt: string;
+    }
   >();
   const deletedTripIds = new Set<string>();
 
@@ -1362,6 +1381,9 @@ export async function getOfflineTrips(userId: string) {
       updatedByTripId.set(operation.payload.tripId, {
         name: operation.payload.name,
         startDateIso: operation.payload.startDateIso,
+        reminderEnabled: operation.payload.reminderEnabled,
+        reminderDaysBefore: operation.payload.reminderDaysBefore,
+        notificationId: operation.payload.notificationId,
         updatedAt: operation.createdAt,
       });
     }
@@ -1387,6 +1409,12 @@ export async function getOfflineTrips(userId: string) {
         id: operation.id,
         name: update?.name ?? operation.payload.name,
         startDate: update?.startDateIso ?? operation.payload.startDateIso,
+        reminderEnabled:
+          update?.reminderEnabled ?? operation.payload.reminderEnabled ?? false,
+        reminderDaysBefore:
+          update?.reminderDaysBefore ?? operation.payload.reminderDaysBefore ?? 1,
+        notificationId:
+          update?.notificationId ?? operation.payload.notificationId ?? null,
         createdAt: operation.createdAt,
         updatedAt: update?.updatedAt ?? operation.createdAt,
       },
@@ -1403,7 +1431,14 @@ export async function getOfflineTripUpdateOverrides(userId: string) {
   const queue = await readQueue();
   const updatesByTripId = new Map<
     string,
-    { name: string; startDateIso: string; updatedAt: string }
+    {
+      name: string;
+      startDateIso: string;
+      reminderEnabled?: boolean;
+      reminderDaysBefore?: number;
+      notificationId?: string | null;
+      updatedAt: string;
+    }
   >();
 
   for (const operation of queue) {
@@ -1411,6 +1446,9 @@ export async function getOfflineTripUpdateOverrides(userId: string) {
       updatesByTripId.set(operation.payload.tripId, {
         name: operation.payload.name,
         startDateIso: operation.payload.startDateIso,
+        reminderEnabled: operation.payload.reminderEnabled,
+        reminderDaysBefore: operation.payload.reminderDaysBefore,
+        notificationId: operation.payload.notificationId,
         updatedAt: operation.createdAt,
       });
     }

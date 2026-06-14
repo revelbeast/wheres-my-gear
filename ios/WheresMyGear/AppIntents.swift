@@ -146,24 +146,6 @@ struct WheresMyGearShortcuts: AppShortcutsProvider {
     )
 
     AppShortcut(
-      intent: FindGearIntent(),
-      phrases: [
-        "Where's my \(\.$gearName) in \(.applicationName)",
-        "Where is my \(\.$gearName) in \(.applicationName)",
-        "Find my \(\.$gearName) in \(.applicationName)",
-        "Find \(\.$gearName) in \(.applicationName)",
-        "Search for \(\.$gearName) in \(.applicationName)",
-        "Help me find \(\.$gearName) in \(.applicationName)",
-        "Do I have \(\.$gearName) in \(.applicationName)",
-        "Do I already have \(\.$gearName) in \(.applicationName)",
-        "Check if I have \(\.$gearName) in \(.applicationName)",
-        "Do I own \(\.$gearName) in \(.applicationName)"
-      ],
-      shortTitle: "Find Gear",
-      systemImageName: "magnifyingglass.circle"
-    )
-
-    AppShortcut(
       intent: OpenScannerIntent(),
       phrases: [
         "Open scanner in \(.applicationName)",

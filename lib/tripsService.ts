@@ -25,6 +25,9 @@ export type Trip = {
   id: string;
   name: string;
   startDate: Date;
+  reminderEnabled?: boolean;
+  reminderDaysBefore?: number;
+  notificationId?: string | null;
   createdAt?: unknown;
   updatedAt?: unknown;
 };
@@ -109,6 +112,11 @@ function normalizeTrip(id: string, data: Record<string, any>): Trip | null {
     id,
     name,
     startDate,
+    reminderEnabled: data.reminderEnabled === true,
+    reminderDaysBefore:
+      typeof data.reminderDaysBefore === "number" ? data.reminderDaysBefore : 1,
+    notificationId:
+      typeof data.notificationId === "string" ? data.notificationId : null,
     createdAt: data.createdAt,
     updatedAt: data.updatedAt,
   };
@@ -288,6 +296,9 @@ export async function createTrip(input: {
   userId: string;
   name: string;
   startDate: Date;
+  reminderEnabled?: boolean;
+  reminderDaysBefore?: number;
+  notificationId?: string | null;
 }) {
   const activeUserId = requireUserId(input.userId);
   const trimmedName = input.name.trim();
@@ -310,6 +321,9 @@ export async function createTrip(input: {
       payload: {
         name: trimmedName,
         startDateIso: input.startDate.toISOString(),
+        reminderEnabled: input.reminderEnabled === true,
+        reminderDaysBefore: input.reminderDaysBefore ?? 1,
+        notificationId: input.notificationId ?? null,
       },
       createdAt: new Date().toISOString(),
     });
@@ -320,6 +334,9 @@ export async function createTrip(input: {
   const ref = await addDoc(tripsCol(activeUserId), {
     name: trimmedName,
     startDate: input.startDate,
+    reminderEnabled: input.reminderEnabled === true,
+    reminderDaysBefore: input.reminderDaysBefore ?? 1,
+    notificationId: input.notificationId ?? null,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
@@ -332,6 +349,9 @@ export async function updateTrip(input: {
   tripId: string;
   name: string;
   startDate: Date;
+  reminderEnabled?: boolean;
+  reminderDaysBefore?: number;
+  notificationId?: string | null;
 }) {
   const activeUserId = requireUserId(input.userId);
   const activeTripId = requireTripId(input.tripId);
@@ -354,6 +374,9 @@ export async function updateTrip(input: {
         tripId: activeTripId,
         name: trimmedName,
         startDateIso: input.startDate.toISOString(),
+        reminderEnabled: input.reminderEnabled === true,
+        reminderDaysBefore: input.reminderDaysBefore ?? 1,
+        notificationId: input.notificationId ?? null,
       },
       createdAt: new Date().toISOString(),
     });
@@ -370,6 +393,9 @@ export async function updateTrip(input: {
         tripId: activeTripId,
         name: trimmedName,
         startDateIso: input.startDate.toISOString(),
+        reminderEnabled: input.reminderEnabled === true,
+        reminderDaysBefore: input.reminderDaysBefore ?? 1,
+        notificationId: input.notificationId ?? null,
       },
       createdAt: new Date().toISOString(),
     });
@@ -380,6 +406,9 @@ export async function updateTrip(input: {
   await updateDoc(tripDoc(activeUserId, activeTripId), {
     name: trimmedName,
     startDate: input.startDate,
+    reminderEnabled: input.reminderEnabled === true,
+    reminderDaysBefore: input.reminderDaysBefore ?? 1,
+    notificationId: input.notificationId ?? null,
     updatedAt: serverTimestamp(),
   });
 }
