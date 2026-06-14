@@ -1,5 +1,4 @@
 import { BlurView } from "expo-blur";
-import * as Calendar from "expo-calendar";
 import { router, useLocalSearchParams } from "expo-router";
 import {
   CalendarDays,
@@ -119,48 +118,6 @@ function buildCalendarDays(monthDate: Date) {
   return days;
 }
 
-
-async function addTripToCalendarEvent(tripName: string, tripDate: Date) {
-  const { status } = await Calendar.requestCalendarPermissionsAsync();
-
-  if (status !== "granted") {
-    throw new Error("Calendar permission was not granted.");
-  }
-
-  const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
-  const writableCalendar =
-    calendars.find((calendar) => calendar.allowsModifications) ?? calendars[0];
-
-  if (!writableCalendar) {
-    throw new Error("No writable calendar was found.");
-  }
-
-  const startDate = new Date(
-    tripDate.getFullYear(),
-    tripDate.getMonth(),
-    tripDate.getDate(),
-    9,
-    0,
-    0
-  );
-
-  const endDate = new Date(
-    tripDate.getFullYear(),
-    tripDate.getMonth(),
-    tripDate.getDate(),
-    10,
-    0,
-    0
-  );
-
-  await Calendar.createEventAsync(writableCalendar.id, {
-    title: tripName,
-    startDate,
-    endDate,
-    notes: "Created from Where's My Gear. Open the app to review your packing checklist and gear.",
-  });
-}
-
 export default function CreateTripScreen() {
   const theme = useThemedValues();
 
@@ -183,7 +140,6 @@ export default function CreateTripScreen() {
   const [tripDate, setTripDate] = useState(getNoonDate(new Date()));
   const [calendarMonth, setCalendarMonth] = useState(getStartOfDay(new Date()));
   const [isCalendarVisible, setIsCalendarVisible] = useState(false);
-  const [addToCalendar, setAddToCalendar] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   const isMountedRef = useRef(true);
@@ -205,7 +161,6 @@ export default function CreateTripScreen() {
     setTripDate(getNoonDate(now));
     setCalendarMonth(getStartOfDay(now));
     setIsCalendarVisible(false);
-    setAddToCalendar(false);
     setIsSaving(false);
     actionLockRef.current = false;
     navigationLockedRef.current = false;
@@ -335,21 +290,6 @@ export default function CreateTripScreen() {
           name: trimmedName,
           startDate: tripDate,
         });
-
-        if (addToCalendar) {
-          try {
-            await addTripToCalendarEvent(trimmedName, tripDate);
-          } catch (calendarError) {
-            console.warn("Trip saved but calendar event was not created.", calendarError);
-
-            if (isMountedRef.current) {
-              Alert.alert(
-                "Trip saved",
-                "Your trip was saved, but the calendar event was not created."
-              );
-            }
-          }
-        }
 
         if (isMountedRef.current) {
           safeGoBack();
@@ -494,46 +434,6 @@ export default function CreateTripScreen() {
                   Tap the date to choose from the calendar.
                 </ThemedText>
               </View>
-              <View style={styles.calendarOptionRow}>
-                <View style={styles.calendarOptionTextWrap}>
-                  <ThemedText
-                    variant="bodyStrong"
-                    color="primary"
-                    style={[
-                      styles.inputLabel,
-                      theme.isLight ? null : { color: "#FFFFFF" },
-                    ]}
-                  >
-                    Add to Calendar
-                  </ThemedText>
-
-                  <ThemedText color="secondary" style={styles.calendarOptionText}>
-                    Create a calendar event for this trip date.
-                  </ThemedText>
-                </View>
-
-                <HapticPressable
-                  style={[
-                    styles.calendarToggle,
-                    addToCalendar && styles.calendarToggleActive,
-                    isActionBusy && styles.disabledButton,
-                  ]}
-                  onPress={() => {
-                    if (!isActionBusy) {
-                      setAddToCalendar((current) => !current);
-                    }
-                  }}
-                  disabled={isActionBusy}
-                >
-                  <View
-                    style={[
-                      styles.calendarToggleThumb,
-                      addToCalendar && styles.calendarToggleThumbActive,
-                    ]}
-                  />
-                </HapticPressable>
-              </View>
-
             </FrostedCard>
 
             <ThemedButton
@@ -671,41 +571,6 @@ export default function CreateTripScreen() {
 }
 
 const styles = StyleSheet.create({
-
-  calendarOptionRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 16,
-    marginTop: 18,
-  },
-  calendarOptionTextWrap: {
-    flex: 1,
-  },
-  calendarOptionText: {
-    marginTop: 4,
-    lineHeight: 20,
-  },
-  calendarToggle: {
-    width: 52,
-    height: 30,
-    borderRadius: 999,
-    padding: 3,
-    justifyContent: "center",
-    backgroundColor: "rgba(148, 163, 184, 0.45)",
-  },
-  calendarToggleActive: {
-    backgroundColor: "#F59E0B",
-  },
-  calendarToggleThumb: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: "#FFFFFF",
-  },
-  calendarToggleThumbActive: {
-    transform: [{ translateX: 22 }],
-  },
   safe: {
     flex: 1,
     backgroundColor: "transparent",

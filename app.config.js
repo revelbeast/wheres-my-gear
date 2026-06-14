@@ -43,13 +43,6 @@ export default {
       "expo-font",
       "expo-router",
       [
-        "expo-calendar",
-        {
-          calendarPermission:
-            "Allow Where's My Gear to add upcoming trips to your calendar."
-        }
-      ],
-      [
         "expo-speech-recognition",
         {
           microphonePermission:
