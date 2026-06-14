@@ -403,6 +403,12 @@ export default function ManageTemplatesScreen() {
                         {template.name}
                       </Text>
 
+                      <View style={styles.templateItemCountPill}>
+                        <Text style={styles.templateItemCountText}>
+                          {template.itemCount ?? 0} items
+                        </Text>
+                      </View>
+
                       <View style={styles.templateLinks}>
                         <HapticPressable
                           onPress={() => handlePreviewTemplate(template)}
@@ -621,6 +627,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     marginBottom: 8,
+  },
+
+  templateItemCountPill: {
+    alignSelf: "flex-start",
+    borderRadius: 999,
+    backgroundColor: "rgba(34,197,94,0.14)",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginBottom: 10,
+  },
+
+  templateItemCountText: {
+    color: "rgb(34,197,94)",
+    fontSize: 12,
+    fontWeight: "800",
   },
 
   templateLinks: {

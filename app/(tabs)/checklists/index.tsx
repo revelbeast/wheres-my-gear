@@ -792,7 +792,7 @@ export default function ChecklistsTabScreen() {
                                     styles.packedProgressText,
                                   ]}
                                 >
-                                  {checklist.packedCount ?? 0} / {checklist.totalCount ?? 0} packed
+                                  {checklist.packedCount ?? 0} of {checklist.totalCount ?? 0} packed
                                 </ThemedText>
 
                                 {(checklist.totalCount ?? 0) > 0 && (checklist.missingCount ?? 0) === 0 ? (
@@ -805,6 +805,30 @@ export default function ChecklistsTabScreen() {
                                   </ThemedText>
                                 )}
                               </View>
+
+                              <View style={styles.progressBarTrack}>
+                                <View
+                                  style={[
+                                    styles.progressBarFill,
+                                    {
+                                      width: `${Math.round(
+                                        ((checklist.packedCount ?? 0) /
+                                          Math.max(checklist.totalCount ?? 0, 1)) *
+                                          100
+                                      )}%`,
+                                    },
+                                  ]}
+                                />
+                              </View>
+
+                              <ThemedText color="secondary" style={styles.progressPercentText}>
+                                {Math.round(
+                                  ((checklist.packedCount ?? 0) /
+                                    Math.max(checklist.totalCount ?? 0, 1)) *
+                                    100
+                                )}
+                                %
+                              </ThemedText>
                             </View>
 
                             <ChevronRight size={18} color={theme.colors.textSecondary} />
@@ -1081,7 +1105,7 @@ export default function ChecklistsTabScreen() {
                                 styles.packedProgressText,
                               ]}
                             >
-                              {checklist.packedCount ?? 0} / {checklist.totalCount ?? 0} packed
+                              {checklist.packedCount ?? 0} of {checklist.totalCount ?? 0} packed
                             </ThemedText>
 
                             {(checklist.totalCount ?? 0) > 0 && (checklist.missingCount ?? 0) === 0 ? (
@@ -1094,6 +1118,30 @@ export default function ChecklistsTabScreen() {
                               </ThemedText>
                             )}
                           </View>
+
+                          <View style={styles.progressBarTrack}>
+                            <View
+                              style={[
+                                styles.progressBarFill,
+                                {
+                                  width: `${Math.round(
+                                    ((checklist.packedCount ?? 0) /
+                                      Math.max(checklist.totalCount ?? 0, 1)) *
+                                      100
+                                  )}%`,
+                                },
+                              ]}
+                            />
+                          </View>
+
+                          <ThemedText color="secondary" style={styles.progressPercentText}>
+                            {Math.round(
+                              ((checklist.packedCount ?? 0) /
+                                Math.max(checklist.totalCount ?? 0, 1)) *
+                                100
+                            )}
+                            %
+                          </ThemedText>
                         </View>
 
                         <ChevronRight size={18} color={theme.colors.textSecondary} />
@@ -1433,6 +1481,26 @@ const styles = StyleSheet.create({
   },
 
   meta: {},
+
+  progressBarTrack: {
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: "rgba(148,163,184,0.28)",
+    overflow: "hidden",
+    marginTop: 8,
+  },
+
+  progressBarFill: {
+    height: "100%",
+    borderRadius: 999,
+    backgroundColor: "rgb(34,197,94)",
+  },
+
+  progressPercentText: {
+    fontSize: 12,
+    fontWeight: "800",
+    marginTop: 4,
+  },
 
   toPackBadge: {
     fontWeight: "700",
