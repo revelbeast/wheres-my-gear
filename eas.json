@@ -2,7 +2,8 @@
   "cli": {
     "version": ">= 18.7.0",
     "appVersionSource": "remote",
-    "requireCommit": true
+    "requireCommit": true,
+    "promptToConfigurePushNotifications": false
   },
   "build": {
     "development": {
