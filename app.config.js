@@ -14,6 +14,10 @@ export default {
       supportsTablet: true,
       usesIap: true,
       usesAppleSignIn: true,
+      infoPlist: {
+        NSFaceIDUsageDescription:
+          "Allow Where's My Gear to use Face ID to unlock your app.",
+      },
     },
 
     android: {
