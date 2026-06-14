@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Check, Moon, Sun } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, ScrollView, StyleSheet, Switch, View } from "react-native";
@@ -26,6 +27,8 @@ import {
 } from "../../lib/revenuecat";
 import { publishAppThemeUpdate } from "../../lib/themeUpdateBus";
 
+const APP_LOCK_ENABLED_KEY = "wmg.appLock.enabled.v1";
+
 export default function GeneralSettingsScreen() {
   const { user } = useAuth();
   const activeTheme = useThemedValues();
@@ -37,6 +40,7 @@ export default function GeneralSettingsScreen() {
   const [profile, setProfile] = useState<AppProfile | null>(null);
   const [theme, setTheme] = useState<AppTheme>("dark");
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
+  const [appLockEnabled, setAppLockEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isRestoringPurchases, setIsRestoringPurchases] = useState(false);
@@ -86,6 +90,9 @@ export default function GeneralSettingsScreen() {
 
       const nextTheme = data.theme ?? "dark";
       const nextHapticsEnabled = data.hapticsEnabled ?? true;
+      const savedAppLockEnabled = await AsyncStorage.getItem(APP_LOCK_ENABLED_KEY);
+
+      setAppLockEnabled(savedAppLockEnabled === "true");
 
       setProfile(data);
       setTheme(nextTheme);
@@ -134,6 +141,7 @@ export default function GeneralSettingsScreen() {
       };
 
       await saveProfileSettings(user.uid, nextProfile);
+      await AsyncStorage.setItem(APP_LOCK_ENABLED_KEY, appLockEnabled ? "true" : "false");
 
       if (!isMountedRef.current) {
         return;
@@ -205,6 +213,13 @@ export default function GeneralSettingsScreen() {
     if (saving || loading || actionLockRef.current) return;
 
     setHapticsEnabled(value);
+  }
+
+  function handleAppLockChange(value: boolean) {
+    if (saving || loading || actionLockRef.current) return;
+
+    setAppLockEnabled(value);
+    
   }
 
   async function handleRestorePurchases() {
@@ -389,6 +404,30 @@ export default function GeneralSettingsScreen() {
                     ios_backgroundColor={activeTheme.colors.inputSurface}
                   />
                 </View>
+              </ThemedCard>
+
+              <ThemedCard style={styles.feedbackCard}>
+                <View style={styles.settingRow}>
+                  <View style={styles.settingTextBlock}>
+                    <ThemedText variant="bodyStrong">Face ID App Lock</ThemedText>
+                    <ThemedText color="secondary" style={styles.settingHelper}>
+                      Require Face ID when opening the app. If Face ID is unavailable, iOS will offer the device passcode.
+                    </ThemedText>
+                  </View>
+
+                  <Switch
+                    value={appLockEnabled}
+                    onValueChange={handleAppLockChange}
+                    disabled={saving || loading || actionLockRef.current}
+                    trackColor={{
+                      false: activeTheme.colors.inputSurface,
+                      true: "rgba(55,130,245,0.45)",
+                    }}
+                    thumbColor="#FFFFFF"
+                    ios_backgroundColor={activeTheme.colors.inputSurface}
+                  />
+                </View>
+
               </ThemedCard>
 
               <ThemedCard style={styles.restoreCard}>

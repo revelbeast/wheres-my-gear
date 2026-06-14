@@ -2,19 +2,16 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as LocalAuthentication from "expo-local-authentication";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Alert,
   AppState,
   Modal,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 
 import HapticPressable from "../ui/HapticPressable";
 
 const APP_LOCK_ENABLED_KEY = "wmg.appLock.enabled.v1";
-const APP_LOCK_PASSCODE_KEY = "wmg.appLock.passcode.v1";
 
 type Props = {
   children: React.ReactNode;
@@ -24,8 +21,6 @@ type LockStatus = "checking" | "unlocked" | "locked";
 
 export default function AppLockGate({ children }: Props) {
   const [status, setStatus] = useState<LockStatus>("checking");
-  const [passcode, setPasscode] = useState("");
-  const [storedPasscode, setStoredPasscode] = useState<string | null>(null);
   const authenticatingRef = useRef(false);
   const appWasBackgroundedRef = useRef(false);
 
@@ -45,12 +40,12 @@ export default function AppLockGate({ children }: Props) {
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: "Unlock Where's My Gear",
         fallbackLabel: "Use Passcode",
-        cancelLabel: "Use Passcode",
-        disableDeviceFallback: true,
+        cancelLabel: "Cancel",
+        disableDeviceFallback: false,
       });
 
       if (result.success) {
-        setPasscode("");
+        appWasBackgroundedRef.current = false;
         setStatus("unlocked");
         return true;
       }
@@ -67,11 +62,7 @@ export default function AppLockGate({ children }: Props) {
   const checkLock = useCallback(async () => {
     try {
       const enabled = await AsyncStorage.getItem(APP_LOCK_ENABLED_KEY);
-      const savedPasscode = await AsyncStorage.getItem(APP_LOCK_PASSCODE_KEY);
-
-      setStoredPasscode(savedPasscode);
-
-      if (enabled !== "true" || !savedPasscode) {
+      if (enabled !== "true") {
         setStatus("unlocked");
         return;
       }
@@ -95,12 +86,16 @@ export default function AppLockGate({ children }: Props) {
 
   useEffect(() => {
     const sub = AppState.addEventListener("change", (nextState) => {
-      if (nextState === "background" || nextState === "inactive") {
+      if (nextState === "background") {
         appWasBackgroundedRef.current = true;
         return;
       }
 
-      if (nextState === "active" && appWasBackgroundedRef.current) {
+      if (
+        nextState === "active" &&
+        appWasBackgroundedRef.current &&
+        !authenticatingRef.current
+      ) {
         appWasBackgroundedRef.current = false;
         void checkLock();
       }
@@ -108,22 +103,6 @@ export default function AppLockGate({ children }: Props) {
 
     return () => sub.remove();
   }, [checkLock]);
-
-  function handlePasscodeUnlock() {
-    if (!storedPasscode) {
-      setStatus("unlocked");
-      return;
-    }
-
-    if (passcode === storedPasscode) {
-      setPasscode("");
-      setStatus("unlocked");
-      return;
-    }
-
-    Alert.alert("Incorrect Passcode", "Try again.");
-    setPasscode("");
-  }
 
   if (status === "checking") {
     return (
@@ -142,29 +121,18 @@ export default function AppLockGate({ children }: Props) {
           <Text style={styles.title}>Where's My Gear</Text>
           <Text style={styles.subtitle}>Unlock to continue</Text>
 
-          <TextInput
-            value={passcode}
-            onChangeText={setPasscode}
-            placeholder="Enter passcode"
-            placeholderTextColor="rgba(255,255,255,0.45)"
-            secureTextEntry
-            keyboardType="number-pad"
-            style={styles.input}
-            maxLength={12}
-          />
-
-          <HapticPressable style={styles.primaryButton} onPress={handlePasscodeUnlock}>
-            <Text style={styles.primaryButtonText}>Unlock</Text>
-          </HapticPressable>
-
           <HapticPressable
-            style={styles.secondaryButton}
+            style={styles.primaryButton}
             onPress={() => {
               void unlockWithBiometrics();
             }}
           >
-            <Text style={styles.secondaryButtonText}>Use Face ID</Text>
+            <Text style={styles.primaryButtonText}>Unlock with Face ID</Text>
           </HapticPressable>
+
+          <Text style={styles.helperText}>
+            If Face ID is unavailable, iOS will offer your device passcode.
+          </Text>
         </View>
       </Modal>
     </>
@@ -200,20 +168,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 28,
   },
-  input: {
-    width: "100%",
-    maxWidth: 320,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.18)",
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    color: "#FFFFFF",
-    fontSize: 18,
-    marginBottom: 14,
-    textAlign: "center",
-  },
   primaryButton: {
     width: "100%",
     maxWidth: 320,
@@ -228,13 +182,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
   },
-  secondaryButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-  },
-  secondaryButtonText: {
-    color: "#93C5FD",
-    fontSize: 15,
-    fontWeight: "700",
+  helperText: {
+    color: "rgba(255,255,255,0.62)",
+    fontSize: 14,
+    lineHeight: 20,
+    maxWidth: 320,
+    textAlign: "center",
   },
 });
