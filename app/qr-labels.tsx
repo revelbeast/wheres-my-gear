@@ -550,69 +550,98 @@ export default function QrLabelsScreen() {
   }
 
   function buildBulkQrLabelsHtml(labels: string[]) {
+    const pages: string[][] = [];
+
+    for (let index = 0; index < labels.length; index += 4) {
+      pages.push(labels.slice(index, index + 4));
+    }
+
     return `
       <html>
         <head>
           <meta name="viewport" content="width=device-width, initial-scale=1.0" />
           <style>
+            @page {
+              size: letter;
+              margin: 0.35in;
+            }
+            * {
+              box-sizing: border-box;
+            }
             body {
               font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
               margin: 0;
-              padding: 16px;
+              padding: 0;
               color: #111827;
             }
-            .sheet {
-              display: flex;
-              flex-wrap: wrap;
+            .page {
+              display: grid;
+              grid-template-columns: repeat(2, 1fr);
+              grid-template-rows: repeat(2, 1fr);
               gap: 14px;
-              justify-content: center;
+              width: 100%;
+              min-height: 9.8in;
+              page-break-after: always;
+              break-after: page;
+            }
+            .page:last-child {
+              page-break-after: auto;
+              break-after: auto;
             }
             .label {
               border: 2px solid #111827;
               border-radius: 18px;
-              box-sizing: border-box;
+              break-inside: avoid;
               page-break-inside: avoid;
-              padding: 12px;
+              overflow: hidden;
+              padding: 10px;
               text-align: center;
-              width: 320px;
+              width: 100%;
+              min-height: 4.65in;
             }
             .app {
-              font-size: 14px;
+              font-size: 13px;
               font-weight: 700;
               letter-spacing: 0.08em;
               text-transform: uppercase;
               color: #2563eb;
-              margin-bottom: 10px;
+              margin-bottom: 8px;
             }
             .title {
-              font-size: 20px;
+              font-size: 18px;
               font-weight: 800;
-              margin-bottom: 12px;
+              margin-bottom: 8px;
             }
             .qr {
-              width: 160px;
-              height: 160px;
-              margin: 10px auto 10px auto;
+              width: 145px;
+              height: 145px;
+              margin: 8px auto;
             }
             .meta {
-              font-size: 15px;
-              line-height: 1.45;
+              font-size: 13px;
+              line-height: 1.35;
               text-align: left;
               margin-top: 8px;
               border-top: 1px solid #d1d5db;
               padding-top: 8px;
             }
             .hint {
-              font-size: 12px;
+              font-size: 11px;
               color: #4b5563;
               margin-top: 8px;
             }
           </style>
         </head>
         <body>
-          <div class="sheet">
-            ${labels.join("\n")}
-          </div>
+          ${pages
+            .map(
+              (pageLabels) => `
+                <div class="page">
+                  ${pageLabels.join("\n")}
+                </div>
+              `
+            )
+            .join("\n")}
         </body>
       </html>
     `;
