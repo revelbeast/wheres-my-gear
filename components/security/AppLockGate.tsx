@@ -39,10 +39,11 @@ export default function AppLockGate({ children }: Props) {
       }
 
       const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: "Unlock Where's My Gear",
+        promptMessage: "Unlock Where's My Gear with Face ID",
         fallbackLabel: "Use Passcode",
         cancelLabel: "Cancel",
         disableDeviceFallback: false,
+        requireConfirmation: false,
       });
 
       if (result.success) {
