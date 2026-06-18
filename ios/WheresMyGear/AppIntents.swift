@@ -2,6 +2,93 @@ import AppIntents
 import UIKit
 
 
+struct SiriGearCache: Decodable {
+  let items: [SiriGearCacheItem]
+}
+
+struct SiriGearCacheItem: Decodable {
+  let id: String
+  let name: String
+  let compartmentName: String
+  let vehicleName: String
+}
+
+@available(iOS 16.0, *)
+struct GearItemEntity: AppEntity {
+  static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "Gear Item")
+  static var defaultQuery = GearItemQuery()
+
+  let id: String
+  let name: String
+  let compartmentName: String
+  let vehicleName: String
+
+  var displayRepresentation: DisplayRepresentation {
+    let location = [compartmentName, vehicleName]
+      .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+      .joined(separator: " • ")
+
+    return DisplayRepresentation(
+      title: "\(name)",
+      subtitle: location.isEmpty ? nil : "\(location)"
+    )
+  }
+}
+
+@available(iOS 16.0, *)
+struct GearItemQuery: EntityStringQuery {
+  func entities(for identifiers: [GearItemEntity.ID]) async throws -> [GearItemEntity] {
+    let allItems = loadSiriGearItems()
+    return allItems.filter { identifiers.contains($0.id) }
+  }
+
+  func entities(matching string: String) async throws -> [GearItemEntity] {
+    let normalizedSearch = string.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+
+    guard !normalizedSearch.isEmpty else {
+      return Array(loadSiriGearItems().prefix(20))
+    }
+
+    return loadSiriGearItems()
+      .filter { item in
+        item.name.lowercased().contains(normalizedSearch) ||
+        item.compartmentName.lowercased().contains(normalizedSearch) ||
+        item.vehicleName.lowercased().contains(normalizedSearch)
+      }
+      .prefix(20)
+      .map { $0 }
+  }
+
+  func suggestedEntities() async throws -> [GearItemEntity] {
+    Array(loadSiriGearItems().prefix(20))
+  }
+
+  private func loadSiriGearItems() -> [GearItemEntity] {
+    guard let documentsUrl = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+      return []
+    }
+
+    let cacheUrl = documentsUrl.appendingPathComponent("wmg-siri-gear-cache.json")
+
+    guard
+      let data = try? Data(contentsOf: cacheUrl),
+      let cache = try? JSONDecoder().decode(SiriGearCache.self, from: data)
+    else {
+      return []
+    }
+
+    return cache.items.map {
+      GearItemEntity(
+        id: $0.id,
+        name: $0.name,
+        compartmentName: $0.compartmentName,
+        vehicleName: $0.vehicleName
+      )
+    }
+  }
+}
+
+
 @available(iOS 16.0, *)
 struct OpenDashboardIntent: AppIntent {
   static var title: LocalizedStringResource = "Open Dashboard"
@@ -47,12 +134,12 @@ struct FindGearIntent: AppIntent {
   static var description = IntentDescription("Search for a gear item in Where's My Gear.")
   static var openAppWhenRun: Bool = true
 
-  @Parameter(title: "Gear Name")
-  var gearName: String
+  @Parameter(title: "Gear Item")
+  var gearItem: GearItemEntity
 
   @MainActor
   func perform() async throws -> some IntentResult {
-    let encodedGearName = gearName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? gearName
+    let encodedGearName = gearItem.name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? gearItem.name
     openDeepLink("wheres-my-gear://search?query=\(encodedGearName)")
     return .result()
   }
@@ -143,6 +230,17 @@ struct WheresMyGearShortcuts: AppShortcutsProvider {
       ],
       shortTitle: "Search Gear",
       systemImageName: "magnifyingglass"
+    )
+
+    AppShortcut(
+      intent: FindGearIntent(),
+      phrases: [
+        "Find \(\.$gearItem) in \(.applicationName)",
+        "Where is \(\.$gearItem) in \(.applicationName)",
+        "Where's \(\.$gearItem) in \(.applicationName)"
+      ],
+      shortTitle: "Find Gear",
+      systemImageName: "magnifyingglass.circle"
     )
 
     AppShortcut(
