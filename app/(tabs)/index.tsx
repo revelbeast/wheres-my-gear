@@ -3889,19 +3889,16 @@ export default function DashboardScreen() {
           onRequestClose={handleCloseDashboardExport}
         >
           <View style={styles.exportModalOverlay}>
-            <View
-              style={[
-                styles.exportModalCard,
-                {
-                  backgroundColor: theme.colors.cardStrong,
-                  borderColor: theme.colors.border,
-                },
-              ]}
-            >
+            <View style={styles.exportModalCard}>
               {exportStep === "category" ? (
                 <>
-                  <ThemedText variant="title">Export To...</ThemedText>
-                  <ThemedText color="secondary">
+                  <ThemedText style={styles.exportModalEyebrow}>
+                    Export Data
+                  </ThemedText>
+                  <ThemedText variant="title" style={styles.exportModalTitle}>
+                    Export To...
+                  </ThemedText>
+                  <ThemedText style={styles.exportModalDescription}>
                     Choose what you want to export.
                   </ThemedText>
 
@@ -3909,33 +3906,31 @@ export default function DashboardScreen() {
                     <HapticPressable
                       style={[
                         styles.exportModalOptionButton,
-                        {
-                          backgroundColor: theme.colors.iconSurface,
-                          borderColor: theme.colors.border,
-                        },
+                        styles.exportModalOptionButtonThemed,
                       ]}
                       onPress={() => {
                         setExportCategory("storageSpaces");
                         setExportStep("selection");
                       }}
                     >
-                      <ThemedText>Storage Spaces</ThemedText>
+                      <ThemedText style={styles.exportModalOptionText}>
+                        Storage Spaces
+                      </ThemedText>
                     </HapticPressable>
 
                     <HapticPressable
                       style={[
                         styles.exportModalOptionButton,
-                        {
-                          backgroundColor: theme.colors.iconSurface,
-                          borderColor: theme.colors.border,
-                        },
+                        styles.exportModalOptionButtonThemed,
                       ]}
                       onPress={() => {
                         setExportCategory("checklists");
                         setExportStep("selection");
                       }}
                     >
-                      <ThemedText>Checklists</ThemedText>
+                      <ThemedText style={styles.exportModalOptionText}>
+                        Checklists
+                      </ThemedText>
                     </HapticPressable>
                   </View>
                 </>
@@ -4001,10 +3996,7 @@ export default function DashboardScreen() {
                     <HapticPressable
                       style={[
                         styles.exportModalOptionButton,
-                        {
-                          backgroundColor: theme.colors.iconSurface,
-                          borderColor: theme.colors.border,
-                        },
+                        styles.exportModalOptionButtonThemed,
                       ]}
                       onPress={handleSelectAllExportItems}
                     >
@@ -4071,10 +4063,7 @@ export default function DashboardScreen() {
                     <HapticPressable
                       style={[
                         styles.exportModalOptionButton,
-                        {
-                          backgroundColor: theme.colors.iconSurface,
-                          borderColor: theme.colors.border,
-                        },
+                        styles.exportModalOptionButtonThemed,
                       ]}
                       onPress={() => {
                         const selectedStorageCompartments = allCompartments
@@ -4118,10 +4107,7 @@ export default function DashboardScreen() {
                     <HapticPressable
                       style={[
                         styles.exportModalOptionButton,
-                        {
-                          backgroundColor: theme.colors.iconSurface,
-                          borderColor: theme.colors.border,
-                        },
+                        styles.exportModalOptionButtonThemed,
                       ]}
                       onPress={handleExportDashboardDocx}
                     >
@@ -4131,10 +4117,7 @@ export default function DashboardScreen() {
                     <HapticPressable
                       style={[
                         styles.exportModalOptionButton,
-                        {
-                          backgroundColor: theme.colors.iconSurface,
-                          borderColor: theme.colors.border,
-                        },
+                        styles.exportModalOptionButtonThemed,
                       ]}
                       onPress={handleExportDashboardPdf}
                     >
@@ -4144,10 +4127,7 @@ export default function DashboardScreen() {
                     <HapticPressable
                       style={[
                         styles.exportModalOptionButton,
-                        {
-                          backgroundColor: theme.colors.iconSurface,
-                          borderColor: theme.colors.border,
-                        },
+                        styles.exportModalOptionButtonThemed,
                       ]}
                       onPress={handleExportDashboardCsv}
                     >
@@ -4227,7 +4207,7 @@ export default function DashboardScreen() {
               ) : null}
 
               <HapticPressable onPress={handleCloseDashboardExport}>
-                <ThemedText color="secondary" style={styles.exportModalCancelText}>
+                <ThemedText style={styles.exportModalCancelText}>
                   Cancel
                 </ThemedText>
               </HapticPressable>
@@ -4242,15 +4222,7 @@ export default function DashboardScreen() {
           onRequestClose={handleCloseVoiceAddModal}
         >
           <View style={styles.exportModalOverlay} pointerEvents="auto">
-            <View
-              style={[
-                styles.exportModalCard,
-                {
-                  backgroundColor: theme.colors.cardStrong,
-                  borderColor: theme.colors.border,
-                },
-              ]}
-            >
+            <View style={styles.exportModalCard}>
               <Pressable
                 style={[
                   styles.voiceAddIconWrap,
@@ -4427,7 +4399,7 @@ export default function DashboardScreen() {
               </HapticPressable>
 
               <HapticPressable onPress={handleCloseVoiceAddModal}>
-                <ThemedText color="secondary" style={styles.exportModalCancelText}>
+                <ThemedText style={styles.exportModalCancelText}>
                   Cancel
                 </ThemedText>
               </HapticPressable>
@@ -5318,15 +5290,34 @@ const styles = StyleSheet.create({
   exportModalOverlay: {
     flex: 1,
     justifyContent: "center",
-    backgroundColor: "rgba(0,0,0,0.6)",
+    backgroundColor: "rgba(0,0,0,0.72)",
     paddingHorizontal: 24,
   },
 
   exportModalCard: {
-    padding: 20,
-    borderRadius: 18,
+    padding: 22,
+    borderRadius: 28,
     borderWidth: 1,
-    gap: 12,
+    gap: 14,
+    backgroundColor: "rgba(37, 66, 153, 0.96)",
+    borderColor: "rgba(255,255,255,0.22)",
+  },
+
+  exportModalEyebrow: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+
+  exportModalTitle: {
+    color: "#FFFFFF",
+  },
+
+  exportModalDescription: {
+    color: "rgba(255,255,255,0.82)",
+    lineHeight: 22,
   },
 
   exportModalOptionsScroll: {
@@ -5342,8 +5333,18 @@ const styles = StyleSheet.create({
   exportModalOptionButton: {
     paddingHorizontal: 14,
     paddingVertical: 14,
-    borderRadius: 14,
+    borderRadius: 18,
     borderWidth: 1,
+  },
+
+  exportModalOptionButtonThemed: {
+    backgroundColor: "rgba(255,255,255,0.10)",
+    borderColor: "rgba(255,255,255,0.24)",
+  },
+
+  exportModalOptionText: {
+    color: "#FFFFFF",
+    fontWeight: "800",
   },
 
   exportModalPrimaryButton: {
@@ -5361,8 +5362,10 @@ const styles = StyleSheet.create({
   },
 
   exportModalCancelText: {
+    color: "#FFFFFF",
     textAlign: "center",
     marginTop: 8,
+    fontWeight: "800",
   },
 
 });

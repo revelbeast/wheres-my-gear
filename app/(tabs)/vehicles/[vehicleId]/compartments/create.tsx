@@ -182,12 +182,14 @@ const styles = StyleSheet.create({
   },
 
   frostedCard: {
-    borderRadius: 16,
+    borderRadius: 28,
+    backgroundColor: "rgba(37, 66, 153, 0.96)",
+    borderColor: "rgba(255,255,255,0.22)",
   },
 
   frostedCardContent: {
-    paddingHorizontal: 14,
-    paddingVertical: 14,
+    paddingHorizontal: 22,
+    paddingVertical: 22,
   },
 
   frostedBlur: {
@@ -196,25 +198,28 @@ const styles = StyleSheet.create({
   },
 
   label: {
-    fontSize: 14,
+    color: "#FFFFFF",
+    fontSize: 12,
     marginBottom: 8,
-    fontWeight: "700",
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 1,
   },
 
   input: {
-    minHeight: 48,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
+    minHeight: 54,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
     borderWidth: 1,
-    marginBottom: 14,
+    marginBottom: 20,
     fontSize: 15,
   },
 
   saveButton: {
-    minHeight: 46,
-    borderRadius: 12,
-    backgroundColor: "rgba(55,130,245,0.95)",
+    minHeight: 54,
+    borderRadius: 18,
+    backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -224,8 +229,8 @@ const styles = StyleSheet.create({
   },
 
   saveButtonText: {
-    color: "#fff",
+    color: "#111827",
     fontSize: 15,
-    fontWeight: "700",
+    fontWeight: "900",
   },
 });

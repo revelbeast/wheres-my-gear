@@ -477,15 +477,7 @@ export default function CreateStorageScreen() {
             <BlurView
               intensity={theme.isLight ? 18 : 20}
               tint={theme.isLight ? "light" : "systemUltraThinMaterialDark"}
-              style={[
-                styles.card,
-                {
-                  backgroundColor: theme.isLight
-                    ? "#FFFFFF"
-                    : "rgba(10,18,32,0.52)",
-                  borderColor: "rgba(255,255,255,0.14)",
-                },
-              ]}
+              style={styles.card}
             >
               <Text
                 style={[
@@ -838,25 +830,28 @@ const styles = StyleSheet.create({
   },
 
   card: {
-    borderRadius: 20,
-    padding: 16,
+    borderRadius: 28,
+    padding: 22,
     borderWidth: 1,
     overflow: "hidden",
+    backgroundColor: "rgba(37, 66, 153, 0.96)",
+    borderColor: "rgba(255,255,255,0.22)",
   },
 
   label: {
+    color: "#FFFFFF",
     fontSize: 12,
-    fontWeight: "700",
+    fontWeight: "800",
     marginBottom: 6,
     marginTop: 12,
     textTransform: "uppercase",
-    letterSpacing: 0.4,
+    letterSpacing: 1,
   },
 
   input: {
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
     borderWidth: 1,
     fontSize: 15,
   },
@@ -869,7 +864,7 @@ const styles = StyleSheet.create({
   toggle: {
     flex: 1,
     paddingVertical: 12,
-    borderRadius: 14,
+    borderRadius: 18,
     alignItems: "center",
     borderWidth: 1,
   },
@@ -900,10 +895,10 @@ const styles = StyleSheet.create({
   },
 
   dropdownButton: {
-    borderRadius: 14,
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
-    backgroundColor: "rgba(255,255,255,0.04)",
+    borderColor: "rgba(255,255,255,0.24)",
+    backgroundColor: "rgba(255,255,255,0.10)",
     paddingHorizontal: 12,
     paddingVertical: 12,
     flexDirection: "row",
@@ -959,15 +954,15 @@ const styles = StyleSheet.create({
 
   saveButton: {
     marginTop: 20,
-    backgroundColor: "rgba(55,130,245,0.95)",
+    backgroundColor: "#FFFFFF",
     paddingVertical: 14,
-    borderRadius: 16,
+    borderRadius: 18,
     alignItems: "center",
   },
 
   saveText: {
-    color: "#FFFFFF",
-    fontWeight: "700",
+    color: "#111827",
+    fontWeight: "900",
     fontSize: 15,
   },
 
