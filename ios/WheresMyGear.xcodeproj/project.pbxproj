@@ -14,6 +14,7 @@
 		89CFDF7333B494E0057FAA98 /* libPods-WheresMyGear.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 715AEAE8539088F7C17CA19A /* libPods-WheresMyGear.a */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
+A1B2C3D4E5F60718293A4B5C /* AppIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5D /* AppIntents.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -28,6 +29,7 @@
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = WheresMyGear/AppDelegate.swift; sourceTree = "<group>"; };
+A1B2C3D4E5F60718293A4B5D /* AppIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppIntents.swift; path = WheresMyGear/AppIntents.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* WheresMyGear-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "WheresMyGear-Bridging-Header.h"; path = "WheresMyGear/WheresMyGear-Bridging-Header.h"; sourceTree = "<group>"; };
 		F38655AFE0D70BCCB18A08CF /* Pods-WheresMyGear.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-WheresMyGear.release.xcconfig"; path = "Target Support Files/Pods-WheresMyGear/Pods-WheresMyGear.release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -48,6 +50,7 @@
 			isa = PBXGroup;
 			children = (
 				F11748412D0307B40044C1D9 /* AppDelegate.swift */,
+A1B2C3D4E5F60718293A4B5D /* AppIntents.swift */,
 				F11748442D0722820044C1D9 /* WheresMyGear-Bridging-Header.h */,
 				BB2F792B24A3F905000567C9 /* Supporting */,
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
@@ -356,6 +359,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
+A1B2C3D4E5F60718293A4B5C /* AppIntents.swift in Sources */,
 				3C8F8F0F563724E5B9B24C9B /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
