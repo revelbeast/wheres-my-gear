@@ -1631,13 +1631,10 @@ export default function DashboardScreen() {
       setUpcomingTrips(trips);
       setInitialDashboardLoading(false);
 
-      const compartmentsSnapshot = await getDocs(
-        collection(db, "users", activeUserId, "compartments")
+      const compartmentGroups = await Promise.all(
+        spaces.map((space) => getCompartments(space.id))
       );
-      const compartments = compartmentsSnapshot.docs.map((docSnap) => ({
-        id: docSnap.id,
-        ...docSnap.data(),
-      })) as Compartment[];
+      const compartments = compartmentGroups.flat();
 
       if (
         !isMountedRef.current ||
