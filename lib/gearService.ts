@@ -230,8 +230,10 @@ export async function getStorageSpaceById(
       ...snapshot.data(),
     } as StorageSpace;
   } catch (error) {
-    console.warn("Unable to load storage space while offline.", error);
-    return null;
+    console.warn("Unable to load storage space while offline. Checking cached spaces.", error);
+
+    const cachedSpaces = (await getCachedStorageSpaces(userId)) as StorageSpace[];
+    return cachedSpaces.find((space) => space.id === storageId) ?? null;
   }
 }
 
