@@ -1,3 +1,4 @@
+import NetInfo from "@react-native-community/netinfo";
 import { Document, Packer, Paragraph, TextRun } from "docx";
 import { BlurView } from "expo-blur";
 import * as FileSystem from "expo-file-system/legacy";
@@ -20,7 +21,8 @@ import {
   Plus,
   Search,
   Share,
-  UserCircle2
+  UserCircle2,
+  WifiOff
 } from "lucide-react-native";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -708,6 +710,7 @@ export default function DashboardScreen() {
   >([]);
 
   const [profilePhotoUri, setProfilePhotoUri] = useState("");
+  const [isOffline, setIsOffline] = useState(false);
   const [profilePhotoFailed, setProfilePhotoFailed] = useState(false);
 
   const nextUpcomingTrip = upcomingTrips[0] ?? null;
@@ -1092,6 +1095,29 @@ export default function DashboardScreen() {
 
     setVoiceTranscript("Voice recognition stopped. Tap the mic to try again.");
   });
+
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      setIsOffline(
+        state.isConnected !== true || state.isInternetReachable === false
+      );
+    });
+
+    NetInfo.fetch()
+      .then((state) => {
+        if (!isMountedRef.current) return;
+
+        setIsOffline(
+          state.isConnected !== true || state.isInternetReachable === false
+        );
+      })
+      .catch(() => {
+        if (!isMountedRef.current) return;
+        setIsOffline(true);
+      });
+
+    return unsubscribe;
+  }, []);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -3065,6 +3091,23 @@ export default function DashboardScreen() {
             </View>
           </FrostedCard>
 
+          {isOffline && (
+            <View style={styles.offlineModeBanner}>
+              <View style={styles.offlineModeIconWrap}>
+                <WifiOff size={24} color="#FFFFFF" />
+              </View>
+
+              <View style={styles.offlineModeTextWrap}>
+                <ThemedText style={styles.offlineModeTitle}>
+                  Offline Mode
+                </ThemedText>
+                <ThemedText style={styles.offlineModeSubtitle}>
+                  Last synced: Jun 17, 2026 10:15 PM
+                </ThemedText>
+              </View>
+            </View>
+          )}
+
           {initializing ? (
             <ThemedCard style={styles.emptyCard}>
               <ThemedText variant="bodyStrong" style={styles.emptyTitle}>
@@ -4402,6 +4445,41 @@ export default function DashboardScreen() {
 }
 
 const styles = StyleSheet.create({
+  offlineModeBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.22)",
+    backgroundColor: "rgba(255,255,255,0.14)",
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginTop: 14,
+    marginBottom: 6,
+  },
+  offlineModeIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.14)",
+  },
+  offlineModeTextWrap: {
+    flex: 1,
+  },
+  offlineModeTitle: {
+    color: "#00E5FF",
+    fontWeight: "900",
+    fontSize: 15,
+  },
+  offlineModeSubtitle: {
+    color: "rgba(255,255,255,0.78)",
+    fontWeight: "700",
+    fontSize: 12,
+    marginTop: 2,
+  },
   dashboardTourOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.72)",
