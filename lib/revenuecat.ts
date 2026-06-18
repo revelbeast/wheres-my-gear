@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 import Purchases, {
@@ -12,6 +13,33 @@ const PREMIUM_PLUS_PRODUCT_IDS = [
   "premium_plus_annual",
   "premium_plus_annual:premium-plus-annual",
 ];
+
+const PREMIUM_ACCESS_CACHE_KEY = "wmg.revenuecat.premiumAccess.v1";
+
+type CachedPremiumAccess = {
+  premium: boolean;
+  premiumPlus: boolean;
+  updatedAt: string;
+};
+
+async function cachePremiumAccess(access: CachedPremiumAccess) {
+  await AsyncStorage.setItem(PREMIUM_ACCESS_CACHE_KEY, JSON.stringify(access));
+}
+
+async function getCachedPremiumAccess(): Promise<CachedPremiumAccess | null> {
+  const raw = await AsyncStorage.getItem(PREMIUM_ACCESS_CACHE_KEY);
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as CachedPremiumAccess;
+    return typeof parsed?.premium === "boolean" &&
+      typeof parsed?.premiumPlus === "boolean"
+      ? parsed
+      : null;
+  } catch {
+    return null;
+  }
+}
 
 let configurePromise: Promise<boolean> | null = null;
 let isConfigured = false;
@@ -205,20 +233,52 @@ export function hasPremiumPlusAccess(customerInfo: CustomerInfo | null) {
 export async function isPremiumPlusUser() {
   try {
     const customerInfo = await getCustomerInfo();
-    return hasPremiumPlusAccess(customerInfo);
+
+    if (!customerInfo) {
+      const cached = await getCachedPremiumAccess();
+      return cached?.premiumPlus ?? false;
+    }
+
+    const premiumPlus = hasPremiumPlusAccess(customerInfo);
+    const premium = hasActivePremiumEntitlement(customerInfo) || premiumPlus;
+
+    await cachePremiumAccess({
+      premium,
+      premiumPlus,
+      updatedAt: new Date().toISOString(),
+    });
+
+    return premiumPlus;
   } catch (e) {
     console.log("RevenueCat premium plus check unavailable:", e);
-    return false;
+    const cached = await getCachedPremiumAccess();
+    return cached?.premiumPlus ?? false;
   }
 }
 
 export async function isPremiumUser() {
   try {
     const customerInfo = await getCustomerInfo();
-    return hasActivePremiumEntitlement(customerInfo);
+
+    if (!customerInfo) {
+      const cached = await getCachedPremiumAccess();
+      return cached?.premium ?? false;
+    }
+
+    const premiumPlus = hasPremiumPlusAccess(customerInfo);
+    const premium = hasActivePremiumEntitlement(customerInfo) || premiumPlus;
+
+    await cachePremiumAccess({
+      premium,
+      premiumPlus,
+      updatedAt: new Date().toISOString(),
+    });
+
+    return premium;
   } catch (e) {
     console.log("RevenueCat premium check unavailable:", e);
-    return false;
+    const cached = await getCachedPremiumAccess();
+    return cached?.premium ?? false;
   }
 }
 
