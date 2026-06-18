@@ -1777,19 +1777,10 @@ export default function DashboardScreen() {
       console.error("Failed to load dashboard data:", err);
       setInitialDashboardLoading(false);
 
-      setStorageSpaces([]);
-      setSelectedStorageId(null);
-      setAllItems([]);
-      setAllRooms([]);
-      setAllCompartments([]);
-      setAllChecklists([]);
-      setAllChecklistItems([]);
-      setAllTemplates([]);
-      setAllTemplateItems([]);
-      setSelectedCompartments([]);
-      setQuickCompartments([]);
-      setQuickRooms([]);
-      setUpcomingTrips([]);
+      // Keep any cache-backed dashboard data that already loaded.
+      // Fully offline cold launches may successfully load storage spaces,
+      // rooms, items, trips, or compartments before a later optional section fails.
+      setShowStorageDropdown(false);
     }
   }
 
