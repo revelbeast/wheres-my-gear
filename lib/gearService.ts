@@ -138,6 +138,19 @@ function inventoryDoc(itemId: string) {
   return doc(db, "users", getCurrentUserId(), "inventoryItems", itemId);
 }
 
+function compareNaturalNames(a: string, b: string) {
+  return a.localeCompare(b, undefined, {
+    numeric: true,
+    sensitivity: "base",
+  });
+}
+
+function sortCompartmentsByName(compartments: Compartment[]) {
+  return [...compartments].sort((a, b) =>
+    compareNaturalNames(a.name ?? "", b.name ?? "")
+  );
+}
+
 function storageSpacesCol() {
   return collection(db, "users", getCurrentUserId(), "storageSpaces");
 }
@@ -848,10 +861,12 @@ export async function deleteCompartment(compartmentId: string) {
 export async function getAllCompartments(): Promise<Compartment[]> {
   const snapshot = await getDocs(compartmentsCol());
 
-  return snapshot.docs.map((d) => ({
+  const compartments = snapshot.docs.map((d) => ({
     id: d.id,
     ...d.data(),
   })) as Compartment[];
+
+  return sortCompartmentsByName(compartments);
 }
 
 export async function getCompartmentsByVehicle(
@@ -886,7 +901,7 @@ export async function getCompartmentsByVehicle(
     remoteCompartments = cachedCompartments;
   }
 
-  return [...offlineCompartments, ...remoteCompartments];
+  return sortCompartmentsByName([...offlineCompartments, ...remoteCompartments]);
 }
 
 export async function getCompartments(

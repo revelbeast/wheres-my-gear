@@ -138,9 +138,9 @@ export default function RoomDetailScreen() {
 
       setRoom(roomData);
       setCompartments(
-        allCompartments
-          .filter((compartment) => compartment.roomId === String(roomId))
-          .sort((a, b) => a.name.localeCompare(b.name))
+        allCompartments.filter(
+          (compartment) => compartment.roomId === String(roomId)
+        )
       );
     } catch (error) {
       if (!isMountedRef.current || loadVersionRef.current !== loadVersion) {

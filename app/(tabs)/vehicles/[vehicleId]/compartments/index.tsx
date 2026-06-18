@@ -214,8 +214,11 @@ export default function CompartmentsScreen() {
 
       setStorageSpace(space);
       setRows(
-        enriched.sort(
-          (a, b) => b.itemCount - a.itemCount || a.name.localeCompare(b.name)
+        enriched.sort((a, b) =>
+          (a.name ?? "").localeCompare(b.name ?? "", undefined, {
+            numeric: true,
+            sensitivity: "base",
+          })
         )
       );
     } catch (error) {
