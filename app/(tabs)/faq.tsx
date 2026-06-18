@@ -105,6 +105,12 @@ const FAQ_ITEMS: FAQItem[] = [
       "Upcoming Trips help you plan ahead by organizing your packing needs by date. Create a trip from the Dashboard, select your trip date, and add or link a checklist. As your trip approaches, you can track your progress using Packed and To Pack items.",
   },
   {
+    question: "Do Upcoming Trips sync with my calendar?",
+    answer:
+      "Yes. When you create a trip, Where's My Gear can create an all-day calendar event on your device. If you update the trip name or date, the calendar event is updated automatically. If you delete the trip, the calendar event is removed as well. You may be prompted to grant calendar access the first time you create a trip.",
+  },
+
+  {
     question: "What can I search for?",
     answer:
       "Dashboard search can find Items, Storage Spaces, Rooms, Compartments, Checklists, and Templates. You can search by names, storage types, packed status, or To Pack status.",
