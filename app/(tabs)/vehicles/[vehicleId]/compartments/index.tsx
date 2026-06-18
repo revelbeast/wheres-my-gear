@@ -52,7 +52,7 @@ import { useInteractionLock } from "../../../../../lib/useInteractionLock";
 
 type CompartmentRow = Compartment & {
   itemCount: number;
-  itemNames: string[];
+  itemPreviewLines: string[];
 };
 
 const LABEL_WHITE = "#FFFFFF";
@@ -199,9 +199,16 @@ export default function CompartmentsScreen() {
             0
           );
 
-          const itemNames = items
-            .map((item) => item.name?.trim())
-            .filter((name): name is string => !!name)
+          const itemPreviewLines = items
+            .map((item) => {
+              const name = item.name?.trim();
+              const quantity = getItemQuantity(item);
+
+              if (!name) return "";
+
+              return quantity > 1 ? `${name} x${quantity}` : name;
+            })
+            .filter(Boolean)
             .sort((a, b) =>
               a.localeCompare(b, undefined, {
                 numeric: true,
@@ -212,7 +219,7 @@ export default function CompartmentsScreen() {
           return {
             ...compartment,
             itemCount,
-            itemNames,
+            itemPreviewLines,
           };
         })
       );
@@ -362,17 +369,17 @@ export default function CompartmentsScreen() {
   }
 
   function showCompartmentItems(compartment: CompartmentRow) {
-    const itemNames = compartment.itemNames ?? [];
+    const itemPreviewLines = compartment.itemPreviewLines ?? [];
 
-    if (itemNames.length === 0) {
+    if (itemPreviewLines.length === 0) {
       Alert.alert(compartment.name, "No items added.");
       return;
     }
 
     Alert.alert(
       compartment.name,
-      itemNames
-        .map((name, index) => `${index + 1}. ${name}`)
+      itemPreviewLines
+        .map((line, index) => `${index + 1}. ${line}`)
         .join("\n")
     );
   }
@@ -739,7 +746,7 @@ export default function CompartmentsScreen() {
                                 disabled={rowDisabled}
                               >
                                 <ThemedText style={styles.viewItemsText}>
-                                  {`View Items (${compartment.itemNames?.length ?? 0})`}
+                                  {`View Items (${compartment.itemCount})`}
                                 </ThemedText>
                               </HapticPressable>
                             </HapticPressable>
