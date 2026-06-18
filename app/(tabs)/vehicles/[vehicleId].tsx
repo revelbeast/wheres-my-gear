@@ -660,7 +660,12 @@ export default function VehicleDetailScreen() {
   function showRoomBoxes(room: Room) {
     const roomCompartments = compartments
       .filter((c) => c.roomId === room.id)
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .sort((a, b) =>
+        (a.name ?? "").localeCompare(b.name ?? "", undefined, {
+          numeric: true,
+          sensitivity: "base",
+        })
+      );
 
     if (roomCompartments.length === 0) {
       Alert.alert(room.name, "No compartments assigned.");
@@ -670,7 +675,12 @@ export default function VehicleDetailScreen() {
     Alert.alert(
       room.name,
       roomCompartments
-        .map((c, index) => `${index + 1}. ${c.name}`)
+        .map((c, index) => {
+          const summary = getCompartmentItemSummary(c.id);
+          const label = summary.itemCount === 1 ? "item" : "items";
+
+          return `${index + 1}. ${c.name}, ${summary.itemCount} ${label}`;
+        })
         .join("\n")
     );
   }

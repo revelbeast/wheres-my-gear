@@ -746,7 +746,7 @@ export default function CompartmentsScreen() {
                                 disabled={rowDisabled}
                               >
                                 <ThemedText style={styles.viewItemsText}>
-                                  {`View Items (${compartment.itemCount})`}
+                                  Preview Items
                                 </ThemedText>
                               </HapticPressable>
                             </HapticPressable>
