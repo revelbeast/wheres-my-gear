@@ -52,6 +52,7 @@ import { useInteractionLock } from "../../../../../lib/useInteractionLock";
 
 type CompartmentRow = Compartment & {
   itemCount: number;
+  itemNames: string[];
 };
 
 const LABEL_WHITE = "#FFFFFF";
@@ -198,9 +199,20 @@ export default function CompartmentsScreen() {
             0
           );
 
+          const itemNames = items
+            .map((item) => item.name?.trim())
+            .filter((name): name is string => !!name)
+            .sort((a, b) =>
+              a.localeCompare(b, undefined, {
+                numeric: true,
+                sensitivity: "base",
+              })
+            );
+
           return {
             ...compartment,
             itemCount,
+            itemNames,
           };
         })
       );
@@ -347,6 +359,22 @@ export default function CompartmentsScreen() {
     runNavigationAction(() => {
       router.replace("/(tabs)/storage");
     });
+  }
+
+  function showCompartmentItems(compartment: CompartmentRow) {
+    const itemNames = compartment.itemNames ?? [];
+
+    if (itemNames.length === 0) {
+      Alert.alert(compartment.name, "No items added.");
+      return;
+    }
+
+    Alert.alert(
+      compartment.name,
+      itemNames
+        .map((name, index) => `${index + 1}. ${name}`)
+        .join("\n")
+    );
   }
 
   function handleOpenCompartment(compartmentId: string) {
@@ -705,6 +733,15 @@ export default function CompartmentsScreen() {
                                 {compartment.itemCount}{" "}
                                 {compartment.itemCount === 1 ? "item" : "items"}
                               </ThemedText>
+
+                              <HapticPressable
+                                onPress={() => showCompartmentItems(compartment)}
+                                disabled={rowDisabled}
+                              >
+                                <ThemedText style={styles.viewItemsText}>
+                                  {`View Items (${compartment.itemNames?.length ?? 0})`}
+                                </ThemedText>
+                              </HapticPressable>
                             </HapticPressable>
 
                             <View style={styles.rowActions}>
@@ -858,6 +895,12 @@ const styles = StyleSheet.create({
     lineHeight: 21,
   },
 
+  viewItemsText: {
+    marginTop: 6,
+    color: "#3B82F6",
+    fontSize: 14,
+    fontWeight: "800",
+  },
   meta: {
     lineHeight: 18,
   },
