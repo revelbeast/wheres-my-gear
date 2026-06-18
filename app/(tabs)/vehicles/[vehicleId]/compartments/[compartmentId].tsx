@@ -43,6 +43,7 @@ import {
   createItem,
   deleteItem,
   getAllCompartments,
+  getAllItems,
   getStorageSpaces,
   getRoomsByStorageSpace,
   getCompartmentById,
@@ -303,6 +304,88 @@ export default function CompartmentDetailScreen() {
     await loadItems(loadVersion);
   }
 
+  function normalizeDuplicateItemName(value: string) {
+    return value
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9\s]/g, "")
+      .replace(/\s+/g, " ");
+  }
+
+  function formatDuplicateItemLocation(item: Item) {
+    const locationParts = [
+      item.vehicleName?.trim(),
+      item.compartmentName?.trim(),
+    ].filter(Boolean);
+
+    return locationParts.length > 0
+      ? `Location: ${locationParts.join(" > ")}`
+      : "Location: Not available";
+  }
+
+  async function findPossibleDuplicateItems(newName: string) {
+    const normalizedNewName = normalizeDuplicateItemName(newName);
+
+    if (!normalizedNewName) return [];
+
+    const allItems = await getAllItems();
+
+    return allItems
+      .filter((item) => {
+        const existingName = normalizeDuplicateItemName(item.name || "");
+
+        if (!existingName) return false;
+
+        return (
+          existingName === normalizedNewName ||
+          existingName.includes(normalizedNewName) ||
+          normalizedNewName.includes(existingName)
+        );
+      })
+      .slice(0, 3);
+  }
+
+  async function createItemAfterDuplicateCheck(
+    trimmedName: string,
+    parsedQty: number
+  ) {
+    await runWithLock(async () => {
+      try {
+        if (!isMountedRef.current) return;
+
+        setSaving(true);
+
+        await createItem({
+          name: trimmedName,
+          quantity: parsedQty,
+          status: "missing",
+          compartmentId: String(compartmentId),
+          compartmentName: compartment?.name ?? "",
+          vehicleId: String(vehicleId),
+          notes: "",
+          itemPhotoUri: "",
+        });
+
+        if (!isMountedRef.current) return;
+
+        setItemName("");
+        setQuantity("1");
+        setShowCreateBox(false);
+
+        await refreshItems();
+      } catch (err) {
+        if (!isMountedRef.current) return;
+
+        console.error("Failed to create item:", err);
+        Alert.alert("Error", "Failed to create item.");
+      } finally {
+        if (isMountedRef.current) {
+          setSaving(false);
+        }
+      }
+    });
+  }
+
   function handleToggleCreateBox() {
     if (interactionLocked) return;
 
@@ -388,41 +471,48 @@ export default function CompartmentDetailScreen() {
 
     if (!trimmedName) return;
 
-    await runWithLock(async () => {
-      try {
-        if (!isMountedRef.current) return;
+    let possibleDuplicates: Item[] = [];
 
-        setSaving(true);
+    try {
+      possibleDuplicates = await findPossibleDuplicateItems(trimmedName);
+    } catch (err) {
+      console.warn("Failed to check duplicate items:", err);
+      possibleDuplicates = [];
+    }
 
-        await createItem({
-          name: trimmedName,
-          quantity: parsedQty,
-          status: "missing",
-          compartmentId: String(compartmentId),
-          compartmentName: compartment?.name ?? "",
-          vehicleId: String(vehicleId),
-          notes: "",
-          itemPhotoUri: "",
-        });
+    if (possibleDuplicates.length > 0) {
+      const duplicateText = possibleDuplicates
+        .map(
+          (item) =>
+            `• ${item.name}\n  ${formatDuplicateItemLocation(item)}`
+        )
+        .join("\n\n");
 
-        if (!isMountedRef.current) return;
+      Alert.alert(
+        "You already have this item in your inventory",
+        `${duplicateText}\n\nAdd it anyway?`,
+        [
+          {
+            text: "Cancel",
+            style: "cancel",
+            onPress: () => {
+              setItemName("");
+              setQuantity("1");
+            },
+          },
+          {
+            text: "Add Anyway",
+            onPress: () => {
+              void createItemAfterDuplicateCheck(trimmedName, parsedQty);
+            },
+          },
+        ]
+      );
 
-        setItemName("");
-        setQuantity("1");
-        setShowCreateBox(false);
+      return;
+    }
 
-        await refreshItems();
-      } catch (err) {
-        if (!isMountedRef.current) return;
-
-        console.error("Failed to create item:", err);
-        Alert.alert("Error", "Failed to create item.");
-      } finally {
-        if (isMountedRef.current) {
-          setSaving(false);
-        }
-      }
-    });
+    await createItemAfterDuplicateCheck(trimmedName, parsedQty);
   }
 
   function startEditingItem(item: Item) {
