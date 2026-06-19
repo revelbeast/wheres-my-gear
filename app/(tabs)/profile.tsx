@@ -710,6 +710,134 @@ export default function ProfileScreen() {
     });
   }
 
+
+  async function handleImportData() {
+    if (interactionLocked || !user) return;
+
+    await runWithLock(async () => {
+      try {
+        const result = await DocumentPicker.getDocumentAsync({
+          type: ["application/json", "public.json", "*/*"],
+          copyToCacheDirectory: true,
+        });
+
+        if (result.canceled || !result.assets?.[0]?.uri) return;
+
+        const jsonText = await FileSystem.readAsStringAsync(result.assets[0].uri, {
+          encoding: FileSystem.EncodingType.UTF8,
+        });
+
+        try {
+          const preview = await previewShareGearFileFromJson(jsonText);
+
+          Alert.alert(
+            "Import Shared Gear?",
+            `Source: ${preview.storageSpaceName}\nType: ${preview.type}\n\nRooms: ${preview.rooms}\nCompartments: ${preview.compartments}\nItems: ${preview.items}\n\nExported:\n${preview.exportedAt ? new Date(preview.exportedAt).toLocaleDateString() : "Unknown"}`,
+            [
+              { text: "Cancel", style: "cancel" },
+              {
+                text: "Import",
+                onPress: () => {
+                  void runWithLock(async () => {
+                    try {
+                      setIsImportingSharedGear(true);
+                      const summary = await importShareGearFileFromJson(jsonText);
+
+                      if (!isScreenMountedRef.current) return;
+
+                      Alert.alert(
+                        "Gear Imported Successfully",
+                        `Storage Space:\n${summary.storageSpaceName}\n\nRooms Imported: ${summary.roomsImported}\nCompartments Imported: ${summary.compartmentsImported}\nItems Imported: ${summary.itemsImported}`,
+                        [
+                          {
+                            text: "Open",
+                            onPress: () => router.push(`/vehicles/${summary.storageSpaceId}`),
+                          },
+                          { text: "OK" },
+                        ]
+                      );
+                    } catch (err) {
+                      if (!isScreenMountedRef.current) return;
+
+                      console.error("Failed to import shared gear:", err);
+                      Alert.alert("Import Failed", "Unable to import this shared gear file.");
+                    } finally {
+                      if (isScreenMountedRef.current) {
+                        setIsImportingSharedGear(false);
+                      }
+                    }
+                  });
+                },
+              },
+            ]
+          );
+
+          return;
+        } catch {
+          // Not a .wmgshare gear file. Try checklist template next.
+        }
+
+        try {
+          const preview = await previewChecklistTemplateShareFileFromJson(jsonText);
+
+          Alert.alert(
+            "Import Checklist Template?",
+            `Template: ${preview.templateName}\nItems: ${preview.itemCount}\n\nExported:\n${preview.exportedAt ? new Date(preview.exportedAt).toLocaleDateString() : "Unknown"}`,
+            [
+              { text: "Cancel", style: "cancel" },
+              {
+                text: "Import",
+                onPress: () => {
+                  void runWithLock(async () => {
+                    try {
+                      setIsImportingTemplate(true);
+                      const summary = await importChecklistTemplateShareFileFromJson(user.uid, jsonText);
+
+                      if (!isScreenMountedRef.current) return;
+
+                      Alert.alert(
+                        "Template Imported Successfully",
+                        `Template:\n${summary.templateName}\n\nItems Imported: ${summary.itemsImported}`,
+                        [
+                          {
+                            text: "Open Templates",
+                            onPress: () => router.push("/checklists/templates"),
+                          },
+                          { text: "OK" },
+                        ]
+                      );
+                    } catch (err) {
+                      if (!isScreenMountedRef.current) return;
+
+                      console.error("Failed to import checklist template:", err);
+                      Alert.alert("Import Failed", "Unable to import this checklist template file.");
+                    } finally {
+                      if (isScreenMountedRef.current) {
+                        setIsImportingTemplate(false);
+                      }
+                    }
+                  });
+                },
+              },
+            ]
+          );
+
+          return;
+        } catch {
+          Alert.alert(
+            "Import Failed",
+            "This file is not a supported Where's My Gear import file."
+          );
+        }
+      } catch (err) {
+        if (!isScreenMountedRef.current) return;
+
+        console.error("Failed to read import file:", err);
+        Alert.alert("Import Failed", "Unable to read this import file.");
+      }
+    });
+  }
+
   async function handleDeleteAllData() {
     if (!user || isDeletingAllData || interactionLocked) {
       return;
@@ -1208,24 +1336,9 @@ export default function ProfileScreen() {
 
                   <ProfileRow
                     icon={<Import size={20} color={iconColor} />}
-                    title="Import Shared Gear"
-                    subtitle="Import a .wmgshare file from another Where's My Gear user"
-                    onPress={handleImportSharedGear}
-                    disabled={rowActionsDisabled}
-                  />
-
-                  <View
-                    style={[
-                      styles.divider,
-                      { backgroundColor: theme.colors.border },
-                    ]}
-                  />
-
-                  <ProfileRow
-                    icon={<Import size={20} color={iconColor} />}
-                    title="Import Checklist Template"
-                    subtitle="Import a .wmgtemplate file from another Where's My Gear user"
-                    onPress={handleImportChecklistTemplate}
+                    title="Import Data"
+                    subtitle="Import shared gear or checklist templates"
+                    onPress={handleImportData}
                     disabled={rowActionsDisabled}
                   />
 
@@ -1421,24 +1534,9 @@ export default function ProfileScreen() {
 
                 <ProfileRow
                   icon={<Import size={20} color={iconColor} />}
-                  title="Import Shared Gear"
-                  subtitle="Import a .wmgshare file from another Where's My Gear user"
-                  onPress={handleImportSharedGear}
-                  disabled={rowActionsDisabled}
-                />
-
-                <View
-                  style={[
-                    styles.divider,
-                    { backgroundColor: theme.colors.border },
-                  ]}
-                />
-
-                <ProfileRow
-                  icon={<Import size={20} color={iconColor} />}
-                  title="Import Checklist Template"
-                  subtitle="Import a .wmgtemplate file from another Where's My Gear user"
-                  onPress={handleImportChecklistTemplate}
+                  title="Import Data"
+                  subtitle="Import shared gear or checklist templates"
+                  onPress={handleImportData}
                   disabled={rowActionsDisabled}
                 />
 
