@@ -1619,7 +1619,15 @@ export default function CompartmentDetailScreen() {
               >
                 Share Compartment
               </Text>
-</HapticPressable>
+              <Text
+                style={[
+                  styles.shareCompartmentButtonSubtext,
+                  { color: theme.colors.textSecondary },
+                ]}
+              >
+                Shares a text summary via Messages, Mail, and other apps
+              </Text>
+            </HapticPressable>
 
             <HapticPressable
               style={[
@@ -1641,6 +1649,14 @@ export default function CompartmentDetailScreen() {
                 ]}
               >
                 Export Compartment Gear
+              </Text>
+              <Text
+                style={[
+                  styles.shareCompartmentButtonSubtext,
+                  { color: theme.colors.textSecondary },
+                ]}
+              >
+                Creates a .wmgshare file another user can import
               </Text>
             </HapticPressable>
 
@@ -1891,19 +1907,28 @@ const styles = StyleSheet.create({
   },
 
   shareCompartmentButton: {
-    minHeight: 48,
+    minHeight: 72,
     borderRadius: 14,
     borderWidth: 1,
     marginBottom: 16,
-    flexDirection: "row",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    gap: 4,
   },
 
   shareCompartmentButtonText: {
     fontSize: 15,
     fontWeight: "800",
+  },
+
+  shareCompartmentButtonSubtext: {
+    marginTop: 4,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: "600",
+    textAlign: "center",
   },
 
   createCard: {

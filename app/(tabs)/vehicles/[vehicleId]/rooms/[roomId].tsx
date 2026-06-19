@@ -554,7 +554,7 @@ export default function RoomDetailScreen() {
                   { color: theme.isLight ? "#000000" : colors.text },
                 ]}
               >
-                Share Room Gear
+                Export Room Gear
               </Text>
             </HapticPressable>
 
