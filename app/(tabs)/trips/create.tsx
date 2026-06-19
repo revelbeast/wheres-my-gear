@@ -4,6 +4,8 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  ClipboardCheck,
+  FileText,
   Save,
   X,
 } from "lucide-react-native";
@@ -146,6 +148,7 @@ export default function CreateTripScreen() {
   const [isCalendarVisible, setIsCalendarVisible] = useState(false);
   const [reminderEnabled, setReminderEnabled] = useState(false);
   const [reminderDaysBefore, setReminderDaysBefore] = useState(1);
+  const [tripPrepAction, setTripPrepAction] = useState<"none" | "checklist" | "template">("none");
   const [isSaving, setIsSaving] = useState(false);
 
   const isMountedRef = useRef(true);
@@ -169,6 +172,7 @@ export default function CreateTripScreen() {
     setIsCalendarVisible(false);
     setReminderEnabled(false);
     setReminderDaysBefore(1);
+    setTripPrepAction("none");
     setIsSaving(false);
     actionLockRef.current = false;
     navigationLockedRef.current = false;
@@ -307,7 +311,7 @@ export default function CreateTripScreen() {
           });
         }
 
-        await createTrip({
+        const tripId = await createTrip({
           userId: uid,
           name: trimmedName,
           startDate: tripDate,
@@ -324,6 +328,32 @@ export default function CreateTripScreen() {
         }
 
         if (isMountedRef.current) {
+          if (tripPrepAction === "checklist") {
+            router.push({
+              pathname: "/(tabs)/checklists/new",
+              params: {
+                tripId,
+                tripName: trimmedName,
+                suggestedName: `${trimmedName} Checklist`,
+                returnTo: "trips",
+              },
+            });
+            return;
+          }
+
+          if (tripPrepAction === "template") {
+            router.push({
+              pathname: "/(tabs)/checklists/create-template",
+              params: {
+                tripId,
+                tripName: trimmedName,
+                suggestedName: `${trimmedName} Template`,
+                returnTo: "trips",
+              },
+            });
+            return;
+          }
+
           safeGoBack();
         }
       } catch (error) {
@@ -526,6 +556,82 @@ export default function CreateTripScreen() {
                   ))}
                 </View>
               ) : null}
+            </FrostedCard>
+
+            <FrostedCard style={styles.formCard}>
+              <View style={styles.tripPrepHeader}>
+                <ThemedText
+                  variant="bodyStrong"
+                  color="primary"
+                  style={[
+                    styles.inputLabel,
+                    theme.isLight ? null : { color: "#FFFFFF" },
+                  ]}
+                >
+                  Trip Prep
+                </ThemedText>
+                <ThemedText color="secondary" style={styles.inputHint}>
+                  Choose whether to create packing prep after saving this trip.
+                </ThemedText>
+              </View>
+
+              <View style={styles.tripPrepOptions}>
+                {[
+                  {
+                    key: "none",
+                    title: "Just Save Trip",
+                    subtitle: "Create the upcoming trip only.",
+                    icon: CalendarDays,
+                  },
+                  {
+                    key: "checklist",
+                    title: "Create Trip Checklist",
+                    subtitle: "Create an active packing checklist for this trip.",
+                    icon: ClipboardCheck,
+                  },
+                  {
+                    key: "template",
+                    title: "Create Reusable Template",
+                    subtitle: "Create a reusable template for future trips.",
+                    icon: FileText,
+                  },
+                ].map((option) => {
+                  const Icon = option.icon;
+                  const selected = tripPrepAction === option.key;
+
+                  return (
+                    <HapticPressable
+                      key={option.key}
+                      style={[
+                        styles.tripPrepOption,
+                        {
+                          borderColor: selected ? "#2563EB" : theme.colors.border,
+                          backgroundColor: selected
+                            ? "rgba(37, 99, 235, 0.16)"
+                            : theme.colors.card,
+                        },
+                        isActionBusy && styles.disabledButton,
+                      ]}
+                      onPress={() =>
+                        setTripPrepAction(option.key as "none" | "checklist" | "template")
+                      }
+                      disabled={isActionBusy}
+                    >
+                      <View style={styles.tripPrepOptionIcon}>
+                        <Icon size={18} color={selected ? "#2563EB" : theme.colors.text} />
+                      </View>
+                      <View style={styles.tripPrepOptionText}>
+                        <ThemedText style={styles.tripPrepOptionTitle}>
+                          {option.title}
+                        </ThemedText>
+                        <ThemedText color="secondary" style={styles.tripPrepOptionSubtitle}>
+                          {option.subtitle}
+                        </ThemedText>
+                      </View>
+                    </HapticPressable>
+                  );
+                })}
+              </View>
             </FrostedCard>
 
             <ThemedButton
@@ -779,6 +885,47 @@ const styles = StyleSheet.create({
   inputHint: {
     marginTop: 6,
     lineHeight: 18,
+  },
+
+  tripPrepHeader: {
+    marginBottom: 10,
+  },
+
+  tripPrepOptions: {
+    gap: 10,
+  },
+
+  tripPrepOption: {
+    minHeight: 66,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+
+  tripPrepOptionIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.22)",
+  },
+
+  tripPrepOptionText: {
+    flex: 1,
+  },
+
+  tripPrepOptionTitle: {
+    fontWeight: "700",
+  },
+
+  tripPrepOptionSubtitle: {
+    marginTop: 2,
+    lineHeight: 17,
   },
 
   datePickerButton: {

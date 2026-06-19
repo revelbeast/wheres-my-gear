@@ -369,7 +369,7 @@ export default function ManageTemplatesScreen() {
     <ScreenBackground>
       <SafeAreaView style={styles.safe}>
         <ScrollView contentContainerStyle={styles.content}>
-          <AppHeader title="Manage Templates" showBackButton />
+          <AppHeader title="Manage Templates" showBackButton backHref="/(tabs)/checklists" />
 
           {loading ? (
             <Text style={[styles.loadingText, { color: theme.colors.text }]}>

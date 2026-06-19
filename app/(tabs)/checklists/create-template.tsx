@@ -1,6 +1,6 @@
 import * as ImagePicker from "expo-image-picker";
 import { BlurView } from "expo-blur";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import {
   Backpack,
   Check,
@@ -21,7 +21,7 @@ import {
   Fish,
   Crosshair,
 } from "lucide-react-native";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Image,
@@ -352,6 +352,7 @@ function renderStarterTemplateIcon(
 export default function CreateTemplateScreen() {
   const { user } = useAuth();
   const theme = useThemedValues();
+  const params = useLocalSearchParams<{ suggestedName?: string; tripId?: string; tripName?: string; returnTo?: string }>();
 
   const [name, setName] = useState("");
   const [category, setCategory] = useState<ChecklistCategory>("trip");
@@ -363,6 +364,14 @@ export default function CreateTemplateScreen() {
   ]);
   const [saving, setSaving] = useState(false);
   const itemInputRefs = useRef<Record<string, TextInput | null>>({});
+
+  useEffect(() => {
+    if (typeof params.suggestedName === "string" && params.suggestedName.trim()) {
+      setName(params.suggestedName.trim());
+      setCategory("trip");
+      setCustomCategory("");
+    }
+  }, [params.suggestedName]);
 
   const selectedCategoryLabel =
     CATEGORY_OPTIONS.find((option) => option.key === category)?.label ??
@@ -548,7 +557,13 @@ export default function CreateTemplateScreen() {
     }
 
     const applyStarter = () => {
-      setName(starter.name);
+      const suggestedName =
+        typeof params.suggestedName === "string" ? params.suggestedName.trim() : "";
+
+      if (!suggestedName) {
+        setName(starter.name);
+      }
+
       setCategory(starter.category);
       setCustomCategory("");
       setItems(createEditableItems(starter.items));
@@ -642,6 +657,14 @@ export default function CreateTemplateScreen() {
           category === "custom" ? trimmedCustomCategory : "",
         items: validItems,
       });
+
+      if (params.returnTo === "trips") {
+        router.replace({
+          pathname: "/checklists/templates",
+          params: { returnTo: "checklists" },
+        });
+        return;
+      }
 
       router.back();
     } catch (err) {

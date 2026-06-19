@@ -1,5 +1,5 @@
 import { BlurView } from "expo-blur";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import {
   Backpack,
   ChevronDown,
@@ -13,7 +13,7 @@ import {
   Wrench,
   Zap,
 } from "lucide-react-native";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Keyboard,
@@ -86,12 +86,20 @@ function FrostedCard({
 export default function NewBlankChecklistScreen() {
   const { user, initializing } = useAuth();
   const theme = useThemedValues();
+  const params = useLocalSearchParams<{ suggestedName?: string; tripId?: string; tripName?: string; returnTo?: string }>();
 
   const [name, setName] = useState("");
   const [category, setCategory] = useState<ChecklistCategory>("trip");
   const [customCategoryLabel, setCustomCategoryLabel] = useState("");
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (typeof params.suggestedName === "string" && params.suggestedName.trim()) {
+      setName(params.suggestedName.trim());
+      setCategory("trip");
+    }
+  }, [params.suggestedName]);
 
   const selectedCategoryLabel = useMemo(() => {
     const matched = CATEGORY_OPTIONS.find((option) => option.value === category);
@@ -132,8 +140,13 @@ export default function NewBlankChecklistScreen() {
           category === "custom" ? trimmedCustomCategory : "",
         templateId: null,
         vehicleId: null,
-        tripId: null,
+        tripId: typeof params.tripId === "string" ? params.tripId : null,
       });
+
+      if (params.returnTo === "trips") {
+        router.replace("/(tabs)/checklists");
+        return;
+      }
 
       router.replace({
         pathname: "/checklists/[checklistId]",
