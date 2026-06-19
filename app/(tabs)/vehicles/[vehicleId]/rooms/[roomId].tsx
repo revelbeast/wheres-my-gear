@@ -1,6 +1,6 @@
 import { BlurView } from "expo-blur";
 import { router, useLocalSearchParams } from "expo-router";
-import { ChevronRight, MoveRight, Pencil, Plus, Trash2 } from "lucide-react-native";
+import { ChevronRight, MoveRight, Pencil, Plus, Share2, Trash2 } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
@@ -31,6 +31,7 @@ import {
   updateCompartment,
 } from "../../../../../lib/gearService";
 import { isPremiumPlusUser } from "../../../../../lib/revenuecat";
+import { shareRoomGear } from "../../../../../lib/shareGearService";
 import { useInteractionLock } from "../../../../../lib/useInteractionLock";
 import { colors } from "../../../../../theme/tokens";
 
@@ -252,6 +253,25 @@ export default function RoomDetailScreen() {
     });
   }
 
+
+
+  async function handleShareRoomGear() {
+    if (!vehicleId || !roomId || isBusy()) return;
+
+    await runWithLock(async () => {
+      try {
+        await shareRoomGear(String(vehicleId), String(roomId));
+      } catch (error) {
+        if (!isMountedRef.current) return;
+
+        console.error("Failed to share room gear:", error);
+        Alert.alert(
+          "Share Gear Failed",
+          "Something went wrong while creating the room share file."
+        );
+      }
+    });
+  }
 
   async function requirePremiumPlusForQrLabels(): Promise<boolean> {
     try {
@@ -509,7 +529,35 @@ export default function RoomDetailScreen() {
               >
                 Create Room QR Label
               </Text>
+</HapticPressable>
+
+            <HapticPressable
+              style={[
+                styles.qrShortcutButton,
+                {
+                  backgroundColor: theme.isLight
+                    ? "#FFFFFF"
+                    : "rgba(255,255,255,0.04)",
+                  borderColor: theme.isLight
+                    ? "rgba(0,0,0,0.10)"
+                    : "rgba(255,255,255,0.12)",
+                },
+                isBusy() && styles.disabledInteraction,
+              ]}
+              onPress={handleShareRoomGear}
+              disabled={isBusy()}
+            >
+              <Share2 size={18} color={theme.isLight ? "#000000" : colors.text} />
+              <Text
+                style={[
+                  styles.qrShortcutLabel,
+                  { color: theme.isLight ? "#000000" : colors.text },
+                ]}
+              >
+                Share Room Gear
+              </Text>
             </HapticPressable>
+
 
             <BlurView
               intensity={theme.isLight ? 18 : 18}

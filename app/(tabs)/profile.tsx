@@ -19,7 +19,7 @@ import {
   User,
 } from "lucide-react-native";
 import React, { useEffect, useRef, useState } from "react";
-import { Alert, Image, Linking, Platform, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Alert, Image, Linking, Platform, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../components/auth/AuthProvider";
@@ -155,6 +155,7 @@ export default function ProfileScreen() {
   );
 
   const [isDeletingAllData, setIsDeletingAllData] = useState(false);
+  const [isImportingSharedGear, setIsImportingSharedGear] = useState(false);
   const [appProfile, setAppProfile] = useState<AppProfile | null>(null);
   const [isPremium, setIsPremium] = useState(false);
   const [isPremiumPlus, setIsPremiumPlus] = useState(false);
@@ -588,13 +589,14 @@ export default function ProfileScreen() {
               onPress: () => {
                 void runWithLock(async () => {
                   try {
+                    setIsImportingSharedGear(true);
                     const summary = await importShareGearFileFromJson(jsonText);
 
                     if (!isScreenMountedRef.current) return;
 
                     Alert.alert(
-                      "Shared Gear Imported",
-                      `${summary.storageSpaceName} was imported with ${summary.roomsImported} rooms, ${summary.compartmentsImported} compartments, and ${summary.itemsImported} items.`,
+                      "Import Successful",
+                      `${summary.storageSpaceName} was imported successfully with ${summary.roomsImported} rooms, ${summary.compartmentsImported} compartments, and ${summary.itemsImported} items.`,
                       [
                         {
                           text: "Open",
@@ -615,6 +617,10 @@ export default function ProfileScreen() {
                       "Import Failed",
                       "Unable to import this shared gear file."
                     );
+                  } finally {
+                    if (isScreenMountedRef.current) {
+                      setIsImportingSharedGear(false);
+                    }
                   }
                 });
               },
@@ -866,7 +872,7 @@ export default function ProfileScreen() {
   const iconColor = theme.colors.text;
   const dangerIconColor = theme.colors.danger;
   const rowActionsDisabled =
-    interactionLocked || isDeletingAllData;
+    interactionLocked || isDeletingAllData || isImportingSharedGear;
 
   const appProfileDisplayName = `${appProfile?.firstName || ""} ${appProfile?.lastName || ""}`.trim();
 
@@ -1386,6 +1392,32 @@ export default function ProfileScreen() {
             </>
           )}
         </ScrollView>
+
+        {isImportingSharedGear && (
+          <View style={styles.importOverlay} pointerEvents="auto">
+            <View
+              style={[
+                styles.importOverlayCard,
+                {
+                  backgroundColor: theme.isLight
+                    ? "rgba(255,255,255,0.96)"
+                    : "rgba(37,99,235,0.92)",
+                  borderColor: theme.isLight
+                    ? "rgba(0,0,0,0.12)"
+                    : "rgba(147,197,253,0.55)",
+                },
+              ]}
+            >
+              <ActivityIndicator size="large" color={theme.isLight ? "#2563EB" : "#FFFFFF"} />
+              <ThemedText variant="title" style={styles.importOverlayTitle}>
+                Importing shared gear...
+              </ThemedText>
+              <ThemedText color="secondary" style={styles.importOverlaySubtitle}>
+                Creating rooms, compartments, and items.
+              </ThemedText>
+            </View>
+          </View>
+        )}
       </SafeAreaView>
     </ScreenBackground>
   );
@@ -1564,6 +1596,43 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     marginLeft: 52,
+  },
+
+  importOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 28,
+    backgroundColor: "rgba(0,0,0,0.38)",
+    zIndex: 50,
+  },
+
+  importOverlayCard: {
+    width: "100%",
+    maxWidth: 420,
+    borderRadius: 28,
+    borderWidth: 1,
+    paddingHorizontal: 24,
+    paddingVertical: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 12,
+  },
+
+  importOverlayTitle: {
+    marginTop: 16,
+    textAlign: "center",
+    color: "#FFFFFF",
+  },
+
+  importOverlaySubtitle: {
+    marginTop: 6,
+    textAlign: "center",
+    color: "rgba(255,255,255,0.82)",
   },
 
   centered: {

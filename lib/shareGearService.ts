@@ -7,6 +7,7 @@ import {
   createStorageSpace,
   getAllItems,
   getCompartments,
+  getRoomById,
   getRoomsByStorageSpace,
   getStorageSpaceById,
   type Compartment,
@@ -15,7 +16,7 @@ import {
   type StorageSpace,
 } from "./gearService";
 
-export type ShareGearScope = "storageSpace";
+export type ShareGearScope = "storageSpace" | "room";
 
 type SharedStorageSpace = Omit<
   StorageSpace,
@@ -217,6 +218,86 @@ export async function shareStorageSpaceGear(storageSpaceId: string) {
   return fileUri;
 }
 
+
+export async function buildShareGearRoomFile(
+  storageSpaceId: string,
+  roomId: string
+): Promise<ShareGearFile> {
+  const [storageSpace, room, compartments, allItems] = await Promise.all([
+    getStorageSpaceById(storageSpaceId),
+    getRoomById(roomId),
+    getCompartments(storageSpaceId),
+    getAllItems(),
+  ]);
+
+  if (!storageSpace) {
+    throw new Error("Storage space not found.");
+  }
+
+  if (!room) {
+    throw new Error("Room not found.");
+  }
+
+  const scopedCompartments = compartments.filter(
+    (compartment) => compartment.roomId === roomId
+  );
+
+  const compartmentIds = new Set(
+    scopedCompartments.map((compartment) => compartment.id)
+  );
+
+  const scopedItems = allItems.filter((item) => {
+    if (item.compartmentId && compartmentIds.has(item.compartmentId)) {
+      return true;
+    }
+
+    return false;
+  });
+
+  return {
+    app: "wheres-my-gear",
+    feature: "share-gear",
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    scope: "room",
+    storageSpace: stripStorageSpace(storageSpace),
+    rooms: [stripRoom(room)],
+    compartments: scopedCompartments.map(stripCompartment),
+    items: scopedItems.map(stripItem),
+  };
+}
+
+export async function shareRoomGear(storageSpaceId: string, roomId: string) {
+  const shareFile = await buildShareGearRoomFile(storageSpaceId, roomId);
+
+  if (!FileSystem.cacheDirectory) {
+    throw new Error("File sharing is not available on this device.");
+  }
+
+  const fileName = `${safeFileName(shareFile.storageSpace.name)}-${safeFileName(
+    shareFile.rooms[0]?.name ?? "room"
+  )}.wmgshare`;
+  const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
+
+  await FileSystem.writeAsStringAsync(fileUri, JSON.stringify(shareFile, null, 2), {
+    encoding: FileSystem.EncodingType.UTF8,
+  });
+
+  const canShare = await Sharing.isAvailableAsync();
+
+  if (!canShare) {
+    throw new Error("Sharing is not available on this device.");
+  }
+
+  await Sharing.shareAsync(fileUri, {
+    mimeType: "application/json",
+    dialogTitle: "Share Gear",
+    UTI: "public.json",
+  });
+
+  return fileUri;
+}
+
 export type ShareGearImportSummary = {
   storageSpaceId: string;
   storageSpaceName: string;
@@ -233,7 +314,7 @@ function validateShareGearFile(value: unknown): ShareGearFile {
     file.app !== "wheres-my-gear" ||
     file.feature !== "share-gear" ||
     file.version !== 1 ||
-    file.scope !== "storageSpace" ||
+    !["storageSpace", "room"].includes(String(file.scope)) ||
     !file.storageSpace ||
     !Array.isArray(file.rooms) ||
     !Array.isArray(file.compartments) ||
