@@ -1159,11 +1159,13 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     paddingHorizontal: 18,
-    backgroundColor: "rgba(0,0,0,0.58)",
+    backgroundColor: "rgba(0,0,0,0.72)",
   },
 
   calendarCard: {
     padding: 14,
+    backgroundColor: "#24439A",
+    borderColor: "rgba(147,197,253,0.45)",
   },
 
   calendarHeader: {

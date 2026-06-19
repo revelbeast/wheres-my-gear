@@ -1,3 +1,4 @@
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { BlurView } from "expo-blur";
 import { router, useLocalSearchParams } from "expo-router";
 import {
@@ -5,6 +6,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardCheck,
+  Clock,
   FileText,
   Save,
   X,
@@ -85,6 +87,13 @@ function formatTripDate(date: Date) {
   });
 }
 
+function formatTripTime(date: Date) {
+  return date.toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 function formatMonthYear(date: Date) {
   return date.toLocaleDateString(undefined, {
     month: "long",
@@ -146,6 +155,8 @@ export default function CreateTripScreen() {
   const [tripDate, setTripDate] = useState(getNoonDate(new Date()));
   const [calendarMonth, setCalendarMonth] = useState(getStartOfDay(new Date()));
   const [isCalendarVisible, setIsCalendarVisible] = useState(false);
+  const [tripAllDay, setTripAllDay] = useState(true);
+  const [isTimePickerVisible, setIsTimePickerVisible] = useState(false);
   const [reminderEnabled, setReminderEnabled] = useState(false);
   const [reminderDaysBefore, setReminderDaysBefore] = useState(1);
   const [tripPrepAction, setTripPrepAction] = useState<"none" | "checklist" | "template">("none");
@@ -170,6 +181,8 @@ export default function CreateTripScreen() {
     setTripDate(getNoonDate(now));
     setCalendarMonth(getStartOfDay(now));
     setIsCalendarVisible(false);
+    setTripAllDay(true);
+    setIsTimePickerVisible(false);
     setReminderEnabled(false);
     setReminderDaysBefore(1);
     setTripPrepAction("none");
@@ -277,8 +290,58 @@ export default function CreateTripScreen() {
   function handleSelectDate(date: Date) {
     if (isActionBusy) return;
 
-    setTripDate(getNoonDate(date));
+    setTripDate((current) => {
+      if (tripAllDay) {
+        return getNoonDate(date);
+      }
+
+      return new Date(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate(),
+        current.getHours(),
+        current.getMinutes(),
+        0
+      );
+    });
     setIsCalendarVisible(false);
+  }
+
+  function handleToggleAllDay() {
+    if (isActionBusy) return;
+
+    setTripAllDay((current) => {
+      const nextValue = !current;
+
+      if (nextValue) {
+        setTripDate((currentDate) => getNoonDate(currentDate));
+        setIsTimePickerVisible(false);
+      }
+
+      return nextValue;
+    });
+  }
+
+  function handleOpenTimePicker() {
+    if (isActionBusy || tripAllDay) return;
+
+    setIsTimePickerVisible(true);
+  }
+
+  function handleChangeTripTime(_: any, selectedDate?: Date) {
+    if (Platform.OS !== "ios") {
+      setIsTimePickerVisible(false);
+    }
+
+    if (!selectedDate) {
+      return;
+    }
+
+    setTripDate((current) => {
+      const nextDate = new Date(current);
+      nextDate.setHours(selectedDate.getHours(), selectedDate.getMinutes(), 0, 0);
+      return nextDate;
+    });
   }
 
   async function handleSaveTrip() {
@@ -484,9 +547,16 @@ export default function CreateTripScreen() {
                 >
                   <View style={styles.datePickerLeft}>
                     <CalendarDays size={18} color={theme.colors.text} />
-                    <ThemedText variant="bodyStrong">
-                      {formatTripDate(tripDate)}
-                    </ThemedText>
+                    <View>
+                      <ThemedText variant="bodyStrong">
+                        {formatTripDate(tripDate)}
+                      </ThemedText>
+                      {!tripAllDay ? (
+                        <ThemedText color="secondary" style={styles.dateTimeText}>
+                          {formatTripTime(tripDate)}
+                        </ThemedText>
+                      ) : null}
+                    </View>
                   </View>
 
                   <ChevronRight size={18} color={theme.colors.textMuted} />
@@ -495,6 +565,45 @@ export default function CreateTripScreen() {
                 <ThemedText color="secondary" style={styles.inputHint}>
                   Tap the date to choose from the calendar.
                 </ThemedText>
+
+                <View style={styles.tripDateOptions}>
+                  <HapticPressable
+                    style={[
+                      styles.tripDateModeButton,
+                      tripAllDay && styles.tripDateModeButtonSelected,
+                      isActionBusy && styles.disabledButton,
+                    ]}
+                    onPress={() => {
+                      if (!tripAllDay) {
+                        handleToggleAllDay();
+                      }
+                    }}
+                    disabled={isActionBusy}
+                  >
+                    <CalendarDays size={16} color="#FFFFFF" />
+                    <ThemedText style={styles.tripDateModeText}>All Day</ThemedText>
+                  </HapticPressable>
+
+                  <HapticPressable
+                    style={[
+                      styles.tripDateModeButton,
+                      !tripAllDay && styles.tripDateModeButtonSelected,
+                      isActionBusy && styles.disabledButton,
+                    ]}
+                    onPress={() => {
+                      if (tripAllDay) {
+                        handleToggleAllDay();
+                      }
+                      setIsTimePickerVisible(true);
+                    }}
+                    disabled={isActionBusy}
+                  >
+                    <Clock size={16} color="#FFFFFF" />
+                    <ThemedText style={styles.tripDateModeText}>
+                      {tripAllDay ? "Set Time" : formatTripTime(tripDate)}
+                    </ThemedText>
+                  </HapticPressable>
+                </View>
               </View>
             </FrostedCard>
 
@@ -763,6 +872,45 @@ export default function CreateTripScreen() {
             </FrostedCard>
           </View>
         </Modal>
+
+        <Modal
+          visible={isTimePickerVisible && Platform.OS === "ios"}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setIsTimePickerVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <FrostedCard style={styles.timePickerCard}>
+              <ThemedText variant="bodyStrong" style={styles.timePickerTitle}>
+                Trip Time
+              </ThemedText>
+
+              <DateTimePicker
+                value={tripDate}
+                mode="time"
+                display="spinner"
+                onChange={handleChangeTripTime}
+                textColor="#FFFFFF"
+              />
+
+              <ThemedButton
+                style={styles.cancelCalendarButton}
+                onPress={() => setIsTimePickerVisible(false)}
+              >
+                <ThemedText style={styles.saveButtonText}>Done</ThemedText>
+              </ThemedButton>
+            </FrostedCard>
+          </View>
+        </Modal>
+
+        {isTimePickerVisible && Platform.OS !== "ios" ? (
+          <DateTimePicker
+            value={tripDate}
+            mode="time"
+            display="default"
+            onChange={handleChangeTripTime}
+          />
+        ) : null}
       </SafeAreaView>
     </ScreenBackground>
   );
@@ -946,6 +1094,41 @@ const styles = StyleSheet.create({
     gap: 10,
   },
 
+  dateTimeText: {
+    marginTop: 2,
+  },
+
+  tripDateOptions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 12,
+  },
+
+  tripDateModeButton: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.24)",
+  },
+
+  tripDateModeButtonSelected: {
+    backgroundColor: "#2563EB",
+    borderColor: "#60A5FA",
+  },
+
+  tripDateModeText: {
+    color: "#FFFFFF",
+    fontWeight: "800",
+  },
+
   saveButton: {
     marginBottom: 12,
   },
@@ -1058,11 +1241,13 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     paddingHorizontal: 18,
-    backgroundColor: "rgba(0,0,0,0.58)",
+    backgroundColor: "rgba(0,0,0,0.72)",
   },
 
   calendarCard: {
     padding: 14,
+    backgroundColor: "#24439A",
+    borderColor: "rgba(147,197,253,0.45)",
   },
 
   calendarHeader: {
@@ -1078,13 +1263,14 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(0,0,0,0.06)",
+    backgroundColor: "rgba(255,255,255,0.16)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.16)",
+    borderColor: "rgba(255,255,255,0.32)",
   },
 
   calendarTitle: {
-    color: "#111827",
+    color: "#FFFFFF",
+    fontWeight: "800",
   },
 
   weekdayRow: {
@@ -1134,5 +1320,17 @@ const styles = StyleSheet.create({
 
   cancelCalendarButton: {
     marginTop: 14,
+  },
+
+  timePickerCard: {
+    padding: 16,
+    backgroundColor: "#24439A",
+    borderColor: "rgba(147,197,253,0.45)",
+  },
+
+  timePickerTitle: {
+    color: "#FFFFFF",
+    marginBottom: 10,
+    textAlign: "center",
   },
 });
