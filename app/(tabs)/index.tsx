@@ -84,6 +84,7 @@ function getDashboardTourStorageKey(userId: string) {
 }
 
 import { useAuth } from "../../components/auth/AuthProvider";
+import { updateTripPackingBadge } from "../../lib/appBadgeService";
 import HapticPressable from "../../components/ui/HapticPressable";
 import KeyboardDismissAccessory from "../../components/ui/KeyboardDismissAccessory";
 import GearSyncOverlay from "../../components/ui/GearSyncOverlay";
@@ -604,6 +605,12 @@ function formatTripDate(date: Date) {
 
 export default function DashboardScreen() {
   const { user, initializing } = useAuth();
+
+  useEffect(() => {
+    if (initializing) return;
+
+    void updateTripPackingBadge(user?.uid ?? null);
+  }, [initializing, user?.uid]);
   const params = useLocalSearchParams<{
     replayTour?: string;
     quickAction?: string | string[];
