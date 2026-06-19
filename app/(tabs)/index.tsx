@@ -1491,7 +1491,7 @@ export default function DashboardScreen() {
           ...roomResults,
           ...compartmentResults,
           ...checklistResults,
-        ]);
+        ].slice(0, 40));
       } catch (error) {
         if (!isActive || !isMountedRef.current) {
           return;
@@ -1506,7 +1506,7 @@ export default function DashboardScreen() {
       }
     };
 
-    const timeout = setTimeout(runSearch, 250);
+    const timeout = setTimeout(runSearch, 75);
 
     return () => {
       isActive = false;
