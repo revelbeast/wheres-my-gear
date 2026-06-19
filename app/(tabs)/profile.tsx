@@ -1,4 +1,6 @@
 import Constants from "expo-constants";
+import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system/legacy";
 import { router, useFocusEffect } from "expo-router";
 import { collection, getDocs, writeBatch } from "firebase/firestore";
 import {
@@ -6,6 +8,7 @@ import {
   CircleHelp,
   Crown,
   FileText,
+  Import,
   Info,
   LogOut,
   Moon,
@@ -32,6 +35,7 @@ import {
   getCustomerInfo,
   hasActivePremiumPlusEntitlement,
 } from "../../lib/revenuecat";
+import { importShareGearFileFromJson, previewShareGearFileFromJson } from "../../lib/shareGearService";
 import { getProfileSettings } from "../../lib/settingsService";
 import type { AppProfile } from "../../lib/settingsService";
 import { useDeviceLayout } from "../../lib/useDeviceLayout";
@@ -549,6 +553,86 @@ export default function ProfileScreen() {
   }
 
 
+
+  async function handleImportSharedGear() {
+    if (interactionLocked) return;
+
+    await runWithLock(async () => {
+      try {
+        const result = await DocumentPicker.getDocumentAsync({
+          type: ["application/json", "public.json", "*/*"],
+          copyToCacheDirectory: true,
+        });
+
+        if (result.canceled || !result.assets?.[0]?.uri) {
+          return;
+        }
+
+        const asset = result.assets[0];
+        const jsonText = await FileSystem.readAsStringAsync(asset.uri, {
+          encoding: FileSystem.EncodingType.UTF8,
+        });
+
+        const preview = await previewShareGearFileFromJson(jsonText);
+
+        Alert.alert(
+          "Import Shared Gear?",
+          `Storage Space: ${preview.storageSpaceName}\nRooms: ${preview.rooms}\nCompartments: ${preview.compartments}\nItems: ${preview.items}`,
+          [
+            {
+              text: "Cancel",
+              style: "cancel",
+            },
+            {
+              text: "Import",
+              onPress: () => {
+                void runWithLock(async () => {
+                  try {
+                    const summary = await importShareGearFileFromJson(jsonText);
+
+                    if (!isScreenMountedRef.current) return;
+
+                    Alert.alert(
+                      "Shared Gear Imported",
+                      `${summary.storageSpaceName} was imported with ${summary.roomsImported} rooms, ${summary.compartmentsImported} compartments, and ${summary.itemsImported} items.`,
+                      [
+                        {
+                          text: "Open",
+                          onPress: () => {
+                            router.push(`/vehicles/${summary.storageSpaceId}`);
+                          },
+                        },
+                        {
+                          text: "OK",
+                        },
+                      ]
+                    );
+                  } catch (err) {
+                    if (!isScreenMountedRef.current) return;
+
+                    console.error("Failed to import shared gear:", err);
+                    Alert.alert(
+                      "Import Failed",
+                      "Unable to import this shared gear file."
+                    );
+                  }
+                });
+              },
+            },
+          ]
+        );
+      } catch (err) {
+        if (!isScreenMountedRef.current) return;
+
+        console.error("Failed to read shared gear file:", err);
+        Alert.alert(
+          "Import Failed",
+          "Unable to read this shared gear file."
+        );
+      }
+    });
+  }
+
   async function handleDeleteAllData() {
     if (!user || isDeletingAllData || interactionLocked) {
       return;
@@ -1046,6 +1130,21 @@ export default function ProfileScreen() {
                   />
 
                   <ProfileRow
+                    icon={<Import size={20} color={iconColor} />}
+                    title="Import Shared Gear"
+                    subtitle="Import a .wmgshare file from another Where's My Gear user"
+                    onPress={handleImportSharedGear}
+                    disabled={rowActionsDisabled}
+                  />
+
+                  <View
+                    style={[
+                      styles.divider,
+                      { backgroundColor: theme.colors.border },
+                    ]}
+                  />
+
+                  <ProfileRow
                     icon={<Moon size={20} color={iconColor} />}
                     title="General Settings"
                     subtitle="Edit theme and display preferences"
@@ -1219,6 +1318,20 @@ export default function ProfileScreen() {
                   title="Replay App Tour"
                   subtitle="Review storage spaces, rooms, compartments, and app settings"
                   onPress={handleReplayAppTour}
+                  disabled={rowActionsDisabled}
+                />
+                <View
+                  style={[
+                    styles.divider,
+                    { backgroundColor: theme.colors.border },
+                  ]}
+                />
+
+                <ProfileRow
+                  icon={<Import size={20} color={iconColor} />}
+                  title="Import Shared Gear"
+                  subtitle="Import a .wmgshare file from another Where's My Gear user"
+                  onPress={handleImportSharedGear}
                   disabled={rowActionsDisabled}
                 />
 

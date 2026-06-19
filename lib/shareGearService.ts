@@ -1,6 +1,10 @@
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import {
+  createCompartment,
+  createItem,
+  createRoom,
+  createStorageSpace,
   getAllItems,
   getCompartments,
   getRoomsByStorageSpace,
@@ -212,3 +216,161 @@ export async function shareStorageSpaceGear(storageSpaceId: string) {
 
   return fileUri;
 }
+
+export type ShareGearImportSummary = {
+  storageSpaceId: string;
+  storageSpaceName: string;
+  roomsImported: number;
+  compartmentsImported: number;
+  itemsImported: number;
+};
+
+function validateShareGearFile(value: unknown): ShareGearFile {
+  const file = value as Partial<ShareGearFile>;
+
+  if (
+    !file ||
+    file.app !== "wheres-my-gear" ||
+    file.feature !== "share-gear" ||
+    file.version !== 1 ||
+    file.scope !== "storageSpace" ||
+    !file.storageSpace ||
+    !Array.isArray(file.rooms) ||
+    !Array.isArray(file.compartments) ||
+    !Array.isArray(file.items)
+  ) {
+    throw new Error("This is not a valid Where's My Gear share file.");
+  }
+
+  return file as ShareGearFile;
+}
+
+function withImportedName(name: string) {
+  const trimmed = name.trim();
+
+  if (!trimmed) {
+    return "Imported Gear";
+  }
+
+  return `${trimmed} (Imported)`;
+}
+
+export async function previewShareGearFileFromJson(jsonText: string) {
+  const parsed = JSON.parse(jsonText);
+  const file = validateShareGearFile(parsed);
+
+  return {
+    storageSpaceName: file.storageSpace.name,
+    rooms: file.rooms.length,
+    compartments: file.compartments.length,
+    items: file.items.length,
+    exportedAt: file.exportedAt,
+  };
+}
+
+export async function importShareGearFileFromJson(
+  jsonText: string
+): Promise<ShareGearImportSummary> {
+  const parsed = JSON.parse(jsonText);
+  const file = validateShareGearFile(parsed);
+
+  const storageSpaceName = withImportedName(file.storageSpace.name ?? "Imported Gear");
+
+  const newStorageSpaceId = await createStorageSpace({
+    name: storageSpaceName,
+    category: file.storageSpace.category ?? "vehicle",
+    subtype: file.storageSpace.subtype || "Imported",
+    notes: file.storageSpace.notes ?? "",
+  });
+
+  const roomIdBySourceId = new Map<string, string>();
+
+  for (const room of file.rooms) {
+    const sourceId = room.sourceId?.trim();
+
+    if (!sourceId || !room.name?.trim()) {
+      continue;
+    }
+
+    const newRoomId = await createRoom({
+      name: room.name,
+      storageSpaceId: newStorageSpaceId,
+      storageSpaceName,
+      notes: room.notes ?? "",
+      photoUri: "",
+    });
+
+    roomIdBySourceId.set(sourceId, newRoomId);
+  }
+
+  const compartmentIdBySourceId = new Map<string, string>();
+
+  for (const compartment of file.compartments) {
+    const sourceId = compartment.sourceId?.trim();
+
+    if (!sourceId || !compartment.name?.trim()) {
+      continue;
+    }
+
+    const remappedRoomId = compartment.sourceRoomId
+      ? roomIdBySourceId.get(compartment.sourceRoomId) ?? ""
+      : "";
+
+    const remappedRoomName = remappedRoomId
+      ? file.rooms.find((room) => room.sourceId === compartment.sourceRoomId)?.name ?? ""
+      : "";
+
+    const newCompartmentId = await createCompartment(
+      compartment.name,
+      newStorageSpaceId,
+      {
+        roomId: remappedRoomId,
+        roomName: remappedRoomName,
+      }
+    );
+
+    compartmentIdBySourceId.set(sourceId, newCompartmentId);
+  }
+
+  let itemsImported = 0;
+
+  for (const item of file.items) {
+    if (!item.name?.trim()) {
+      continue;
+    }
+
+    const remappedCompartmentId = item.sourceCompartmentId
+      ? compartmentIdBySourceId.get(item.sourceCompartmentId) ?? ""
+      : "";
+
+    const sourceCompartment = item.sourceCompartmentId
+      ? file.compartments.find(
+          (compartment) => compartment.sourceId === item.sourceCompartmentId
+        )
+      : null;
+
+    await createItem({
+      name: item.name,
+      quantity: item.quantity,
+      status: item.status,
+      compartmentId: remappedCompartmentId,
+      compartmentName: sourceCompartment?.name ?? item.compartmentName ?? "",
+      vehicleId: newStorageSpaceId,
+      vehicleName: storageSpaceName,
+      notes: item.notes ?? "",
+      source: "share-gear",
+      itemPhotoUri: "",
+    });
+
+    itemsImported += 1;
+  }
+
+  return {
+    storageSpaceId: newStorageSpaceId,
+    storageSpaceName,
+    roomsImported: roomIdBySourceId.size,
+    compartmentsImported: compartmentIdBySourceId.size,
+    itemsImported,
+  };
+}
+
