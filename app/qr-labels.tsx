@@ -563,7 +563,7 @@ export default function QrLabelsScreen() {
           <style>
             @page {
               size: letter;
-              margin: 0.25in;
+              margin: 1in 0.75in 0.25in 0.75in;
             }
             * {
               box-sizing: border-box;
@@ -576,12 +576,14 @@ export default function QrLabelsScreen() {
             }
             .page {
               display: grid;
-              grid-template-columns: repeat(2, minmax(0, 1fr));
-              grid-template-rows: repeat(2, 4.45in);
-              column-gap: 0.18in;
-              row-gap: 0.18in;
+              grid-template-columns: repeat(2, 3.1in);
+              grid-template-rows: repeat(2, 3.35in);
+              column-gap: 0.12in;
+              row-gap: 0.16in;
               width: 100%;
+              justify-content: center;
               align-content: start;
+              padding-top: 0.45in;
               page-break-after: always;
               break-after: page;
             }
@@ -591,14 +593,14 @@ export default function QrLabelsScreen() {
             }
             .label {
               border: 1.5px solid #111827;
-              border-radius: 14px;
+              border-radius: 12px;
               break-inside: avoid;
               page-break-inside: avoid;
               overflow: hidden;
               padding: 10px;
               text-align: center;
               width: 100%;
-              height: 4.45in;
+              height: 3.35in;
             }
             .app {
               font-size: 13px;
@@ -614,8 +616,8 @@ export default function QrLabelsScreen() {
               margin-bottom: 8px;
             }
             .qr {
-              width: 118px;
-              height: 118px;
+              width: 105px;
+              height: 105px;
               margin: 8px auto;
             }
             .meta {
