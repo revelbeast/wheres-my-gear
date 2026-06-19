@@ -36,6 +36,7 @@ import {
   hasActivePremiumPlusEntitlement,
 } from "../../lib/revenuecat";
 import { importShareGearFileFromJson, previewShareGearFileFromJson } from "../../lib/shareGearService";
+import { importChecklistTemplateShareFileFromJson, previewChecklistTemplateShareFileFromJson } from "../../lib/shareChecklistService";
 import { getProfileSettings } from "../../lib/settingsService";
 import type { AppProfile } from "../../lib/settingsService";
 import { useDeviceLayout } from "../../lib/useDeviceLayout";
@@ -156,6 +157,7 @@ export default function ProfileScreen() {
 
   const [isDeletingAllData, setIsDeletingAllData] = useState(false);
   const [isImportingSharedGear, setIsImportingSharedGear] = useState(false);
+  const [isImportingTemplate, setIsImportingTemplate] = useState(false);
   const [appProfile, setAppProfile] = useState<AppProfile | null>(null);
   const [isPremium, setIsPremium] = useState(false);
   const [isPremiumPlus, setIsPremiumPlus] = useState(false);
@@ -639,6 +641,75 @@ export default function ProfileScreen() {
     });
   }
 
+
+  async function handleImportChecklistTemplate() {
+    if (interactionLocked || !user) return;
+
+    await runWithLock(async () => {
+      try {
+        const result = await DocumentPicker.getDocumentAsync({
+          type: ["application/json", "public.json", "*/*"],
+          copyToCacheDirectory: true,
+        });
+
+        if (result.canceled || !result.assets?.[0]?.uri) return;
+
+        const jsonText = await FileSystem.readAsStringAsync(result.assets[0].uri, {
+          encoding: FileSystem.EncodingType.UTF8,
+        });
+
+        const preview = await previewChecklistTemplateShareFileFromJson(jsonText);
+
+        Alert.alert(
+          "Import Checklist Template?",
+          `Template: ${preview.templateName}\nItems: ${preview.itemCount}\n\nExported:\n${preview.exportedAt ? new Date(preview.exportedAt).toLocaleDateString() : "Unknown"}`,
+          [
+            { text: "Cancel", style: "cancel" },
+            {
+              text: "Import",
+              onPress: () => {
+                void runWithLock(async () => {
+                  try {
+                    setIsImportingTemplate(true);
+                    const summary = await importChecklistTemplateShareFileFromJson(user.uid, jsonText);
+
+                    if (!isScreenMountedRef.current) return;
+
+                    Alert.alert(
+                      "Template Imported Successfully",
+                      `Template:\n${summary.templateName}\n\nItems Imported: ${summary.itemsImported}`,
+                      [
+                        {
+                          text: "Open Templates",
+                          onPress: () => router.push("/checklists/templates"),
+                        },
+                        { text: "OK" },
+                      ]
+                    );
+                  } catch (err) {
+                    if (!isScreenMountedRef.current) return;
+
+                    console.error("Failed to import checklist template:", err);
+                    Alert.alert("Import Failed", "Unable to import this checklist template file.");
+                  } finally {
+                    if (isScreenMountedRef.current) {
+                      setIsImportingTemplate(false);
+                    }
+                  }
+                });
+              },
+            },
+          ]
+        );
+      } catch (err) {
+        if (!isScreenMountedRef.current) return;
+
+        console.error("Failed to preview checklist template import:", err);
+        Alert.alert("Import Failed", "Unable to read this checklist template file.");
+      }
+    });
+  }
+
   async function handleDeleteAllData() {
     if (!user || isDeletingAllData || interactionLocked) {
       return;
@@ -872,7 +943,7 @@ export default function ProfileScreen() {
   const iconColor = theme.colors.text;
   const dangerIconColor = theme.colors.danger;
   const rowActionsDisabled =
-    interactionLocked || isDeletingAllData || isImportingSharedGear;
+    interactionLocked || isDeletingAllData || isImportingSharedGear || isImportingTemplate;
 
   const appProfileDisplayName = `${appProfile?.firstName || ""} ${appProfile?.lastName || ""}`.trim();
 
@@ -1151,6 +1222,21 @@ export default function ProfileScreen() {
                   />
 
                   <ProfileRow
+                    icon={<Import size={20} color={iconColor} />}
+                    title="Import Checklist Template"
+                    subtitle="Import a .wmgtemplate file from another Where's My Gear user"
+                    onPress={handleImportChecklistTemplate}
+                    disabled={rowActionsDisabled}
+                  />
+
+                  <View
+                    style={[
+                      styles.divider,
+                      { backgroundColor: theme.colors.border },
+                    ]}
+                  />
+
+                  <ProfileRow
                     icon={<Moon size={20} color={iconColor} />}
                     title="General Settings"
                     subtitle="Edit theme and display preferences"
@@ -1349,6 +1435,21 @@ export default function ProfileScreen() {
                 />
 
                 <ProfileRow
+                  icon={<Import size={20} color={iconColor} />}
+                  title="Import Checklist Template"
+                  subtitle="Import a .wmgtemplate file from another Where's My Gear user"
+                  onPress={handleImportChecklistTemplate}
+                  disabled={rowActionsDisabled}
+                />
+
+                <View
+                  style={[
+                    styles.divider,
+                    { backgroundColor: theme.colors.border },
+                  ]}
+                />
+
+                <ProfileRow
                   icon={<Moon size={20} color={iconColor} />}
                   title="General Settings"
                   subtitle="Edit theme and display preferences"
@@ -1393,7 +1494,7 @@ export default function ProfileScreen() {
           )}
         </ScrollView>
 
-        {isImportingSharedGear && (
+        {(isImportingSharedGear || isImportingTemplate) && (
           <View style={styles.importOverlay} pointerEvents="auto">
             <View
               style={[
@@ -1410,10 +1511,10 @@ export default function ProfileScreen() {
             >
               <ActivityIndicator size="large" color={theme.isLight ? "#2563EB" : "#FFFFFF"} />
               <ThemedText variant="title" style={styles.importOverlayTitle}>
-                Importing shared gear...
+                {isImportingTemplate ? "Importing checklist template..." : "Importing shared gear..."}
               </ThemedText>
               <ThemedText color="secondary" style={styles.importOverlaySubtitle}>
-                Creating rooms, compartments, and items.
+                {isImportingTemplate ? "Creating template and items." : "Creating rooms, compartments, and items."}
               </ThemedText>
             </View>
           </View>

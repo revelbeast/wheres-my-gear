@@ -47,6 +47,7 @@ import {
 } from "../../../lib/checklistsService";
 import { savePhotoToLocalDocumentStorage } from "../../../lib/localPhotoStorage";
 import { useInteractionLock } from "../../../lib/useInteractionLock";
+import { shareChecklistTemplate } from "../../../lib/shareChecklistService";
 import { colors } from "../../../theme/tokens";
 import type {
   ChecklistCategory,
@@ -707,18 +708,38 @@ export default function TemplateItemsScreen() {
     });
   }
 
+  async function handleExportTemplateShareFile() {
+    if (!user || !template || interactionLocked) return;
+
+    await runWithLock(async () => {
+      try {
+        await shareChecklistTemplate(user.uid, template.id);
+      } catch (err) {
+        console.error("Failed to export checklist template:", err);
+        Alert.alert(
+          "Export Template Failed",
+          "Something went wrong while creating the checklist template file."
+        );
+      }
+    });
+  }
+
   function handleTemplateShareOptions() {
     if (!template || interactionLocked) return;
 
     if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          title: "Share Template",
-          options: ["Export Excel/CSV", "Cancel"],
-          cancelButtonIndex: 1,
+          title: "Export Template",
+          options: ["Export Template File", "Export Excel/CSV", "Cancel"],
+          cancelButtonIndex: 2,
         },
         (buttonIndex) => {
           if (buttonIndex === 0) {
+            handleExportTemplateShareFile();
+          }
+
+          if (buttonIndex === 1) {
             handleExportTemplateCsv();
           }
         }
@@ -727,7 +748,11 @@ export default function TemplateItemsScreen() {
       return;
     }
 
-    Alert.alert("Share Template", "Choose an option.", [
+    Alert.alert("Export Template", "Choose an option.", [
+      {
+        text: "Export Template File",
+        onPress: handleExportTemplateShareFile,
+      },
       {
         text: "Export Excel/CSV",
         onPress: handleExportTemplateCsv,
@@ -1183,23 +1208,67 @@ export default function TemplateItemsScreen() {
                 <FrostedCard style={{ marginBottom: 12 }}>
                   <HapticPressable
                     style={{
-                      flexDirection: "row",
                       alignItems: "center",
                       justifyContent: "center",
-                      gap: 8,
+                      gap: 4,
                       paddingVertical: 14,
                     }}
-                    onPress={handleTemplateShareOptions}
+                    onPress={handleExportTemplateShareFile}
+                    disabled={interactionLocked}
                   >
                     <Share2 size={18} color={theme.colors.text} />
                     <Text
                       style={{
                         color: theme.colors.text,
                         fontSize: 16,
-                        fontWeight: "600",
+                        fontWeight: "700",
                       }}
                     >
-                      Share / Export Template
+                      Export Template Gear
+                    </Text>
+                    <Text
+                      style={{
+                        color: theme.colors.textSecondary,
+                        fontSize: 13,
+                        fontWeight: "600",
+                        textAlign: "center",
+                      }}
+                    >
+                      Creates a .wmgtemplate file another user can import
+                    </Text>
+                  </HapticPressable>
+                </FrostedCard>
+
+                <FrostedCard style={{ marginBottom: 12 }}>
+                  <HapticPressable
+                    style={{
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 4,
+                      paddingVertical: 14,
+                    }}
+                    onPress={handleExportTemplateCsv}
+                    disabled={interactionLocked}
+                  >
+                    <Share2 size={18} color={theme.colors.text} />
+                    <Text
+                      style={{
+                        color: theme.colors.text,
+                        fontSize: 16,
+                        fontWeight: "700",
+                      }}
+                    >
+                      Export Excel/CSV
+                    </Text>
+                    <Text
+                      style={{
+                        color: theme.colors.textSecondary,
+                        fontSize: 13,
+                        fontWeight: "600",
+                        textAlign: "center",
+                      }}
+                    >
+                      Creates a spreadsheet file for printing or editing
                     </Text>
                   </HapticPressable>
                 </FrostedCard>
