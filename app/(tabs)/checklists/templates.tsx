@@ -1,6 +1,6 @@
 import { BlurView } from "expo-blur";
 import { router, useFocusEffect } from "expo-router";
-import { Pencil, Trash2 } from "lucide-react-native";
+import { FileUp, Pencil, Trash2 } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
@@ -25,6 +25,7 @@ import {
   getChecklistTemplates,
   updateChecklistTemplateName,
 } from "../../../lib/checklistsService";
+import { shareChecklistTemplate } from "../../../lib/shareChecklistService";
 import { useInteractionLock } from "../../../lib/useInteractionLock";
 import type { ChecklistTemplate } from "../../../types/checklists";
 
@@ -332,6 +333,26 @@ export default function ManageTemplatesScreen() {
     });
   }
 
+  async function handleShareTemplate(template: ChecklistTemplate) {
+    if (!user || interactionLocked || savingRename) return;
+
+    const uid = user.uid;
+
+    await runWithLock(async () => {
+      try {
+        await shareChecklistTemplate(uid, template.id);
+      } catch (err) {
+        if (!isMountedRef.current) return;
+
+        console.error(err);
+        Alert.alert(
+          "Export Template Failed",
+          "Something went wrong while creating the checklist template file."
+        );
+      }
+    });
+  }
+
   function handleDeleteTemplate(template: ChecklistTemplate) {
     if (!user || interactionLocked || savingRename) return;
 
@@ -478,6 +499,22 @@ export default function ManageTemplatesScreen() {
                       ]}
                     >
                       <Pencil size={17} color={theme.colors.text} />
+                    </HapticPressable>
+
+                    <HapticPressable
+                      onPress={() => handleShareTemplate(template)}
+                      disabled={navigationDisabled || savingRename}
+                      style={[
+                        styles.iconButton,
+                        {
+                          backgroundColor: theme.colors.iconSurface,
+                          borderColor: theme.colors.border,
+                        },
+                        (navigationDisabled || savingRename) &&
+                        styles.disabledButton,
+                      ]}
+                    >
+                      <FileUp size={17} color={theme.colors.text} />
                     </HapticPressable>
 
                     <HapticPressable
