@@ -50,11 +50,6 @@ const FAQ_ITEMS: FAQItem[] = [
       "Share sends a text summary of a Storage Space, Room, or Compartment using Messages, Mail, Notes, or other apps. Export Gear creates a .wmgshare file that another Where's My Gear user can import directly into their inventory. Exported gear can include Storage Spaces, Rooms, Compartments, Items, notes, quantities, packed status, and item photos.",
   },
   {
-    question: "What is the difference between Share and Export Gear?",
-    answer:
-      "Share sends a text summary of a Storage Space, Room, or Compartment using Messages, Mail, Notes, or other apps. Export Gear creates a .wmgshare file that another Where's My Gear user can import directly into their inventory. Exported gear can include Storage Spaces, Rooms, Compartments, Items, notes, quantities, packed status, and item photos.",
-  },
-  {
     question: "What is Gear Assistant?",
     answer:
       "Gear Assistant is a Premium + feature that lets you speak items into inventory, review what was detected, choose the correct Storage Space or Compartment, and save the items without manually typing each one. On supported iOS devices, Gear Assistant can also be opened from Siri or Apple Shortcuts.",
