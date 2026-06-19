@@ -599,7 +599,7 @@ export default function VehicleDetailScreen() {
         onPress: handleShareStorageSpace,
       },
       {
-        text: "Share Gear",
+        text: "Export Storage Space Gear",
         onPress: handleShareGearData,
       },
       {
