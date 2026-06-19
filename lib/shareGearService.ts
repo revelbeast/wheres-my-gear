@@ -58,6 +58,9 @@ type SharedItem = Omit<
   sourceId: string;
   sourceStorageSpaceId?: string;
   sourceCompartmentId?: string;
+  sharedPhotoBase64?: string;
+  sharedPhotoFileName?: string;
+  sharedPhotoMimeType?: string;
 };
 
 export type ShareGearFile = {
@@ -132,7 +135,87 @@ function stripCompartment(compartment: Compartment): SharedCompartment {
   };
 }
 
-function stripItem(item: Item): SharedItem {
+function getPhotoMimeType(uri: string) {
+  const lower = uri.toLowerCase();
+
+  if (lower.endsWith(".png")) return "image/png";
+  if (lower.endsWith(".webp")) return "image/webp";
+  return "image/jpeg";
+}
+
+function getPhotoFileExtension(mimeType: string) {
+  if (mimeType === "image/png") return "png";
+  if (mimeType === "image/webp") return "webp";
+  return "jpg";
+}
+
+async function readSharedItemPhoto(item: Item) {
+  const uri = item.itemPhotoUri?.trim();
+
+  if (!uri || !uri.startsWith("file://")) {
+    return null;
+  }
+
+  try {
+    const info = await FileSystem.getInfoAsync(uri);
+
+    if (!info.exists) {
+      return null;
+    }
+
+    const mimeType = getPhotoMimeType(uri);
+    const fileExtension = getPhotoFileExtension(mimeType);
+    const photoBase64 = await FileSystem.readAsStringAsync(uri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+
+    if (!photoBase64) {
+      return null;
+    }
+
+    return {
+      sharedPhotoBase64: photoBase64,
+      sharedPhotoFileName: `${safeFileName(item.name || "item-photo")}-${item.id}.${fileExtension}`,
+      sharedPhotoMimeType: mimeType,
+    };
+  } catch (err) {
+    console.warn("Unable to include item photo in shared gear file.", err);
+    return null;
+  }
+}
+
+async function writeImportedItemPhoto(item: SharedItem) {
+  if (!item.sharedPhotoBase64) {
+    return "";
+  }
+
+  if (!FileSystem.documentDirectory) {
+    return "";
+  }
+
+  try {
+    const mimeType = item.sharedPhotoMimeType || "image/jpeg";
+    const fileExtension = getPhotoFileExtension(mimeType);
+    const fileName =
+      item.sharedPhotoFileName?.trim() ||
+      `${safeFileName(item.name || "imported-item-photo")}-${Date.now()}.${fileExtension}`;
+    const directoryUri = `${FileSystem.documentDirectory}wmg-shared-photos/`;
+
+    await FileSystem.makeDirectoryAsync(directoryUri, { intermediates: true });
+
+    const fileUri = `${directoryUri}${Date.now()}-${safeFileName(fileName)}`;
+    await FileSystem.writeAsStringAsync(fileUri, item.sharedPhotoBase64, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+
+    return fileUri;
+  } catch (err) {
+    console.warn("Unable to restore shared item photo.", err);
+    return "";
+  }
+}
+
+async function stripItem(item: Item): Promise<SharedItem> {
   const {
     id,
     vehicleId,
@@ -146,12 +229,19 @@ function stripItem(item: Item): SharedItem {
     ...rest
   } = item;
 
+  const sharedPhoto = await readSharedItemPhoto(item);
+
   return {
     ...rest,
     sourceId: id,
     sourceStorageSpaceId: vehicleId,
     sourceCompartmentId: compartmentId,
+    ...(sharedPhoto ?? {}),
   };
+}
+
+async function stripItems(items: Item[]) {
+  return Promise.all(items.map(stripItem));
 }
 
 export async function buildShareGearStorageSpaceFile(
@@ -186,7 +276,7 @@ export async function buildShareGearStorageSpaceFile(
     storageSpace: stripStorageSpace(storageSpace),
     rooms: rooms.map(stripRoom),
     compartments: compartments.map(stripCompartment),
-    items: scopedItems.map(stripItem),
+    items: await stripItems(scopedItems),
   };
 }
 
@@ -264,7 +354,7 @@ export async function buildShareGearRoomFile(
     storageSpace: stripStorageSpace(storageSpace),
     rooms: [stripRoom(room)],
     compartments: scopedCompartments.map(stripCompartment),
-    items: scopedItems.map(stripItem),
+    items: await stripItems(scopedItems),
   };
 }
 
@@ -331,7 +421,7 @@ export async function buildShareGearCompartmentFile(
     storageSpace: stripStorageSpace(storageSpace),
     rooms: room ? [stripRoom(room)] : [],
     compartments: [stripCompartment(compartment)],
-    items: items.map(stripItem),
+    items: await stripItems(items),
   };
 }
 
@@ -520,7 +610,7 @@ export async function importShareGearFileFromJson(
       vehicleName: storageSpaceName,
       notes: item.notes ?? "",
       source: "share-gear",
-      itemPhotoUri: "",
+      itemPhotoUri: await writeImportedItemPhoto(item),
     });
 
     itemsImported += 1;
