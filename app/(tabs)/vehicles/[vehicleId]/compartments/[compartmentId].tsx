@@ -52,6 +52,7 @@ import {
   updateItem,
   updateItemPhoto,
 } from "../../../../../lib/gearService";
+import { shareCompartmentGear } from "../../../../../lib/shareGearService";
 import { useInteractionLock } from "../../../../../lib/useInteractionLock";
 import { colors } from "../../../../../theme/tokens";
 
@@ -458,6 +459,25 @@ export default function CompartmentDetailScreen() {
         Alert.alert(
           "Compartment not shared",
           "Something went wrong while sharing this compartment."
+        );
+      }
+    });
+  }
+
+
+  async function handleShareCompartmentGear() {
+    if (!vehicleId || !compartmentId || interactionLocked) return;
+
+    await runWithLock(async () => {
+      try {
+        await shareCompartmentGear(String(vehicleId), String(compartmentId));
+      } catch (err) {
+        if (!isMountedRef.current) return;
+
+        console.error("Failed to share compartment gear:", err);
+        Alert.alert(
+          "Share Gear Failed",
+          "Something went wrong while creating the compartment share file."
         );
       }
     });
@@ -1599,7 +1619,31 @@ export default function CompartmentDetailScreen() {
               >
                 Share Compartment
               </Text>
+</HapticPressable>
+
+            <HapticPressable
+              style={[
+                styles.shareCompartmentButton,
+                {
+                  borderColor: theme.colors.border,
+                  backgroundColor: theme.colors.card,
+                },
+                interactionLocked && styles.createButtonDisabled,
+              ]}
+              onPress={handleShareCompartmentGear}
+              disabled={interactionLocked}
+            >
+              <Share2 size={18} color={theme.colors.text} />
+              <Text
+                style={[
+                  styles.shareCompartmentButtonText,
+                  { color: theme.colors.text },
+                ]}
+              >
+                Export Compartment Gear
+              </Text>
             </HapticPressable>
+
 
             <HapticPressable
               style={[
