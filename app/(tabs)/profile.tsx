@@ -578,7 +578,7 @@ export default function ProfileScreen() {
 
         Alert.alert(
           "Import Shared Gear?",
-          `Source: ${preview.storageSpaceName}\nType: ${preview.type}\nRooms: ${preview.rooms}\nCompartments: ${preview.compartments}\nItems: ${preview.items}`,
+          `Source: ${preview.storageSpaceName}\nType: ${preview.type}\n\nRooms: ${preview.rooms}\nCompartments: ${preview.compartments}\nItems: ${preview.items}\n\nExported:\n${preview.exportedAt ? new Date(preview.exportedAt).toLocaleDateString() : "Unknown"}`,
           [
             {
               text: "Cancel",
