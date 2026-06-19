@@ -50,6 +50,7 @@ import {
   updateRoom,
 } from "../../../lib/gearService";
 import { isPremiumPlusUser } from "../../../lib/revenuecat";
+import { shareStorageSpaceGear } from "../../../lib/shareGearService";
 import { useInteractionLock } from "../../../lib/useInteractionLock";
 import { colors } from "../../../theme/tokens";
 
@@ -541,6 +542,29 @@ export default function VehicleDetailScreen() {
     });
   }
 
+  async function handleShareGearData() {
+    if (isBusy()) return;
+
+    if (!storageSpace?.id) {
+      Alert.alert("Share Gear", "Storage space information is not available.");
+      return;
+    }
+
+    await runWithLock(async () => {
+      try {
+        await shareStorageSpaceGear(storageSpace.id);
+      } catch (err) {
+        if (!isScreenMountedRef.current) return;
+
+        console.error("Failed to share gear data:", err);
+        Alert.alert(
+          "Share Gear Failed",
+          "Something went wrong while creating the gear share file."
+        );
+      }
+    });
+  }
+
   function handleStorageSpaceExportOptions() {
     if (isBusy()) return;
 
@@ -548,8 +572,8 @@ export default function VehicleDetailScreen() {
       ActionSheetIOS.showActionSheetWithOptions(
         {
           title: "Share Storage Space",
-          options: ["Share", "Export Excel/CSV", "Cancel"],
-          cancelButtonIndex: 2,
+          options: ["Share", "Share Gear", "Export Excel/CSV", "Cancel"],
+          cancelButtonIndex: 3,
         },
         (buttonIndex) => {
           if (buttonIndex === 0) {
@@ -557,6 +581,10 @@ export default function VehicleDetailScreen() {
           }
 
           if (buttonIndex === 1) {
+            handleShareGearData();
+          }
+
+          if (buttonIndex === 2) {
             handleExportStorageSpaceCsv();
           }
         }
@@ -569,6 +597,10 @@ export default function VehicleDetailScreen() {
       {
         text: "Share",
         onPress: handleShareStorageSpace,
+      },
+      {
+        text: "Share Gear",
+        onPress: handleShareGearData,
       },
       {
         text: "Export Excel/CSV",
