@@ -145,6 +145,65 @@ struct FindGearIntent: AppIntent {
   }
 }
 
+
+@available(iOS 16.0, *)
+struct CheckGearItemIntent: AppIntent {
+  static var title: LocalizedStringResource = "Check Gear Item"
+  static var description = IntentDescription("Ask Where's My Gear if you already have a gear item.")
+  static var openAppWhenRun: Bool = false
+
+  @Parameter(title: "Item Name")
+  var itemName: String
+
+  func perform() async throws -> some IntentResult & ProvidesDialog {
+    let searchTerm = itemName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+
+    guard !searchTerm.isEmpty else {
+      return .result(dialog: "Tell me the gear item you want to check.")
+    }
+
+    let matches = loadSiriGearCacheItems().filter { item in
+      item.name.lowercased().contains(searchTerm)
+    }
+
+    guard !matches.isEmpty else {
+      return .result(dialog: "I couldn't find \(itemName) in Where's My Gear.")
+    }
+
+    if matches.count == 1, let item = matches.first {
+      let location = [item.compartmentName, item.vehicleName]
+        .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        .joined(separator: ", ")
+
+      if location.isEmpty {
+        return .result(dialog: "Yes, you already have \(item.name) in Where's My Gear.")
+      }
+
+      return .result(dialog: "Yes, you already have \(item.name). It is in \(location).")
+    }
+
+    let names = matches.prefix(3).map { $0.name }.joined(separator: ", ")
+    return .result(dialog: "Yes, I found \(matches.count) matching items in Where's My Gear: \(names).")
+  }
+
+  private func loadSiriGearCacheItems() -> [SiriGearCacheItem] {
+    guard let documentsUrl = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+      return []
+    }
+
+    let cacheUrl = documentsUrl.appendingPathComponent("wmg-siri-gear-cache.json")
+
+    guard
+      let data = try? Data(contentsOf: cacheUrl),
+      let cache = try? JSONDecoder().decode(SiriGearCache.self, from: data)
+    else {
+      return []
+    }
+
+    return cache.items
+  }
+}
+
 @available(iOS 16.0, *)
 struct OpenScannerIntent: AppIntent {
   static var title: LocalizedStringResource = "Open Scanner"
@@ -241,6 +300,19 @@ struct WheresMyGearShortcuts: AppShortcutsProvider {
       ],
       shortTitle: "Find Gear",
       systemImageName: "magnifyingglass.circle"
+    )
+
+
+    AppShortcut(
+      intent: CheckGearItemIntent(),
+      phrases: [
+        "Do I already have \(\.$itemName) in \(.applicationName)",
+        "Do I have \(\.$itemName) in \(.applicationName)",
+        "Check if I have \(\.$itemName) in \(.applicationName)",
+        "Do I own \(\.$itemName) in \(.applicationName)"
+      ],
+      shortTitle: "Check Gear",
+      systemImageName: "questionmark.circle"
     )
 
     AppShortcut(
