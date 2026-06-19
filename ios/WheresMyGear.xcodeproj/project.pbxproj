@@ -12,9 +12,9 @@
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		6EB662ABE68D40CC731B2EE7 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 0B7027B6A39A1DE9BC604C1B /* PrivacyInfo.xcprivacy */; };
 		89CFDF7333B494E0057FAA98 /* libPods-WheresMyGear.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 715AEAE8539088F7C17CA19A /* libPods-WheresMyGear.a */; };
+		A1B2C3D4E5F60718293A4B5C /* AppIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5D /* AppIntents.swift */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
-A1B2C3D4E5F60718293A4B5C /* AppIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5D /* AppIntents.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -25,11 +25,11 @@ A1B2C3D4E5F60718293A4B5C /* AppIntents.swift in Sources */ = {isa = PBXBuildFile
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = WheresMyGear/Info.plist; sourceTree = "<group>"; };
 		55707E6463C2283BA7F6F554 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-WheresMyGear/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		715AEAE8539088F7C17CA19A /* libPods-WheresMyGear.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-WheresMyGear.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1B2C3D4E5F60718293A4B5D /* AppIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppIntents.swift; path = WheresMyGear/AppIntents.swift; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = WheresMyGear/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = WheresMyGear/AppDelegate.swift; sourceTree = "<group>"; };
-A1B2C3D4E5F60718293A4B5D /* AppIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppIntents.swift; path = WheresMyGear/AppIntents.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* WheresMyGear-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "WheresMyGear-Bridging-Header.h"; path = "WheresMyGear/WheresMyGear-Bridging-Header.h"; sourceTree = "<group>"; };
 		F38655AFE0D70BCCB18A08CF /* Pods-WheresMyGear.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-WheresMyGear.release.xcconfig"; path = "Target Support Files/Pods-WheresMyGear/Pods-WheresMyGear.release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -50,7 +50,7 @@ A1B2C3D4E5F60718293A4B5D /* AppIntents.swift */ = {isa = PBXFileReference; lastK
 			isa = PBXGroup;
 			children = (
 				F11748412D0307B40044C1D9 /* AppDelegate.swift */,
-A1B2C3D4E5F60718293A4B5D /* AppIntents.swift */,
+				A1B2C3D4E5F60718293A4B5D /* AppIntents.swift */,
 				F11748442D0722820044C1D9 /* WheresMyGear-Bridging-Header.h */,
 				BB2F792B24A3F905000567C9 /* Supporting */,
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
@@ -169,8 +169,8 @@ A1B2C3D4E5F60718293A4B5D /* AppIntents.swift */,
 				LastUpgradeCheck = 1130;
 				TargetAttributes = {
 					13B07F861A680F5B00A75B9A = {
+						DevelopmentTeam = U6TS2HXLP9;
 						LastSwiftMigration = 1250;
-						DevelopmentTeam = "U6TS2HXLP9";
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -359,7 +359,7 @@ A1B2C3D4E5F60718293A4B5D /* AppIntents.swift */,
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-A1B2C3D4E5F60718293A4B5C /* AppIntents.swift in Sources */,
+				A1B2C3D4E5F60718293A4B5C /* AppIntents.swift in Sources */,
 				3C8F8F0F563724E5B9B24C9B /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -374,7 +374,10 @@ A1B2C3D4E5F60718293A4B5C /* AppIntents.swift in Sources */,
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = WheresMyGear/WheresMyGear.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 67;
+				DEVELOPMENT_TEAM = U6TS2HXLP9;
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
@@ -400,9 +403,6 @@ A1B2C3D4E5F60718293A4B5C /* AppIntents.swift in Sources */,
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
-				DEVELOPMENT_TEAM = "U6TS2HXLP9";
-				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
 			};
 			name = Debug;
 		};
@@ -413,7 +413,10 @@ A1B2C3D4E5F60718293A4B5C /* AppIntents.swift in Sources */,
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = WheresMyGear/WheresMyGear.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 67;
+				DEVELOPMENT_TEAM = U6TS2HXLP9;
 				INFOPLIST_FILE = WheresMyGear/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -433,9 +436,6 @@ A1B2C3D4E5F60718293A4B5C /* AppIntents.swift in Sources */,
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
-				DEVELOPMENT_TEAM = "U6TS2HXLP9";
-				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
 			};
 			name = Release;
 		};
