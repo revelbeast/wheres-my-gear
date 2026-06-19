@@ -65,6 +65,26 @@ const FAQ_ITEMS: FAQItem[] = [
       "On supported iOS devices, you can ask Siri to find an item in Where's My Gear. For example, say: Hey Siri, where's my headlamp in Where's My Gear? You can also ask: Hey Siri, do I already have a headlamp in Where's My Gear? The app will open Inventory and search for that item.",
   },
   {
+    question: "What does Trip Reminder do when I create a trip?",
+    answer:
+      "Trip Reminder lets you schedule a notification before your trip starts. When creating or editing a trip, turn Trip Reminder on and choose 1 day, 3 days, or 7 days before the trip. Where's My Gear will send a reminder so you have time to finish packing.",
+  },
+  {
+    question: "Why did my trip reminder not schedule?",
+    answer:
+      "A trip reminder can only be scheduled for a future date and time. If the selected reminder time has already passed, the trip will still be saved, but the reminder will not be scheduled. For example, if your trip starts tomorrow and you choose 3 days before, that reminder date is already in the past. Choose a future trip date or select a reminder option that has not already passed.",
+  },
+  {
+    question: "What is the number on the Where's My Gear app icon?",
+    answer:
+      "The number on the app icon is the upcoming trip badge. It shows how many upcoming trips are currently saved in Where's My Gear. For example, 2 upcoming trips shows a badge of 2, 1 upcoming trip shows a badge of 1, and no upcoming trips clears the badge. The badge updates automatically as trips are added, deleted, or pass their trip date.",
+  },
+  {
+    question: "How do I turn off trip notifications or app badges?",
+    answer:
+      "You can control trip reminders and app badges from your device settings. On iPhone or iPad, open Settings, tap Notifications, select Where's My Gear, then turn off Allow Notifications or disable Badges, Sounds, Lock Screen, Notification Center, or Banners. On Android, open Settings, tap Apps, select Where's My Gear, then tap Notifications to customize or disable notifications for your device.",
+  },
+  {
     question: "Why do I see Syncing your gear?",
     answer:
       "Syncing your gear appears while Where's My Gear is loading your saved Storage Spaces, Rooms, Compartments, Inventory Items, Checklists, and Trips. This helps confirm that your gear is still loading and prevents empty screens from showing while your data syncs.",
