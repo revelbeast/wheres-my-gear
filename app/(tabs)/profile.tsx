@@ -578,7 +578,7 @@ export default function ProfileScreen() {
 
         Alert.alert(
           "Import Shared Gear?",
-          `Storage Space: ${preview.storageSpaceName}\nRooms: ${preview.rooms}\nCompartments: ${preview.compartments}\nItems: ${preview.items}`,
+          `Source: ${preview.storageSpaceName}\nType: ${preview.type}\nRooms: ${preview.rooms}\nCompartments: ${preview.compartments}\nItems: ${preview.items}`,
           [
             {
               text: "Cancel",
@@ -595,8 +595,8 @@ export default function ProfileScreen() {
                     if (!isScreenMountedRef.current) return;
 
                     Alert.alert(
-                      "Import Successful",
-                      `${summary.storageSpaceName} was imported successfully with ${summary.roomsImported} rooms, ${summary.compartmentsImported} compartments, and ${summary.itemsImported} items.`,
+                      "Gear Imported Successfully",
+                      `Storage Space:\n${summary.storageSpaceName}\n\nRooms Imported: ${summary.roomsImported}\nCompartments Imported: ${summary.compartmentsImported}\nItems Imported: ${summary.itemsImported}`,
                       [
                         {
                           text: "Open",

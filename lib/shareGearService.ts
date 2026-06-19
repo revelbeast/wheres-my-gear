@@ -416,6 +416,12 @@ export async function previewShareGearFileFromJson(jsonText: string) {
 
   return {
     storageSpaceName: file.storageSpace.name,
+    type:
+      file.scope === "storageSpace"
+        ? "Storage Space"
+        : file.scope === "room"
+          ? "Room"
+          : "Compartment",
     rooms: file.rooms.length,
     compartments: file.compartments.length,
     items: file.items.length,
