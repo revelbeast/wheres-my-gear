@@ -40,7 +40,21 @@ app-example
 
 # generated native folders
 /ios
-/android
+
+# Android native source is tracked; exclude local configuration and credentials
+/android/**/google-services.json
+/android/**/*.keystore
+/android/**/*.pfx
+/android/**/keystore.properties
+/android/**/key.properties
+/android/**/signing.properties
+/android/**/gradle-local.properties
+/android/**/.env*
+
+# Android build artifacts
+/android/**/*.apk
+/android/**/*.aab
+/android/**/*.apks
 .env
 .env
 voice_add_runtime_audit.py
