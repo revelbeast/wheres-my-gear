@@ -1,5 +1,6 @@
 import * as Linking from "expo-linking";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams, useNavigation } from "expo-router";
+import * as FileSystem from "expo-file-system/legacy";
 import {
   Barcode,
   ExternalLink,
@@ -7,7 +8,7 @@ import {
   Search,
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
-import { Image, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, Image, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 import {
   addDoc,
@@ -32,6 +33,7 @@ import {
   type Compartment,
   type StorageSpace
 } from "../lib/gearService";
+import { isLocalAppPhotoUri, localPhotoExists, savePhotoToLocalDocumentStorage } from "../lib/localPhotoStorage";
 import { useResponsiveLayout } from "../lib/useResponsiveLayout";
 
 type ScanState =
@@ -51,6 +53,7 @@ export default function ScanResultScreen() {
 
   const {
     code,
+    scanId,
     suggestedName,
     found,
     affiliateLink,
@@ -63,6 +66,28 @@ export default function ScanResultScreen() {
   } = useLocalSearchParams();
 
   const uid = auth.currentUser?.uid;
+  const navigation = useNavigation();
+  const isAiScan = typeof scanId === "string" && scanId.startsWith("ai-");
+  const aiSaveLockedRef = React.useRef(false);
+  const aiWriteStartedRef = React.useRef(false);
+  const aiReviewActiveRef = React.useRef(true);
+  const aiDurablePhotoRef = React.useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!isAiScan) return;
+    aiReviewActiveRef.current = true;
+    return navigation.addListener("beforeRemove", () => {
+      aiReviewActiveRef.current = false;
+      const uri = typeof image === "string" ? image : "";
+      const cameraCache = FileSystem.cacheDirectory
+        ? `${FileSystem.cacheDirectory}Camera/`
+        : null;
+      // Only remove a camera cache file, never a routed cloud/document photo.
+      if (cameraCache && uri.startsWith(cameraCache) && /^[a-zA-Z0-9-]+\.jpe?g$/i.test(uri.slice(cameraCache.length))) {
+        void FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => {});
+      }
+    });
+  }, [isAiScan, image, navigation]);
 
   const amazonUrl = affiliateLink ? String(affiliateLink) : null;
   const affiliateSearchUrl = buildAmazonAffiliateLink(
@@ -201,6 +226,14 @@ export default function ScanResultScreen() {
 
   useEffect(() => {
     const run = async () => {
+      if (isAiScan) {
+        // AI review is local state only; scanId is not a barcode or inventory ID.
+        setItem(null);
+        setEditableName(suggestedName && isFoundScan ? String(suggestedName) : "Unidentified Item");
+        setState("confirmItem");
+        setLoading(false);
+        return;
+      }
       if (!code) return;
 
       setLoading(true);
@@ -256,7 +289,7 @@ export default function ScanResultScreen() {
     };
 
     loadStorageSpaces();
-  }, [code]);
+  }, [code, isAiScan]);
 
   useEffect(() => {
     if (!uid) return;
@@ -298,6 +331,69 @@ export default function ScanResultScreen() {
 
     loadCompartments();
   }, [selectedStorage]);
+
+  const saveAiResult = async () => {
+    // A synchronous lock covers rapid taps before React updates isSaving.
+    if (aiSaveLockedRef.current || aiWriteStartedRef.current || !aiReviewActiveRef.current) return;
+    if (!uid || !editableName.trim()) return;
+    if (!(selectedStorage && selectedCompartment) && !selectedChecklist) return;
+
+    aiSaveLockedRef.current = true;
+    setIsSaving(true);
+    try {
+      if (selectedChecklist) {
+        aiWriteStartedRef.current = true;
+        await addChecklistItem(uid, selectedChecklist, editableName);
+      } else {
+        if (!catalogImage) throw new Error("Missing scan photo");
+        if (!aiDurablePhotoRef.current) {
+          const durableUri = await savePhotoToLocalDocumentStorage(catalogImage, "ai-item");
+          if (!isLocalAppPhotoUri(durableUri)) throw new Error("Could not preserve scan photo");
+          aiDurablePhotoRef.current = durableUri;
+          if (!(await localPhotoExists(durableUri))) throw new Error("Could not preserve scan photo");
+        }
+        if (!aiReviewActiveRef.current) {
+          await FileSystem.deleteAsync(aiDurablePhotoRef.current, { idempotent: true });
+          aiDurablePhotoRef.current = null;
+          return;
+        }
+
+        const storage = storageSpaces.find((space) => space.id === selectedStorage);
+        const compartment = compartmentSpaces.find((space) => space.id === selectedCompartment);
+        aiWriteStartedRef.current = true;
+        await createItem({
+          name: editableName,
+          status: "missing",
+          source: "scan",
+          vehicleId: selectedStorage ?? "",
+          vehicleName: storage?.name ?? "",
+          compartmentId: selectedCompartment ?? "",
+          compartmentName: compartment?.name ?? "",
+          itemPhotoUri: aiDurablePhotoRef.current,
+        });
+      }
+      if (aiReviewActiveRef.current) router.back();
+    } catch {
+      if (!aiWriteStartedRef.current && aiDurablePhotoRef.current) {
+        const uri = aiDurablePhotoRef.current;
+        aiDurablePhotoRef.current = null;
+        await FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => {});
+      }
+      if (aiReviewActiveRef.current) {
+        Alert.alert(
+          "Save Failed",
+          aiWriteStartedRef.current
+            ? "We couldn't confirm the save. Check your inventory or checklist before adding this item again."
+            : "Could not save the scan photo. Please try saving again."
+        );
+      }
+      // Once a write was submitted, don't repeat it or remove its photo on an
+      // uncertain outcome. The existing inventory/offline service owns that write.
+    } finally {
+      aiSaveLockedRef.current = false;
+      setIsSaving(false);
+    }
+  };
 
   const content = (
     <View
@@ -860,6 +956,10 @@ export default function ScanResultScreen() {
               {/* SAVE */}
               <Text
                 onPress={async () => {
+                  if (isAiScan) {
+                    await saveAiResult();
+                    return;
+                  }
                   if (isSaving) return;
 
                   try {
