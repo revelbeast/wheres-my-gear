@@ -20,9 +20,9 @@ function load(file, mocks = {}) {
 }
 const matching = load('lib/inventoryDuplicates.ts');
 const item = (id, name = 'Cordless Drill') => ({ id, name, vehicleId: 'garage', compartmentId: 'tools', compartmentName: 'Tool Chest', itemPhotoUri: 'file:///existing.jpg' });
-function harness({ items = [], fail = false, ai = true } = {}) {
+function harness({ items = [], fail = false, ai = true, found = true, saveFailures = 0 } = {}) {
   let slots = [], cursor = 0, effects = [], tree, dirty = true;
-  const calls = { reads: [], creates: [], copies: [], deletes: [], pushes: [], drafts: [] };
+  const calls = { reads: [], creates: [], copies: [], deletes: [], pushes: [], drafts: [], legacyReads: [], saveAttempts: [], checklistWrites: [] };
   const listeners = {};
   const depsEqual = (a, b) => a && b && a.length === b.length && a.every((v, i) => Object.is(v, b[i]));
   const React = {
@@ -45,18 +45,18 @@ function harness({ items = [], fail = false, ai = true } = {}) {
   native.Alert = { alert() {} };
   const component = load('app/scan-result.tsx', {
     react: React, 'react-native': native, 'expo-linking': {},
-    'expo-router': { router, useLocalSearchParams: () => ({ ...(ai ? { scanId: 'ai-test' } : { code: '123' }), suggestedName: 'Cordless Drill', found: 'true', image: 'file:///cache/Camera/new.jpg', matchStatus: 'possible' }), useNavigation: () => navigation },
+    'expo-router': { router, useLocalSearchParams: () => ({ ...(ai ? { scanId: 'ai-test' } : { code: '123' }), suggestedName: 'Cordless Drill', found: String(found), image: 'file:///cache/Camera/new.jpg', matchStatus: 'possible' }), useNavigation: () => navigation },
     'expo-file-system/legacy': { cacheDirectory: 'file:///cache/', deleteAsync: async (uri) => calls.deletes.push(uri) },
     'lucide-react-native': {},
-    'firebase/firestore': { collection: () => ({}), query: () => ({}), where: () => ({}), getDocs: async () => ({ empty: true }), addDoc: async (ref, data) => { calls.drafts.push(data); return { id: 'draft' }; } },
+    'firebase/firestore': { collection: () => ({}), query: () => ({}), where: () => ({}), getDocs: async () => { calls.legacyReads.push(true); return { empty: true }; }, addDoc: async (ref, data) => { calls.drafts.push(data); return { id: 'draft' }; } },
     '../lib/amazonAffiliate': { buildAmazonAffiliateLink: () => '' },
-    '../lib/checklistsService': { subscribeToChecklists: (uid, cb) => { cb([]); return () => {}; }, addChecklistItem: async () => {} },
+    '../lib/checklistsService': { subscribeToChecklists: (uid, cb) => { cb([]); return () => {}; }, addChecklistItem: async (...args) => calls.checklistWrites.push(args) },
     '../lib/firebase': { auth: { currentUser: { uid: 'user' } }, db: {} },
     '../lib/gearService': {
       getAllItems: async (options) => { calls.reads.push(options); if (fail) throw Error('offline'); return items; },
       getStorageSpaces: async () => [{ id: 'garage', name: 'Garage' }],
       getCompartmentsByVehicle: async () => [{ id: 'tools', name: 'Tool Chest' }],
-      createItem: async (data) => { calls.creates.push(data); return 'saved'; },
+      createItem: async (data) => { calls.saveAttempts.push(data); if (saveFailures-- > 0) throw Error('save failed'); calls.creates.push(data); return 'saved'; },
     },
     '../lib/inventoryDuplicates': matching,
     '../lib/localPhotoStorage': { isLocalAppPhotoUri: () => true, localPhotoExists: async () => true, savePhotoToLocalDocumentStorage: async (uri) => { calls.copies.push(uri); return 'file:///documents/new.jpg'; } },
@@ -173,3 +173,5 @@ test('push leaves edited review and photo intact across rerender before return',
   await h.press('Cancel');
   assert.deepEqual(h.calls.deletes, ['file:///cache/Camera/new.jpg']);
 });
+
+module.exports = { harness };

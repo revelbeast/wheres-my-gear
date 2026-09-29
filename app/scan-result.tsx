@@ -71,6 +71,8 @@ export default function ScanResultScreen() {
   const uid = auth.currentUser?.uid;
   const navigation = useNavigation();
   const isAiScan = typeof scanId === "string" && scanId.startsWith("ai-");
+  const barcodeSaveLockedRef = React.useRef(false);
+  const barcodeSaveCompletedRef = React.useRef(false);
   const aiSaveLockedRef = React.useRef(false);
   const aiWriteStartedRef = React.useRef(false);
   const aiReviewActiveRef = React.useRef(true);
@@ -269,43 +271,10 @@ export default function ScanResultScreen() {
       }
       if (!code) return;
 
-      setLoading(true);
-
-      const result = await lookupItemByBarcode(code as string);
-
-      setItem(result);
-
-      if (result) {
-        const storedName =
-          typeof result.name === "string" ? result.name.trim() : "";
-
-        const resolvedName =
-          isFoundScan && suggestedName
-            ? String(suggestedName)
-            : storedName.length > 0 && storedName !== "Unidentified Item"
-              ? storedName
-              : "Unidentified Item";
-
-        setEditableName(resolvedName);
-        setState("confirmItem");
-      } else {
-        const resolvedName =
-          suggestedName && isFoundScan
-            ? String(suggestedName)
-            : "Unidentified Item";
-
-        const id = await createDraftItem(code as string);
-
-        setItem({
-          id,
-          barcode: code,
-          name: resolvedName,
-        });
-
-        setEditableName(resolvedName);
-        setState("confirmItem");
-      }
-
+      // Barcode review is local state only. Legacy /items lookup/drafts are not used.
+      setItem(null);
+      setEditableName(suggestedName && isFoundScan ? String(suggestedName) : "Unidentified Item");
+      setState("confirmItem");
       setLoading(false);
     };
 
@@ -1035,7 +1004,8 @@ export default function ScanResultScreen() {
                     await saveAiResult();
                     return;
                   }
-                  if (isSaving) return;
+                  if (barcodeSaveLockedRef.current || barcodeSaveCompletedRef.current) return;
+                  barcodeSaveLockedRef.current = true;
 
                   try {
                     setIsSaving(true);
@@ -1068,6 +1038,7 @@ export default function ScanResultScreen() {
                         selectedChecklist
                       );
 
+                      barcodeSaveCompletedRef.current = true;
                       router.back();
                       return;
                     }
@@ -1101,8 +1072,12 @@ export default function ScanResultScreen() {
                       createdId
                     );
 
+                    barcodeSaveCompletedRef.current = true;
                     router.back();
+                  } catch {
+                    Alert.alert("Save Failed", "Could not confirm the save. Check your inventory or checklist before trying again.");
                   } finally {
+                    barcodeSaveLockedRef.current = false;
                     setIsSaving(false);
                   }
                 }}
