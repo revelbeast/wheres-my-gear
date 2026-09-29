@@ -947,7 +947,7 @@ export async function getCompartmentById(
   }
 }
 
-export async function getAllItems(): Promise<Item[]> {
+export async function getAllItems(options: { recoverPhotos?: boolean } = {}): Promise<Item[]> {
   const userId = getCurrentUserId();
   const offlineItems = (await getOfflineItems(userId)) as Item[];
 
@@ -967,11 +967,14 @@ export async function getAllItems(): Promise<Item[]> {
     remoteItems = (await getCachedInventoryItems(userId)) as Item[];
   }
 
-  return recoverMissingLocalItemPhotos([...offlineItems, ...remoteItems]);
+  const items = [...offlineItems, ...remoteItems];
+  // Advisory review must not download or update existing inventory photos.
+  return options.recoverPhotos === false ? items : recoverMissingLocalItemPhotos(items);
 }
 
 export async function getItemsByCompartment(
-  compartmentId: string
+  compartmentId: string,
+  options: { recoverPhotos?: boolean } = {}
 ): Promise<Item[]> {
   const userId = getCurrentUserId();
   const offlineItems = (await getOfflineItemsByCompartment(
@@ -1004,7 +1007,8 @@ export async function getItemsByCompartment(
     )) as Item[];
   }
 
-  return recoverMissingLocalItemPhotos([...offlineItems, ...remoteItems]);
+  const items = [...offlineItems, ...remoteItems];
+  return options.recoverPhotos === false ? items : recoverMissingLocalItemPhotos(items);
 }
 
 export async function getItemsByStatus(

@@ -25,9 +25,12 @@ import {
   addChecklistItem,
   subscribeToChecklists,
 } from "../lib/checklistsService";
+import { findPossibleDuplicateItems, formatDuplicateItemLocation } from "../lib/inventoryDuplicates";
 import { auth, db } from "../lib/firebase";
 import {
   createItem,
+  getAllItems,
+  type Item,
   getCompartmentsByVehicle,
   getStorageSpaces,
   type Compartment,
@@ -154,6 +157,36 @@ export default function ScanResultScreen() {
       : !hasUsableName
         ? "NEEDS_NAMING"
         : "FOUND";
+
+  const [duplicateInventory, setDuplicateInventory] = useState<{ uid: string; items: Item[] } | null>(null);
+  const [duplicateLookupStatus, setDuplicateLookupStatus] = useState<"loading" | "ready" | "failed">("loading");
+
+  useEffect(() => {
+    if (!isAiScan || !isFoundScan) return;
+    let active = true;
+    setDuplicateInventory(null);
+    setDuplicateLookupStatus("loading");
+    if (!uid) {
+      setDuplicateLookupStatus("failed");
+      return;
+    }
+    // One snapshot per review. Editing the name filters locally, without requests per keystroke.
+    void getAllItems({ recoverPhotos: false }).then((items) => {
+      if (!active || auth.currentUser?.uid !== uid) return;
+      setDuplicateInventory({ uid, items });
+      setDuplicateLookupStatus("ready");
+    }).catch(() => {
+      if (active) setDuplicateLookupStatus("failed");
+    });
+    return () => { active = false; };
+  }, [isAiScan, isFoundScan, uid, scanId]);
+
+  const duplicateMatches = React.useMemo(() => {
+    if (!isAiScan || !hasUsableName || duplicateInventory?.uid !== uid) return [];
+    // Pending/cache overlap must not display the same inventory ID twice.
+    const items = [...new Map((duplicateInventory?.items ?? []).map((item) => [item.id, item])).values()];
+    return findPossibleDuplicateItems(items, editableName);
+  }, [isAiScan, hasUsableName, duplicateInventory, uid, editableName]);
 
   const storages = [
     { id: "garage", name: "Garage" },
@@ -458,13 +491,55 @@ export default function ScanResultScreen() {
                       color: isPossibleMatch ? "#B45309" : "#15803D",
                     }}
                   >
-                    {isPossibleMatch ? "⚠ Possible Match" : "✓ Item Found"}
+                    {isAiScan ? (isPossibleMatch ? "Recognition: Possible" : "Recognition: Item identified") : (isPossibleMatch ? "⚠ Possible Match" : "✓ Item Found")}
                   </Text>
                 </View>
               ) : (
                 <Text style={{ fontWeight: "700" }}>
                   Item Not Found
                 </Text>
+              )}
+
+              {isAiScan && isFoundScan && hasUsableName && (
+                <View style={{ width: "100%", padding: 14, marginBottom: 16, borderRadius: 14, borderWidth: 1, borderColor: "#FCD34D", backgroundColor: "#FFFBEB" }}>
+                  <Text style={{ fontWeight: "800", color: "#92400E" }}>
+                    {duplicateMatches.length > 0
+                      ? `Possible ${duplicateMatches.length === 1 ? "Duplicate" : "Duplicates"}: ${duplicateMatches.length}`
+                      : "Inventory duplicate check"}
+                  </Text>
+                  {duplicateMatches.slice(0, 3).map((match) => (
+                    <View key={match.id} style={{ marginTop: 12 }}>
+                      <Text style={{ fontWeight: "700", color: "#111827" }}>{match.name}</Text>
+                      <Text style={{ color: "#4B5563" }}>{formatDuplicateItemLocation({ ...match, vehicleName: storageSpaces.find((space) => space.id === match.vehicleId)?.name || match.vehicleName })}</Text>
+                      {match.vehicleId && match.compartmentId && !match.id.startsWith("offline-") && (
+                        <TouchableOpacity
+                          accessibilityRole="button"
+                          disabled={isSaving}
+                          onPress={() => {
+                            if (aiSaveLockedRef.current || !aiReviewActiveRef.current) return;
+                            // Push, never replace: Back returns to the mounted review and its photo.
+                            router.push({
+                              pathname: "/vehicles/[vehicleId]/compartments/[compartmentId]",
+                              params: { vehicleId: match.vehicleId, compartmentId: match.compartmentId, focusItemId: match.id, duplicateInspection: "true" },
+                            });
+                          }}
+                          style={{ paddingVertical: 8 }}
+                        >
+                          <Text style={{ color: "#1D4ED8", fontWeight: "700" }}>View existing item in compartment</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  ))}
+                  {duplicateMatches.length > 3 && (
+                    <Text style={{ marginTop: 8, color: "#92400E" }}>Plus {duplicateMatches.length - 3} more possible matches.</Text>
+                  )}
+                  <Text style={{ marginTop: 10, color: "#4B5563" }}>
+                    {duplicateLookupStatus === "loading" ? "Checking available inventory… You can still save."
+                      : duplicateLookupStatus === "failed" ? "Couldn't check inventory. You can still save."
+                      : duplicateMatches.length === 0 ? "No matches in the available inventory. Cached or offline results may be incomplete."
+                      : "Matches use available inventory and may be incomplete. Save adds a separate new item; nothing is merged."}
+                  </Text>
+                </View>
               )}
 
               {scanState === "NOT_FOUND" && (

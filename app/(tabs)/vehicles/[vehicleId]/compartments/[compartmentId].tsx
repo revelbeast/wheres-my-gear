@@ -1,3 +1,4 @@
+import { findPossibleDuplicateItems, formatDuplicateItemLocation } from "../../../../../lib/inventoryDuplicates";
 import { BlurView } from "expo-blur";
 import * as ImagePicker from "expo-image-picker";
 import { getAuth } from "firebase/auth";
@@ -100,6 +101,8 @@ function formatItemForShare(item: Item) {
 
 export default function CompartmentDetailScreen() {
   const params = useLocalSearchParams<{
+    focusItemId?: string;
+    duplicateInspection?: string;
     compartmentId?: string | string[];
     vehicleId?: string | string[];
   }>();
@@ -124,6 +127,8 @@ export default function CompartmentDetailScreen() {
     return value ?? "";
   }, [params.vehicleId]);
 
+  const isDuplicateInspection = params.duplicateInspection === "true";
+
   const theme = useThemedValues();
   const {
     isLocked: interactionLocked,
@@ -136,6 +141,7 @@ export default function CompartmentDetailScreen() {
   const actionLockRef = useRef(false);
   const scrollRef = useRef<ScrollView | null>(null);
   const itemCardYPositions = useRef<Record<string, number>>({});
+  const focusedItemRef = useRef<string | null>(null);
   const createBoxScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
@@ -202,7 +208,7 @@ export default function CompartmentDetailScreen() {
     return () => {
       loadVersionRef.current += 1;
     };
-  }, [compartmentId]);
+  }, [compartmentId, isDuplicateInspection]);
 
   async function runWithLock(action: () => Promise<void> | void) {
     if (actionLockRef.current || interactionLocked || !isMountedRef.current) {
@@ -279,7 +285,9 @@ export default function CompartmentDetailScreen() {
 
   async function loadItems(loadVersion = loadVersionRef.current) {
     try {
-      const data = await getItemsByCompartment(String(compartmentId));
+      const data = await getItemsByCompartment(String(compartmentId), {
+        recoverPhotos: !isDuplicateInspection,
+      });
 
       if (!isMountedRef.current || loadVersionRef.current !== loadVersion) {
         return;
@@ -303,47 +311,6 @@ export default function CompartmentDetailScreen() {
     loadVersionRef.current = loadVersion;
 
     await loadItems(loadVersion);
-  }
-
-  function normalizeDuplicateItemName(value: string) {
-    return value
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9\s]/g, "")
-      .replace(/\s+/g, " ");
-  }
-
-  function formatDuplicateItemLocation(item: Item) {
-    const locationParts = [
-      item.vehicleName?.trim(),
-      item.compartmentName?.trim(),
-    ].filter(Boolean);
-
-    return locationParts.length > 0
-      ? `Location: ${locationParts.join(" > ")}`
-      : "Location: Not available";
-  }
-
-  async function findPossibleDuplicateItems(newName: string) {
-    const normalizedNewName = normalizeDuplicateItemName(newName);
-
-    if (!normalizedNewName) return [];
-
-    const allItems = await getAllItems();
-
-    return allItems
-      .filter((item) => {
-        const existingName = normalizeDuplicateItemName(item.name || "");
-
-        if (!existingName) return false;
-
-        return (
-          existingName === normalizedNewName ||
-          existingName.includes(normalizedNewName) ||
-          normalizedNewName.includes(existingName)
-        );
-      })
-      .slice(0, 3);
   }
 
   async function createItemAfterDuplicateCheck(
@@ -494,7 +461,7 @@ export default function CompartmentDetailScreen() {
     let possibleDuplicates: Item[] = [];
 
     try {
-      possibleDuplicates = await findPossibleDuplicateItems(trimmedName);
+      possibleDuplicates = findPossibleDuplicateItems(await getAllItems(), trimmedName).slice(0, 3);
     } catch (err) {
       console.warn("Failed to check duplicate items:", err);
       possibleDuplicates = [];
@@ -1274,6 +1241,10 @@ export default function CompartmentDetailScreen() {
         key={item.id}
         onLayout={(event) => {
           itemCardYPositions.current[item.id] = event.nativeEvent.layout.y;
+          if (params.focusItemId === item.id && focusedItemRef.current !== item.id) {
+            focusedItemRef.current = item.id;
+            scrollToItemCard(item.id);
+          }
         }}
       >
         <FrostedCard
