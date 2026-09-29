@@ -1,3 +1,4 @@
+import { isOwnedBarcodePhoto } from "../lib/barcodePhoto";
 import * as Linking from "expo-linking";
 import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import * as FileSystem from "expo-file-system/legacy";
@@ -57,6 +58,7 @@ export default function ScanResultScreen() {
   const {
     code,
     scanId,
+    barcodeFallbackPhoto,
     suggestedName,
     found,
     affiliateLink,
@@ -73,6 +75,23 @@ export default function ScanResultScreen() {
   const isAiScan = typeof scanId === "string" && scanId.startsWith("ai-");
   const barcodeSaveLockedRef = React.useRef(false);
   const barcodeSaveCompletedRef = React.useRef(false);
+  const barcodeReviewActiveRef = React.useRef(true);
+  const barcodeWriteStartedRef = React.useRef(false);
+  const barcodeDurablePhotoRef = React.useRef<string | null>(null);
+  const hasBarcodeFallbackPhoto = !isAiScan && barcodeFallbackPhoto === "true" &&
+    typeof image === "string" && isOwnedBarcodePhoto(image, FileSystem.cacheDirectory);
+
+  useEffect(() => {
+    if (isAiScan) return;
+    barcodeReviewActiveRef.current = true;
+    return navigation.addListener("beforeRemove", () => {
+      barcodeReviewActiveRef.current = false;
+      if (hasBarcodeFallbackPhoto && typeof image === "string") {
+        void FileSystem.deleteAsync(image, { idempotent: true }).catch(() => {});
+      }
+    });
+  }, [isAiScan, hasBarcodeFallbackPhoto, image, navigation]);
+
   const aiSaveLockedRef = React.useRef(false);
   const aiWriteStartedRef = React.useRef(false);
   const aiReviewActiveRef = React.useRef(true);
@@ -1004,7 +1023,7 @@ export default function ScanResultScreen() {
                     await saveAiResult();
                     return;
                   }
-                  if (barcodeSaveLockedRef.current || barcodeSaveCompletedRef.current) return;
+                  if (barcodeSaveLockedRef.current || barcodeSaveCompletedRef.current || !barcodeReviewActiveRef.current || (hasBarcodeFallbackPhoto && barcodeWriteStartedRef.current)) return;
                   barcodeSaveLockedRef.current = true;
 
                   try {
@@ -1053,6 +1072,22 @@ export default function ScanResultScreen() {
                         (c) => c.id === selectedCompartment
                       ) ?? null;
 
+                    let savedPhoto = catalogImage ?? "";
+                    if (hasBarcodeFallbackPhoto) {
+                      if (!barcodeDurablePhotoRef.current) {
+                        const durable = await savePhotoToLocalDocumentStorage(savedPhoto, "barcode-item");
+                        if (!isLocalAppPhotoUri(durable)) throw new Error("Photo not preserved");
+                        barcodeDurablePhotoRef.current = durable;
+                        if (!(await localPhotoExists(durable))) throw new Error("Photo not preserved");
+                      }
+                      savedPhoto = barcodeDurablePhotoRef.current;
+                      if (!barcodeReviewActiveRef.current) {
+                        await FileSystem.deleteAsync(savedPhoto, { idempotent: true });
+                        barcodeDurablePhotoRef.current = null;
+                        return;
+                      }
+                    }
+
                     const payload = {
                       name: editableName,
                       status: "missing" as const,
@@ -1062,9 +1097,10 @@ export default function ScanResultScreen() {
                       compartmentId: selectedCompartment ?? "",
                       compartmentName:
                         selectedCompartmentSpace?.name ?? "",
-                      itemPhotoUri: catalogImage ?? "",
+                      itemPhotoUri: savedPhoto,
                     };
 
+                    if (hasBarcodeFallbackPhoto) barcodeWriteStartedRef.current = true;
                     const createdId = await createItem(payload);
 
                     console.log(
@@ -1073,9 +1109,18 @@ export default function ScanResultScreen() {
                     );
 
                     barcodeSaveCompletedRef.current = true;
-                    router.back();
+                    if (!hasBarcodeFallbackPhoto || barcodeReviewActiveRef.current) router.back();
                   } catch {
-                    Alert.alert("Save Failed", "Could not confirm the save. Check your inventory or checklist before trying again.");
+                    if (hasBarcodeFallbackPhoto && !barcodeWriteStartedRef.current && barcodeDurablePhotoRef.current) {
+                      const uri = barcodeDurablePhotoRef.current;
+                      barcodeDurablePhotoRef.current = null;
+                      await FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => {});
+                    }
+                    Alert.alert("Save Failed", hasBarcodeFallbackPhoto
+                      ? barcodeWriteStartedRef.current
+                        ? "Could not confirm the save. Check your inventory before starting another scan. This review will not submit the item again."
+                        : "Could not preserve the scan photo. Nothing was saved. Please try Save again."
+                      : "Could not confirm the save. Check your inventory or checklist before trying again.");
                   } finally {
                     barcodeSaveLockedRef.current = false;
                     setIsSaving(false);

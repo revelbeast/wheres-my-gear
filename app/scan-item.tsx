@@ -14,9 +14,22 @@ import HapticPressable from "../components/ui/HapticPressable";
 import { resolveBarcode } from "../lib/barcodeResolver";
 import { getCompartmentById, getItemsByCompartment, getRoomById, getStorageSpaceById } from "../lib/gearService";
 
+import { isOwnedBarcodePhoto, selectBarcodePhoto } from "../lib/barcodePhoto";
+
 export default function ScanItemScreen() {
   const { mode } = useLocalSearchParams();
   const isAiMode = String(mode ?? "") === "ai";
+  const barcodeProcessingRef = React.useRef(false);
+  const barcodeSessionRef = React.useRef(0);
+  const barcodePhotoRef = React.useRef<string | null>(null);
+  const [barcodeProcessing, setBarcodeProcessing] = useState(false);
+  const discardBarcodePhoto = () => {
+    const uri = barcodePhotoRef.current;
+    barcodePhotoRef.current = null;
+    if (uri && isOwnedBarcodePhoto(uri, FileSystem.cacheDirectory)) {
+      void FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => {});
+    }
+  };
   const autoAiScanStartedRef = React.useRef(false);
   const autoAiTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const aiRequestRef = React.useRef<AbortController | null>(null);
@@ -333,10 +346,15 @@ export default function ScanItemScreen() {
   // camera lifecycle control
   useFocusEffect(
     useCallback(() => {
+      barcodeSessionRef.current += 1;
+      barcodeProcessingRef.current = false;
+      setBarcodeProcessing(false);
       setCameraActive(true);
       scanSessionRef.current.active = true;
 
       return () => {
+        barcodeSessionRef.current += 1;
+        discardBarcodePhoto();
         setCameraActive(false);
         scanSessionRef.current.active = false;
         aiRequestRef.current?.abort();
@@ -437,6 +455,7 @@ export default function ScanItemScreen() {
           }
 
           if (!value) return;
+          if (!isAiMode && barcodeProcessingRef.current) return;
 
           // HARD GUARD
           if (!cameraActive) return;
@@ -593,7 +612,40 @@ export default function ScanItemScreen() {
           }
 
           // 🧠 SINGLE SOURCE OF TRUTH (NEW)
-          const result = await resolveBarcode(value);
+          const session = barcodeSessionRef.current;
+          if (!isAiMode) {
+            barcodeProcessingRef.current = true;
+            setBarcodeProcessing(true);
+          }
+          let result;
+          try {
+            result = await resolveBarcode(value);
+          } catch (error) {
+            if (!isAiMode && session === barcodeSessionRef.current) {
+              barcodeProcessingRef.current = false;
+              setBarcodeProcessing(false);
+            }
+            throw error;
+          }
+          if (!isAiMode && (session !== barcodeSessionRef.current || !scanSessionRef.current.active)) return;
+          // WMG QR branches return above. Never add barcode photography to AI mode.
+          const isWmgQr = String(value).startsWith("wheresmygear://");
+          const photo = !isAiMode && !isWmgQr
+            ? await selectBarcodePhoto(result.sources.upcitemdb?.image, async () => {
+                if (!cameraReady || !cameraRef.current || !scanSessionRef.current.active) return undefined;
+                return cameraRef.current.takePictureAsync({ quality: 0.55 });
+              })
+            : { image: result.sources.upcitemdb?.image ?? "", fallback: false };
+          if (photo.fallback) {
+            if (session !== barcodeSessionRef.current || !scanSessionRef.current.active) {
+              if (isOwnedBarcodePhoto(photo.image, FileSystem.cacheDirectory)) {
+                void FileSystem.deleteAsync(photo.image, { idempotent: true }).catch(() => {});
+              }
+              return;
+            }
+            barcodePhotoRef.current = photo.image;
+          }
+          if (!isAiMode && (session !== barcodeSessionRef.current || !scanSessionRef.current.active)) return;
 
           console.log("SCAN RESULT:", result);
 
@@ -606,6 +658,8 @@ export default function ScanItemScreen() {
           setCameraActive(false);
           setIsScanning(false);
 
+          // Review now owns this cache file; scanner blur must not delete it.
+          barcodePhotoRef.current = null;
           router.replace({
             pathname: "/scan-result",
             params: {
@@ -614,7 +668,8 @@ export default function ScanItemScreen() {
               suggestedName: result.bestName ?? "",
               source,
               brand: result.sources.upcitemdb?.brand ?? "",
-              image: result.sources.upcitemdb?.image ?? "",
+              image: photo.image,
+              barcodeFallbackPhoto: photo.fallback ? "true" : "",
               description: result.sources.upcitemdb?.description ?? "",
               matchConfidence:
                 result.sources.upcitemdb?.confidence != null
@@ -839,11 +894,11 @@ export default function ScanItemScreen() {
       ) : null}
 
       <View style={styles.footer}>
-        {!arOverlay ? (
+        {isAiMode && !arOverlay ? (
           <HapticPressable
             style={[styles.closeButton, styles.aiButton]}
             onPress={handleAnalyzeImageWithAI}
-            disabled={isScanning}
+            disabled={isScanning || barcodeProcessing}
           >
             <Text style={styles.buttonText}>
               {isScanning ? "Scanning..." : "Scan with AI"}

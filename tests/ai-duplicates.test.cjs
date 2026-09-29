@@ -15,14 +15,15 @@ function load(file, mocks = {}) {
     if (id in mocks) return mocks[id];
     if (id.endsWith('.png')) return 1;
     throw Error(`Unexpected module ${id}`);
-  }, console, setTimeout, clearTimeout });
+  }, console, setTimeout, clearTimeout, URL });
   return module.exports;
 }
 const matching = load('lib/inventoryDuplicates.ts');
+const barcodePhoto = load('lib/barcodePhoto.ts');
 const item = (id, name = 'Cordless Drill') => ({ id, name, vehicleId: 'garage', compartmentId: 'tools', compartmentName: 'Tool Chest', itemPhotoUri: 'file:///existing.jpg' });
-function harness({ items = [], fail = false, ai = true, found = true, saveFailures = 0 } = {}) {
+function harness({ items = [], fail = false, ai = true, found = true, saveFailures = 0, fallback = false, photo = "file:///cache/Camera/new.jpg", copyFailures = 0 } = {}) {
   let slots = [], cursor = 0, effects = [], tree, dirty = true;
-  const calls = { reads: [], creates: [], copies: [], deletes: [], pushes: [], drafts: [], legacyReads: [], saveAttempts: [], checklistWrites: [] };
+  const calls = { reads: [], creates: [], copies: [], deletes: [], pushes: [], drafts: [], legacyReads: [], saveAttempts: [], checklistWrites: [], order: [] };
   const listeners = {};
   const depsEqual = (a, b) => a && b && a.length === b.length && a.every((v, i) => Object.is(v, b[i]));
   const React = {
@@ -45,7 +46,7 @@ function harness({ items = [], fail = false, ai = true, found = true, saveFailur
   native.Alert = { alert() {} };
   const component = load('app/scan-result.tsx', {
     react: React, 'react-native': native, 'expo-linking': {},
-    'expo-router': { router, useLocalSearchParams: () => ({ ...(ai ? { scanId: 'ai-test' } : { code: '123' }), suggestedName: 'Cordless Drill', found: String(found), image: 'file:///cache/Camera/new.jpg', matchStatus: 'possible' }), useNavigation: () => navigation },
+    'expo-router': { router, useLocalSearchParams: () => ({ ...(ai ? { scanId: 'ai-test' } : { code: '123' }), suggestedName: 'Cordless Drill', found: String(found), image: photo, barcodeFallbackPhoto: fallback ? 'true' : '', matchStatus: 'possible' }), useNavigation: () => navigation },
     'expo-file-system/legacy': { cacheDirectory: 'file:///cache/', deleteAsync: async (uri) => calls.deletes.push(uri) },
     'lucide-react-native': {},
     'firebase/firestore': { collection: () => ({}), query: () => ({}), where: () => ({}), getDocs: async () => { calls.legacyReads.push(true); return { empty: true }; }, addDoc: async (ref, data) => { calls.drafts.push(data); return { id: 'draft' }; } },
@@ -56,10 +57,11 @@ function harness({ items = [], fail = false, ai = true, found = true, saveFailur
       getAllItems: async (options) => { calls.reads.push(options); if (fail) throw Error('offline'); return items; },
       getStorageSpaces: async () => [{ id: 'garage', name: 'Garage' }],
       getCompartmentsByVehicle: async () => [{ id: 'tools', name: 'Tool Chest' }],
-      createItem: async (data) => { calls.saveAttempts.push(data); if (saveFailures-- > 0) throw Error('save failed'); calls.creates.push(data); return 'saved'; },
+      createItem: async (data) => { calls.order.push("create"); calls.saveAttempts.push(data); if (saveFailures-- > 0) throw Error('save failed'); calls.creates.push(data); return 'saved'; },
     },
     '../lib/inventoryDuplicates': matching,
-    '../lib/localPhotoStorage': { isLocalAppPhotoUri: () => true, localPhotoExists: async () => true, savePhotoToLocalDocumentStorage: async (uri) => { calls.copies.push(uri); return 'file:///documents/new.jpg'; } },
+    '../lib/barcodePhoto': barcodePhoto,
+    '../lib/localPhotoStorage': { isLocalAppPhotoUri: () => true, localPhotoExists: async () => true, savePhotoToLocalDocumentStorage: async (uri) => { calls.order.push('copy'); calls.copies.push(uri); if (copyFailures-- > 0) throw Error('copy failed'); return 'file:///documents/new.jpg'; } },
     '../lib/useResponsiveLayout': { useResponsiveLayout: () => ({ isTabletLandscape: false }) },
   }).default;
   const navigation = { addListener: (event, fn) => { listeners[event] = fn; return () => delete listeners[event]; } };
@@ -174,4 +176,4 @@ test('push leaves edited review and photo intact across rerender before return',
   assert.deepEqual(h.calls.deletes, ['file:///cache/Camera/new.jpg']);
 });
 
-module.exports = { harness };
+module.exports = { harness, barcodePhoto };

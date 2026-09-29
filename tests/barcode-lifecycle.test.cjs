@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 // Reuse the existing review harness; importing also runs the AI regression suite.
-const { harness } = require('./ai-duplicates.test.cjs');
+const { harness, barcodePhoto } = require('./ai-duplicates.test.cjs');
 async function selectLocation(h) {
   await h.press('Select a storage space first.⌄'); await h.press('Garage');
   await h.press('Select a compartment first.⌄'); await h.press('Tool Chest');
@@ -33,4 +33,102 @@ test('barcode failed Save releases lock for a deliberate retry', async () => {
   await h.press('Save'); assert.equal(h.calls.creates.length, 0);
   await h.press('Save'); assert.equal(h.calls.creates.length, 1);
   assert.equal(h.calls.saveAttempts.length, 2);
+});
+
+// Phase 2: optional camera photo and explicit-save ownership.
+test('catalog URL wins without capture; missing/invalid image captures once', async () => {
+  let captures = 0;
+  const capture = async () => { captures++; return { uri: 'file:///cache/Camera/new.jpg' }; };
+  const catalog = await barcodePhoto.selectBarcodePhoto('https://example.com/product.jpg', capture);
+  assert.equal(catalog.fallback, false); assert.equal(captures, 0);
+  assert.equal(catalog.image, 'https://example.com/product.jpg');
+  for (const absent of [null, '', 'not a URL']) {
+    const result = await barcodePhoto.selectBarcodePhoto(absent, capture);
+    assert.equal(result.fallback, true); assert.equal(result.image, 'file:///cache/Camera/new.jpg');
+  }
+  assert.equal(captures, 3);
+});
+test('capture rejection still permits review and save without a photo', async () => {
+  const result = await barcodePhoto.selectBarcodePhoto(null, async () => { throw Error('camera failure'); });
+  assert.equal(result.image, ''); assert.equal(result.fallback, false);
+  const h = harness({ ai: false, photo: result.image }); await h.settle(); await selectLocation(h);
+  await h.press('Save'); assert.equal(h.calls.creates.length, 1); assert.equal(h.calls.creates[0].itemPhotoUri, '');
+});
+for (const action of ['Cancel', 'Back']) test(`fallback review ${action} deletes only owned temporary photo`, async () => {
+  const h = harness({ ai: false, fallback: true }); await h.settle();
+  assert.ok(h.nodes().some(n => n.type === 'Image' && n.props.source?.uri === 'file:///cache/Camera/new.jpg'));
+  assert.equal(h.calls.creates.length + h.calls.drafts.length, 0);
+  if (action === 'Cancel') await h.press('Cancel'); else h.remove();
+  assert.deepEqual(h.calls.deletes, ['file:///cache/Camera/new.jpg']);
+  assert.equal(h.calls.creates.length, 0);
+});
+test('fallback copied before creation, repeated Save creates once, temporary removed', async () => {
+  const h = harness({ ai: false, fallback: true }); await h.settle(); await selectLocation(h);
+  const save = h.nodes().find(n => n.props.onPress && h.text(n).trim() === 'Save');
+  await Promise.all([save.props.onPress(), save.props.onPress()]); await save.props.onPress();
+  assert.deepEqual(h.calls.order, ['copy', 'create']);
+  assert.equal(h.calls.creates.length, 1); assert.equal(h.calls.creates[0].itemPhotoUri, 'file:///documents/new.jpg');
+  assert.deepEqual(h.calls.deletes, ['file:///cache/Camera/new.jpg']);
+});
+test('photo persistence failure prevents write; later retry can succeed', async () => {
+  const h = harness({ ai: false, fallback: true, copyFailures: 1 }); await h.settle(); await selectLocation(h);
+  await h.press('Save'); assert.equal(h.calls.creates.length, 0);
+  await h.press('Save'); assert.equal(h.calls.creates.length, 1);
+});
+test('uncertain fallback inventory write is not blindly repeated or its photo deleted', async () => {
+  const h = harness({ ai: false, fallback: true, saveFailures: 1 }); await h.settle(); await selectLocation(h);
+  await h.press('Save'); await h.press('Save');
+  assert.equal(h.calls.saveAttempts.length, 1);
+  await h.press('Cancel'); assert.deepEqual(h.calls.deletes, ['file:///cache/Camera/new.jpg']);
+});
+test('catalog and unrelated local photos are never deleted as owned fallback files', async () => {
+  for (const photo of ['https://example.com/image.jpg', 'file:///documents/existing.jpg']) {
+    const h = harness({ ai: false, fallback: true, photo }); await h.settle(); await h.press('Cancel');
+    assert.equal(h.calls.deletes.length, 0);
+  }
+});
+test('fallback scanner branch excludes WMG QR and AI; capture precedes camera shutdown', () => {
+  const source = require('node:fs').readFileSync(require('node:path').join(__dirname, '../app/scan-item.tsx'), 'utf8');
+  assert.match(source, /const photo = !isAiMode && !isWmgQr/);
+  const capture = source.indexOf('? await selectBarcodePhoto');
+  assert.ok(capture > source.indexOf('const result') || capture > source.indexOf('result = await resolveBarcode'));
+  assert.ok(source.indexOf('setCameraActive(false)', capture) > capture);
+  assert.match(source, /barcodeFallbackPhoto: photo.fallback/);
+  const transfer = source.indexOf('barcodePhotoRef.current = null;', capture);
+  const navigation = source.indexOf('router.replace({', capture);
+  assert.ok(transfer > capture && transfer < navigation, 'transfer ownership before navigation/blur');
+  assert.doesNotMatch(source.slice(source.indexOf('const handleAnalyzeImageWithAI'), source.indexOf('// permission handling')), /barcodePhotoRef/);
+});
+
+// Render the actual footer JSX in isolation; no native camera or network required.
+test('scanner footer offers manual AI capture only in dedicated AI mode', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const ts = require('typescript');
+  const vm = require('node:vm');
+  const source = fs.readFileSync(path.join(__dirname, '../app/scan-item.tsx'), 'utf8');
+  const start = source.indexOf('<View style={styles.footer}>');
+  const end = source.indexOf('</View>', start) + '</View>'.length;
+  const jsx = source.slice(start, end);
+  const code = ts.transpileModule(`globalThis.rendered = (${jsx});`, {
+    compilerOptions: { target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.React },
+  }).outputText;
+  for (const isAiMode of [false, true]) {
+    const aiAction = () => {};
+    const context = {
+      React: { createElement: (type, props, ...children) => ({ type, props, children }) },
+      View: 'View', Text: 'Text', HapticPressable: 'Button', styles: {},
+      isAiMode, arOverlay: null, isScanning: false, barcodeProcessing: false,
+      handleAnalyzeImageWithAI: aiAction, setArLabels() {}, router: { back() {} },
+    };
+    vm.runInNewContext(code, context);
+    const buttons = context.rendered.children.filter(child => child && child.type === 'Button');
+    assert.equal(buttons.filter(button => button.props.onPress === aiAction).length, isAiMode ? 1 : 0);
+    assert.equal(buttons.length, isAiMode ? 2 : 1); // Close stays available in both modes.
+  }
+  assert.match(source, /const isAiMode = String\(mode \?\? ""\) === "ai"/);
+  assert.match(source, /onBarcodeScanned=\{async \(event\) =>/);
+  assert.match(source, /if \(!isAiMode\) return;[\s\S]*?setTimeout\(\(\) => \{\s*void handleAnalyzeImageWithAI\(\);\s*\}, 2500\)/);
+  const dashboard = fs.readFileSync(path.join(__dirname, '../app/(tabs)/index.tsx'), 'utf8');
+  assert.match(dashboard, /pathname: "\/scan-item",\s*params: \{ mode: "ai" \}/);
 });
