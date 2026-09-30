@@ -1349,20 +1349,7 @@ export async function syncInventoryItemStatusFromChecklist(
   }
 ) {
   const allItems = await getAllItems();
-
-  const matches = allItems.filter((existingItem) => {
-    const sameName =
-      normalizeName(existingItem.name) === normalizeName(item.name);
-
-    const sameCompartmentId =
-      !!item.compartmentId && existingItem.compartmentId === item.compartmentId;
-
-    const sameCompartmentName =
-      !!item.compartmentName &&
-      existingItem.compartmentName === item.compartmentName;
-
-    return sameName && (sameCompartmentId || sameCompartmentName);
-  });
+  const matches = findChecklistInventoryMatches(allItems, item);
 
   if (matches.length > 0) {
     await Promise.all(
@@ -1388,6 +1375,21 @@ export async function syncInventoryItemStatusFromChecklist(
     compartmentName: compartment.name,
     vehicleId: item.vehicleId ?? compartment.vehicleId,
     source: "checklist",
+  });
+}
+
+export function findChecklistInventoryMatches(
+  allItems: Item[],
+  checklistItem: { name: string; compartmentId?: string; compartmentName?: string }
+) {
+  const normalizedName = normalizeName(checklistItem.name);
+  return allItems.filter((existingItem) => {
+    if (normalizeName(existingItem.name) !== normalizedName) return false;
+    if (checklistItem.compartmentId) {
+      return existingItem.compartmentId === checklistItem.compartmentId;
+    }
+    return Boolean(checklistItem.compartmentName) &&
+      existingItem.compartmentName === checklistItem.compartmentName;
   });
 }
 
