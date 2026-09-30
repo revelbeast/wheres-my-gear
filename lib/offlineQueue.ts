@@ -49,6 +49,8 @@ export type OfflineQueueOperation =
         notes: string;
         source: string;
         itemPhotoUri: string;
+        barcode?: string;
+        barcodeType?: string;
       };
       createdAt: string;
     }
@@ -829,6 +831,8 @@ export async function flushOfflineQueue() {
           notes: operation.payload.notes,
           source: operation.payload.source,
           itemPhotoUri: operation.payload.itemPhotoUri,
+          ...(operation.payload.barcode ? { barcode: operation.payload.barcode } : {}),
+          ...(operation.payload.barcodeType ? { barcodeType: operation.payload.barcodeType } : {}),
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         }
@@ -1197,6 +1201,8 @@ export async function getOfflineItemsByCompartment(
         notes: operation.payload.notes,
         source: operation.payload.source,
         itemPhotoUri: operation.payload.itemPhotoUri,
+        ...(operation.payload.barcode ? { barcode: operation.payload.barcode } : {}),
+        ...(operation.payload.barcodeType ? { barcodeType: operation.payload.barcodeType } : {}),
         createdAt: operation.createdAt,
         updatedAt: operation.createdAt,
       },
@@ -1270,6 +1276,8 @@ export async function getOfflineItemsByStatus(
         notes: operation.payload.notes,
         source: operation.payload.source,
         itemPhotoUri: operation.payload.itemPhotoUri,
+        ...(operation.payload.barcode ? { barcode: operation.payload.barcode } : {}),
+        ...(operation.payload.barcodeType ? { barcodeType: operation.payload.barcodeType } : {}),
         createdAt: operation.createdAt,
         updatedAt: operation.createdAt,
       },
@@ -1329,6 +1337,8 @@ export async function getOfflineItems(userId: string) {
         notes: operation.payload.notes,
         source: operation.payload.source,
         itemPhotoUri: operation.payload.itemPhotoUri,
+        ...(operation.payload.barcode ? { barcode: operation.payload.barcode } : {}),
+        ...(operation.payload.barcodeType ? { barcodeType: operation.payload.barcodeType } : {}),
         createdAt: operation.createdAt,
         updatedAt: operation.createdAt,
       },

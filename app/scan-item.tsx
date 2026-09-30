@@ -664,6 +664,7 @@ export default function ScanItemScreen() {
             pathname: "/scan-result",
             params: {
               code: result.barcode,
+              barcodeType: !isAiMode && !isWmgQr ? event.type : "",
               found: String(!!result.found),
               suggestedName: result.bestName ?? "",
               source,

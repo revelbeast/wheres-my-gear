@@ -18,10 +18,11 @@ function load(file, mocks = {}) {
   }, console, setTimeout, clearTimeout, URL });
   return module.exports;
 }
-const matching = load('lib/inventoryDuplicates.ts');
+const identity = load('lib/barcodeIdentity.ts');
+const matching = load('lib/inventoryDuplicates.ts', { './barcodeIdentity': identity });
 const barcodePhoto = load('lib/barcodePhoto.ts');
 const item = (id, name = 'Cordless Drill') => ({ id, name, vehicleId: 'garage', compartmentId: 'tools', compartmentName: 'Tool Chest', itemPhotoUri: 'file:///existing.jpg' });
-function harness({ items = [], fail = false, ai = true, found = true, saveFailures = 0, fallback = false, photo = "file:///cache/Camera/new.jpg", copyFailures = 0 } = {}) {
+function harness({ code = '036000291452', barcodeType = 'upc_a', items = [], fail = false, ai = true, found = true, saveFailures = 0, fallback = false, photo = "file:///cache/Camera/new.jpg", copyFailures = 0 } = {}) {
   let slots = [], cursor = 0, effects = [], tree, dirty = true;
   const calls = { reads: [], creates: [], copies: [], deletes: [], pushes: [], drafts: [], legacyReads: [], saveAttempts: [], checklistWrites: [], order: [] };
   const listeners = {};
@@ -46,7 +47,7 @@ function harness({ items = [], fail = false, ai = true, found = true, saveFailur
   native.Alert = { alert() {} };
   const component = load('app/scan-result.tsx', {
     react: React, 'react-native': native, 'expo-linking': {},
-    'expo-router': { router, useLocalSearchParams: () => ({ ...(ai ? { scanId: 'ai-test' } : { code: '123' }), suggestedName: 'Cordless Drill', found: String(found), image: photo, barcodeFallbackPhoto: fallback ? 'true' : '', matchStatus: 'possible' }), useNavigation: () => navigation },
+    'expo-router': { router, useLocalSearchParams: () => ({ ...(ai ? { scanId: 'ai-test' } : { code, barcodeType }), suggestedName: 'Cordless Drill', found: String(found), image: photo, barcodeFallbackPhoto: fallback ? 'true' : '', matchStatus: 'possible' }), useNavigation: () => navigation },
     'expo-file-system/legacy': { cacheDirectory: 'file:///cache/', deleteAsync: async (uri) => calls.deletes.push(uri) },
     'lucide-react-native': {},
     'firebase/firestore': { collection: () => ({}), query: () => ({}), where: () => ({}), getDocs: async () => { calls.legacyReads.push(true); return { empty: true }; }, addDoc: async (ref, data) => { calls.drafts.push(data); return { id: 'draft' }; } },
@@ -61,6 +62,7 @@ function harness({ items = [], fail = false, ai = true, found = true, saveFailur
     },
     '../lib/inventoryDuplicates': matching,
     '../lib/barcodePhoto': barcodePhoto,
+    '../lib/barcodeIdentity': identity,
     '../lib/localPhotoStorage': { isLocalAppPhotoUri: () => true, localPhotoExists: async () => true, savePhotoToLocalDocumentStorage: async (uri) => { calls.order.push('copy'); calls.copies.push(uri); if (copyFailures-- > 0) throw Error('copy failed'); return 'file:///documents/new.jpg'; } },
     '../lib/useResponsiveLayout': { useResponsiveLayout: () => ({ isTabletLandscape: false }) },
   }).default;
@@ -121,9 +123,9 @@ for (const fail of [false, true]) test(`Save stays available, creates once and c
   assert.deepEqual(h.calls.copies, ['file:///cache/Camera/new.jpg']);
   assert.equal(h.calls.creates[0].itemPhotoUri, 'file:///documents/new.jpg');
 });
-test('barcode skips new duplicate lookup and retains recognition wording', async () => {
+test('barcode advisory reads safely and retains recognition wording', async () => {
   const h = harness({ ai: false }); await h.settle();
-  assert.equal(h.calls.reads.length, 0); assert.match(h.text(), /Possible Match/);
+  assert.equal(h.calls.reads.length, 1); assert.equal(h.calls.reads[0].recoverPhotos, false); assert.match(h.text(), /Possible Match/);
 });
 
 for (const inspect of [true, false]) test(`compartment service recovery behavior (inspection=${inspect})`, async () => {
@@ -176,4 +178,4 @@ test('push leaves edited review and photo intact across rerender before return',
   assert.deepEqual(h.calls.deletes, ['file:///cache/Camera/new.jpg']);
 });
 
-module.exports = { harness, barcodePhoto };
+module.exports = { harness, barcodePhoto, load, identity, matching };

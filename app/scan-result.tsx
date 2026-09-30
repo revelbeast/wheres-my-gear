@@ -1,3 +1,4 @@
+import { barcodeIdentity } from "../lib/barcodeIdentity";
 import { isOwnedBarcodePhoto } from "../lib/barcodePhoto";
 import * as Linking from "expo-linking";
 import { router, useLocalSearchParams, useNavigation } from "expo-router";
@@ -26,7 +27,7 @@ import {
   addChecklistItem,
   subscribeToChecklists,
 } from "../lib/checklistsService";
-import { findPossibleDuplicateItems, formatDuplicateItemLocation } from "../lib/inventoryDuplicates";
+import { findBarcodeDuplicateItems, findPossibleDuplicateItems, formatDuplicateItemLocation } from "../lib/inventoryDuplicates";
 import { auth, db } from "../lib/firebase";
 import {
   createItem,
@@ -57,6 +58,7 @@ export default function ScanResultScreen() {
 
   const {
     code,
+    barcodeType,
     scanId,
     barcodeFallbackPhoto,
     suggestedName,
@@ -73,6 +75,10 @@ export default function ScanResultScreen() {
   const uid = auth.currentUser?.uid;
   const navigation = useNavigation();
   const isAiScan = typeof scanId === "string" && scanId.startsWith("ai-");
+  const commercialIdentity = React.useMemo(
+    () => isAiScan ? null : barcodeIdentity(code, barcodeType),
+    [isAiScan, code, barcodeType]
+  );
   const barcodeSaveLockedRef = React.useRef(false);
   const barcodeSaveCompletedRef = React.useRef(false);
   const barcodeReviewActiveRef = React.useRef(true);
@@ -183,7 +189,7 @@ export default function ScanResultScreen() {
   const [duplicateLookupStatus, setDuplicateLookupStatus] = useState<"loading" | "ready" | "failed">("loading");
 
   useEffect(() => {
-    if (!isAiScan || !isFoundScan) return;
+    if (!(isAiScan ? isFoundScan : commercialIdentity)) return;
     let active = true;
     setDuplicateInventory(null);
     setDuplicateLookupStatus("loading");
@@ -200,14 +206,18 @@ export default function ScanResultScreen() {
       if (active) setDuplicateLookupStatus("failed");
     });
     return () => { active = false; };
-  }, [isAiScan, isFoundScan, uid, scanId]);
+  }, [isAiScan, isFoundScan, uid, scanId, commercialIdentity]);
 
-  const duplicateMatches = React.useMemo(() => {
-    if (!isAiScan || !hasUsableName || duplicateInventory?.uid !== uid) return [];
+  const duplicateResult = React.useMemo(() => {
+    if (!duplicateInventory || duplicateInventory.uid !== uid) return { kind: "name" as const, items: [] as Item[] };
     // Pending/cache overlap must not display the same inventory ID twice.
-    const items = [...new Map((duplicateInventory?.items ?? []).map((item) => [item.id, item])).values()];
-    return findPossibleDuplicateItems(items, editableName);
-  }, [isAiScan, hasUsableName, duplicateInventory, uid, editableName]);
+    const items = [...new Map(duplicateInventory.items.map((item) => [item.id, item])).values()];
+    if (!isAiScan && commercialIdentity) {
+      return findBarcodeDuplicateItems(items, commercialIdentity, hasUsableName ? editableName : "");
+    }
+    return { kind: "name" as const, items: isAiScan && hasUsableName ? findPossibleDuplicateItems(items, editableName) : [] };
+  }, [isAiScan, commercialIdentity, hasUsableName, duplicateInventory, uid, editableName]);
+  const duplicateMatches = duplicateResult.items;
 
   const storages = [
     { id: "garage", name: "Garage" },
@@ -488,11 +498,13 @@ export default function ScanResultScreen() {
                 </Text>
               )}
 
-              {isAiScan && isFoundScan && hasUsableName && (
+              {((isAiScan && isFoundScan && hasUsableName) || (!isAiScan && commercialIdentity)) && (
                 <View style={{ width: "100%", padding: 14, marginBottom: 16, borderRadius: 14, borderWidth: 1, borderColor: "#FCD34D", backgroundColor: "#FFFBEB" }}>
                   <Text style={{ fontWeight: "800", color: "#92400E" }}>
                     {duplicateMatches.length > 0
-                      ? `Possible ${duplicateMatches.length === 1 ? "Duplicate" : "Duplicates"}: ${duplicateMatches.length}`
+                      ? isAiScan
+                        ? `Possible ${duplicateMatches.length === 1 ? "Duplicate" : "Duplicates"}: ${duplicateMatches.length}`
+                        : `${duplicateResult.kind === "barcode" ? "Same barcode in inventory" : "Possible duplicate by name"}: ${duplicateMatches.length}`
                       : "Inventory duplicate check"}
                   </Text>
                   {duplicateMatches.slice(0, 3).map((match) => (
@@ -504,7 +516,9 @@ export default function ScanResultScreen() {
                           accessibilityRole="button"
                           disabled={isSaving}
                           onPress={() => {
-                            if (aiSaveLockedRef.current || !aiReviewActiveRef.current) return;
+                            if (isAiScan
+                              ? aiSaveLockedRef.current || !aiReviewActiveRef.current
+                              : barcodeSaveLockedRef.current || barcodeSaveCompletedRef.current || !barcodeReviewActiveRef.current || (hasBarcodeFallbackPhoto && barcodeWriteStartedRef.current)) return;
                             // Push, never replace: Back returns to the mounted review and its photo.
                             router.push({
                               pathname: "/vehicles/[vehicleId]/compartments/[compartmentId]",
@@ -1090,6 +1104,7 @@ export default function ScanResultScreen() {
 
                     const payload = {
                       name: editableName,
+                      ...(commercialIdentity ?? {}),
                       status: "missing" as const,
                       source: "scan",
                       vehicleId: selectedStorage ?? "",

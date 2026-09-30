@@ -66,6 +66,8 @@ export type Item = {
   vehicleName?: string;
   notes?: string;
   source?: string;
+  barcode?: string;
+  barcodeType?: string;
   itemPhotoUri?: string;
   itemPhotoStoragePath?: string;
   itemPhotoDownloadUrl?: string;
@@ -1054,6 +1056,8 @@ export async function createItem(input: {
   vehicleName?: string;
   notes?: string;
   source?: string;
+  barcode?: string;
+  barcodeType?: string;
   itemPhotoUri?: string;
 }) {
   const trimmed = input.name.trim();
@@ -1069,6 +1073,8 @@ export async function createItem(input: {
     vehicleName: input.vehicleName ?? "",
     notes: input.notes ?? "",
     source: input.source ?? "manual",
+    ...(input.barcode ? { barcode: input.barcode } : {}),
+    ...(input.barcodeType ? { barcodeType: input.barcodeType } : {}),
     itemPhotoUri: input.itemPhotoUri ?? "",
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),

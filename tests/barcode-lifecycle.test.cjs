@@ -11,7 +11,7 @@ for (const [label, found] of [['recognized', true], ['unknown', false], ['provid
     const h = harness({ ai: false, found }); await h.settle();
     assert.equal(h.calls.legacyReads.length + h.calls.drafts.length + h.calls.creates.length, 0);
     assert.ok(h.nodes().some(n => n.type === 'TextInput' && n.props.value === (found ? 'Cordless Drill' : 'Unidentified Item')));
-    assert.equal(h.calls.reads.length, 0);
+    assert.equal(h.calls.reads.length, 1);
   });
 }
 for (const action of ['Cancel', 'Back']) test(`barcode ${action} creates nothing`, async () => {
@@ -131,4 +131,44 @@ test('scanner footer offers manual AI capture only in dedicated AI mode', () => 
   assert.match(source, /if \(!isAiMode\) return;[\s\S]*?setTimeout\(\(\) => \{\s*void handleAnalyzeImageWithAI\(\);\s*\}, 2500\)/);
   const dashboard = fs.readFileSync(path.join(__dirname, '../app/(tabs)/index.tsx'), 'utf8');
   assert.match(dashboard, /pathname: "\/scan-item",\s*params: \{ mode: "ai" \}/);
+});
+
+// Phase 3: barcode identity and advisory do not change creation/photo ownership.
+for (const found of [true, false]) test(`exact barcode advisory works with catalog found=${found}`, async () => {
+  const existing = { id: 'existing', name: 'Different name', barcode: '0036000291452', barcodeType: 'ean13', vehicleId: 'actual-space', compartmentId: 'actual-box', itemPhotoUri: 'file:///existing.jpg' };
+  const h = harness({ ai: false, found, fallback: true, items: [existing, { id: 'name-only', name: 'Cordless Drill' }] });
+  await h.settle();
+  assert.match(h.text(), /Same barcode in inventory: 1/);
+  await h.press('View existing item in compartment');
+  const route = h.calls.pushes[0];
+  assert.equal(route.params.vehicleId, 'actual-space'); assert.equal(route.params.compartmentId, 'actual-box');
+  assert.equal(route.params.focusItemId, 'existing'); assert.equal(route.params.duplicateInspection, 'true');
+  await h.settle(); // Retained component, as with push/pop; native Back still needs device verification.
+  assert.equal(h.calls.deletes.length + h.calls.creates.length + h.calls.copies.length, 0);
+  assert.ok(h.nodes().some(n => n.type === 'Image' && n.props.source?.uri === 'file:///cache/Camera/new.jpg'));
+  await selectLocation(h); await h.press('Save');
+  assert.equal(h.calls.creates.length, 1);
+  assert.equal(h.calls.creates[0].barcode, '00036000291452'); assert.equal(h.calls.creates[0].barcodeType, 'upc_a');
+  assert.equal(h.calls.creates[0].itemPhotoUri, 'file:///documents/new.jpg');
+  assert.equal(existing.itemPhotoUri, 'file:///existing.jpg');
+});
+test('barcode name fallback counts all matches, edits locally, keeps unsaved review across push', async () => {
+  const items = Array.from({ length: 5 }, (_, i) => ({ id: String(i), name: 'Cordless Drill', vehicleId: 'garage', compartmentId: 'tools' }));
+  const h = harness({ ai: false, fallback: true, items }); await h.settle();
+  assert.match(h.text(), /Possible duplicate by name: 5/); assert.match(h.text(), /Plus 2 more/);
+  await h.edit('Drill'); await h.press('View existing item in compartment'); await h.settle();
+  assert.ok(h.nodes().some(n => n.type === 'TextInput' && n.props.value === 'Drill'));
+  assert.equal(h.calls.reads.length, 1); assert.equal(h.calls.deletes.length, 0);
+  await h.press('Cancel'); assert.equal(h.calls.creates.length, 0);
+});
+test('barcode duplicate lookup failure does not block explicit Save', async () => {
+  const h = harness({ ai: false, fail: true }); await h.settle();
+  assert.match(h.text(), /Couldn't check inventory/); await selectLocation(h); await h.press('Save');
+  assert.equal(h.calls.creates.length, 1);
+});
+test('commercial camera route forwards decoded code and observed type without altering resolver input', () => {
+  const source = require('node:fs').readFileSync(require('node:path').join(__dirname, '../app/scan-item.tsx'), 'utf8');
+  assert.match(source, /const value = event\?\.data/);
+  assert.match(source, /resolveBarcode\(value\)/);
+  assert.match(source, /code: result.barcode,\s*barcodeType: !isAiMode && !isWmgQr \? event.type : ""/);
 });
