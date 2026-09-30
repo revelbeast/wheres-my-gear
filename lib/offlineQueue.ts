@@ -4,12 +4,26 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { addDoc, collection, deleteDoc, doc, getDocs, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 
+export type InventoryUpdatePayload = Partial<{
+  name: string;
+  quantity: number;
+  status: "packed" | "missing";
+  compartmentId: string;
+  compartmentName: string;
+  vehicleId: string;
+  vehicleName: string;
+  notes: string;
+  source: string;
+}>;
+
 const OFFLINE_QUEUE_KEY = "wmg.offlineQueue.v1";
 
 
 
 
 export type OfflineQueueOperation =
+  | { id: string; type: "updateInventoryItem"; userId: string; payload: { itemId: string; updates: InventoryUpdatePayload }; createdAt: string }
+  | { id: string; type: "deleteInventoryItem"; userId: string; payload: { itemId: string }; createdAt: string }
   | {
       id: string;
       type: "createStorageSpace";
@@ -841,6 +855,23 @@ export async function flushOfflineQueue() {
       await removeOfflineOperation(operation.id);
       continue;
     }
+
+    if (operation.type === "updateInventoryItem") {
+      await updateDoc(
+        doc(db, "users", operation.userId, "inventoryItems", operation.payload.itemId),
+        { ...operation.payload.updates, updatedAt: serverTimestamp() }
+      );
+      await removeOfflineOperation(operation.id);
+      continue;
+    }
+
+    if (operation.type === "deleteInventoryItem") {
+      await deleteDoc(
+        doc(db, "users", operation.userId, "inventoryItems", operation.payload.itemId)
+      );
+      await removeOfflineOperation(operation.id);
+      continue;
+    }
   }
 }
 
@@ -970,6 +1001,28 @@ export async function getCachedInventoryItemsByStatus(
   return items.filter(
     (item: any) => item?.status === status
   );
+}
+
+function queuedItem(operation: Extract<OfflineQueueOperation, { type: "createItem" }>) {
+  return { id: operation.id, ...operation.payload, createdAt: operation.createdAt, updatedAt: operation.createdAt };
+}
+
+export async function projectInventoryItems(userId: string, baseItems: unknown[] = []) {
+  const queue = await readQueue();
+  const projected = new Map<string, any>();
+  for (const item of baseItems) {
+    if (item && typeof item === "object" && typeof (item as any).id === "string") projected.set((item as any).id, item);
+  }
+  for (const operation of queue) {
+    if (operation.userId !== userId) continue;
+    if (operation.type === "createItem") projected.set(operation.id, queuedItem(operation));
+    if (operation.type === "updateInventoryItem") {
+      const current = projected.get(operation.payload.itemId);
+      if (current) projected.set(operation.payload.itemId, { ...current, ...operation.payload.updates, updatedAt: operation.createdAt });
+    }
+    if (operation.type === "deleteInventoryItem") projected.delete(operation.payload.itemId);
+  }
+  return [...projected.values()];
 }
 
 const ROOMS_CACHE_PREFIX = "wmg.cache.rooms.";
@@ -1177,37 +1230,8 @@ export async function getOfflineItemsByCompartment(
   userId: string,
   compartmentId: string
 ) {
-  const queue = await readQueue();
-
-  return queue.flatMap((operation) => {
-    if (
-      operation.type !== "createItem" ||
-      operation.userId !== userId ||
-      operation.payload.compartmentId !== compartmentId
-    ) {
-      return [];
-    }
-
-    return [
-      {
-        id: operation.id,
-        name: operation.payload.name,
-        quantity: operation.payload.quantity,
-        status: operation.payload.status,
-        compartmentId: operation.payload.compartmentId,
-        compartmentName: operation.payload.compartmentName,
-        vehicleId: operation.payload.vehicleId,
-        vehicleName: operation.payload.vehicleName,
-        notes: operation.payload.notes,
-        source: operation.payload.source,
-        itemPhotoUri: operation.payload.itemPhotoUri,
-        ...(operation.payload.barcode ? { barcode: operation.payload.barcode } : {}),
-        ...(operation.payload.barcodeType ? { barcodeType: operation.payload.barcodeType } : {}),
-        createdAt: operation.createdAt,
-        updatedAt: operation.createdAt,
-      },
-    ];
-  });
+  const cached = await getCachedInventoryItems(userId);
+  return (await projectInventoryItems(userId, cached)).filter((item: any) => item.compartmentId === compartmentId);
 }
 
 export async function updateOfflineCreatedItem(
@@ -1247,42 +1271,22 @@ export async function updateOfflineCreatedItem(
   await writeQueue(nextQueue);
 }
 
+export async function cancelOfflineCreatedItem(itemId: string) {
+  const queue = await readQueue();
+  await writeQueue(queue.filter((operation) => {
+    if (operation.type === "createItem" && operation.id === itemId) return false;
+    if ((operation.type === "updateInventoryItem" || operation.type === "deleteInventoryItem") && operation.payload.itemId === itemId) return false;
+    return true;
+  }));
+}
+
 
 export async function getOfflineItemsByStatus(
   userId: string,
   status: "packed" | "missing"
 ) {
-  const queue = await readQueue();
-
-  return queue.flatMap((operation) => {
-    if (
-      operation.type !== "createItem" ||
-      operation.userId !== userId ||
-      operation.payload.status !== status
-    ) {
-      return [];
-    }
-
-    return [
-      {
-        id: operation.id,
-        name: operation.payload.name,
-        quantity: operation.payload.quantity,
-        status: operation.payload.status,
-        compartmentId: operation.payload.compartmentId,
-        compartmentName: operation.payload.compartmentName,
-        vehicleId: operation.payload.vehicleId,
-        vehicleName: operation.payload.vehicleName,
-        notes: operation.payload.notes,
-        source: operation.payload.source,
-        itemPhotoUri: operation.payload.itemPhotoUri,
-        ...(operation.payload.barcode ? { barcode: operation.payload.barcode } : {}),
-        ...(operation.payload.barcodeType ? { barcodeType: operation.payload.barcodeType } : {}),
-        createdAt: operation.createdAt,
-        updatedAt: operation.createdAt,
-      },
-    ];
-  });
+  const cached = await getCachedInventoryItems(userId);
+  return (await projectInventoryItems(userId, cached)).filter((item: any) => item.status === status);
 }
 
 export async function getOfflineCompartmentById(
@@ -1314,36 +1318,7 @@ export async function getOfflineCompartmentById(
 
 
 export async function getOfflineItems(userId: string) {
-  const queue = await readQueue();
-
-  return queue.flatMap((operation) => {
-    if (
-      operation.type !== "createItem" ||
-      operation.userId !== userId
-    ) {
-      return [];
-    }
-
-    return [
-      {
-        id: operation.id,
-        name: operation.payload.name,
-        quantity: operation.payload.quantity,
-        status: operation.payload.status,
-        compartmentId: operation.payload.compartmentId,
-        compartmentName: operation.payload.compartmentName,
-        vehicleId: operation.payload.vehicleId,
-        vehicleName: operation.payload.vehicleName,
-        notes: operation.payload.notes,
-        source: operation.payload.source,
-        itemPhotoUri: operation.payload.itemPhotoUri,
-        ...(operation.payload.barcode ? { barcode: operation.payload.barcode } : {}),
-        ...(operation.payload.barcodeType ? { barcodeType: operation.payload.barcodeType } : {}),
-        createdAt: operation.createdAt,
-        updatedAt: operation.createdAt,
-      },
-    ];
-  });
+  return projectInventoryItems(userId, await getCachedInventoryItems(userId));
 }
 
 const TRIPS_CACHE_PREFIX = "wmg.cache.trips.";
@@ -1479,4 +1454,3 @@ export async function getOfflineDeletedTripIds(userId: string) {
 
   return deletedTripIds;
 }
-

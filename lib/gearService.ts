@@ -15,10 +15,17 @@ import {
 import { auth, db } from "../firebaseConfig";
 import { cleanupOldCloudPhotosInFolder, deleteCloudPhotoByStoragePath } from "./cloudPhotoStorage";
 import { downloadPhotoToLocalDocumentStorage, localPhotoExists } from "./localPhotoStorage";
-import { cacheCompartments, cacheInventoryItems, cacheRooms, cacheStorageSpaces, enqueueOfflineOperation, getCachedCompartments, getCachedInventoryItems, getCachedInventoryItemsByCompartment, getCachedInventoryItemsByStatus, getCachedRooms, getCachedStorageSpaces, getOfflineCompartments, getOfflineCompartmentById, getOfflineItems, getOfflineItemsByCompartment, getOfflineItemsByStatus, getOfflineStorageSpaces, removeOfflineOperation, updateOfflineCreatedItem } from "./offlineQueue";
+import { cacheCompartments, cacheInventoryItems, cacheRooms, cacheStorageSpaces, cancelOfflineCreatedItem, enqueueOfflineOperation, getCachedCompartments, getCachedInventoryItems, getCachedInventoryItemsByCompartment, getCachedInventoryItemsByStatus, getCachedRooms, getCachedStorageSpaces, getOfflineCompartments, getOfflineCompartmentById, getOfflineItems, getOfflineItemsByCompartment, getOfflineItemsByStatus, getOfflineStorageSpaces, projectInventoryItems, removeOfflineOperation, updateOfflineCreatedItem } from "./offlineQueue";
 
 export type ItemStatus = "packed" | "missing";
 export type StorageSpaceCategory = "storage" | "office" | "vehicle";
+let offlineItemSequence = 0;
+
+async function applyInventoryProjection(userId: string, items: Item[]) {
+  return typeof projectInventoryItems === "function"
+    ? ((await projectInventoryItems(userId, items)) as Item[])
+    : items;
+}
 
 export type StorageSpace = {
   id: string;
@@ -196,6 +203,11 @@ async function withOfflineReadTimeout<T>(
 export async function getStorageSpaces(): Promise<StorageSpace[]> {
   const userId = getCurrentUserId();
   const offlineSpaces = (await getOfflineStorageSpaces(userId)) as StorageSpace[];
+
+  const networkState = await NetInfo.fetch();
+  if (networkState.isConnected !== true || networkState.isInternetReachable === false) {
+    return [...offlineSpaces, ...(await getCachedStorageSpaces(userId) as StorageSpace[])];
+  }
 
   let baseSpaces: StorageSpace[] = [];
 
@@ -861,6 +873,13 @@ export async function deleteCompartment(compartmentId: string) {
 }
 
 export async function getAllCompartments(): Promise<Compartment[]> {
+  const userId = getCurrentUserId();
+  const networkState = await NetInfo.fetch();
+  if (networkState.isConnected !== true || networkState.isInternetReachable === false) {
+    const spaces = (await getCachedStorageSpaces(userId)) as StorageSpace[];
+    const cached = (await Promise.all(spaces.map((space) => getCachedCompartments(userId, space.id)))).flat() as Compartment[];
+    return sortCompartmentsByName(cached);
+  }
   const snapshot = await getDocs(compartmentsCol());
 
   const compartments = snapshot.docs.map((d) => ({
@@ -951,8 +970,6 @@ export async function getCompartmentById(
 
 export async function getAllItems(options: { recoverPhotos?: boolean } = {}): Promise<Item[]> {
   const userId = getCurrentUserId();
-  const offlineItems = (await getOfflineItems(userId)) as Item[];
-
   let remoteItems: Item[] = [];
 
   try {
@@ -969,7 +986,7 @@ export async function getAllItems(options: { recoverPhotos?: boolean } = {}): Pr
     remoteItems = (await getCachedInventoryItems(userId)) as Item[];
   }
 
-  const items = [...offlineItems, ...remoteItems];
+  const items = await applyInventoryProjection(userId, remoteItems);
   // Advisory review must not download or update existing inventory photos.
   return options.recoverPhotos === false ? items : recoverMissingLocalItemPhotos(items);
 }
@@ -979,11 +996,6 @@ export async function getItemsByCompartment(
   options: { recoverPhotos?: boolean } = {}
 ): Promise<Item[]> {
   const userId = getCurrentUserId();
-  const offlineItems = (await getOfflineItemsByCompartment(
-    userId,
-    compartmentId
-  )) as Item[];
-
   let remoteItems: Item[] = [];
 
   try {
@@ -1009,8 +1021,11 @@ export async function getItemsByCompartment(
     )) as Item[];
   }
 
-  const items = [...offlineItems, ...remoteItems];
-  return options.recoverPhotos === false ? items : recoverMissingLocalItemPhotos(items);
+  const cachedAll = (await getCachedInventoryItems(userId)) as Item[];
+  const byId = new Map([...cachedAll, ...remoteItems].map(item => [item.id, item]));
+  const items = await applyInventoryProjection(userId, [...byId.values()] as Item[]);
+  const compartmentItems = items.filter(item => item.compartmentId === compartmentId);
+  return options.recoverPhotos === false ? compartmentItems : recoverMissingLocalItemPhotos(compartmentItems);
 }
 
 export async function getItemsByStatus(
@@ -1020,11 +1035,6 @@ export async function getItemsByStatus(
     String(status).toLowerCase().trim() === "packed" ? "packed" : "missing";
 
   const userId = getCurrentUserId();
-  const offlineItems = (await getOfflineItemsByStatus(
-    userId,
-    normalizedStatus
-  )) as Item[];
-
   let remoteItems: Item[] = [];
 
   try {
@@ -1043,7 +1053,9 @@ export async function getItemsByStatus(
     )) as Item[];
   }
 
-  return recoverMissingLocalItemPhotos([...offlineItems, ...remoteItems]);
+  return recoverMissingLocalItemPhotos(
+    (await applyInventoryProjection(userId, [...new Map([...(await getCachedInventoryItems(userId) as Item[]), ...remoteItems].map(item => [item.id, item])).values()] as Item[])).filter(item => item.status === normalizedStatus)
+  );
 }
 
 export async function createItem(input: {
@@ -1092,7 +1104,7 @@ export async function createItem(input: {
 
   if (!isOnline) {
     const userId = getCurrentUserId();
-    const offlineId = `offline-item-${Date.now()}`;
+    const offlineId = `offline-item-${Date.now()}-${offlineItemSequence++}`;
 
     await enqueueOfflineOperation({
       id: offlineId,
@@ -1142,6 +1154,34 @@ export async function updateItem(
   if (id.startsWith("offline-item-")) {
     await updateOfflineCreatedItem(id, updates);
     return;
+  }
+
+  const photoFields = ["itemPhotoUri", "itemPhotoStoragePath", "itemPhotoDownloadUrl", "photoBackedUp"];
+  const hasPhotoUpdate = Object.keys(updates).some((key) => photoFields.includes(key));
+  if (!hasPhotoUpdate) {
+    const networkState = await Promise.race([
+      NetInfo.fetch(),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 750)),
+    ]);
+    const isOnline = networkState?.isConnected === true && networkState?.isInternetReachable === true;
+    if (!isOnline) {
+      const userId = getCurrentUserId();
+      await enqueueOfflineOperation({
+        id: `offline-update-item-${id}-${Date.now()}`,
+        type: "updateInventoryItem",
+        userId,
+        payload: { itemId: id, updates },
+        createdAt: new Date().toISOString(),
+      });
+      const cachedItems = (await getCachedInventoryItems(userId)) as Item[];
+      if (cachedItems.some((item) => item.id === id)) {
+        await cacheInventoryItems(
+          userId,
+          cachedItems.map((item) => item.id === id ? { ...item, ...updates } : item)
+        );
+      }
+      return;
+    }
   }
 
   await updateDoc(inventoryDoc(id), payload);
@@ -1199,6 +1239,24 @@ export async function updateItemPhoto(
 }
 
 export async function deleteItem(id: string) {
+  if (id.startsWith("offline-item-")) {
+    await cancelOfflineCreatedItem(id);
+    return;
+  }
+  const networkState = await Promise.race([
+    NetInfo.fetch(),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), 750)),
+  ]);
+  if (!(networkState?.isConnected === true && networkState?.isInternetReachable === true)) {
+    await enqueueOfflineOperation({
+      id: `offline-delete-item-${id}-${Date.now()}`,
+      type: "deleteInventoryItem",
+      userId: getCurrentUserId(),
+      payload: { itemId: id },
+      createdAt: new Date().toISOString(),
+    });
+    return;
+  }
   await deleteDoc(inventoryDoc(id));
 }
 
