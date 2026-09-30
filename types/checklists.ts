@@ -63,6 +63,7 @@ export type Checklist = {
 
 export type ChecklistItem = {
   id: string;
+  inventoryItemId?: string | null;
   name: string;
   notes?: string;
   quantity: number;

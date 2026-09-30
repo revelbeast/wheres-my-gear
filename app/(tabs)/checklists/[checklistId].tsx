@@ -64,6 +64,7 @@ import {
   subscribeToChecklistItems,
   toggleChecklistItemPacked,
   updateChecklistItemCompartment,
+  updateChecklistItemInventoryId,
   updateChecklistItemName,
   updateChecklistItemPhoto,
   updateChecklistItemQuantity,
@@ -770,6 +771,7 @@ export default function ChecklistDetailScreen() {
             compartmentId: item.compartmentId,
             compartmentName: item.compartmentName ?? "",
             vehicleId: item.vehicleId ?? "",
+            inventoryItemId: item.inventoryItemId,
           });
         }
       } catch (err) {
@@ -832,6 +834,7 @@ export default function ChecklistDetailScreen() {
             compartmentId: item.compartmentId,
             compartmentName: item.compartmentName ?? "",
             vehicleId: item.vehicleId ?? "",
+            inventoryItemId: item.inventoryItemId,
           });
         }
       } catch (err) {
@@ -1184,11 +1187,13 @@ export default function ChecklistDetailScreen() {
 
     await runWithLock(async () => {
       try {
+        let linkedInventoryItemId = assigningItem.inventoryItemId ?? null;
         if (isReassignment) {
           await removeOrDecrementInventoryItemFromChecklist(
             {
               name: assigningItem.name,
               quantity: getSafeQuantity(assigningItem.quantity),
+              inventoryItemId: assigningItem.inventoryItemId,
             },
             previousCompartmentId
           );
@@ -1206,7 +1211,7 @@ export default function ChecklistDetailScreen() {
         );
 
         if (isNewAssignment || isReassignment) {
-          await createOrUpdateInventoryItemFromChecklist(
+          linkedInventoryItemId = await createOrUpdateInventoryItemFromChecklist(
             {
               name: assigningItem.name,
               quantity: getSafeQuantity(assigningItem.quantity),
@@ -1217,6 +1222,14 @@ export default function ChecklistDetailScreen() {
               vehicleId: selectedVehicleId,
             }
           );
+          if (linkedInventoryItemId) {
+            await updateChecklistItemInventoryId(
+              user.uid,
+              checklistId,
+              assigningItem.id,
+              linkedInventoryItemId
+            );
+          }
         }
 
         if (!isSameAssignment || isNewAssignment) {
@@ -1229,6 +1242,7 @@ export default function ChecklistDetailScreen() {
             roomId: selectedCompartment.roomId ?? "",
             roomName: selectedCompartment.roomName ?? "",
             vehicleId: selectedVehicleId,
+            inventoryItemId: linkedInventoryItemId ?? assigningItem.inventoryItemId,
           });
         }
 

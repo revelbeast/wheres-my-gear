@@ -144,6 +144,7 @@ function normalizeSearchValue(value: string) {
 function normalizeChecklist(id: string, data: Record<string, any>): Checklist {
   return {
     id,
+    inventoryItemId: data.inventoryItemId ?? null,
     name: String(data.name ?? "Untitled Checklist"),
     category: (data.category ?? "trip") as ChecklistCategory,
     customCategoryLabel: data.customCategoryLabel ?? "",
@@ -1446,6 +1447,25 @@ export async function updateChecklistItemCompartment(
     vehicleId: vehicleId ?? "",
     updatedAt: serverTimestamp(),
   });
+}
+
+export async function updateChecklistItemInventoryId(
+  userId: string,
+  checklistId: string,
+  itemId: string,
+  inventoryItemId: string
+) {
+  await updateDoc(
+    doc(
+      db,
+      requireUserId(userId),
+      "checklists",
+      requireDocumentId(checklistId, "Checklist ID"),
+      "items",
+      requireDocumentId(itemId, "Checklist item ID")
+    ),
+    { inventoryItemId, updatedAt: serverTimestamp() }
+  );
 }
 
 export async function updateChecklistName(

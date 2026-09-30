@@ -1309,16 +1309,19 @@ export async function removeOrDecrementInventoryItemFromChecklist(
   item: {
     name: string;
     quantity: number;
+    inventoryItemId?: string | null;
   },
   compartmentId: string
 ) {
   const allItems = await getAllItems();
 
-  const existing = allItems.find(
-    (existingItem) =>
-      normalizeName(existingItem.name) === normalizeName(item.name) &&
-      existingItem.compartmentId === compartmentId
-  );
+  const existing = item.inventoryItemId
+    ? allItems.find((candidate) => candidate.id === item.inventoryItemId)
+    : allItems.find(
+        (existingItem) =>
+          normalizeName(existingItem.name) === normalizeName(item.name) &&
+          existingItem.compartmentId === compartmentId
+      );
 
   if (!existing) return;
 
@@ -1346,9 +1349,19 @@ export async function syncInventoryItemStatusFromChecklist(
     roomId?: string;
     roomName?: string;
     vehicleId?: string;
+    inventoryItemId?: string | null;
   }
 ) {
   const allItems = await getAllItems();
+  if (item.inventoryItemId) {
+    const stableItem = findChecklistInventoryItemById(allItems, item.inventoryItemId);
+    if (!stableItem) return;
+    await updateItem(stableItem.id, {
+      status: item.packed ? "packed" : "missing",
+    });
+    return;
+  }
+
   const matches = findChecklistInventoryMatches(allItems, item);
 
   if (matches.length > 0) {
@@ -1376,6 +1389,10 @@ export async function syncInventoryItemStatusFromChecklist(
     vehicleId: item.vehicleId ?? compartment.vehicleId,
     source: "checklist",
   });
+}
+
+export function findChecklistInventoryItemById(allItems: Item[], inventoryItemId: string) {
+  return allItems.find((candidate) => candidate.id === inventoryItemId);
 }
 
 export function findChecklistInventoryMatches(

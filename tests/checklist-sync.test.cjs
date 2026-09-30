@@ -22,7 +22,16 @@ function loadGear() {
   return exports;
 }
 
-const { findChecklistInventoryMatches } = loadGear();
+const { findChecklistInventoryMatches, findChecklistInventoryItemById } = loadGear();
+
+test('stable inventory ID targets one item despite duplicate names and stale location', () => {
+  const items = [
+    { id: 'ABC', name: 'Renamed Flashlight', compartmentId: 'new' },
+    { id: 'OTHER', name: 'Flashlight', compartmentId: 'old', compartmentName: 'Black Box' },
+  ];
+  assert.equal(findChecklistInventoryItemById(items, 'ABC').id, 'ABC');
+  assert.equal(findChecklistInventoryItemById(items, 'missing'), undefined);
+});
 
 test('exact compartment ID prevents same-name cross-location matches', () => {
   const items = [
