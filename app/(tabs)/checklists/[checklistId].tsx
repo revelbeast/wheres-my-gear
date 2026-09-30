@@ -759,6 +759,7 @@ export default function ChecklistDetailScreen() {
               {
                 name: item.name,
                 quantity: Math.abs(quantityDelta),
+                inventoryItemId: item.inventoryItemId,
               },
               item.compartmentId
             );
@@ -1279,6 +1280,7 @@ export default function ChecklistDetailScreen() {
                   {
                     name: item.name,
                     quantity: getSafeQuantity(item.quantity),
+                    inventoryItemId: item.inventoryItemId,
                   },
                   item.compartmentId
                 );

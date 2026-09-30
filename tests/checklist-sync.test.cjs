@@ -53,3 +53,12 @@ test('legacy records without a compartment ID retain name fallback', () => {
   const items = [{ id: 'a', name: 'Flashlight', compartmentName: 'Black Box' }];
   assert.equal(findChecklistInventoryMatches(items, { name: 'Flashlight', compartmentName: 'Black Box' }).length, 1);
 });
+
+test('stable ID selection is safe for quantity decrement and checklist deletion', () => {
+  const items = [
+    { id: 'linked', name: 'Flashlight', compartmentId: 'old' },
+    { id: 'same-name', name: 'Flashlight', compartmentId: 'old' },
+  ];
+  assert.equal(findChecklistInventoryItemById(items, 'linked').id, 'linked');
+  assert.equal(findChecklistInventoryItemById(items, 'missing'), undefined);
+});
