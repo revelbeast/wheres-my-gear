@@ -20,6 +20,7 @@ import { downloadPhotoToLocalDocumentStorage, localPhotoExists } from "./localPh
 import {
   enqueueOfflineOperation,
   getOfflineChecklistItems,
+  projectChecklistItems,
   getOfflineChecklistTemplateArchiveOverrides,
   getOfflineChecklistTemplateItems,
   getOfflineChecklistTemplateNameOverrides,
@@ -1124,10 +1125,15 @@ export async function getChecklistItems(
       normalizeChecklistItem(d.id, d.data())
     );
 
-    const recoveredItems = await recoverMissingLocalChecklistItemPhotos(
+    const projectedItems = await projectChecklistItems(
       userId,
       checklistId,
       firebaseItems
+    );
+    const recoveredItems = await recoverMissingLocalChecklistItemPhotos(
+      userId,
+      checklistId,
+      projectedItems as ChecklistItem[]
     );
 
     return recoveredItems.sort(
@@ -1173,7 +1179,11 @@ export function subscribeToChecklistItems(
 
         if (!isActive) return;
 
-        const mergedItems = [...firebaseItems, ...offlineItems];
+        const mergedItems = await projectChecklistItems(
+          safeUserId,
+          safeChecklistId,
+          [...firebaseItems, ...offlineItems]
+        );
         const recoveredItems = await recoverMissingLocalChecklistItemPhotos(
           safeUserId,
           safeChecklistId,

@@ -1063,45 +1063,104 @@ export async function getOfflineChecklistItems(
 ) {
   const queue = await readQueue();
 
-  const packedByItemId = new Map<string, boolean>();
+  return projectChecklistItemsFromQueue(userId, checklistId, [], queue);
+}
 
-  for (const operation of queue) {
-    if (
-      operation.type === "toggleChecklistItemPacked" &&
-      operation.userId === userId &&
-      operation.payload.checklistId === checklistId
-    ) {
-      packedByItemId.set(operation.payload.itemId, operation.payload.packed);
+export async function projectChecklistItems(
+  userId: string,
+  checklistId: string,
+  baseItems: unknown[] = []
+) {
+  const queue = await readQueue();
+  return projectChecklistItemsFromQueue(userId, checklistId, baseItems, queue);
+}
+
+function projectChecklistItemsFromQueue(
+  userId: string,
+  checklistId: string,
+  baseItems: unknown[],
+  queue: OfflineQueueOperation[]
+) {
+  const projected = new Map<string, any>();
+  for (const item of baseItems) {
+    if (item && typeof item === "object" && typeof (item as any).id === "string") {
+      projected.set((item as any).id, item);
     }
   }
 
-  return queue.flatMap((operation) => {
+  for (const operation of queue) {
     if (
-      operation.type !== "createChecklistItem" ||
       operation.userId !== userId ||
+      !("checklistId" in operation.payload) ||
       operation.payload.checklistId !== checklistId
     ) {
-      return [];
+      continue;
     }
 
-    const packed = packedByItemId.get(operation.id) ?? false;
-
-    return [
-      {
+    if (operation.type === "createChecklistItem") {
+      projected.set(operation.id, {
         id: operation.id,
         name: operation.payload.name,
         notes: "",
         quantity: 1,
-        packed,
-        packedAt: packed ? operation.createdAt : null,
+        packed: false,
+        packedAt: null,
         sortOrder: operation.payload.sortOrder,
         sourceTemplateItemId: null,
         itemPhotoUri: "",
         createdAt: operation.createdAt,
         updatedAt: operation.createdAt,
-      },
-    ];
-  });
+      });
+      continue;
+    }
+
+    if (
+      operation.type !== "toggleChecklistItemPacked" &&
+      operation.type !== "updateChecklistItemName" &&
+      operation.type !== "updateChecklistItemQuantity" &&
+      operation.type !== "deleteChecklistItem"
+    ) {
+      continue;
+    }
+
+    const itemId = operation.payload.itemId;
+    const current = projected.get(itemId);
+    if (!current) continue;
+
+    if (operation.type === "toggleChecklistItemPacked") {
+      projected.set(itemId, {
+        ...current,
+        packed: operation.payload.packed,
+        packedAt: operation.payload.packed ? operation.createdAt : null,
+        ...(operation.payload.inventoryItemId
+          ? { inventoryItemId: operation.payload.inventoryItemId }
+          : {}),
+        updatedAt: operation.createdAt,
+      });
+    } else if (operation.type === "updateChecklistItemName") {
+      projected.set(itemId, {
+        ...current,
+        name: operation.payload.name,
+        ...(operation.payload.inventoryItemId
+          ? { inventoryItemId: operation.payload.inventoryItemId }
+          : {}),
+        updatedAt: operation.createdAt,
+      });
+    } else if (operation.type === "updateChecklistItemQuantity") {
+      projected.set(itemId, {
+        ...current,
+        quantity: operation.payload.quantity,
+        ...(operation.payload.inventoryItemId
+          ? { inventoryItemId: operation.payload.inventoryItemId }
+          : {}),
+        updatedAt: operation.createdAt,
+      });
+    } else if (operation.type === "deleteChecklistItem") {
+      projected.delete(itemId);
+    }
+  }
+
+  return [...projected.values()];
 }
 
 export async function getOfflineChecklistTemplates(userId: string) {

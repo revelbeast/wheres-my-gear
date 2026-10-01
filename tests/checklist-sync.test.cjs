@@ -25,6 +25,27 @@ function loadGear() {
   return exports;
 }
 
+function loadOfflineQueue() {
+  const source = ts.transpileModule(fs.readFileSync('lib/offlineQueue.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+  const storage = new Map();
+  const asyncStorage = {
+    getItem: async (key) => storage.get(key) ?? null,
+    setItem: async (key, value) => storage.set(key, value),
+  };
+  const exports = {};
+  vm.runInNewContext(source, {
+    exports,
+    module: { exports },
+    require: (id) => ({
+      '@react-native-async-storage/async-storage': { default: asyncStorage },
+      'firebase/firestore': { collection: () => ({}), doc: () => ({}) },
+      '../firebaseConfig': { db: {} },
+    }[id] ?? require(id)),
+    console,
+  }, { filename: 'offlineQueue.ts' });
+  return { queue: exports, storage };
+}
+
 const { findChecklistInventoryMatches, findChecklistInventoryItemById } = loadGear();
 
 test('stable inventory ID targets one item despite duplicate names and stale location', () => {
@@ -82,4 +103,33 @@ test('offline checklist mutation payloads optionally carry inventory identity', 
 
 test('phase 2C-1 does not add offline inventory synchronization', () => {
   assert.doesNotMatch(checklistServiceSource, /enqueueOfflineOperation\(\{[\s\S]*type: "updateInventoryItem"/);
+});
+
+test('ordered checklist projection applies mutations, preserves identity, and suppresses deletes', async () => {
+  const { queue } = loadOfflineQueue();
+  await queue.cacheInventoryItems?.('unused', []);
+  await queue.enqueueOfflineOperation({ id: 'toggle-1', type: 'toggleChecklistItemPacked', userId: 'u1', payload: { checklistId: 'c1', itemId: 'i1', packed: true, inventoryItemId: 'inv-1' }, createdAt: '1' });
+  await queue.enqueueOfflineOperation({ id: 'toggle-2', type: 'toggleChecklistItemPacked', userId: 'u1', payload: { checklistId: 'c1', itemId: 'i1', packed: false }, createdAt: '2' });
+  await queue.enqueueOfflineOperation({ id: 'name-1', type: 'updateChecklistItemName', userId: 'u1', payload: { checklistId: 'c1', itemId: 'i1', name: 'Renamed', inventoryItemId: 'inv-1' }, createdAt: '3' });
+  await queue.enqueueOfflineOperation({ id: 'quantity-1', type: 'updateChecklistItemQuantity', userId: 'u1', payload: { checklistId: 'c1', itemId: 'i1', quantity: 3 }, createdAt: '4' });
+  const projected = await queue.projectChecklistItems('u1', 'c1', [{ id: 'i1', name: 'Original', quantity: 1, packed: false, inventoryItemId: 'inv-1' }, { id: 'other', name: 'Other' }]);
+  assert.deepEqual({ ...projected.find((item) => item.id === 'i1') }, { id: 'i1', name: 'Renamed', quantity: 3, packed: false, inventoryItemId: 'inv-1', packedAt: null, updatedAt: '4' });
+  assert.equal(projected.length, 2);
+});
+
+test('checklist projection isolates checklists and applies update then delete', async () => {
+  const { queue } = loadOfflineQueue();
+  await queue.enqueueOfflineOperation({ id: 'update', type: 'updateChecklistItemName', userId: 'u1', payload: { checklistId: 'other', itemId: 'i1', name: 'Wrong' }, createdAt: '1' });
+  await queue.enqueueOfflineOperation({ id: 'delete', type: 'deleteChecklistItem', userId: 'u1', payload: { checklistId: 'c1', itemId: 'i1' }, createdAt: '2' });
+  const projected = await queue.projectChecklistItems('u1', 'c1', [{ id: 'i1', name: 'Original' }]);
+  assert.equal(projected.length, 0);
+});
+
+test('offline-created checklist item projection remains functional', async () => {
+  const { queue } = loadOfflineQueue();
+  await queue.enqueueOfflineOperation({ id: 'offline-item-1', type: 'createChecklistItem', userId: 'u1', payload: { checklistId: 'c1', name: 'New', sortOrder: 1 }, createdAt: '1' });
+  const projected = await queue.getOfflineChecklistItems('u1', 'c1');
+  assert.equal(projected[0].id, 'offline-item-1');
+  assert.equal(projected[0].name, 'New');
+  assert.equal(projected[0].inventoryItemId, undefined);
 });
