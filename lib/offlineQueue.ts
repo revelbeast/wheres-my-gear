@@ -101,6 +101,7 @@ export type OfflineQueueOperation =
         checklistId: string;
         itemId: string;
         packed: boolean;
+        inventoryItemId?: string;
       };
       createdAt: string;
     }
@@ -111,6 +112,7 @@ export type OfflineQueueOperation =
       payload: {
         checklistId: string;
         itemId: string;
+        inventoryItemId?: string;
       };
       createdAt: string;
     }
@@ -122,6 +124,7 @@ export type OfflineQueueOperation =
         checklistId: string;
         itemId: string;
         name: string;
+        inventoryItemId?: string;
       };
       createdAt: string;
     }
@@ -133,6 +136,7 @@ export type OfflineQueueOperation =
         checklistId: string;
         itemId: string;
         quantity: number;
+        inventoryItemId?: string;
       };
       createdAt: string;
     }

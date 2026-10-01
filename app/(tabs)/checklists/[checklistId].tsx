@@ -676,12 +676,19 @@ export default function ChecklistDetailScreen() {
   async function handleSaveItemEdit(itemId: string) {
     const trimmed = editingItemName.trim();
     if (!trimmed || !user || savingItemEdit || interactionLocked) return;
+    const currentItem = items.find((item) => item.id === itemId);
 
     setSavingItemEdit(true);
 
     await runWithLock(async () => {
       try {
-        await updateChecklistItemName(user.uid, checklistId, itemId, trimmed);
+        await updateChecklistItemName(
+          user.uid,
+          checklistId,
+          itemId,
+          trimmed,
+          currentItem?.inventoryItemId
+        );
 
         setItems((prevItems) =>
           prevItems.map((item) =>
@@ -726,7 +733,8 @@ export default function ChecklistDetailScreen() {
           user.uid,
           checklistId,
           item.id,
-          nextQuantity
+          nextQuantity,
+          item.inventoryItemId
         );
 
         setItems((prevItems) =>
@@ -1286,7 +1294,12 @@ export default function ChecklistDetailScreen() {
                 );
               }
 
-              await deleteChecklistItem(user.uid, checklistId, item.id);
+              await deleteChecklistItem(
+                user.uid,
+                checklistId,
+                item.id,
+                item.inventoryItemId
+              );
 
               setItems((prevItems) =>
                 prevItems.filter((prevItem) => prevItem.id !== item.id)

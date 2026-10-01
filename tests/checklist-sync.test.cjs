@@ -4,6 +4,9 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const ts = require('typescript');
 
+const checklistServiceSource = fs.readFileSync('lib/checklistsService.ts', 'utf8');
+const offlineQueueSource = fs.readFileSync('lib/offlineQueue.ts', 'utf8');
+
 function loadGear() {
   const source = ts.transpileModule(fs.readFileSync('lib/gearService.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
   const empty = {};
@@ -61,4 +64,22 @@ test('stable ID selection is safe for quantity decrement and checklist deletion'
   ];
   assert.equal(findChecklistInventoryItemById(items, 'linked').id, 'linked');
   assert.equal(findChecklistInventoryItemById(items, 'missing'), undefined);
+});
+
+test('checklist normalization preserves stable inventory identity and legacy nulls', () => {
+  assert.match(checklistServiceSource, /function normalizeChecklistItem[\s\S]*?inventoryItemId:\s*typeof data\.inventoryItemId === "string" \? data\.inventoryItemId : null/);
+  assert.match(checklistServiceSource, /inventoryItemId:\s*data\.inventoryItemId \?\? null/);
+});
+
+test('offline checklist mutation payloads optionally carry inventory identity', () => {
+  for (const operation of ['toggleChecklistItemPacked', 'updateChecklistItemName', 'updateChecklistItemQuantity', 'deleteChecklistItem']) {
+    assert.match(checklistServiceSource, new RegExp(`type: "${operation}"`));
+  }
+  assert.match(checklistServiceSource, /\.\.\.\(item\.inventoryItemId \? \{ inventoryItemId: item\.inventoryItemId \} : \{\}\)/);
+  assert.match(checklistServiceSource, /\.\.\.\(inventoryItemId \? \{ inventoryItemId \} : \{\}\)/);
+  assert.match(offlineQueueSource, /inventoryItemId\?: string;/);
+});
+
+test('phase 2C-1 does not add offline inventory synchronization', () => {
+  assert.doesNotMatch(checklistServiceSource, /enqueueOfflineOperation\(\{[\s\S]*type: "updateInventoryItem"/);
 });

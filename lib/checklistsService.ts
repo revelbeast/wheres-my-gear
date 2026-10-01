@@ -168,6 +168,8 @@ function normalizeChecklistItem(
 ): ChecklistItem {
   return {
     id,
+    inventoryItemId:
+      typeof data.inventoryItemId === "string" ? data.inventoryItemId : null,
     name: String(data.name ?? "Untitled Item"),
     notes: data.notes ?? "",
     quantity: Math.max(1, Number(data.quantity ?? 1)),
@@ -1230,6 +1232,7 @@ export async function toggleChecklistItemPacked(
         checklistId,
         itemId: item.id,
         packed: newPacked,
+        ...(item.inventoryItemId ? { inventoryItemId: item.inventoryItemId } : {}),
       },
       createdAt: new Date().toISOString(),
     });
@@ -1261,7 +1264,8 @@ export async function updateChecklistItemQuantity(
   userId: string,
   checklistId: string,
   itemId: string,
-  quantity: number
+  quantity: number,
+  inventoryItemId?: string | null
 ) {
   const safeQuantity = Math.max(1, Number(quantity) || 1);
 
@@ -1284,6 +1288,7 @@ export async function updateChecklistItemQuantity(
         checklistId,
         itemId,
         quantity: safeQuantity,
+        ...(inventoryItemId ? { inventoryItemId } : {}),
       },
       createdAt: new Date().toISOString(),
     });
@@ -1313,7 +1318,8 @@ export async function updateChecklistItemName(
   userId: string,
   checklistId: string,
   itemId: string,
-  name: string
+  name: string,
+  inventoryItemId?: string | null
 ) {
   const trimmed = name.trim();
   if (!trimmed) {
@@ -1339,6 +1345,7 @@ export async function updateChecklistItemName(
         checklistId,
         itemId,
         name: trimmed,
+        ...(inventoryItemId ? { inventoryItemId } : {}),
       },
       createdAt: new Date().toISOString(),
     });
@@ -1536,7 +1543,8 @@ export async function updateChecklistNotes(
 export async function deleteChecklistItem(
   userId: string,
   checklistId: string,
-  itemId: string
+  itemId: string,
+  inventoryItemId?: string | null
 ) {
   const networkState = await Promise.race([
     NetInfo.fetch(),
@@ -1556,6 +1564,7 @@ export async function deleteChecklistItem(
       payload: {
         checklistId,
         itemId,
+        ...(inventoryItemId ? { inventoryItemId } : {}),
       },
       createdAt: new Date().toISOString(),
     });
