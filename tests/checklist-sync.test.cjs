@@ -105,6 +105,12 @@ test('phase 2C-1 does not add offline inventory synchronization', () => {
   assert.doesNotMatch(checklistServiceSource, /enqueueOfflineOperation\(\{[\s\S]*type: "updateInventoryItem"/);
 });
 
+test('offline packed toggle queues stable-ID inventory status without legacy lookup', () => {
+  const screenSource = fs.readFileSync('app/(tabs)/checklists/[checklistId].tsx', 'utf8');
+  assert.match(screenSource, /if \(item\.inventoryItemId\) \{[\s\S]*?await updateItem\(item\.inventoryItemId, \{[\s\S]*?status: !item\.packed \? "packed" : "missing"/);
+  assert.match(screenSource, /if \(isOnline && item\.compartmentId\) \{[\s\S]*?syncInventoryItemStatusFromChecklist/);
+});
+
 test('ordered checklist projection applies mutations, preserves identity, and suppresses deletes', async () => {
   const { queue } = loadOfflineQueue();
   await queue.cacheInventoryItems?.('unused', []);

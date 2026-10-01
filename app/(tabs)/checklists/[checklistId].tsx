@@ -48,6 +48,7 @@ import {
   getStorageSpaces,
   removeOrDecrementInventoryItemFromChecklist,
   syncInventoryItemStatusFromChecklist,
+  updateItem,
   type Compartment,
   type StorageSpace,
 } from "../../../lib/gearService";
@@ -827,6 +828,12 @@ export default function ChecklistDetailScreen() {
           );
 
           await toggleChecklistItemPacked(user.uid, checklistId, item);
+
+          if (item.inventoryItemId) {
+            await updateItem(item.inventoryItemId, {
+              status: !item.packed ? "packed" : "missing",
+            });
+          }
 
           return;
         }
