@@ -142,3 +142,60 @@ test('legacy records without barcode fields remain compatible', async () => {
   assert.equal('barcode' in item, false);
   assert.equal('barcodeType' in item, false);
 });
+
+test('offline linked checklist deletion queues an absolute quantity update by stable ID', async () => {
+  const base = setup();
+  const gear = load('lib/gearService.ts', {
+    '@react-native-community/netinfo': { default: { fetch: async () => ({ isConnected: false, isInternetReachable: false }) } },
+    'firebase/firestore': base.firestore,
+    '../firebaseConfig': { db: {}, auth: { currentUser: { uid: 'u1' } } },
+    './cloudPhotoStorage': {}, './localPhotoStorage': {}, './offlineQueue': base.queue,
+  });
+  base.firestore.getDocs = async () => { throw new Error('offline'); };
+  await base.queue.cacheInventoryItems('u1', [{ id: 'ABC123', name: 'Tent', quantity: 5, compartmentId: 'c', barcode: '0001', barcodeType: 'ean13' }, { id: 'same-name', name: 'Tent', quantity: 9, compartmentId: 'c' }]);
+  await gear.removeOrDecrementInventoryItemFromChecklist({ name: 'Tent', quantity: 2, inventoryItemId: 'ABC123' }, 'c');
+  const queue = await base.queue.getOfflineQueue();
+  assert.equal(queue.length, 1);
+  assert.equal(queue[0].type, 'updateInventoryItem');
+  assert.equal(queue[0].payload.itemId, 'ABC123');
+  assert.equal(queue[0].payload.updates.quantity, 3);
+  assert.equal(queue[0].payload.updates.name, undefined);
+  const projected = await base.queue.getOfflineItems('u1');
+  assert.equal(projected.find((item) => item.id === 'ABC123').quantity, 3);
+  assert.equal(projected.find((item) => item.id === 'ABC123').barcode, '0001');
+  assert.equal(projected.find((item) => item.id === 'ABC123').barcodeType, 'ean13');
+  assert.equal(projected.find((item) => item.id === 'same-name').quantity, 9);
+});
+
+test('offline linked checklist deletion queues exact inventory deletion at or below zero', async () => {
+  const base = setup();
+  const gear = load('lib/gearService.ts', {
+    '@react-native-community/netinfo': { default: { fetch: async () => ({ isConnected: false, isInternetReachable: false }) } },
+    'firebase/firestore': base.firestore,
+    '../firebaseConfig': { db: {}, auth: { currentUser: { uid: 'u1' } } },
+    './cloudPhotoStorage': {}, './localPhotoStorage': {}, './offlineQueue': base.queue,
+  });
+  base.firestore.getDocs = async () => { throw new Error('offline'); };
+  await base.queue.cacheInventoryItems('u1', [{ id: 'ABC123', name: 'Tent', quantity: 2, compartmentId: 'c' }, { id: 'same-name', name: 'Tent', quantity: 8, compartmentId: 'c' }]);
+  await gear.removeOrDecrementInventoryItemFromChecklist({ name: 'Tent', quantity: 2, inventoryItemId: 'ABC123' }, 'c');
+  const queue = await base.queue.getOfflineQueue();
+  assert.equal(queue[0].type, 'deleteInventoryItem');
+  assert.equal(queue[0].payload.itemId, 'ABC123');
+  assert.equal((await base.queue.getOfflineItems('u1')).some((item) => item.id === 'ABC123'), false);
+  assert.equal((await base.queue.getOfflineItems('u1')).find((item) => item.id === 'same-name').quantity, 8);
+});
+
+test('offline linked checklist deletion is a no-op for a missing stable target', async () => {
+  const base = setup();
+  const gear = load('lib/gearService.ts', {
+    '@react-native-community/netinfo': { default: { fetch: async () => ({ isConnected: false, isInternetReachable: false }) } },
+    'firebase/firestore': base.firestore,
+    '../firebaseConfig': { db: {}, auth: { currentUser: { uid: 'u1' } } },
+    './cloudPhotoStorage': {}, './localPhotoStorage': {}, './offlineQueue': base.queue,
+  });
+  base.firestore.getDocs = async () => { throw new Error('offline'); };
+  await base.queue.cacheInventoryItems('u1', [{ id: 'same-name', name: 'Tent', quantity: 8, compartmentId: 'c' }]);
+  await gear.removeOrDecrementInventoryItemFromChecklist({ name: 'Tent', quantity: 2, inventoryItemId: 'missing' }, 'c');
+  assert.equal((await base.queue.getOfflineQueue()).length, 0);
+  assert.equal((await base.queue.getOfflineItems('u1'))[0].quantity, 8);
+});

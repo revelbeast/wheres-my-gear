@@ -111,6 +111,11 @@ test('offline packed toggle queues stable-ID inventory status without legacy loo
   assert.match(screenSource, /if \(isOnline && item\.compartmentId\) \{[\s\S]*?syncInventoryItemStatusFromChecklist/);
 });
 
+test('checklist deletion preserves inventory-before-checklist queue ordering', () => {
+  const screenSource = fs.readFileSync('app/(tabs)/checklists/[checklistId].tsx', 'utf8');
+  assert.match(screenSource, /removeOrDecrementInventoryItemFromChecklist\([\s\S]*?deleteChecklistItem\(/);
+});
+
 test('ordered checklist projection applies mutations, preserves identity, and suppresses deletes', async () => {
   const { queue } = loadOfflineQueue();
   await queue.cacheInventoryItems?.('unused', []);
