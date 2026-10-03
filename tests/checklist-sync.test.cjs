@@ -7,7 +7,7 @@ const ts = require('typescript');
 const checklistServiceSource = fs.readFileSync('lib/checklistsService.ts', 'utf8');
 const offlineQueueSource = fs.readFileSync('lib/offlineQueue.ts', 'utf8');
 
-function loadGear() {
+function loadGear(overrides = {}) {
   const source = ts.transpileModule(fs.readFileSync('lib/gearService.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
   const empty = {};
   const firestore = { collection: () => ({}), doc: () => ({}), serverTimestamp: () => 'timestamp' };
@@ -20,6 +20,7 @@ function loadGear() {
     './localPhotoStorage': empty,
     './offlineQueue': queue,
   };
+  Object.assign(mocks, overrides);
   const exports = {};
   vm.runInNewContext(source, { exports, module: { exports }, require: (id) => mocks[id] ?? require(id), console, setTimeout, clearTimeout }, { filename: 'gearService.ts' });
   return exports;
@@ -143,4 +144,80 @@ test('offline-created checklist item projection remains functional', async () =>
   assert.equal(projected[0].id, 'offline-item-1');
   assert.equal(projected[0].name, 'New');
   assert.equal(projected[0].inventoryItemId, undefined);
+});
+
+function quantityHarness(records, offline = false) {
+  const writes = [];
+  const queued = [];
+  const firestore = {
+    collection: (_, ...path) => path,
+    doc: (_, ...path) => path,
+    serverTimestamp: () => 'timestamp',
+    getDocs: async () => ({ docs: records.map(({ id, ...data }) => ({ id, data: () => data })) }),
+    updateDoc: async (path, data) => writes.push({ path, data }),
+    addDoc: async (path, data) => { writes.push({ path, data }); return { id: 'created' }; },
+  };
+  const gear = loadGear({
+    'firebase/firestore': firestore,
+    '@react-native-community/netinfo': { default: { fetch: async () => ({ isConnected: !offline, isInternetReachable: !offline }) } },
+    './offlineQueue': {
+      cacheInventoryItems: async () => {},
+      getCachedInventoryItems: async () => records,
+      projectInventoryItems: async (_, items) => items,
+      enqueueOfflineOperation: async (operation) => queued.push(operation),
+    },
+  });
+  return { gear, writes, queued };
+}
+
+const quantityDestination = { id: 'old', name: 'Old', vehicleId: 'old-vehicle' };
+for (const scenario of ['unchanged', 'renamed', 'moved', 'duplicates', 'offline']) {
+  test(`quantity increase honors stable identity: ${scenario}`, async () => {
+    const target = {
+      id: 'linked', name: scenario === 'renamed' ? 'New name' : 'Tent', quantity: 5,
+      compartmentId: scenario === 'moved' ? 'new' : 'old', compartmentName: 'Current',
+      vehicleId: 'current-vehicle', roomId: 'room', roomName: 'Room', status: 'packed',
+      source: 'manual', notes: 'Keep', barcode: '0001', barcodeType: 'ean13',
+      itemPhotoUri: 'local', itemPhotoDownloadUrl: 'https://example.com/photo', custom: 'keep',
+    };
+    const records = [{ id: 'other', name: 'Tent', quantity: 9, compartmentId: 'old' }, target];
+    const before = JSON.stringify(records);
+    const { gear, writes, queued } = quantityHarness(records, scenario === 'offline');
+    assert.equal(await gear.createOrUpdateInventoryItemFromChecklist({ name: 'Tent', quantity: 1, inventoryItemId: 'linked' }, quantityDestination), 'linked');
+    if (scenario === 'offline') {
+      assert.equal(writes.length, 0);
+      assert.equal(queued.length, 1);
+      assert.equal(queued[0].type, 'updateInventoryItem');
+      assert.equal(queued[0].userId, 'u1');
+      assert.equal(queued[0].payload.itemId, 'linked');
+      assert.deepEqual({ ...queued[0].payload.updates }, { quantity: 6 });
+    } else {
+      assert.equal(queued.length, 0);
+      assert.equal(writes.length, 1);
+      assert.deepEqual(writes[0].path, ['users', 'u1', 'inventoryItems', 'linked']);
+      assert.deepEqual({ ...writes[0].data }, { quantity: 6, updatedAt: 'timestamp' });
+    }
+    assert.equal(JSON.stringify(records), before);
+  });
+}
+
+for (const records of [[], [{ id: 'other', name: 'Tent', quantity: 9, compartmentId: 'old' }]]) {
+  test(`missing stable quantity target creates nothing (alternatives=${records.length})`, async () => {
+    const { gear, writes, queued } = quantityHarness(records);
+    assert.equal(await gear.createOrUpdateInventoryItemFromChecklist({ name: 'Tent', quantity: 1, inventoryItemId: 'missing' }, quantityDestination), null);
+    assert.equal(writes.length, 0);
+    assert.equal(queued.length, 0);
+  });
+}
+
+test('legacy quantity matching and unlinked destination creation remain available', async () => {
+  const existing = quantityHarness([{ id: 'legacy', name: ' TENT ', quantity: 5, compartmentId: 'old' }]);
+  assert.equal(await existing.gear.createOrUpdateInventoryItemFromChecklist({ name: 'Tent', quantity: 1 }, quantityDestination), 'legacy');
+  assert.equal(existing.writes[0].data.quantity, 6);
+  assert.equal(existing.writes[0].data.source, 'checklist');
+  const unlinked = quantityHarness([]);
+  assert.equal(await unlinked.gear.createOrUpdateInventoryItemFromChecklist({ name: 'Tent', quantity: 2 }, quantityDestination), 'created');
+  assert.equal(unlinked.writes.length, 1);
+  assert.equal(unlinked.writes[0].data.quantity, 2);
+  assert.equal(unlinked.writes[0].data.compartmentId, 'old');
 });

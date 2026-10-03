@@ -756,6 +756,7 @@ export default function ChecklistDetailScreen() {
               {
                 name: item.name,
                 quantity: quantityDelta,
+                inventoryItemId: item.inventoryItemId,
               },
               {
                 id: item.compartmentId,

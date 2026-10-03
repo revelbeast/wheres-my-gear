@@ -1264,6 +1264,7 @@ export async function createOrUpdateInventoryItemFromChecklist(
   item: {
     name: string;
     quantity: number;
+    inventoryItemId?: string | null;
   },
   compartment: {
     id: string;
@@ -1271,6 +1272,19 @@ export async function createOrUpdateInventoryItemFromChecklist(
     vehicleId: string;
   }
 ) {
+  if (item.inventoryItemId) {
+    const allItems = await getAllItems({ recoverPhotos: false });
+    const existing = allItems.find((candidate) => candidate.id === item.inventoryItemId);
+    if (!existing) return null;
+
+    await updateItem(existing.id, {
+      quantity:
+        Math.max(1, Number(existing.quantity ?? 1)) +
+        Math.max(1, Number(item.quantity ?? 1)),
+    });
+    return existing.id;
+  }
+
   const allItems = await getAllItems();
 
   const existing = allItems.find(
