@@ -4,16 +4,15 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const ts = require('typescript');
 
-function load(file, mocks) {
+function load(file, mocks, globals = {}) {
   const source = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
   const exports = {};
-  const context = { exports, module: { exports }, require: (id) => mocks[id] ?? require(id), console, setTimeout, clearTimeout };
+  const context = { exports, module: { exports }, require: (id) => mocks[id] ?? require(id), console, setTimeout, clearTimeout, ...globals };
   vm.runInNewContext(source, context, { filename: file });
   return context.module.exports;
 }
 
-function setup() {
-  const storage = new Map();
+function setup(storage = new Map()) {
   const writes = [];
   const firestore = {
     addDoc: async (ref, data) => { writes.push({ type: 'create', ref, data }); return { id: 'created' }; },
@@ -198,4 +197,166 @@ test('offline linked checklist deletion is a no-op for a missing stable target',
   await gear.removeOrDecrementInventoryItemFromChecklist({ name: 'Tent', quantity: 2, inventoryItemId: 'missing' }, 'c');
   assert.equal((await base.queue.getOfflineQueue()).length, 0);
   assert.equal((await base.queue.getOfflineItems('u1'))[0].quantity, 8);
+});
+
+
+// Execute the production screen handlers with real services and persisted queue.
+// Checklist base data is supplied explicitly, as it must be available from Firestore cache.
+async function checklistQuantitySetup(missing = false) {
+  const base = setup();
+  base.firestore.getDocs = async () => { throw new Error('offline'); };
+  let clock = 100000;
+  class TestDate extends Date { static now() { return ++clock; } }
+  const mocks = {
+    '@react-native-community/netinfo': { default: { fetch: async () => ({ isConnected: false, isInternetReachable: false }) } },
+    'firebase/firestore': base.firestore,
+    '../firebaseConfig': { db: {}, auth: { currentUser: { uid: 'u1' } } },
+    './cloudPhotoStorage': {},
+    './localPhotoStorage': { localPhotoExists: async () => true },
+    './offlineQueue': base.queue,
+  };
+  const gear = load('lib/gearService.ts', mocks, { Date: TestDate });
+  const checklists = load('lib/checklistsService.ts', mocks, { Date: TestDate });
+  const inventory = {
+    id: 'ABC123', name: 'Tent', quantity: 5, status: 'missing',
+    compartmentId: 'actual', compartmentName: 'Actual', vehicleId: 'v',
+    roomId: 'r', notes: 'keep', source: 'manual', barcode: '0001', barcodeType: 'ean13',
+    itemPhotoUri: 'local', itemPhotoDownloadUrl: 'https://example.com/photo',
+    itemPhotoStoragePath: 'photos/keep', photoBackedUp: true, custom: 'keep',
+  };
+  const alternative = { ...inventory, id: 'XYZ789', quantity: 9, compartmentId: 'old' };
+  const inventoryBase = missing ? [alternative] : [inventory, alternative];
+  await base.queue.cacheInventoryItems('u1', inventoryBase);
+  const checklistBase = [{ id: 'ci', name: 'Tent', quantity: 2, packed: true,
+    inventoryItemId: 'ABC123', compartmentId: 'old', compartmentName: 'Old', vehicleId: 'v' }];
+  const file = 'app/(tabs)/checklists/[checklistId].tsx';
+  const text = fs.readFileSync(file, 'utf8');
+  const ast = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const functions = new Map();
+  function visit(node) {
+    if (ts.isFunctionDeclaration(node) && node.name) functions.set(node.name.text, node.getText(ast));
+    ts.forEachChild(node, visit);
+  }
+  visit(ast);
+  const source = ['getSafeQuantity', 'handleChangeNeededQuantity', 'confirmDeleteItem']
+    .map((name) => { assert.ok(functions.has(name)); return functions.get(name); }).join('\n');
+  let state = structuredClone(checklistBase);
+  let deletion;
+  const context = {
+    ...gear, ...checklists, user: { uid: 'u1' }, checklistId: 'c',
+    isBusyWithItemActions: () => false, setUpdatingItemId: () => {},
+    runWithLock: async (fn) => fn(), isScreenMountedRef: { current: true },
+    setItems: (fn) => { state = fn(state); },
+    Alert: { alert: (title, message, buttons) => {
+      if (!buttons) throw new Error(`${title}: ${message}`);
+      deletion = buttons.find((button) => button.text === 'Delete').onPress;
+    } },
+    console, Date: TestDate,
+  };
+  vm.createContext(context);
+  vm.runInContext(ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, context);
+  return { ...base, inventoryBase, checklistBase,
+    change: async (delta) => context.handleChangeNeededQuantity(state[0], delta),
+    delete: async () => { context.confirmDeleteItem(state[0]); await deletion(); },
+  };
+}
+
+function queueSummary(queue) {
+  return queue.map((op) => {
+    if (op.type === 'updateChecklistItemQuantity') return ['C', op.payload.quantity];
+    if (op.type === 'deleteChecklistItem') return ['CD'];
+    assert.equal(op.type, 'updateInventoryItem');
+    assert.equal(op.userId, 'u1');
+    assert.equal(op.payload.itemId, 'ABC123');
+    const updates = op.payload.updates;
+    assert.equal(Object.keys(updates).length, 1);
+    return 'quantity' in updates ? ['I', updates.quantity] : ['S', updates.status];
+  });
+}
+
+for (const [name, deltas, pairs, remove] of [
+  ['single +1', [1], [[3, 6]], false],
+  ['single -1', [-1], [[1, 4]], false],
+  ['A +1 +1', [1, 1], [[3, 6], [4, 7]], false],
+  ['B +1 -1', [1, -1], [[3, 6], [2, 5]], false],
+  ['C +1 +1 -1', [1, 1, -1], [[3, 6], [4, 7], [3, 6]], false],
+  ['D -1 +1', [-1, 1], [[1, 4], [2, 5]], false],
+  ['E -1 delete', [-1], [[1, 4]], true],
+  ['F +1 delete', [1], [[3, 6]], true],
+]) {
+  test(`complete offline checklist quantity sequence: ${name}`, async () => {
+    const b = await checklistQuantitySetup();
+    const expectedOrder = [];
+    for (let i = 0; i < deltas.length; i++) {
+      await b.change(deltas[i]);
+      const [c, q] = pairs[i];
+      const checklist = await b.queue.projectChecklistItems('u1', 'c', b.checklistBase);
+      assert.equal(checklist[0].quantity, c);
+      assert.equal(checklist[0].inventoryItemId, 'ABC123');
+      const inventory = await b.queue.getOfflineItems('u1');
+      const linked = inventory.find((item) => item.id === 'ABC123');
+      const { updatedAt, ...fields } = linked;
+      assert.deepEqual(fields, { ...b.inventoryBase[0], quantity: q, status: 'packed' });
+      assert.deepEqual({ ...inventory.find((item) => item.id === 'XYZ789') }, b.inventoryBase[1]);
+      expectedOrder.push(['C', c], ['I', q], ['S', 'packed']);
+    }
+    if (remove) {
+      await b.delete();
+      expectedOrder.push(['I', 3], ['CD']);
+      assert.equal((await b.queue.projectChecklistItems('u1', 'c', b.checklistBase)).length, 0);
+    }
+    const pending = await b.queue.getOfflineQueue();
+    assert.deepEqual(JSON.parse(JSON.stringify(queueSummary(pending))), expectedOrder);
+    assert.equal(b.writes.length, 0);
+
+    // Reload actual serialized queue/cache using a fresh queue module instance.
+    const reloaded = setup(new Map(b.storage));
+    assert.equal(JSON.stringify(await reloaded.queue.getOfflineQueue()), JSON.stringify(pending));
+    const inventory = await reloaded.queue.getOfflineItems('u1');
+    const expectedQuantity = remove ? 3 : pairs.at(-1)[1];
+    assert.equal(inventory.find((item) => item.id === 'ABC123').quantity, expectedQuantity);
+    const checklist = await reloaded.queue.projectChecklistItems('u1', 'c', b.checklistBase);
+    assert.equal(checklist.length, remove ? 0 : 1);
+    if (!remove) {
+      assert.equal(checklist[0].quantity, pairs.at(-1)[0]);
+      assert.equal(checklist[0].inventoryItemId, 'ABC123');
+    }
+    await reloaded.queue.flushOfflineQueue();
+    const inventoryWrites = reloaded.writes.filter((write) => write.ref.includes('inventoryItems'));
+    assert.equal(inventoryWrites.length, expectedOrder.filter(([type]) => type === 'I' || type === 'S').length);
+    let remoteQuantity = 5;
+    for (const write of inventoryWrites) {
+      assert.equal(write.ref.at(-1), 'ABC123');
+      if ('quantity' in write.data) remoteQuantity = write.data.quantity;
+    }
+    assert.equal(remoteQuantity, expectedQuantity);
+    assert.equal((await reloaded.queue.getOfflineQueue()).length, 0);
+  });
+}
+
+test('missing stable target preserves checklist changes without any inventory effect', async () => {
+  const b = await checklistQuantitySetup(true);
+  await b.change(1);
+  await b.change(-1);
+  const queued = await b.queue.getOfflineQueue();
+  assert.deepEqual(Array.from(queued, (op) => op.type), ['updateChecklistItemQuantity', 'updateChecklistItemQuantity']);
+  assert.equal((await b.queue.projectChecklistItems('u1', 'c', b.checklistBase))[0].quantity, 2);
+  assert.deepEqual(JSON.parse(JSON.stringify(await b.queue.getOfflineItems('u1'))), b.inventoryBase);
+  await b.queue.flushOfflineQueue();
+  assert.equal(b.writes.some((write) => write.ref.includes('inventoryItems')), false);
+});
+
+test('replaying the persisted absolute assignment twice does not increment again', async () => {
+  const b = setup();
+  await b.queue.enqueueOfflineOperation({ id: 'retry', type: 'updateInventoryItem', userId: 'u1',
+    payload: { itemId: 'ABC123', updates: { quantity: 6 } }, createdAt: 't' });
+  const beforeCleanup = new Map(b.storage);
+  await b.queue.flushOfflineQueue();
+  const retried = setup(beforeCleanup);
+  await retried.queue.flushOfflineQueue();
+  let quantity = 5;
+  for (const write of [...b.writes, ...retried.writes]) quantity = write.data.quantity;
+  assert.equal(quantity, 6);
+  assert.equal(b.writes.length, 1);
+  assert.equal(retried.writes.length, 1);
 });
