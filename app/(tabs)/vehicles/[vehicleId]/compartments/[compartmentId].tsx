@@ -4,7 +4,7 @@ import * as ImagePicker from "expo-image-picker";
 import { getAuth } from "firebase/auth";
 import { uploadInventoryItemPhotoToCloud } from "../../../../../lib/cloudPhotoStorage";
 import { savePhotoToLocalDocumentStorage } from "../../../../../lib/localPhotoStorage";
-import { useLocalSearchParams } from "expo-router";
+import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import {
   Camera,
   Check,
@@ -18,7 +18,7 @@ import {
   Trash2,
   X,
 } from "lucide-react-native";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Image,
@@ -192,7 +192,7 @@ export default function CompartmentDetailScreen() {
     };
   }, []);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     const loadVersion = loadVersionRef.current + 1;
     loadVersionRef.current = loadVersion;
 
@@ -208,7 +208,7 @@ export default function CompartmentDetailScreen() {
     return () => {
       loadVersionRef.current += 1;
     };
-  }, [compartmentId, isDuplicateInspection]);
+  }, [compartmentId, isDuplicateInspection]));
 
   async function runWithLock(action: () => Promise<void> | void) {
     if (actionLockRef.current || interactionLocked || !isMountedRef.current) {
