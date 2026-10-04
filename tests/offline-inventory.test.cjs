@@ -238,12 +238,14 @@ async function checklistQuantitySetup(missing = false) {
     ts.forEachChild(node, visit);
   }
   visit(ast);
-  const source = ['getSafeQuantity', 'handleChangeNeededQuantity', 'confirmDeleteItem']
+  const source = ['getSafeQuantity', 'handleChangeNeededQuantity', 'confirmDeleteItem', 'handleTogglePacked']
     .map((name) => { assert.ok(functions.has(name)); return functions.get(name); }).join('\n');
   let state = structuredClone(checklistBase);
   let deletion;
   const context = {
-    ...gear, ...checklists, user: { uid: 'u1' }, checklistId: 'c',
+    ...gear, ...checklists, getOfflineItems: base.queue.getOfflineItems,
+    NetInfo: mocks['@react-native-community/netinfo'].default, setTimeout,
+    user: { uid: 'u1' }, checklistId: 'c',
     isBusyWithItemActions: () => false, setUpdatingItemId: () => {},
     runWithLock: async (fn) => fn(), isScreenMountedRef: { current: true },
     setItems: (fn) => { state = fn(state); },
@@ -255,7 +257,13 @@ async function checklistQuantitySetup(missing = false) {
   };
   vm.createContext(context);
   vm.runInContext(ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, context);
-  return { ...base, inventoryBase, checklistBase,
+  return { ...base, gear, inventoryBase, checklistBase,
+    toggle: async (packed, linked = true) => {
+      state[0].packed = packed;
+      if (!linked) delete state[0].inventoryItemId;
+      await context.handleTogglePacked(state[0]);
+      return state[0];
+    },
     change: async (delta) => context.handleChangeNeededQuantity(state[0], delta),
     delete: async () => { context.confirmDeleteItem(state[0]); await deletion(); },
   };
@@ -360,3 +368,61 @@ test('replaying the persisted absolute assignment twice does not increment again
   assert.equal(b.writes.length, 1);
   assert.equal(retried.writes.length, 1);
 });
+
+for (const packed of [false, true]) {
+  for (const scenario of ['existing', 'deleted', 'missing-alternative', 'empty-cache', 'moved', 'legacy']) {
+    test(`offline ${packed ? 'unpack' : 'pack'} checks projected stable target: ${scenario}`, async () => {
+      const b = await checklistQuantitySetup(scenario === 'missing-alternative');
+      if (scenario === 'empty-cache') await b.queue.cacheInventoryItems('u1', []);
+      if (scenario === 'deleted') {
+        await b.gear.deleteItem('ABC123');
+        assert.equal((await b.queue.getOfflineItems('u1')).some((item) => item.id === 'ABC123'), false);
+      }
+      if (scenario === 'moved') await b.gear.updateItem('ABC123', { compartmentId: 'destination', vehicleId: 'new-vehicle' });
+      const before = JSON.parse(JSON.stringify(await b.queue.getOfflineItems('u1')));
+      const state = await b.toggle(packed, scenario !== 'legacy');
+      assert.equal(state.packed, !packed);
+      if (scenario !== 'legacy') assert.equal(state.inventoryItemId, 'ABC123');
+      const pending = await b.queue.getOfflineQueue();
+      const shouldUpdate = scenario === 'existing' || scenario === 'moved';
+      const expectedTypes = [
+        ...(scenario === 'deleted' ? ['deleteInventoryItem'] : scenario === 'moved' ? ['updateInventoryItem'] : []),
+        'toggleChecklistItemPacked',
+        ...(shouldUpdate ? ['updateInventoryItem'] : []),
+      ];
+      assert.deepEqual(Array.from(pending, (op) => op.type), expectedTypes);
+      const statusOps = pending.filter((op) => op.type === 'updateInventoryItem' && 'status' in op.payload.updates);
+      assert.equal(statusOps.length, shouldUpdate ? 1 : 0);
+      if (shouldUpdate) {
+        assert.equal(statusOps[0].payload.itemId, 'ABC123');
+        assert.deepEqual({ ...statusOps[0].payload.updates }, { status: packed ? 'missing' : 'packed' });
+      }
+      const reloaded = setup(new Map(b.storage));
+      assert.equal(JSON.stringify(await reloaded.queue.getOfflineQueue()), JSON.stringify(pending));
+      const projected = JSON.parse(JSON.stringify(await reloaded.queue.getOfflineItems('u1')));
+      assert.deepEqual(projected.find((item) => item.id === 'XYZ789'), before.find((item) => item.id === 'XYZ789'));
+      if (!shouldUpdate) assert.deepEqual(projected, before);
+      if (scenario === 'moved') {
+        assert.equal(projected.find((item) => item.id === 'ABC123').compartmentId, 'destination');
+        assert.equal(projected.find((item) => item.id === 'ABC123').vehicleId, 'new-vehicle');
+      }
+      const checklist = await reloaded.queue.projectChecklistItems('u1', 'c', b.checklistBase);
+      assert.equal(checklist[0].packed, !packed);
+      // Model Firestore rejecting updates after deletion, rather than silently accepting them.
+      let deleted = false;
+      const updateDoc = reloaded.firestore.updateDoc;
+      const deleteDoc = reloaded.firestore.deleteDoc;
+      reloaded.firestore.deleteDoc = async (ref) => { if (ref.includes('inventoryItems')) deleted = true; await deleteDoc(ref); };
+      reloaded.firestore.updateDoc = async (ref, data) => {
+        if (ref.includes('inventoryItems')) {
+          assert.equal(deleted, false, 'must not update a deleted inventory document');
+          assert.equal(ref.at(-1), 'ABC123');
+        }
+        await updateDoc(ref, data);
+      };
+      await reloaded.queue.flushOfflineQueue();
+      assert.equal((await reloaded.queue.getOfflineQueue()).length, 0);
+      assert.equal(reloaded.writes.some((write) => write.type === 'create'), false);
+    });
+  }
+}

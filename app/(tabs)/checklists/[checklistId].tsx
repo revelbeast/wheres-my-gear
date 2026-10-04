@@ -52,6 +52,7 @@ import {
   type Compartment,
   type StorageSpace,
 } from "../../../lib/gearService";
+import { getOfflineItems } from "../../../lib/offlineQueue";
 import { triggerSuccessHaptic } from "../../../lib/haptics";
 import { savePhotoToLocalDocumentStorage } from "../../../lib/localPhotoStorage";
 import { useInteractionLock } from "../../../lib/useInteractionLock";
@@ -831,9 +832,12 @@ export default function ChecklistDetailScreen() {
           await toggleChecklistItemPacked(user.uid, checklistId, item);
 
           if (item.inventoryItemId) {
-            await updateItem(item.inventoryItemId, {
-              status: !item.packed ? "packed" : "missing",
-            });
+            const projectedInventory = await getOfflineItems(user.uid);
+            if (projectedInventory.some((inventoryItem) => inventoryItem.id === item.inventoryItemId)) {
+              await updateItem(item.inventoryItemId, {
+                status: !item.packed ? "packed" : "missing",
+              });
+            }
           }
 
           return;
