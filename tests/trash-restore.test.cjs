@@ -91,3 +91,62 @@ test('no original room ID is inferred from a name; current room hierarchy is sti
   const h = setup(); h.docs.get('inventoryItems/i').deletedLocation = { vehicleId: 'v', compartmentId: 'c', roomName: 'display only' };
   await h.gear.restoreDeletedItem('i'); assert.ok(h.reads.includes('users/u/rooms/r'));
 });
+
+const destination = { vehicleId: 'v2', compartmentId: 'c2', roomId: 'r2' };
+function explicitSetup(options) {
+  const h = setup(options);
+  h.docs.set('storageSpaces/v2', { name: 'Current storage' });
+  h.docs.set('compartments/c2', { name: 'Current compartment', vehicleId: 'v2', roomId: 'r2' });
+  h.docs.set('rooms/r2', { name: 'Current room', storageSpaceId: 'v2' });
+  return h;
+}
+test('explicit destination writes authoritative names, same ID, preserved metadata and reconciled projections', async () => {
+  const h = explicitSetup();
+  await h.queue.cacheInventoryItems('u', [{ ...original, id: 'i' }, { id: 'other', quantity: 9 }]);
+  await h.gear.restoreDeletedItem('i', { ...destination, vehicleName: 'Untrusted', compartmentName: 'Untrusted' });
+  const result = h.docs.get('inventoryItems/i');
+  assert.equal(h.writes.length, 1); assert.equal(h.writes[0].ref, 'users/u/inventoryItems/i');
+  assert.equal(result.vehicleId, 'v2'); assert.equal(result.compartmentId, 'c2'); assert.equal(result.roomId, 'r2');
+  assert.equal(result.vehicleName, 'Current storage'); assert.equal(result.compartmentName, 'Current compartment'); assert.equal(result.roomName, 'Current room');
+  for (const key of ['name', 'quantity', 'status', 'notes', 'source', 'barcode', 'barcodeType', 'itemPhotoUri', 'itemPhotoStoragePath', 'itemPhotoDownloadUrl', 'photoBackedUp', 'extraField']) assert.equal(result[key], original[key]);
+  assert.equal(result.isDeleted, false); assert.equal(result.deletedAt, null); assert.equal(result.deletedLocation, null);
+  assert.equal((await h.queue.getOfflineDeletedItems('u')).length, 0);
+  const active = await h.queue.getOfflineItems('u'); assert.equal(active.length, 2); assert.equal(active.find(x => x.id === 'i').compartmentId, 'c2');
+  assert.equal(h.docs.get('inventoryItems/other').quantity, 9);
+});
+for (const [name, mutate, selected] of [
+  ['storage removed', h => h.docs.delete('storageSpaces/v2')],
+  ['storage archived', h => h.docs.get('storageSpaces/v2').isArchived = true],
+  ['compartment removed', h => h.docs.delete('compartments/c2')],
+  ['compartment moved', h => h.docs.get('compartments/c2').vehicleId = 'v'],
+  ['compartment archived', h => h.docs.get('compartments/c2').isArchived = true],
+  ['room removed', h => h.docs.delete('rooms/r2')],
+  ['room archived', h => h.docs.get('rooms/r2').isArchived = true],
+  ['room moved', h => h.docs.get('rooms/r2').storageSpaceId = 'v'],
+  ['room reassigned', h => h.docs.get('compartments/c2').roomId = 'r'],
+  ['room detached', h => h.docs.get('compartments/c2').roomId = ''],
+  ['null selection but room attached', () => {}, { ...destination, roomId: null }],
+  ['missing storage ID', () => {}, { ...destination, vehicleId: '' }],
+  ['missing compartment ID', () => {}, { ...destination, compartmentId: '' }],
+]) test(`stale explicit selection: ${name}; original remains valid but never used as fallback`, async () => {
+  const h = explicitSetup(); mutate(h);
+  await assert.rejects(h.gear.restoreDeletedItem('i', selected ?? destination), e => e.code === 'NEW_DESTINATION_REQUIRED');
+  assert.equal(h.writes.length, 0); assert.equal(h.docs.get('inventoryItems/i').isDeleted, true);
+  assert.equal((await h.queue.getOfflineQueue()).length, 0);
+});
+test('roomless explicit destination clears stale room fields', async () => {
+  const h = explicitSetup(); h.docs.get('compartments/c2').roomId = '';
+  Object.assign(h.docs.get('inventoryItems/i'), { roomId: 'old', roomName: 'Old' });
+  await h.gear.restoreDeletedItem('i', { ...destination, roomId: null });
+  assert.equal(h.docs.get('inventoryItems/i').roomId, ''); assert.equal(h.docs.get('inventoryItems/i').roomName, '');
+});
+test('same-name destination selected by IDs and never collapsed', async () => {
+  const h = explicitSetup(); h.docs.get('storageSpaces/v2').name = h.docs.get('storageSpaces/v').name;
+  await h.gear.restoreDeletedItem('i', destination);
+  assert.equal(h.docs.get('inventoryItems/i').vehicleId, 'v2');
+});
+for (const failure of ['offline', 'readFails', 'writeFails']) test(`explicit restore ${failure} never queues or changes deletion state`, async () => {
+  const h = explicitSetup(failure === 'offline' ? { network: { isConnected: false } } : { [failure]: true });
+  await assert.rejects(h.gear.restoreDeletedItem('i', destination), e => e.code === (failure === 'offline' ? 'CONNECT_REQUIRED' : 'unavailable'));
+  assert.equal(h.writes.length, 0); assert.equal(h.docs.get('inventoryItems/i').isDeleted, true); assert.equal((await h.queue.getOfflineQueue()).length, 0);
+});

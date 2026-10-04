@@ -1292,8 +1292,14 @@ export class RestoreItemError extends Error {
   }
 }
 
+export type RestoreDestination = {
+  vehicleId: string;
+  compartmentId: string;
+  roomId: string | null;
+};
+
 /** Online-only: transactions never fall back to the offline inventory queue. */
-export async function restoreDeletedItem(itemId: string): Promise<{ cacheUpdated: boolean }> {
+export async function restoreDeletedItem(itemId: string, destination?: RestoreDestination): Promise<{ cacheUpdated: boolean }> {
   const uid = auth.currentUser?.uid;
   if (!uid) throw new RestoreItemError("UNAUTHENTICATED");
   const validId = (value: unknown): value is string =>
@@ -1313,7 +1319,7 @@ export async function restoreDeletedItem(itemId: string): Promise<{ cacheUpdated
     if (!snapshot.exists()) throw new RestoreItemError("ITEM_NOT_FOUND");
     const item = snapshot.data() as Item;
     if (item.isDeleted !== true) throw new RestoreItemError("NOT_DELETED");
-    const location = item.deletedLocation;
+    const location = destination ?? item.deletedLocation;
     const invalid = () => { throw new RestoreItemError("NEW_DESTINATION_REQUIRED"); };
     if (!location || !validId(location.vehicleId) || !validId(location.compartmentId)) return invalid();
     const storage = await transaction.get(doc(db, "users", uid, "storageSpaces", location.vehicleId));
@@ -1323,16 +1329,27 @@ export async function restoreDeletedItem(itemId: string): Promise<{ cacheUpdated
     if (compartmentData.vehicleId !== location.vehicleId || compartmentData.isArchived) return invalid();
     const originalRoomId = location.roomId;
     const currentRoomId = compartmentData.roomId;
-    if (originalRoomId && (!validId(originalRoomId) || originalRoomId !== currentRoomId)) return invalid();
+    if (destination) {
+      if (destination.roomId !== null && !validId(destination.roomId)) return invalid();
+      if (destination.roomId !== (currentRoomId || null)) return invalid();
+    } else if (originalRoomId && (!validId(originalRoomId) || originalRoomId !== currentRoomId)) return invalid();
+    let currentRoomName = "";
     // A room name cannot supply an ID. Validate the current parent if no room ID was captured.
     if (currentRoomId) {
       if (!validId(currentRoomId)) return invalid();
       const room = await transaction.get(doc(db, "users", uid, "rooms", currentRoomId));
       if (!room.exists() || room.data().isArchived || room.data().storageSpaceId !== location.vehicleId) return invalid();
+      currentRoomName = typeof room.data().name === "string" ? room.data().name : "";
     }
     const updates = {
       isDeleted: false, deletedAt: null, deletedLocation: null,
       vehicleId: location.vehicleId, compartmentId: location.compartmentId,
+      ...(destination ? {
+        vehicleName: typeof storage.data().name === "string" ? storage.data().name : "",
+        compartmentName: typeof compartmentData.name === "string" ? compartmentData.name : "",
+        roomId: currentRoomId || "",
+        roomName: currentRoomName,
+      } : {}),
       updatedAt: serverTimestamp(),
     };
     transaction.update(ref, updates);

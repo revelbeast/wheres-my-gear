@@ -21,7 +21,7 @@ vm.createContext(context);
 vm.runInContext(ts.transpileModule(['deletionTime', 'sortedDeletedItems', 'originalLocation'].map(key => funcs[key]).join('\n'), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, context);
 const row = (id, deletedAt, other = {}) => ({ id, name: 'Same', isDeleted: true, quantity: 2, deletedAt, ...other });
 const tick = () => new Promise(resolve => setImmediate(resolve));
-function harness(connectivity = async () => ({ isConnected: false }), restore = async () => ({ cacheUpdated: true })) {
+function harness(connectivity = async () => ({ isConnected: false }), restore = async () => ({ cacheUpdated: true }), hierarchy = {}) {
   const alerts = [];
   let slots = [], index = 0, focus, cleanup, calls = 0;
   let read = async () => [];
@@ -34,12 +34,13 @@ function harness(connectivity = async () => ({ isConnected: false }), restore = 
     react: { ...react, default: react },
     'expo-router': { useFocusEffect: fn => { focus = fn; } },
     '@react-native-community/netinfo': { default: { fetch: connectivity } },
-    'react-native': { Alert: { alert: (...args) => alerts.push(args) }, ActivityIndicator: 'Spinner', Image: 'Image', ScrollView: 'ScrollView', View: 'View', StyleSheet: { create: x => x } },
+    'react-native': { Alert: { alert: (...args) => alerts.push(args) }, Modal: 'Modal', ActivityIndicator: 'Spinner', Image: 'Image', ScrollView: 'ScrollView', View: 'View', StyleSheet: { create: x => x } },
     'react-native-safe-area-context': { SafeAreaView: 'SafeAreaView' }, 'lucide-react-native': { Image: 'Icon' },
     '../../../components/auth/AuthProvider': { useAuth: () => ({ user: { uid: 'u' } }) },
+    '../../../components/ui/HapticPressable': { default: 'Pressable' },
     '../../../components/ui/AppHeader': { default: 'Header' }, '../../../components/ui/ScreenBackground': { default: 'Background' },
     '../../../components/ui/Themed': { ThemedButton: 'Button', ThemedCard: 'Card', ThemedText: 'Text', useThemedValues: () => ({ colors: { text: 'black' } }) },
-    '../../../lib/gearService': { getDeletedItems: async () => { calls++; return read(); }, restoreDeletedItem: restore },
+    '../../../lib/gearService': { getDeletedItems: async () => { calls++; return read(); }, restoreDeletedItem: restore, getStorageSpaces: async () => [], getCompartmentsByVehicle: async () => [], getRoomsByStorageSpace: async () => [], ...hierarchy },
   };
   vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { jsx: ts.JsxEmit.React, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, { exports, require: id => { assert.ok(id in mocks, `Unexpected import ${id}`); return mocks[id]; }, Date });
   return { alerts, render() { index = 0; refIndex = 0; return exports.default(); }, focus() { cleanup = focus(); }, blur() { cleanup(); }, read(fn) { read = fn; }, calls: () => calls };
@@ -190,8 +191,10 @@ for (const code of ['NEW_DESTINATION_REQUIRED', 'unavailable']) {
     nodes(h.render()).find(n => n.type === 'Button').props.onPress(); await tick();
     assert.equal(nodes(h.render()).filter(n => n.type === 'Card').length, 1);
     assert.equal(h.calls(), 1);
-    assert.equal(h.alerts[0][0], 'Restore unavailable');
-    if (code === 'NEW_DESTINATION_REQUIRED') assert.match(h.alerts[0][1], /Location selection is not available yet/);
+    if (code === 'NEW_DESTINATION_REQUIRED') {
+      assert.ok(nodes(h.render()).some(n => n.type === 'Modal'));
+      assert.match(text(h.render()), /Choose a location for this item/);
+    } else assert.equal(h.alerts[0][0], 'Restore unavailable');
   });
 }
 
@@ -231,4 +234,57 @@ test('Restore remains a content-sized right-aligned action with a comfortable to
   assert.equal(button.props.style.flex, undefined);
   assert.equal(button.props.style.flexGrow, undefined);
   assert.equal(text(button), 'Restore');
+});
+
+function pickerHarness(outcome = async () => ({ cacheUpdated: true })) {
+  const calls = []; let loads = 0;
+  const hierarchy = {
+    getStorageSpaces: async () => { loads++; return [{ id: 'v', name: 'Same' }, { id: 'v2', name: 'Same' }, { id: 'archived', isArchived: true }, { id: 'offline-storage-1' }]; },
+    getCompartmentsByVehicle: async vehicleId => [{ id: 'c', name: 'Same', vehicleId, roomId: 'r' }, { id: 'c2', name: 'Same', vehicleId, roomId: null }, { id: 'bad', vehicleId, roomId: 'missing' }, { id: 'arch', vehicleId, roomId: 'archived' }, { id: 'offline-compartment-1', vehicleId }, { id: 'wrong', vehicleId: 'other' }],
+    getRoomsByStorageSpace: async storageSpaceId => [{ id: 'r', name: 'Room', storageSpaceId }, { id: 'archived', name: 'Hidden', storageSpaceId, isArchived: true }],
+  };
+  const h = harness(async () => ({ isConnected: true, isInternetReachable: true }), async (id, dest) => {
+    calls.push({ id, dest }); if (!dest) throw { code: 'NEW_DESTINATION_REQUIRED' }; return outcome();
+  }, hierarchy);
+  const modal = () => nodes(h.render()).find(n => n.type === 'Modal');
+  const choices = () => nodes(modal()).filter(n => n.type === 'Pressable' && n.props.accessibilityRole === 'button');
+  const confirm = () => nodes(modal()).find(n => n.type === 'Button');
+  return { ...h, modal, choices, confirm, restoreCalls: calls, loads: () => loads,
+    async open() { h.render(); h.read(async () => [row('item', null)]); h.focus(); await tick(); nodes(h.render()).find(n => n.type === 'Button').props.onPress(); await tick(); },
+    async select() { choices().find(n => n.props.key === 'v').props.onPress(); await tick(); choices().find(n => n.props.key === 'c').props.onPress(); },
+  };
+}
+test('picker opens only after original restore fails; filters invalid options, keeps same-name IDs and Cancel performs no mutation', async () => {
+  const h = pickerHarness(); await h.open();
+  assert.equal(h.restoreCalls.length, 1); assert.equal(h.restoreCalls[0].dest, undefined);
+  assert.deepEqual(h.choices().map(n => n.props.key), ['v', 'v2']); assert.equal(h.confirm().props.disabled, true);
+  await h.select(); assert.deepEqual(h.choices().map(n => n.props.key), ['v', 'v2', 'c', 'c2']);
+  assert.match(text(h.modal()), /Room → Same/); assert.equal(h.confirm().props.disabled, false);
+  h.choices().find(n => n.props.key === 'v2').props.onPress(); await tick(); assert.equal(h.confirm().props.disabled, true);
+  nodes(h.modal()).find(n => n.type === 'Pressable' && text(n) === 'Cancel').props.onPress();
+  assert.equal(h.modal(), undefined); assert.equal(h.restoreCalls.length, 1);
+});
+test('explicit confirmation forwards exact IDs, locks repeated taps, closes picker on success', async () => {
+  let finish; const h = pickerHarness(() => new Promise(resolve => { finish = resolve; })); await h.open(); await h.select();
+  const button = h.confirm(); button.props.onPress(); button.props.onPress();
+  assert.equal(h.restoreCalls.length, 2); assert.deepEqual(JSON.parse(JSON.stringify(h.restoreCalls[1])), { id: 'item', dest: { vehicleId: 'v', compartmentId: 'c', roomId: 'r' } });
+  assert.equal(h.confirm().props.disabled, true); assert.match(text(h.confirm()), /Restoring/);
+  finish({ cacheUpdated: true }); await tick(); assert.equal(h.modal(), undefined); assert.equal(h.alerts[0][0], 'Item restored');
+  h.render(); h.blur(); h.read(async () => []); h.focus(); await tick(); assert.match(text(h.render()), /No Recently Deleted Gear/);
+});
+test('stale selection clears and reloads; network failure preserves selected IDs', async () => {
+  for (const code of ['NEW_DESTINATION_REQUIRED', 'unavailable']) {
+    const h = pickerHarness(async () => { throw { code }; }); await h.open(); await h.select();
+    h.confirm().props.onPress(); await tick();
+    assert.ok(h.modal()); assert.equal(nodes(h.render()).filter(n => n.type === 'Card').length, 1);
+    if (code === 'NEW_DESTINATION_REQUIRED') {
+      assert.equal(h.loads(), 2); assert.equal(h.confirm().props.disabled, true);
+      assert.match(text(h.modal()), /That location changed or is no longer available/);
+      assert.equal(h.choices().some(n => n.props.accessibilityState.selected), false);
+    } else {
+      assert.equal(h.loads(), 1); assert.equal(h.confirm().props.disabled, false);
+      assert.equal(h.choices().find(n => n.props.key === 'c').props.accessibilityState.selected, true);
+      assert.match(h.alerts[0][1], /connection/);
+    }
+  }
 });
