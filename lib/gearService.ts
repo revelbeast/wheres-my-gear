@@ -21,10 +21,11 @@ export type ItemStatus = "packed" | "missing";
 export type StorageSpaceCategory = "storage" | "office" | "vehicle";
 let offlineItemSequence = 0;
 
-async function applyInventoryProjection(userId: string, items: Item[]) {
-  return typeof projectInventoryItems === "function"
+async function applyInventoryProjection(userId: string, items: Item[], deleted = false) {
+  const projected = typeof projectInventoryItems === "function"
     ? ((await projectInventoryItems(userId, items)) as Item[])
     : items;
+  return projected.filter(item => (item.isDeleted === true) === deleted);
 }
 
 export type StorageSpace = {
@@ -62,7 +63,17 @@ export type Compartment = {
   updatedAt?: unknown;
 };
 
+export type DeletedLocation = Partial<Record<
+  "vehicleId" | "vehicleName" | "roomId" | "roomName" | "compartmentId" | "compartmentName",
+  string
+>>;
+
 export type Item = {
+  isDeleted?: boolean;
+  deletedAt?: unknown;
+  deletedLocation?: DeletedLocation;
+  roomId?: string;
+  roomName?: string;
   id: string;
   name: string;
   quantity: number;
@@ -968,7 +979,7 @@ export async function getCompartmentById(
   }
 }
 
-export async function getAllItems(options: { recoverPhotos?: boolean } = {}): Promise<Item[]> {
+async function getProjectedInventory(deleted: boolean): Promise<Item[]> {
   const userId = getCurrentUserId();
   let remoteItems: Item[] = [];
 
@@ -986,7 +997,15 @@ export async function getAllItems(options: { recoverPhotos?: boolean } = {}): Pr
     remoteItems = (await getCachedInventoryItems(userId)) as Item[];
   }
 
-  const items = await applyInventoryProjection(userId, remoteItems);
+  return applyInventoryProjection(userId, remoteItems, deleted);
+}
+
+export async function getDeletedItems(): Promise<Item[]> {
+  return getProjectedInventory(true);
+}
+
+export async function getAllItems(options: { recoverPhotos?: boolean } = {}): Promise<Item[]> {
+  const items = await getProjectedInventory(false);
   // Advisory review must not download or update existing inventory photos.
   return options.recoverPhotos === false ? items : recoverMissingLocalItemPhotos(items);
 }
@@ -1134,6 +1153,9 @@ export async function updateItem(
     notes: string;
     source: string;
     itemPhotoUri: string;
+    isDeleted: boolean;
+    deletedAt: string;
+    deletedLocation: DeletedLocation;
   }>
 ) {
   const payload: Record<string, unknown> = {
@@ -1236,6 +1258,28 @@ export async function updateItemPhoto(
       keepStoragePath: nextStoragePath,
     });
   }
+}
+
+/** User removal only. Internal checklist removal continues to use deleteItem. */
+export async function softDeleteItem(id: string) {
+  const userId = getCurrentUserId();
+  if (id.startsWith("offline-item-")) {
+    await cancelOfflineCreatedItem(id);
+    return;
+  }
+  // Read the projected location, including pending moves, without recovering photos.
+  const existing = (await getAllItems({ recoverPhotos: false })).find(item => item.id === id);
+  if (!existing) return;
+  const deletedLocation: DeletedLocation = {};
+  for (const key of ["vehicleId", "vehicleName", "roomId", "roomName", "compartmentId", "compartmentName"] as const) {
+    if (typeof existing[key] === "string") deletedLocation[key] = existing[key];
+  }
+  const deletion = { isDeleted: true, deletedAt: new Date().toISOString(), deletedLocation };
+  await updateItem(id, deletion);
+  // Retain raw records so offline active and deleted views can both reconstruct state.
+  const cached = (await getCachedInventoryItems(userId)) as Item[];
+  await cacheInventoryItems(userId, cached.map(item => item.id === id
+    ? { ...item, ...deletion } : item));
 }
 
 export async function deleteItem(id: string) {
@@ -1462,7 +1506,7 @@ export async function searchItemsForUser(
 
   const vehicleNameById = new Map(storageSpaces.map((s) => [s.id, s.name]));
 
-  return allItems
+  return (await applyInventoryProjection(userId, allItems))
     .filter((item) => normalizeName(item.name).includes(term))
     .map((item) => ({
       id: item.id,
@@ -1502,6 +1546,8 @@ const gearService = {
   updateItem,
   updateItemPhoto,
   deleteItem,
+  softDeleteItem,
+  getDeletedItems,
   createOrUpdateInventoryItemFromChecklist,
   removeOrDecrementInventoryItemFromChecklist,
   syncInventoryItemStatusFromChecklist,

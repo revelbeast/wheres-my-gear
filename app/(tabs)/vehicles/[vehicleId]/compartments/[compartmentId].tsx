@@ -42,7 +42,7 @@ import {
   Compartment,
   Item,
   createItem,
-  deleteItem,
+  softDeleteItem,
   getAllCompartments,
   getAllItems,
   getStorageSpaces,
@@ -571,7 +571,7 @@ export default function CompartmentDetailScreen() {
         setItems((currentItems) =>
           currentItems.filter((currentItem) => currentItem.id !== item.id)
         );
-        await deleteItem(item.id);
+        await softDeleteItem(item.id);
       } else {
         setItems((currentItems) =>
           currentItems.map((currentItem) =>
@@ -906,7 +906,7 @@ export default function CompartmentDetailScreen() {
 
               await runWithLock(async () => {
                 try {
-                  await deleteItem(item.id);
+                  await softDeleteItem(item.id);
                   await refreshItems();
                 } catch (err) {
                   if (!isMountedRef.current) return;

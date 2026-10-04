@@ -5,6 +5,9 @@ import { addDoc, collection, deleteDoc, doc, getDocs, setDoc, updateDoc, serverT
 import { db } from "../firebaseConfig";
 
 export type InventoryUpdatePayload = Partial<{
+  isDeleted: boolean;
+  deletedAt: string;
+  deletedLocation: Partial<Record<"vehicleId" | "vehicleName" | "roomId" | "roomName" | "compartmentId" | "compartmentName", string>>;
   name: string;
   quantity: number;
   status: "packed" | "missing";
@@ -1294,7 +1297,7 @@ export async function getOfflineItemsByCompartment(
   compartmentId: string
 ) {
   const cached = await getCachedInventoryItems(userId);
-  return (await projectInventoryItems(userId, cached)).filter((item: any) => item.compartmentId === compartmentId);
+  return (await projectInventoryItems(userId, cached)).filter((item: any) => item.isDeleted !== true && item.compartmentId === compartmentId);
 }
 
 export async function updateOfflineCreatedItem(
@@ -1349,7 +1352,7 @@ export async function getOfflineItemsByStatus(
   status: "packed" | "missing"
 ) {
   const cached = await getCachedInventoryItems(userId);
-  return (await projectInventoryItems(userId, cached)).filter((item: any) => item.status === status);
+  return (await projectInventoryItems(userId, cached)).filter((item: any) => item.isDeleted !== true && item.status === status);
 }
 
 export async function getOfflineCompartmentById(
@@ -1381,7 +1384,11 @@ export async function getOfflineCompartmentById(
 
 
 export async function getOfflineItems(userId: string) {
-  return projectInventoryItems(userId, await getCachedInventoryItems(userId));
+  return (await projectInventoryItems(userId, await getCachedInventoryItems(userId))).filter(item => item.isDeleted !== true);
+}
+
+export async function getOfflineDeletedItems(userId: string) {
+  return (await projectInventoryItems(userId, await getCachedInventoryItems(userId))).filter(item => item.isDeleted === true);
 }
 
 const TRIPS_CACHE_PREFIX = "wmg.cache.trips.";

@@ -33,7 +33,7 @@ import { useThemedValues } from "../../../components/ui/Themed";
 import {
   createItem,
   deleteCompartment,
-  deleteItem,
+  softDeleteItem,
   archiveStorageSpace,
   deleteStorageSpace,
   getAllCompartments,
@@ -584,7 +584,7 @@ export default function StorageManagementScreen() {
         setUpdatingQuantityId(item.id);
 
         if (nextQuantity <= 0) {
-          await deleteItem(item.id);
+          await softDeleteItem(item.id);
           setCompartmentItems((currentItems) =>
             currentItems.filter((currentItem) => currentItem.id !== item.id)
           );
@@ -668,7 +668,7 @@ export default function StorageManagementScreen() {
           onPress: async () => {
             await runWithLock(async () => {
               try {
-                await deleteItem(item.id);
+                await softDeleteItem(item.id);
 
                 if (!isMountedRef.current) return;
 
