@@ -221,3 +221,72 @@ test('legacy quantity matching and unlinked destination creation remain availabl
   assert.equal(unlinked.writes[0].data.quantity, 2);
   assert.equal(unlinked.writes[0].data.compartmentId, 'old');
 });
+
+function relationshipHarness() {
+  const writes = [];
+  const auth = { currentUser: { uid: 'u1' } };
+  const db = {};
+  const firestore = {
+    collection: (_, ...segments) => ({ path: segments }),
+    doc: (base, ...segments) => {
+      const path = [...(base.path ?? []), ...segments];
+      assert.equal(path.length % 2, 0, 'Firestore document path must have even segment count');
+      return { path };
+    },
+    updateDoc: async (ref, data) => writes.push({ path: ref.path.join('/'), data: { ...data } }),
+    serverTimestamp: () => 'timestamp',
+  };
+  // Export the existing private normalizer only in this VM, without changing production exports.
+  const source = ts.transpileModule(checklistServiceSource + '\nexport { normalizeChecklistItem };', {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const exports = {};
+  const mocks = {
+    'firebase/firestore': firestore,
+    '../firebaseConfig': { auth, db },
+    '@react-native-community/netinfo': {},
+    './cloudPhotoStorage': {}, './localPhotoStorage': {}, './offlineQueue': {},
+  };
+  vm.runInNewContext(source, { exports, module: { exports }, require: (id) => {
+    assert.ok(Object.hasOwn(mocks, id), `Unexpected service dependency: ${id}`);
+    return mocks[id];
+  }, console }, { filename: 'checklistsService.ts' });
+  return { service: exports, auth, writes };
+}
+
+test('relationship persistence uses the authenticated checklist document and only relationship/timestamp fields', async () => {
+  const { service, writes } = relationshipHarness();
+  await service.updateChecklistItemInventoryId('u1', 'checklist', 'item', 'destination-inventory');
+  assert.deepEqual(writes, [{
+    path: 'users/u1/checklists/checklist/items/item',
+    data: { inventoryItemId: 'destination-inventory', updatedAt: 'timestamp' },
+  }]);
+  assert.ok(writes.every((write) => write.path !== 'u1/checklists/checklist/items/item'));
+  assert.equal(service.normalizeChecklistItem('item', writes[0].data).inventoryItemId, 'destination-inventory');
+  assert.equal(service.normalizeChecklistItem('legacy', { name: 'Tent' }).inventoryItemId, null);
+});
+
+test('relationship persistence rejects unauthenticated and other-user writes', async () => {
+  const { service, auth, writes } = relationshipHarness();
+  await assert.rejects(service.updateChecklistItemInventoryId('other-user', 'c', 'i', 'inventory'), /not authenticated/);
+  auth.currentUser = null;
+  await assert.rejects(service.updateChecklistItemInventoryId('u1', 'c', 'i', 'inventory'), /not authenticated/);
+  assert.equal(writes.length, 0);
+});
+
+for (const exists of [true, false]) {
+  test(`assignment service boundary persists the ${exists ? 'matched' : 'created'} destination inventory ID`, async () => {
+    const { gear, writes: inventoryWrites } = quantityHarness(exists
+      ? [{ id: 'destination-existing', name: 'Tent', quantity: 5, compartmentId: 'old' }]
+      : []);
+    const { service, writes } = relationshipHarness();
+    // Execute the same service boundary as handleSaveAssignment: find/create, then persist its returned ID.
+    const inventoryItemId = await gear.createOrUpdateInventoryItemFromChecklist({ name: 'Tent', quantity: 2 }, quantityDestination);
+    await service.updateChecklistItemInventoryId('u1', 'checklist', 'item', inventoryItemId);
+    assert.equal(inventoryItemId, exists ? 'destination-existing' : 'created');
+    assert.equal(inventoryWrites.length, 1);
+    assert.equal(inventoryWrites[0].data.quantity, exists ? 7 : 2);
+    assert.equal(writes[0].path, 'users/u1/checklists/checklist/items/item');
+    assert.equal(writes[0].data.inventoryItemId, inventoryItemId);
+  });
+}

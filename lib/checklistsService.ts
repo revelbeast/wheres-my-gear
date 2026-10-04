@@ -14,7 +14,7 @@ import {
   updateDoc,
   writeBatch,
 } from "firebase/firestore";
-import { db } from "../firebaseConfig";
+import { auth, db } from "../firebaseConfig";
 import { cleanupOldCloudPhotosInFolder, deleteCloudPhotoByStoragePath } from "./cloudPhotoStorage";
 import { downloadPhotoToLocalDocumentStorage, localPhotoExists } from "./localPhotoStorage";
 import {
@@ -1472,13 +1472,14 @@ export async function updateChecklistItemInventoryId(
   itemId: string,
   inventoryItemId: string
 ) {
+  const authenticatedUid = auth.currentUser?.uid;
+  if (!authenticatedUid || requireUserId(userId) !== authenticatedUid) {
+    throw new Error("User is not authenticated.");
+  }
+
   await updateDoc(
     doc(
-      db,
-      requireUserId(userId),
-      "checklists",
-      requireDocumentId(checklistId, "Checklist ID"),
-      "items",
+      checklistItemsCol(authenticatedUid, checklistId),
       requireDocumentId(itemId, "Checklist item ID")
     ),
     { inventoryItemId, updatedAt: serverTimestamp() }
