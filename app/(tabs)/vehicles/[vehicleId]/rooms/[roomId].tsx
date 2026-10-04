@@ -457,7 +457,7 @@ export default function RoomDetailScreen() {
 
     Alert.alert(
       "Delete compartment?",
-      `Delete "${compartment.name}" and all items inside it? This cannot be undone.`,
+      `Delete "${compartment.name}" and active items inside it? Recently Deleted gear is preserved. This cannot be undone.`,
       [
         { text: "Cancel", style: "cancel" },
         {

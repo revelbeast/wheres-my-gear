@@ -468,7 +468,7 @@ export default function StorageManagementScreen() {
 
     Alert.alert(
       "Delete Compartment?",
-      `This will permanently delete "${compartment.name}" and all inventory items stored inside it. This cannot be undone.`,
+      `This will permanently delete "${compartment.name}" and active inventory items stored inside it. Recently Deleted gear is preserved. This cannot be undone.`,
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -961,7 +961,7 @@ export default function StorageManagementScreen() {
 
     Alert.alert(
       "Delete Storage Space?",
-      `This will permanently delete "${space.name}", its compartments, and all inventory items stored inside it. This cannot be undone.`,
+      `This will permanently delete "${space.name}", its compartments, and active inventory items stored inside it. Recently Deleted gear is preserved. This cannot be undone.`,
       [
         { text: "Cancel", style: "cancel" },
         {

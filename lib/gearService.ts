@@ -6,6 +6,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  getDocsFromServer,
   query,
   serverTimestamp,
   runTransaction,
@@ -637,6 +638,65 @@ export async function getArchivedRooms(): Promise<Room[]> {
     .filter((room) => Boolean(room.isArchived));
 }
 
+export class ParentDeletionError extends Error {
+  constructor(public code: "CONNECT_REQUIRED" | "SYNC_REQUIRED" | "DELETE_TOO_LARGE") {
+    super(code === "CONNECT_REQUIRED" ? "Connect to delete this location."
+      : code === "SYNC_REQUIRED" ? "Let pending inventory changes finish syncing before deleting this location."
+      : "This location is too large to delete safely in one operation.");
+    this.name = "ParentDeletionError";
+  }
+}
+
+async function requireNoPendingInventory(userId: string) {
+  const pending = await getOfflineQueue();
+  // Updates can move an item across parents; refuse conservatively rather than guess ownership.
+  if (pending.some(operation => operation.userId === userId &&
+    ["createItem", "updateInventoryItem", "deleteInventoryItem"].includes(operation.type))) {
+    throw new ParentDeletionError("SYNC_REQUIRED");
+  }
+}
+
+async function deleteInventoryParent(kind: "storageSpaces" | "compartments", parentId: string) {
+  const uid = getCurrentUserId();
+  const network = await NetInfo.fetch();
+  if (network.isConnected !== true || network.isInternetReachable !== true) throw new ParentDeletionError("CONNECT_REQUIRED");
+  await requireNoPendingInventory(uid);
+  const parentRef = doc(db, "users", uid, kind, parentId);
+  const compartments = kind === "storageSpaces"
+    ? (await getDocsFromServer(query(collection(db, "users", uid, "compartments"), where("vehicleId", "==", parentId)))).docs
+    : [];
+  const compartmentIds = new Set(compartments.map(compartment => compartment.id));
+  // Server discovery is followed by transaction reads; query-time deletion state is never trusted.
+  const inventory = await getDocsFromServer(kind === "storageSpaces"
+    ? collection(db, "users", uid, "inventoryItems")
+    : query(collection(db, "users", uid, "inventoryItems"), where("compartmentId", "==", parentId)));
+  const candidates = inventory.docs.filter(snapshot => {
+    const item = snapshot.data();
+    return kind === "compartments" || item.vehicleId === parentId || compartmentIds.has(item.compartmentId);
+  });
+  if (candidates.length + compartments.length + 1 > 500) throw new ParentDeletionError("DELETE_TOO_LARGE");
+  await runTransaction(db, async transaction => {
+    if (auth.currentUser?.uid !== uid) throw new Error("Authentication changed. Please try again.");
+    await transaction.get(parentRef);
+    const currentCompartments = await Promise.all(compartments.map(compartment => transaction.get(compartment.ref)));
+    const currentIds = new Set(currentCompartments.filter(snapshot => snapshot.exists() && snapshot.data().vehicleId === parentId).map(snapshot => snapshot.id));
+    const currentItems = await Promise.all(candidates.map(item => transaction.get(item.ref)));
+    await requireNoPendingInventory(uid);
+    for (const snapshot of currentItems) {
+      if (!snapshot.exists()) continue;
+      const item = snapshot.data();
+      const stillAssociated = kind === "storageSpaces"
+        ? item.vehicleId === parentId || currentIds.has(item.compartmentId)
+        : item.compartmentId === parentId;
+      if (stillAssociated && item.isDeleted !== true) transaction.delete(snapshot.ref);
+    }
+    for (const snapshot of currentCompartments) {
+      if (snapshot.exists() && currentIds.has(snapshot.id)) transaction.delete(snapshot.ref);
+    }
+    transaction.delete(parentRef);
+  });
+}
+
 export async function deleteStorageSpace(storageId: string) {
   const trimmedStorageId = storageId.trim();
 
@@ -649,57 +709,8 @@ export async function deleteStorageSpace(storageId: string) {
     return;
   }
 
-  const relatedCompartmentsQuery = query(
-    compartmentsCol(),
-    where("vehicleId", "==", trimmedStorageId)
-  );
+  await deleteInventoryParent("storageSpaces", trimmedStorageId);
 
-  const relatedItemsByStorageQuery = query(
-    inventoryCol(),
-    where("vehicleId", "==", trimmedStorageId)
-  );
-
-  const [compartmentsSnapshot, itemsByStorageSnapshot] = await Promise.all([
-    getDocs(relatedCompartmentsQuery),
-    getDocs(relatedItemsByStorageQuery),
-  ]);
-
-  const relatedCompartmentIds = new Set(
-    compartmentsSnapshot.docs.map((compartmentSnapshot) => compartmentSnapshot.id)
-  );
-
-  const itemRefsById = new Map<string, ReturnType<typeof doc>>();
-
-  itemsByStorageSnapshot.docs.forEach((itemSnapshot) => {
-    itemRefsById.set(itemSnapshot.id, itemSnapshot.ref as ReturnType<typeof doc>);
-  });
-
-  if (relatedCompartmentIds.size > 0) {
-    const allItemsSnapshot = await getDocs(inventoryCol());
-
-    allItemsSnapshot.docs.forEach((itemSnapshot) => {
-      const item = itemSnapshot.data() as Item;
-      const compartmentId = item.compartmentId ?? "";
-
-      if (relatedCompartmentIds.has(compartmentId)) {
-        itemRefsById.set(itemSnapshot.id, itemSnapshot.ref as ReturnType<typeof doc>);
-      }
-    });
-  }
-
-  const batch = writeBatch(db);
-
-  itemRefsById.forEach((itemRef) => {
-    batch.delete(itemRef);
-  });
-
-  compartmentsSnapshot.docs.forEach((compartmentSnapshot) => {
-    batch.delete(compartmentSnapshot.ref);
-  });
-
-  batch.delete(storageSpaceDoc(trimmedStorageId));
-
-  await batch.commit();
 }
 
 export async function createCompartment(
@@ -867,21 +878,8 @@ export async function deleteCompartment(compartmentId: string) {
     throw new Error("Compartment ID is required.");
   }
 
-  const relatedItemsQuery = query(
-    inventoryCol(),
-    where("compartmentId", "==", trimmedCompartmentId)
-  );
+  await deleteInventoryParent("compartments", trimmedCompartmentId);
 
-  const relatedItemsSnapshot = await getDocs(relatedItemsQuery);
-  const batch = writeBatch(db);
-
-  relatedItemsSnapshot.docs.forEach((itemSnapshot) => {
-    batch.delete(itemSnapshot.ref);
-  });
-
-  batch.delete(compartmentDoc(trimmedCompartmentId));
-
-  await batch.commit();
 }
 
 export async function getAllCompartments(): Promise<Compartment[]> {

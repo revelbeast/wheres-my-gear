@@ -193,7 +193,7 @@ export default function ArchiveScreen() {
   function handleConfirmDeleteStorageSpace(space: StorageSpace) {
     Alert.alert(
       "Delete Permanently?",
-      `This will permanently delete "${space.name}", its compartments, and all inventory items stored inside it. This cannot be undone.`,
+      `This will permanently delete "${space.name}", its compartments, and active inventory items stored inside it. Recently Deleted gear is preserved. This cannot be undone.`,
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -208,10 +208,14 @@ export default function ArchiveScreen() {
   }
 
   async function handleDeleteStorageSpace(storageId: string) {
-    await deleteStorageSpace(storageId);
-    setArchivedStorageSpaces((current) =>
-      current.filter((space) => space.id !== storageId)
-    );
+    try {
+      await deleteStorageSpace(storageId);
+      setArchivedStorageSpaces((current) =>
+        current.filter((space) => space.id !== storageId)
+      );
+    } catch (error) {
+      Alert.alert("Delete Failed", error instanceof Error ? error.message : "Unable to delete this storage space.");
+    }
   }
 
   async function handleRestoreChecklist(checklistId: string) {
