@@ -22,25 +22,25 @@ import React, { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Image, Linking, Platform, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useAuth } from "../../components/auth/AuthProvider";
-import HapticPressable from "../../components/ui/HapticPressable";
-import ScreenBackground from "../../components/ui/ScreenBackground";
+import { useAuth } from "../../../components/auth/AuthProvider";
+import HapticPressable from "../../../components/ui/HapticPressable";
+import ScreenBackground from "../../../components/ui/ScreenBackground";
 import {
   ThemedCard,
   ThemedText,
   useThemedValues,
-} from "../../components/ui/Themed";
-import { db } from "../../firebaseConfig";
+} from "../../../components/ui/Themed";
+import { db } from "../../../firebaseConfig";
 import {
   getCustomerInfo,
   hasActivePremiumPlusEntitlement,
-} from "../../lib/revenuecat";
-import { importShareGearFileFromJson, previewShareGearFileFromJson } from "../../lib/shareGearService";
-import { importChecklistTemplateShareFileFromJson, previewChecklistTemplateShareFileFromJson } from "../../lib/shareChecklistService";
-import { getProfileSettings } from "../../lib/settingsService";
-import type { AppProfile } from "../../lib/settingsService";
-import { useDeviceLayout } from "../../lib/useDeviceLayout";
-import { useInteractionLock } from "../../lib/useInteractionLock";
+} from "../../../lib/revenuecat";
+import { importShareGearFileFromJson, previewShareGearFileFromJson } from "../../../lib/shareGearService";
+import { importChecklistTemplateShareFileFromJson, previewChecklistTemplateShareFileFromJson } from "../../../lib/shareChecklistService";
+import { getProfileSettings } from "../../../lib/settingsService";
+import type { AppProfile } from "../../../lib/settingsService";
+import { useDeviceLayout } from "../../../lib/useDeviceLayout";
+import { useInteractionLock } from "../../../lib/useInteractionLock";
 
 const USER_AGREEMENT_URL =
   "https://sites.google.com/view/wheresmygearapp/home";
@@ -60,7 +60,7 @@ const PLAY_STORE_URL =
 const PLAY_STORE_FALLBACK_URL =
   "https://play.google.com/store/apps/details?id=com.revelbeast.wheresmygear";
 
-const APP_ICON = require("../../assets/images/app-icon.png");
+const APP_ICON = require("../../../assets/images/app-icon.png");
 
 function ProfileRow({
   icon,
@@ -546,6 +546,12 @@ export default function ProfileScreen() {
         pathname: "/",
         params: { replayTour: "1" },
       });
+    });
+  }
+
+  function handleOpenRecentlyDeleted() {
+    runNavigationAction(() => {
+      router.push("/recently-deleted");
     });
   }
 
@@ -1350,6 +1356,16 @@ export default function ProfileScreen() {
                   />
 
                   <ProfileRow
+                    icon={<Trash2 size={20} color={iconColor} />}
+                    title="Recently Deleted"
+                    subtitle="Restore removed gear"
+                    onPress={handleOpenRecentlyDeleted}
+                    disabled={rowActionsDisabled}
+                  />
+
+                  <View style={[styles.divider, { backgroundColor: theme.colors.border }]} />
+
+                  <ProfileRow
                     icon={<Moon size={20} color={iconColor} />}
                     title="General Settings"
                     subtitle="Edit theme and display preferences"
@@ -1546,6 +1562,16 @@ export default function ProfileScreen() {
                     { backgroundColor: theme.colors.border },
                   ]}
                 />
+
+                <ProfileRow
+                  icon={<Trash2 size={20} color={iconColor} />}
+                  title="Recently Deleted"
+                  subtitle="Restore removed gear"
+                  onPress={handleOpenRecentlyDeleted}
+                  disabled={rowActionsDisabled}
+                />
+
+                <View style={[styles.divider, { backgroundColor: theme.colors.border }]} />
 
                 <ProfileRow
                   icon={<Moon size={20} color={iconColor} />}
