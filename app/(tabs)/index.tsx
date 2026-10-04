@@ -1916,6 +1916,7 @@ export default function DashboardScreen() {
           params: {
             vehicleId: item.vehicleId,
             compartmentId: item.compartmentId,
+            focusItemId: item.id,
           },
         });
         return;

@@ -572,6 +572,7 @@ export default function InventoryScreen() {
         params: {
           vehicleId: item.vehicleId,
           compartmentId: item.compartmentId,
+          focusItemId: item.id,
         },
       });
     });
