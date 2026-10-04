@@ -8,6 +8,7 @@ import {
   getDocs,
   query,
   serverTimestamp,
+  runTransaction,
   updateDoc,
   where,
   writeBatch,
@@ -15,7 +16,7 @@ import {
 import { auth, db } from "../firebaseConfig";
 import { cleanupOldCloudPhotosInFolder, deleteCloudPhotoByStoragePath } from "./cloudPhotoStorage";
 import { downloadPhotoToLocalDocumentStorage, localPhotoExists } from "./localPhotoStorage";
-import { cacheCompartments, cacheInventoryItems, cacheRooms, cacheStorageSpaces, cancelOfflineCreatedItem, enqueueOfflineOperation, getCachedCompartments, getCachedInventoryItems, getCachedInventoryItemsByCompartment, getCachedInventoryItemsByStatus, getCachedRooms, getCachedStorageSpaces, getOfflineCompartments, getOfflineCompartmentById, getOfflineItems, getOfflineItemsByCompartment, getOfflineItemsByStatus, getOfflineStorageSpaces, projectInventoryItems, removeOfflineOperation, updateOfflineCreatedItem } from "./offlineQueue";
+import { cacheCompartments, cacheInventoryItems, cacheRooms, cacheStorageSpaces, cancelOfflineCreatedItem, enqueueOfflineOperation, getCachedCompartments, getCachedInventoryItems, getCachedInventoryItemsByCompartment, getCachedInventoryItemsByStatus, getCachedRooms, getCachedStorageSpaces, getOfflineCompartments, getOfflineCompartmentById, getOfflineItems, getOfflineItemsByCompartment, getOfflineItemsByStatus, getOfflineStorageSpaces, getOfflineQueue, projectInventoryItems, removeOfflineOperation, updateOfflineCreatedItem } from "./offlineQueue";
 
 export type ItemStatus = "packed" | "missing";
 export type StorageSpaceCategory = "storage" | "office" | "vehicle";
@@ -71,7 +72,7 @@ export type DeletedLocation = Partial<Record<
 export type Item = {
   isDeleted?: boolean;
   deletedAt?: unknown;
-  deletedLocation?: DeletedLocation;
+  deletedLocation?: DeletedLocation | null;
   roomId?: string;
   roomName?: string;
   id: string;
@@ -1282,6 +1283,74 @@ export async function softDeleteItem(id: string) {
     ? { ...item, ...deletion } : item));
 }
 
+export type RestoreErrorCode = "UNAUTHENTICATED" | "INVALID_ITEM_ID" | "CONNECT_REQUIRED" | "SYNC_REQUIRED" | "ITEM_NOT_FOUND" | "NOT_DELETED" | "NEW_DESTINATION_REQUIRED";
+
+export class RestoreItemError extends Error {
+  constructor(public code: RestoreErrorCode) {
+    super(code);
+    this.name = "RestoreItemError";
+  }
+}
+
+/** Online-only: transactions never fall back to the offline inventory queue. */
+export async function restoreDeletedItem(itemId: string): Promise<{ cacheUpdated: boolean }> {
+  const uid = auth.currentUser?.uid;
+  if (!uid) throw new RestoreItemError("UNAUTHENTICATED");
+  const validId = (value: unknown): value is string =>
+    typeof value === "string" && value.trim().length > 0 && !value.includes("/");
+  if (!validId(itemId) || itemId.startsWith("offline-item-")) throw new RestoreItemError("INVALID_ITEM_ID");
+  const state = await NetInfo.fetch();
+  if (state.isConnected !== true || state.isInternetReachable !== true) throw new RestoreItemError("CONNECT_REQUIRED");
+  const pending = await getOfflineQueue();
+  if (pending.some(op => op.userId === uid &&
+    (op.type === "updateInventoryItem" || op.type === "deleteInventoryItem") && op.payload.itemId === itemId)) {
+    throw new RestoreItemError("SYNC_REQUIRED");
+  }
+  const ref = doc(db, "users", uid, "inventoryItems", itemId);
+  const restored = await runTransaction(db, async transaction => {
+    if (auth.currentUser?.uid !== uid) throw new RestoreItemError("UNAUTHENTICATED");
+    const snapshot = await transaction.get(ref);
+    if (!snapshot.exists()) throw new RestoreItemError("ITEM_NOT_FOUND");
+    const item = snapshot.data() as Item;
+    if (item.isDeleted !== true) throw new RestoreItemError("NOT_DELETED");
+    const location = item.deletedLocation;
+    const invalid = () => { throw new RestoreItemError("NEW_DESTINATION_REQUIRED"); };
+    if (!location || !validId(location.vehicleId) || !validId(location.compartmentId)) return invalid();
+    const storage = await transaction.get(doc(db, "users", uid, "storageSpaces", location.vehicleId));
+    const compartment = await transaction.get(doc(db, "users", uid, "compartments", location.compartmentId));
+    if (!storage.exists() || storage.data().isArchived || !compartment.exists()) return invalid();
+    const compartmentData = compartment.data();
+    if (compartmentData.vehicleId !== location.vehicleId || compartmentData.isArchived) return invalid();
+    const originalRoomId = location.roomId;
+    const currentRoomId = compartmentData.roomId;
+    if (originalRoomId && (!validId(originalRoomId) || originalRoomId !== currentRoomId)) return invalid();
+    // A room name cannot supply an ID. Validate the current parent if no room ID was captured.
+    if (currentRoomId) {
+      if (!validId(currentRoomId)) return invalid();
+      const room = await transaction.get(doc(db, "users", uid, "rooms", currentRoomId));
+      if (!room.exists() || room.data().isArchived || room.data().storageSpaceId !== location.vehicleId) return invalid();
+    }
+    const updates = {
+      isDeleted: false, deletedAt: null, deletedLocation: null,
+      vehicleId: location.vehicleId, compartmentId: location.compartmentId,
+      updatedAt: serverTimestamp(),
+    };
+    transaction.update(ref, updates);
+    return { ...item, ...updates, id: itemId } as Item;
+  });
+  try {
+    const cached = (await getCachedInventoryItems(uid)) as Item[];
+    const reconciled = { ...restored, updatedAt: new Date().toISOString() };
+    await cacheInventoryItems(uid, cached.some(item => item.id === itemId)
+      ? cached.map(item => item.id === itemId ? reconciled : item)
+      : [...cached, reconciled]);
+    return { cacheUpdated: true };
+  } catch (error) {
+    console.warn("Inventory restored on server; local cache refresh failed.", error);
+    return { cacheUpdated: false };
+  }
+}
+
 export async function deleteItem(id: string) {
   if (id.startsWith("offline-item-")) {
     await cancelOfflineCreatedItem(id);
@@ -1547,6 +1616,7 @@ const gearService = {
   updateItemPhoto,
   deleteItem,
   softDeleteItem,
+  restoreDeletedItem,
   getDeletedItems,
   createOrUpdateInventoryItemFromChecklist,
   removeOrDecrementInventoryItemFromChecklist,

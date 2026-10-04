@@ -1,14 +1,14 @@
 import NetInfo from "@react-native-community/netinfo";
 import { useFocusEffect } from "expo-router";
 import { Image as ImageIcon } from "lucide-react-native";
-import React, { useCallback, useRef, useState } from "react";
-import { ActivityIndicator, Image, ScrollView, StyleSheet, View } from "react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../../components/auth/AuthProvider";
 import AppHeader from "../../../components/ui/AppHeader";
 import ScreenBackground from "../../../components/ui/ScreenBackground";
 import { ThemedButton, ThemedCard, ThemedText, useThemedValues } from "../../../components/ui/Themed";
-import { getDeletedItems, type Item } from "../../../lib/gearService";
+import { getDeletedItems, restoreDeletedItem, type Item } from "../../../lib/gearService";
 
 function deletionTime(value: unknown): number | null {
   try {
@@ -58,6 +58,13 @@ export default function RecentlyDeletedScreen() {
   const { user } = useAuth();
   const theme = useThemedValues();
   const version = useRef(0);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+  const restoringIds = useRef(new Set<string>());
+  const [restoring, setRestoring] = useState<string[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -72,6 +79,7 @@ export default function RecentlyDeletedScreen() {
     setError(false);
     setItems([]);
     setOffline(null);
+    setRestoring([...restoringIds.current]);
     void NetInfo.fetch().then(state => {
       if (current()) setOffline(state.isConnected === false || state.isInternetReachable === false);
     }).catch(() => { if (current()) setOffline(null); });
@@ -90,13 +98,42 @@ export default function RecentlyDeletedScreen() {
     return () => { active = false; version.current += 1; };
   }, [user?.uid, retry]));
 
+  async function handleRestore(itemId: string) {
+    if (offline === true || restoringIds.current.has(itemId)) return;
+    restoringIds.current.add(itemId);
+    setRestoring([...restoringIds.current]);
+    const request = version.current;
+    try {
+      const result = await restoreDeletedItem(itemId);
+      if (request !== version.current) return;
+      setRetry(value => value + 1);
+      Alert.alert("Item restored", result.cacheUpdated
+        ? "Your gear is back in its original location."
+        : "Your gear was restored. Local data could not refresh; reconnect and reload if it still appears here.");
+    } catch (error) {
+      if (request !== version.current) return;
+      const code = (error as { code?: string })?.code;
+      const message = code === "NEW_DESTINATION_REQUIRED"
+        ? "Original location is no longer available. A new location must be selected to restore this item. Location selection is not available yet."
+        : code === "CONNECT_REQUIRED" ? "Connect to restore an item."
+        : code === "SYNC_REQUIRED" ? "This item has changes waiting to sync. Let syncing finish, then try again."
+        : code === "ITEM_NOT_FOUND" ? "This item is no longer available. Reload Recently Deleted."
+        : code === "NOT_DELETED" ? "This item is already active. Reload Recently Deleted."
+        : "Unable to restore this item. Check your connection and try again.";
+      Alert.alert("Restore unavailable", message);
+    } finally {
+      restoringIds.current.delete(itemId);
+      if (mounted.current) setRestoring([...restoringIds.current]);
+    }
+  }
+
   return <ScreenBackground>
     <SafeAreaView style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content}>
         <AppHeader title="Recently Deleted" showBackButton />
-        {offline === true && <ThemedText>Showing deleted gear saved on this device.</ThemedText>}
+        {offline === true && <ThemedText>Showing deleted gear saved on this device. Connect to restore an item.</ThemedText>}
         {loading ? <ActivityIndicator accessibilityLabel="Loading recently deleted gear" color={theme.colors.text} />
-          : error ? <ThemedCard><ThemedText>Unable to load recently deleted gear.</ThemedText><ThemedButton onPress={() => setRetry(value => value + 1)}>Retry</ThemedButton></ThemedCard>
+          : error ? <ThemedCard><ThemedText>Unable to load recently deleted gear.</ThemedText><ThemedButton onPress={() => setRetry(value => value + 1)}><ThemedText style={styles.buttonText}>Retry</ThemedText></ThemedButton></ThemedCard>
           : items.length === 0 ? <ThemedCard><ThemedText variant="title">No Recently Deleted Gear</ThemedText><ThemedText>Items you remove will appear here.</ThemedText></ThemedCard>
           : items.map(item => {
             const time = deletionTime(item.deletedAt);
@@ -110,6 +147,11 @@ export default function RecentlyDeletedScreen() {
                   <ThemedText>{time === null ? "Deletion date unavailable" : `Deleted ${new Date(time).toLocaleDateString()}`}</ThemedText>
                 </View>
               </View>
+              <View style={styles.actions}>
+                <ThemedButton style={styles.restoreButton} disabled={offline === true || restoring.includes(item.id)} onPress={() => void handleRestore(item.id)}>
+                  <ThemedText style={styles.buttonText}>{restoring.includes(item.id) ? "Restoring…" : "Restore"}</ThemedText>
+                </ThemedButton>
+              </View>
             </ThemedCard>;
           })}
       </ScrollView>
@@ -118,6 +160,9 @@ export default function RecentlyDeletedScreen() {
 }
 
 const styles = StyleSheet.create({
+  actions: { flexDirection: "row", justifyContent: "flex-end", marginTop: 12, gap: 12 },
+  restoreButton: { minHeight: 44, paddingHorizontal: 18, paddingVertical: 10 },
+  buttonText: { color: "#FFFFFF", fontWeight: "700" },
   screen: { flex: 1 },
   content: { padding: 20, gap: 16, paddingBottom: 40 },
   row: { flexDirection: "row", gap: 14, alignItems: "center" },

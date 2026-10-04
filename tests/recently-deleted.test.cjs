@@ -21,27 +21,28 @@ vm.createContext(context);
 vm.runInContext(ts.transpileModule(['deletionTime', 'sortedDeletedItems', 'originalLocation'].map(key => funcs[key]).join('\n'), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, context);
 const row = (id, deletedAt, other = {}) => ({ id, name: 'Same', isDeleted: true, quantity: 2, deletedAt, ...other });
 const tick = () => new Promise(resolve => setImmediate(resolve));
-function harness(connectivity = async () => ({ isConnected: false })) {
+function harness(connectivity = async () => ({ isConnected: false }), restore = async () => ({ cacheUpdated: true })) {
+  const alerts = [];
   let slots = [], index = 0, focus, cleanup, calls = 0;
   let read = async () => [];
   const refs = [];
   let refIndex = 0;
   const createElement = (type, props, ...children) => ({ type, props: props ?? {}, children });
-  const react = { createElement, useState(initial) { const i = index++; if (!(i in slots)) slots[i] = initial; return [slots[i], value => { slots[i] = typeof value === 'function' ? value(slots[i]) : value; }]; }, useRef(initial) { const i = refIndex++; return refs[i] ?? (refs[i] = { current: initial }); }, useCallback: fn => fn };
+  const react = { createElement, useEffect: () => {}, useState(initial) { const i = index++; if (!(i in slots)) slots[i] = initial; return [slots[i], value => { slots[i] = typeof value === 'function' ? value(slots[i]) : value; }]; }, useRef(initial) { const i = refIndex++; return refs[i] ?? (refs[i] = { current: initial }); }, useCallback: fn => fn };
   const exports = {};
   const mocks = {
     react: { ...react, default: react },
     'expo-router': { useFocusEffect: fn => { focus = fn; } },
     '@react-native-community/netinfo': { default: { fetch: connectivity } },
-    'react-native': { ActivityIndicator: 'Spinner', Image: 'Image', ScrollView: 'ScrollView', View: 'View', StyleSheet: { create: x => x } },
+    'react-native': { Alert: { alert: (...args) => alerts.push(args) }, ActivityIndicator: 'Spinner', Image: 'Image', ScrollView: 'ScrollView', View: 'View', StyleSheet: { create: x => x } },
     'react-native-safe-area-context': { SafeAreaView: 'SafeAreaView' }, 'lucide-react-native': { Image: 'Icon' },
     '../../../components/auth/AuthProvider': { useAuth: () => ({ user: { uid: 'u' } }) },
     '../../../components/ui/AppHeader': { default: 'Header' }, '../../../components/ui/ScreenBackground': { default: 'Background' },
     '../../../components/ui/Themed': { ThemedButton: 'Button', ThemedCard: 'Card', ThemedText: 'Text', useThemedValues: () => ({ colors: { text: 'black' } }) },
-    '../../../lib/gearService': { getDeletedItems: async () => { calls++; return read(); } },
+    '../../../lib/gearService': { getDeletedItems: async () => { calls++; return read(); }, restoreDeletedItem: restore },
   };
   vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { jsx: ts.JsxEmit.React, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, { exports, require: id => { assert.ok(id in mocks, `Unexpected import ${id}`); return mocks[id]; }, Date });
-  return { render() { index = 0; refIndex = 0; return exports.default(); }, focus() { cleanup = focus(); }, blur() { cleanup(); }, read(fn) { read = fn; }, calls: () => calls };
+  return { alerts, render() { index = 0; refIndex = 0; return exports.default(); }, focus() { cleanup = focus(); }, blur() { cleanup(); }, read(fn) { read = fn; }, calls: () => calls };
 }
 function nodes(tree) { return Array.isArray(tree) ? tree.flatMap(nodes) : tree && typeof tree === 'object' ? [tree, ...tree.children.flatMap(nodes)] : []; }
 function text(tree) { return Array.isArray(tree) ? tree.map(text).join(' ') : tree && typeof tree === 'object' ? tree.children.map(text).join(' ') : String(tree ?? ''); }
@@ -101,14 +102,14 @@ test('stale response after refocus and response after unmount cannot replace cur
   h.blur(); h.read(() => new Promise(done => { resolve = done; })); h.focus(); h.blur();
   const before = text(h.render()); resolve([row('late', null)]); await tick(); assert.equal(text(h.render()), before);
 });
-test('empty, loading and error/retry states render; no Restore or mutations are offered', async () => {
+test('empty, loading and error/retry states render; no unrelated mutations are offered', async () => {
   const h = harness(); h.render(); h.focus(); assert.ok(nodes(h.render()).some(n => n.type === 'Spinner'));
   await tick(); assert.match(text(h.render()), /No Recently Deleted Gear/);
   h.blur(); h.read(async () => { throw Error('failed'); }); h.focus(); await tick();
   const view = h.render(); assert.match(text(view), /Unable to load recently deleted gear/);
   assert.equal(nodes(view).filter(n => n.type === 'Button').length, 1);
   assert.match(text(view), /Retry/);
-  assert.doesNotMatch(source, /restoreDeletedItem|updateItem|deleteItem|upload|downloadPhoto|recoverMissing|onSnapshot|setInterval/);
+  assert.doesNotMatch(source, /updateItem|deleteItem|upload|downloadPhoto|recoverMissing|onSnapshot|setInterval/);
   assert.equal(nodes(view).find(n => n.type === 'Header').props.showBackButton, true);
 });
 
@@ -157,3 +158,77 @@ for (const [name, read, expected] of [
     assert.doesNotMatch(rendered, /If a connection is unavailable/);
   });
 }
+
+
+test('Restore is visible online, synchronously locks repeated taps, reloads only on success', async () => {
+  let finish, calls = 0;
+  const h = harness(async () => ({ isConnected: true, isInternetReachable: true }), () => { calls++; return new Promise(resolve => { finish = resolve; }); });
+  h.render(); h.read(async () => [row('a', null)]); h.focus(); await tick();
+  const button = nodes(h.render()).find(n => n.type === 'Button');
+  assert.equal(text(button), 'Restore'); assert.equal(button.props.disabled, false);
+  button.props.onPress(); button.props.onPress(); assert.equal(calls, 1);
+  assert.match(text(h.render()), /Restoring/);
+  assert.equal(nodes(h.render()).filter(n => n.type === 'Card').length, 1);
+  finish({ cacheUpdated: true }); await tick();
+  assert.equal(h.alerts[0][0], 'Item restored');
+  h.render(); h.blur(); h.read(async () => []); h.focus(); await tick();
+  assert.match(text(h.render()), /No Recently Deleted Gear/);
+});
+
+test('known offline disables Restore without invoking service', async () => {
+  let calls = 0;
+  const h = harness(async () => ({ isConnected: false }), async () => { calls++; });
+  h.render(); h.read(async () => [row('a', null)]); h.focus(); await tick();
+  const button = nodes(h.render()).find(n => n.type === 'Button');
+  assert.equal(button.props.disabled, true); button.props.onPress(); await tick(); assert.equal(calls, 0);
+});
+
+for (const code of ['NEW_DESTINATION_REQUIRED', 'unavailable']) {
+  test(`failed restore keeps card and provides guidance: ${code}`, async () => {
+    const h = harness(async () => ({ isConnected: true, isInternetReachable: true }), async () => { throw { code }; });
+    h.render(); h.read(async () => [row('a', null)]); h.focus(); await tick();
+    nodes(h.render()).find(n => n.type === 'Button').props.onPress(); await tick();
+    assert.equal(nodes(h.render()).filter(n => n.type === 'Card').length, 1);
+    assert.equal(h.calls(), 1);
+    assert.equal(h.alerts[0][0], 'Restore unavailable');
+    if (code === 'NEW_DESTINATION_REQUIRED') assert.match(h.alerts[0][1], /Location selection is not available yet/);
+  });
+}
+
+
+test('Restore, restoring and Retry labels are Text children rather than raw pressable strings', async () => {
+  let finish;
+  const h = harness(async () => ({ isConnected: true, isInternetReachable: true }), () => new Promise(resolve => { finish = resolve; }));
+  h.render(); h.read(async () => [row('a', null)]); h.focus(); await tick();
+  function checkLabel(expected) {
+    const button = nodes(h.render()).find(n => n.type === 'Button');
+    assert.ok(button);
+    const children = button.children.flat().filter(x => x !== null && x !== undefined && x !== false);
+    assert.equal(children.length, 1);
+    assert.equal(children[0].type, 'Text');
+    assert.equal(text(children[0]), expected);
+    return button;
+  }
+  checkLabel('Restore').props.onPress(); checkLabel('Restoring…');
+  finish({ cacheUpdated: true }); await tick();
+  h.blur(); h.read(async () => { throw Error('read failed'); }); h.focus(); await tick();
+  checkLabel('Retry');
+});
+
+
+test('Restore remains a content-sized right-aligned action with a comfortable touch target', async () => {
+  const h = harness(async () => ({ isConnected: true, isInternetReachable: true }));
+  h.render(); h.read(async () => [row('a', null)]); h.focus(); await tick();
+  const view = h.render();
+  const button = nodes(view).find(n => n.type === 'Button');
+  const parent = nodes(view).find(n => n.children.includes(button));
+  assert.equal(parent.type, 'View');
+  assert.equal(parent.props.style.flexDirection, 'row');
+  assert.equal(parent.props.style.justifyContent, 'flex-end');
+  assert.equal(button.props.style.minHeight, 44);
+  assert.ok(button.props.style.paddingHorizontal >= 16);
+  assert.equal(button.props.style.width, undefined);
+  assert.equal(button.props.style.flex, undefined);
+  assert.equal(button.props.style.flexGrow, undefined);
+  assert.equal(text(button), 'Restore');
+});
