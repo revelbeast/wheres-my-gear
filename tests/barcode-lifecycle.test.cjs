@@ -156,8 +156,8 @@ test('barcode name fallback counts all matches, edits locally, keeps unsaved rev
   const items = Array.from({ length: 5 }, (_, i) => ({ id: String(i), name: 'Cordless Drill', vehicleId: 'garage', compartmentId: 'tools' }));
   const h = harness({ ai: false, fallback: true, items }); await h.settle();
   assert.match(h.text(), /Possible duplicate by name: 5/); assert.match(h.text(), /Plus 2 more/);
-  await h.edit('Drill'); await h.press('View existing item in compartment'); await h.settle();
-  assert.ok(h.nodes().some(n => n.type === 'TextInput' && n.props.value === 'Drill'));
+  await h.edit(' cordless drill '); await h.press('View existing item in compartment'); await h.settle();
+  assert.ok(h.nodes().some(n => n.type === 'TextInput' && n.props.value === ' cordless drill '));
   assert.equal(h.calls.reads.length, 1); assert.equal(h.calls.deletes.length, 0);
   await h.press('Cancel'); assert.equal(h.calls.creates.length, 0);
 });

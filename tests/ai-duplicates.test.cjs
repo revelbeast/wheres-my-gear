@@ -83,12 +83,26 @@ function harness({ code = '036000291452', barcodeType = 'upc_a', items = [], fai
   return { calls, settle, text, press, nodes, remove, edit: async (name) => { nodes().find(n => n.type === 'TextInput' && n.props.value === 'Cordless Drill').props.onChangeText(name); await settle(); } };
 }
 
-test('shared matcher preserves normalization, substring matching and all results', () => {
-  assert.equal(matching.normalizeDuplicateItemName(' DRILL!  Bit '), 'drill bit');
-  assert.equal(matching.findPossibleDuplicateItems([item('1')], 'drill').length, 1);
-  assert.equal(matching.findPossibleDuplicateItems([item('1')], '').length, 0);
-  assert.equal(matching.findPossibleDuplicateItems([item('1')], 'tent').length, 0);
-  assert.equal(matching.findPossibleDuplicateItems(Array.from({length: 5}, (_, i) => item(String(i))), 'drill').length, 5);
+test('shared matcher uses only trimmed case-insensitive exact names', () => {
+  assert.equal(matching.normalizeDuplicateItemName(' DRILL!  Bit '), 'drill!  bit');
+  const cases = [
+    ['1', '150w Power inverter', false], ['1', '120-Piece Fuse box', false],
+    ['1', 'Pot 1', false], ['1', '1', true],
+    ['Tent', 'tent', true], ['Tent', ' Tent ', true], [' Tent ', 'tent', true],
+    ['Tent', 'Tent Stakes', false], ['Box', 'Tool Box', false],
+    ['Battery', 'Battery Charger', false], ['Tool Box', 'tool box', true],
+    ['Tool-Box', 'Tool Box', false], ['Tool  Box', 'Tool Box', false],
+    ['CAFÉ', 'café', true], ['café', 'cafe', false], ['工具', '工具', true],
+    ['工具', '工具箱', false], ['', '', false], ['  ', '  ', false], ['Tent', '', false],
+  ];
+  for (const [candidate, existing, expected] of cases) {
+    assert.equal(matching.findPossibleDuplicateItems([item('id', existing)], candidate).length, expected ? 1 : 0, `${candidate} vs ${existing}`);
+    assert.equal(matching.findPossibleDuplicateItems([item('id', candidate)], existing).length, expected ? 1 : 0, `reverse: ${existing} vs ${candidate}`);
+  }
+});
+test('exact same names retain every distinct inventory location', () => {
+  const items = [item('a', 'Tent'), { ...item('b', ' tent '), vehicleId: 'other', compartmentId: 'other' }, item('c', 'Tent Stakes')];
+  assert.deepEqual(Array.from(matching.findPossibleDuplicateItems(items, 'TENT'), entry => entry.id), ['a', 'b']);
 });
 for (const count of [0, 1, 3, 5]) test(`review displays ${count} matches without writes`, async () => {
   const h = harness({ items: Array.from({length: count}, (_, i) => item(String(i))) }); await h.settle();
@@ -166,7 +180,7 @@ test('destination gates recovery on the explicit inspection flag', () => {
 });
 
 test('push leaves edited review and photo intact across rerender before return', async () => {
-  const h = harness({ items: [item('1')] }); await h.settle();
+  const h = harness({ items: [item('1', 'Drill')] }); await h.settle();
   await h.edit('Drill');
   await h.press('View existing item in compartment');
   // Models the retained review instance; native stack mounting/pop requires device validation.

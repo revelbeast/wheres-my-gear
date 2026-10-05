@@ -1,9 +1,9 @@
 import { barcodeIdentity, barcodeIdentityKey, type BarcodeIdentity } from "./barcodeIdentity";
 import type { Item } from "./gearService";
 
-// Preserve the compartment Add Item matching rules. Matches are advisory only.
+// Exact trimmed, case-insensitive names. Matches are advisory only.
 export function normalizeDuplicateItemName(value: string) {
-  return value.toLowerCase().trim().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ");
+  return value.trim().toLowerCase();
 }
 
 export function findPossibleDuplicateItems(items: Item[], name: string): Item[] {
@@ -11,7 +11,7 @@ export function findPossibleDuplicateItems(items: Item[], name: string): Item[] 
   if (!normalized) return [];
   return items.filter((item) => {
     const existing = normalizeDuplicateItemName(item.name || "");
-    return !!existing && (existing === normalized || existing.includes(normalized) || normalized.includes(existing));
+    return existing === normalized;
   });
 }
 

@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-// Shared transpilation loader; importing also runs the 14 existing regression checks.
+// Shared transpilation loader; importing also runs the shared AI regression checks.
 const { load, identity, matching } = require('./ai-duplicates.test.cjs');
 const { barcodeIdentity: normalize, barcodeIdentityKey: key } = identity;
 test('UPC-A, iOS stripped EAN-13 and leading-zero EAN-13 share GTIN-14 identity', () => {
@@ -27,12 +27,14 @@ test('UPC-E, EAN-8 and non-GTIN formats remain distinct', () => {
 test('WMG QR, missing and array parameters are not commercial identities', () => {
   for (const value of [undefined, '', [], 'wheresmygear://item/id', ' WHERESMYGEAR://room/id']) assert.equal(normalize(value, 'qr'), null);
 });
-test('exact barcode takes precedence; no exact match falls back to old name matcher', () => {
-  const items = [{ id: 'exact', name: 'Other', barcode: '0036000291452', barcodeType: 'ean13' }, { id: 'legacy', name: 'Drill' }];
+test('exact barcode takes precedence; name fallback uses exact normalized equality', () => {
+  const items = [{ id: 'exact', name: 'Other', barcode: '0036000291452', barcodeType: 'ean13' }, { id: 'legacy', name: ' Drill ' }, { id: 'partial', name: 'Cordless Drill' }];
   const exact = matching.findBarcodeDuplicateItems(items, normalize('036000291452', 'upc_a'), 'Drill');
   assert.equal(exact.kind, 'barcode'); assert.equal(exact.items[0].id, 'exact'); assert.equal(exact.items.length, 1);
   const fallback = matching.findBarcodeDuplicateItems(items, normalize('unknown', 'code128'), 'drill');
-  assert.equal(fallback.kind, 'name'); assert.equal(fallback.items[0].id, 'legacy');
+  assert.equal(fallback.kind, 'name'); assert.equal(fallback.items[0].id, 'legacy'); assert.equal(fallback.items.length, 1);
+  const noExactName = matching.findBarcodeDuplicateItems(items, normalize('unknown', 'code128'), 'Dri');
+  assert.equal(noExactName.items.length, 0);
 });
 function services(online) {
   const storage = new Map(), writes = [];
