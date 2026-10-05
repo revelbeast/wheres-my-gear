@@ -32,7 +32,7 @@ function setup({ network = { isConnected: true, isInternetReachable: true }, pen
     },
   };
   const forbidden = new Proxy({}, { get: () => () => assert.fail('No photo operation') });
-  const mocks = { 'firebase/firestore': api, '../firebaseConfig': { db: {}, auth: { currentUser: { uid: 'u' } } }, '@react-native-community/netinfo': { default: { fetch: async () => network } }, './cloudPhotoStorage': forbidden, './localPhotoStorage': forbidden, './offlineQueue': { getOfflineQueue: async () => pending, enqueueOfflineOperation: () => assert.fail('No queue'), cacheInventoryItems: () => assert.fail('No cache rewrite') } };
+  const mocks = { 'firebase/firestore': api, '../firebaseConfig': { db: {}, auth: { currentUser: { uid: 'u' } } }, '@react-native-community/netinfo': { default: { fetch: async () => network } }, './siriGearCache': { suppressSiriGearItem: async () => {}, releaseSiriGearItem: async () => {} }, './cloudPhotoStorage': forbidden, './localPhotoStorage': forbidden, './offlineQueue': { getOfflineQueue: async () => pending, enqueueOfflineOperation: () => assert.fail('No queue'), cacheInventoryItems: () => assert.fail('No cache rewrite') } };
   const exports = {};
   vm.runInNewContext(ts.transpileModule(fs.readFileSync('lib/gearService.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, { exports, require: id => { assert.ok(id in mocks, id); return mocks[id]; }, console, setTimeout, clearTimeout });
   return { gear: exports, docs, writes };

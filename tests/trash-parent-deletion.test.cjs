@@ -21,7 +21,7 @@ function setup({ pending = [], network = { isConnected: true, isInternetReachabl
     writeBatch: () => { const ops = []; return { delete: ref => ops.push(() => { writes.push(ref); docs.delete(ref); }), update: (ref, values) => ops.push(() => docs.set(ref, { ...docs.get(ref), ...values })), commit: async () => ops.forEach(fn => fn()) }; },
   };
   const forbidden = new Proxy({}, { get: () => () => assert.fail('No photo operations') });
-  const mocks = { 'firebase/firestore': api, '../firebaseConfig': { db: {}, auth: { currentUser: { uid: 'u' } } }, '@react-native-community/netinfo': { default: { fetch: async () => network } }, './cloudPhotoStorage': forbidden, './localPhotoStorage': forbidden,
+  const mocks = { 'firebase/firestore': api, '../firebaseConfig': { db: {}, auth: { currentUser: { uid: 'u' } } }, '@react-native-community/netinfo': { default: { fetch: async () => network } }, './siriGearCache': { suppressSiriGearItem: async () => {}, releaseSiriGearItem: async () => {} }, './cloudPhotoStorage': forbidden, './localPhotoStorage': forbidden,
     './offlineQueue': { getOfflineQueue: async () => pending, enqueueOfflineOperation: () => assert.fail('No queue'), cacheInventoryItems: () => assert.fail('Cache remains unchanged'), removeOfflineOperation: () => {} } };
   const exports = {};
   vm.runInNewContext(ts.transpileModule(fs.readFileSync('lib/gearService.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, { exports, require: id => { assert.ok(id in mocks, id); return mocks[id]; }, console, setTimeout, clearTimeout });

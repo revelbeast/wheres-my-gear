@@ -1,3 +1,4 @@
+import { suppressSiriGearItem, releaseSiriGearItem } from "./siriGearCache";
 import NetInfo from "@react-native-community/netinfo";
 import {
   addDoc,
@@ -1288,13 +1289,17 @@ export async function softDeleteItem(id: string) {
   }
   // Read the projected location, including pending moves, without recovering photos.
   const existing = (await getAllItems({ recoverPhotos: false })).find(item => item.id === id);
-  if (!existing) return;
+  if (!existing) {
+    await suppressSiriGearItem(userId, id);
+    return;
+  }
   const deletedLocation: DeletedLocation = {};
   for (const key of ["vehicleId", "vehicleName", "roomId", "roomName", "compartmentId", "compartmentName"] as const) {
     if (typeof existing[key] === "string") deletedLocation[key] = existing[key];
   }
   const deletion = { isDeleted: true, deletedAt: new Date().toISOString(), deletedLocation };
   await updateItem(id, deletion);
+  await suppressSiriGearItem(userId, id);
   // Retain raw records so offline active and deleted views can both reconstruct state.
   const cached = (await getCachedInventoryItems(userId)) as Item[];
   await cacheInventoryItems(userId, cached.map(item => item.id === id
@@ -1317,7 +1322,7 @@ export type RestoreDestination = {
 };
 
 /** Online-only: transactions never fall back to the offline inventory queue. */
-export async function restoreDeletedItem(itemId: string, destination?: RestoreDestination): Promise<{ cacheUpdated: boolean }> {
+export async function restoreDeletedItem(itemId: string, destination?: RestoreDestination): Promise<{ cacheUpdated: boolean; siriCacheUpdated: boolean }> {
   const uid = auth.currentUser?.uid;
   if (!uid) throw new RestoreItemError("UNAUTHENTICATED");
   const validId = (value: unknown): value is string =>
@@ -1373,16 +1378,23 @@ export async function restoreDeletedItem(itemId: string, destination?: RestoreDe
     transaction.update(ref, updates);
     return { ...item, ...updates, id: itemId } as Item;
   });
+  let siriUpdated = true;
+  try {
+    await releaseSiriGearItem(uid, itemId);
+  } catch (error) {
+    siriUpdated = false;
+    console.warn("Inventory restored; Siri suppression release failed. A later retry is required.", error);
+  }
   try {
     const cached = (await getCachedInventoryItems(uid)) as Item[];
     const reconciled = { ...restored, updatedAt: new Date().toISOString() };
     await cacheInventoryItems(uid, cached.some(item => item.id === itemId)
       ? cached.map(item => item.id === itemId ? reconciled : item)
       : [...cached, reconciled]);
-    return { cacheUpdated: true };
+    return { cacheUpdated: true, siriCacheUpdated: siriUpdated };
   } catch (error) {
     console.warn("Inventory restored on server; local cache refresh failed.", error);
-    return { cacheUpdated: false };
+    return { cacheUpdated: false, siriCacheUpdated: siriUpdated };
   }
 }
 

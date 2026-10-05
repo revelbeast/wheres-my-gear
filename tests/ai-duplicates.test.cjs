@@ -154,7 +154,7 @@ for (const inspect of [true, false]) test(`compartment service recovery behavior
       addDoc: () => { throw Error('Unexpected creation'); },
     },
     '../firebaseConfig': { auth: { currentUser: { uid: 'user' } }, db: {} },
-    './cloudPhotoStorage': {},
+    './siriGearCache': { suppressSiriGearItem: async () => {}, releaseSiriGearItem: async () => {} }, './cloudPhotoStorage': {},
     './localPhotoStorage': {
       localPhotoExists: async () => false,
       downloadPhotoToLocalDocumentStorage: async (url) => { downloads.push(url); return 'file:///recovered.jpg'; },

@@ -46,7 +46,7 @@ function services(online) {
   const gear = load('lib/gearService.ts', {
     '@react-native-community/netinfo': { fetch: async () => ({ isConnected: online, isInternetReachable: online }) },
     'firebase/firestore': firestore, '../firebaseConfig': { db: {}, auth: { currentUser: { uid: 'user' } } },
-    './cloudPhotoStorage': {}, './localPhotoStorage': {}, './offlineQueue': queue,
+    './siriGearCache': { suppressSiriGearItem: async () => {}, releaseSiriGearItem: async () => {} }, './cloudPhotoStorage': {}, './localPhotoStorage': {}, './offlineQueue': queue,
   });
   return { queue, gear, writes };
 }

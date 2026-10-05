@@ -1,3 +1,4 @@
+import { setSiriGearCacheAccount } from "../../lib/siriGearCache";
 import * as AppleAuthentication from "expo-apple-authentication";
 import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
@@ -81,6 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
+      void setSiriGearCacheAccount(nextUser?.uid ?? null).catch(error => console.warn("Siri cache account reset failed; publication remains disabled.", error));
       const hydrationRequestId = authHydrationRequestRef.current + 1;
       authHydrationRequestRef.current = hydrationRequestId;
 
@@ -308,11 +310,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function signOutUser() {
+    const siriReset = setSiriGearCacheAccount(null).catch(error => console.warn("Siri cache logout reset failed.", error));
     authHydrationRequestRef.current += 1;
     clearAppThemeUpdateForUser(user?.uid);
     revenueCatConfiguredUserIdRef.current = null;
     await logOutRevenueCatUser();
     await signOut(auth);
+    await siriReset;
     setUser(null);
   }
 

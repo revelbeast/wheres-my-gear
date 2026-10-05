@@ -10,9 +10,10 @@ function load(file, mocks) {
   return exports;
 }
 const item = { id: 'permanent', name: 'Same', quantity: 3, status: 'packed', compartmentId: 'c', compartmentName: 'Box', vehicleId: 'v', vehicleName: 'Truck', roomName: 'Room without ID', barcode: '001', barcodeType: 'code128', notes: 'Keep', source: 'scan', itemPhotoUri: 'local', itemPhotoStoragePath: 'owned/photo', itemPhotoDownloadUrl: 'remote', photoBackedUp: true };
-function setup({ online = true, storage = new Map(), records = [item, { ...item, id: 'other' }] } = {}) {
+function setup({ online = true, storage = new Map(), records = [item, { ...item, id: 'other' }], siriFails = false } = {}) {
   const docs = new Map(records.map(x => [x.id, { ...x }]));
   const writes = [];
+  const suppressed = [];
   const firestore = {
     collection: (...parts) => parts.flat(), doc: (...parts) => parts.flat(),
     query: ref => ref, where: () => null,
@@ -27,10 +28,10 @@ function setup({ online = true, storage = new Map(), records = [item, { ...item,
   const gear = load('lib/gearService.ts', {
     '@react-native-community/netinfo': { default: { fetch: async () => ({ isConnected: online, isInternetReachable: online }) } },
     'firebase/firestore': firestore, '../firebaseConfig': { db: 'db', auth: { currentUser: { uid: 'u' } } }, './offlineQueue': queue,
-    './cloudPhotoStorage': { deleteCloudPhotoByStoragePath: forbiddenPhoto, cleanupOldCloudPhotosInFolder: forbiddenPhoto },
+    './siriGearCache': { suppressSiriGearItem: async (uid, id) => { suppressed.push([uid, id]); if (siriFails) throw Error("Siri cache failed"); }, releaseSiriGearItem: async () => {} }, './cloudPhotoStorage': { deleteCloudPhotoByStoragePath: forbiddenPhoto, cleanupOldCloudPhotosInFolder: forbiddenPhoto },
     './localPhotoStorage': { localPhotoExists: async () => true, downloadPhotoToLocalDocumentStorage: forbiddenPhoto },
   });
-  return { gear, queue, storage, docs, writes };
+  return { gear, queue, storage, docs, writes, suppressed };
 }
 test('online user removal preserves exact record, fields, photos and location; all active readers exclude it', async () => {
   const { gear, queue, docs, writes } = setup();
@@ -127,4 +128,19 @@ test('both user quantity-to-zero handlers invoke soft deletion', async () => {
     assert.equal((text.match(/await softDeleteItem\(item.id\)/g) ?? []).length, 2);
     assert.doesNotMatch(text, /await deleteItem\(/);
   }
+});
+
+for (const online of [true, false]) test(`soft delete suppresses exact Siri ID after accepted inventory mutation (online=${online})`, async () => {
+  const h = setup({ online }); await h.queue.cacheInventoryItems('u', [item]);
+  await h.gear.softDeleteItem('permanent');
+  assert.deepEqual(h.suppressed, [['u', 'permanent']]);
+  if (online) assert.equal(h.docs.get('permanent').isDeleted, true);
+  else assert.equal((await h.queue.getOfflineQueue())[0].payload.updates.isDeleted, true);
+});
+test('Siri failure rejects soft delete without rolling back persisted inventory; retry reattempts suppression', async () => {
+  const h = setup({ siriFails: true });
+  await assert.rejects(h.gear.softDeleteItem('permanent'), /Siri cache failed/);
+  assert.equal(h.docs.get('permanent').isDeleted, true);
+  await assert.rejects(h.gear.softDeleteItem('permanent'), /Siri cache failed/);
+  assert.equal(h.writes.length, 1); assert.equal(h.suppressed.length, 2);
 });

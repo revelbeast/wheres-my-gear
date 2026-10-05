@@ -16,7 +16,7 @@ function loadGear(overrides = {}) {
     '@react-native-community/netinfo': { default: { fetch: async () => ({ isConnected: true, isInternetReachable: true }) } },
     'firebase/firestore': firestore,
     '../firebaseConfig': { auth: { currentUser: { uid: 'u1' } }, db: {} },
-    './cloudPhotoStorage': empty,
+    './siriGearCache': { suppressSiriGearItem: async () => {}, releaseSiriGearItem: async () => {} }, './cloudPhotoStorage': empty,
     './localPhotoStorage': empty,
     './offlineQueue': queue,
   };
@@ -245,7 +245,7 @@ function relationshipHarness() {
     'firebase/firestore': firestore,
     '../firebaseConfig': { auth, db },
     '@react-native-community/netinfo': {},
-    './cloudPhotoStorage': {}, './localPhotoStorage': {}, './offlineQueue': {},
+    './siriGearCache': { suppressSiriGearItem: async () => {}, releaseSiriGearItem: async () => {} }, './cloudPhotoStorage': {}, './localPhotoStorage': {}, './offlineQueue': {},
   };
   vm.runInNewContext(source, { exports, module: { exports }, require: (id) => {
     assert.ok(Object.hasOwn(mocks, id), `Unexpected service dependency: ${id}`);

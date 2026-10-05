@@ -118,7 +118,7 @@ import { getTrips } from "../../lib/tripsService";
 import { triggerSuccessHaptic } from "../../lib/haptics";
 import { isPremiumPlusUser, isPremiumUser } from "../../lib/revenuecat";
 import { getProfileSettings } from "../../lib/settingsService";
-import { writeSiriGearCache } from "../../lib/siriGearCache";
+import { beginSiriGearCachePublication, writeSiriGearCache } from "../../lib/siriGearCache";
 import { useDeviceLayout } from "../../lib/useDeviceLayout";
 import { useInteractionLock } from "../../lib/useInteractionLock";
 import type {
@@ -1597,6 +1597,7 @@ export default function DashboardScreen() {
     loadVersion: number,
     isActive: () => boolean
   ) {
+    const siriPublication = beginSiriGearCachePublication(activeUserId);
     try {
       setInitialDashboardLoading(true);
 
@@ -1640,7 +1641,7 @@ export default function DashboardScreen() {
         return;
       }
       setAllItems(all);
-      void writeSiriGearCache(all);
+      void writeSiriGearCache(all, siriPublication).catch(error => console.warn("Siri cache publication failed.", error));
 
       const loadedTrips = await getTrips(activeUserId);
       if (

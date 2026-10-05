@@ -42,7 +42,7 @@ test('offline gearService update and delete enqueue permanent IDs', async () => 
     '@react-native-community/netinfo': { default: { fetch: async () => ({ isConnected: false, isInternetReachable: false }) }, fetch: async () => ({ isConnected: false, isInternetReachable: false }) },
     'firebase/firestore': base.firestore,
     '../firebaseConfig': { db: {}, auth: { currentUser: { uid: 'u1' } } },
-    './cloudPhotoStorage': {},
+    './siriGearCache': { suppressSiriGearItem: async () => {}, releaseSiriGearItem: async () => {} }, './cloudPhotoStorage': {},
     './localPhotoStorage': {},
     './offlineQueue': base.queue,
   });
@@ -64,7 +64,7 @@ test('offline gearService move updates the persisted projection for both compart
     '@react-native-community/netinfo': { default: { fetch: async () => ({ isConnected: false, isInternetReachable: false }) } },
     'firebase/firestore': base.firestore,
     '../firebaseConfig': { db: {}, auth: { currentUser: { uid: 'u1' } } },
-    './cloudPhotoStorage': {}, './localPhotoStorage': {}, './offlineQueue': base.queue,
+    './siriGearCache': { suppressSiriGearItem: async () => {}, releaseSiriGearItem: async () => {} }, './cloudPhotoStorage': {}, './localPhotoStorage': {}, './offlineQueue': base.queue,
   });
   await base.queue.cacheInventoryItems('u1', [{ id: 'item-1', name: 'Move me', compartmentId: 'old', vehicleId: 'v', barcode: '0001', barcodeType: 'ean13' }]);
   await gear.updateItem('item-1', { compartmentId: 'new', compartmentName: 'New', vehicleId: 'v2', vehicleName: 'Vehicle 2' });
@@ -87,7 +87,7 @@ test('deleting an unsynchronized offline item cancels only its exact create oper
     '@react-native-community/netinfo': { default: { fetch: async () => ({ isConnected: false, isInternetReachable: false }) } },
     'firebase/firestore': base.firestore,
     '../firebaseConfig': { db: {}, auth: { currentUser: { uid: 'u1' } } },
-    './cloudPhotoStorage': {}, './localPhotoStorage': {}, './offlineQueue': base.queue,
+    './siriGearCache': { suppressSiriGearItem: async () => {}, releaseSiriGearItem: async () => {} }, './cloudPhotoStorage': {}, './localPhotoStorage': {}, './offlineQueue': base.queue,
   });
   const first = await gear.createItem({ name: 'Same', vehicleId: 'v', compartmentId: 'c', barcode: 'same', barcodeType: 'code128' });
   const second = await gear.createItem({ name: 'Same', vehicleId: 'v', compartmentId: 'c', barcode: 'same', barcodeType: 'code128' });
@@ -148,7 +148,7 @@ test('offline linked checklist deletion queues an absolute quantity update by st
     '@react-native-community/netinfo': { default: { fetch: async () => ({ isConnected: false, isInternetReachable: false }) } },
     'firebase/firestore': base.firestore,
     '../firebaseConfig': { db: {}, auth: { currentUser: { uid: 'u1' } } },
-    './cloudPhotoStorage': {}, './localPhotoStorage': {}, './offlineQueue': base.queue,
+    './siriGearCache': { suppressSiriGearItem: async () => {}, releaseSiriGearItem: async () => {} }, './cloudPhotoStorage': {}, './localPhotoStorage': {}, './offlineQueue': base.queue,
   });
   base.firestore.getDocs = async () => { throw new Error('offline'); };
   await base.queue.cacheInventoryItems('u1', [{ id: 'ABC123', name: 'Tent', quantity: 5, compartmentId: 'c', barcode: '0001', barcodeType: 'ean13' }, { id: 'same-name', name: 'Tent', quantity: 9, compartmentId: 'c' }]);
@@ -172,7 +172,7 @@ test('offline linked checklist deletion queues exact inventory deletion at or be
     '@react-native-community/netinfo': { default: { fetch: async () => ({ isConnected: false, isInternetReachable: false }) } },
     'firebase/firestore': base.firestore,
     '../firebaseConfig': { db: {}, auth: { currentUser: { uid: 'u1' } } },
-    './cloudPhotoStorage': {}, './localPhotoStorage': {}, './offlineQueue': base.queue,
+    './siriGearCache': { suppressSiriGearItem: async () => {}, releaseSiriGearItem: async () => {} }, './cloudPhotoStorage': {}, './localPhotoStorage': {}, './offlineQueue': base.queue,
   });
   base.firestore.getDocs = async () => { throw new Error('offline'); };
   await base.queue.cacheInventoryItems('u1', [{ id: 'ABC123', name: 'Tent', quantity: 2, compartmentId: 'c' }, { id: 'same-name', name: 'Tent', quantity: 8, compartmentId: 'c' }]);
@@ -190,7 +190,7 @@ test('offline linked checklist deletion is a no-op for a missing stable target',
     '@react-native-community/netinfo': { default: { fetch: async () => ({ isConnected: false, isInternetReachable: false }) } },
     'firebase/firestore': base.firestore,
     '../firebaseConfig': { db: {}, auth: { currentUser: { uid: 'u1' } } },
-    './cloudPhotoStorage': {}, './localPhotoStorage': {}, './offlineQueue': base.queue,
+    './siriGearCache': { suppressSiriGearItem: async () => {}, releaseSiriGearItem: async () => {} }, './cloudPhotoStorage': {}, './localPhotoStorage': {}, './offlineQueue': base.queue,
   });
   base.firestore.getDocs = async () => { throw new Error('offline'); };
   await base.queue.cacheInventoryItems('u1', [{ id: 'same-name', name: 'Tent', quantity: 8, compartmentId: 'c' }]);
@@ -211,7 +211,7 @@ async function checklistQuantitySetup(missing = false) {
     '@react-native-community/netinfo': { default: { fetch: async () => ({ isConnected: false, isInternetReachable: false }) } },
     'firebase/firestore': base.firestore,
     '../firebaseConfig': { db: {}, auth: { currentUser: { uid: 'u1' } } },
-    './cloudPhotoStorage': {},
+    './siriGearCache': { suppressSiriGearItem: async () => {}, releaseSiriGearItem: async () => {} }, './cloudPhotoStorage': {},
     './localPhotoStorage': { localPhotoExists: async () => true },
     './offlineQueue': base.queue,
   };

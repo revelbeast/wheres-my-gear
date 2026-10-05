@@ -12,7 +12,7 @@ function load(file, mocks) {
 const original = { name: 'Same', quantity: 7, status: 'packed', notes: 'notes', source: 'scan', barcode: '001', barcodeType: 'ean13', itemPhotoUri: 'file://photo', itemPhotoStoragePath: 'photo/path', itemPhotoDownloadUrl: 'https://photo', photoBackedUp: true, extraField: 'retain', vehicleId: 'v', compartmentId: 'c', isDeleted: true, deletedAt: '2026-10-04', deletedLocation: { vehicleId: 'v', compartmentId: 'c', roomId: 'r' } };
 function setup(options = {}) {
   const docs = new Map([['inventoryItems/i', structuredClone(original)], ['inventoryItems/other', { name: 'Same', quantity: 9 }], ['storageSpaces/v', { name: 'Truck' }], ['compartments/c', { vehicleId: 'v', roomId: 'r' }], ['rooms/r', { storageSpaceId: 'v' }]]);
-  const writes = [], reads = [], storage = new Map();
+  const writes = [], reads = [], storage = new Map(), released = [];
   let cacheFails = false;
   const auth = { currentUser: options.unauthenticated ? null : { uid: 'u' } };
   const firestore = {
@@ -34,9 +34,9 @@ function setup(options = {}) {
   const photos = new Proxy({}, { get() { return () => assert.fail('No photo operations allowed'); } });
   const gear = load('lib/gearService.ts', {
     '@react-native-community/netinfo': { default: { fetch: async () => options.network ?? ({ isConnected: true, isInternetReachable: true }) } },
-    'firebase/firestore': firestore, '../firebaseConfig': { db: {}, auth }, './offlineQueue': queue, './cloudPhotoStorage': photos, './localPhotoStorage': photos,
+    'firebase/firestore': firestore, '../firebaseConfig': { db: {}, auth }, './offlineQueue': queue, './siriGearCache': { suppressSiriGearItem: async () => {}, releaseSiriGearItem: async (uid, id) => { released.push([uid, id]); if (options.siriFails) throw Error("Siri release failed"); } }, './cloudPhotoStorage': photos, './localPhotoStorage': photos,
   });
-  return { gear, queue, docs, writes, reads, failCache: () => { cacheFails = true; } };
+  return { gear, queue, docs, writes, reads, released, failCache: () => { cacheFails = true; } };
 }
 async function rejects(h, code) { await assert.rejects(h.gear.restoreDeletedItem('i'), err => err.code === code); assert.equal(h.writes.length, 0); }
 
@@ -149,4 +149,10 @@ for (const failure of ['offline', 'readFails', 'writeFails']) test(`explicit res
   const h = explicitSetup(failure === 'offline' ? { network: { isConnected: false } } : { [failure]: true });
   await assert.rejects(h.gear.restoreDeletedItem('i', destination), e => e.code === (failure === 'offline' ? 'CONNECT_REQUIRED' : 'unavailable'));
   assert.equal(h.writes.length, 0); assert.equal(h.docs.get('inventoryItems/i').isDeleted, true); assert.equal((await h.queue.getOfflineQueue()).length, 0);
+});
+
+for (const siriFails of [false, true]) test(`restore releases suppression after server success without rollback (failure=${siriFails})`, async () => {
+  const h = setup({ siriFails }); const result = await h.gear.restoreDeletedItem('i');
+  assert.deepEqual(h.released, [['u', 'i']]); assert.equal(h.docs.get('inventoryItems/i').isDeleted, false);
+  assert.equal(result.cacheUpdated, true); assert.equal(result.siriCacheUpdated, !siriFails); assert.equal(h.writes.length, 1);
 });
