@@ -4,7 +4,7 @@ import * as ImagePicker from "expo-image-picker";
 import { getAuth } from "firebase/auth";
 import { uploadInventoryItemPhotoToCloud } from "../../../../../lib/cloudPhotoStorage";
 import { savePhotoToLocalDocumentStorage } from "../../../../../lib/localPhotoStorage";
-import { useFocusEffect, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import {
   Camera,
   Check,
@@ -20,6 +20,7 @@ import {
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  AccessibilityInfo,
   Alert,
   Image,
   KeyboardAvoidingView,
@@ -141,7 +142,12 @@ export default function CompartmentDetailScreen() {
   const actionLockRef = useRef(false);
   const scrollRef = useRef<ScrollView | null>(null);
   const itemCardYPositions = useRef<Record<string, number>>({});
-  const focusedItemRef = useRef<string | null>(null);
+  const screenFocusedRef = useRef(false);
+  const positionsCompartmentRef = useRef(compartmentId);
+  const pendingFocusRef = useRef<{ id: string; compartmentId: string; inspection: boolean } | null>(null);
+  const foundTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const foundGenerationRef = useRef(0);
+  const [foundItemId, setFoundItemId] = useState<string | null>(null);
   const createBoxScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
@@ -177,6 +183,7 @@ export default function CompartmentDetailScreen() {
 
     return () => {
       isMountedRef.current = false;
+      clearFoundFocus();
       loadVersionRef.current += 1;
       actionLockRef.current = false;
 
@@ -193,22 +200,71 @@ export default function CompartmentDetailScreen() {
   }, []);
 
   useFocusEffect(useCallback(() => {
+    screenFocusedRef.current = true;
+    if (positionsCompartmentRef.current !== compartmentId) {
+      itemCardYPositions.current = {};
+      positionsCompartmentRef.current = compartmentId;
+    }
     const loadVersion = loadVersionRef.current + 1;
     loadVersionRef.current = loadVersion;
 
     if (!compartmentId) {
       setCompartment(null);
       setItems([]);
-      return;
+    } else {
+      void loadCompartment(loadVersion);
+      void loadItems(loadVersion);
     }
 
-    void loadCompartment(loadVersion);
-    void loadItems(loadVersion);
-
     return () => {
+      screenFocusedRef.current = false;
+      clearFoundFocus();
       loadVersionRef.current += 1;
     };
   }, [compartmentId, isDuplicateInspection]));
+
+  useEffect(() => {
+    const id = params.focusItemId;
+    // Clearing an accepted parameter must not cancel its visible three-second presentation.
+    if (!id || typeof id !== "string") return;
+    clearFoundFocus();
+    pendingFocusRef.current = { id, compartmentId, inspection: isDuplicateInspection };
+    tryFocusRequestedItem();
+  }, [params.focusItemId, compartmentId, isDuplicateInspection]);
+
+  useEffect(() => {
+    tryFocusRequestedItem();
+  }, [items]);
+
+  function clearFoundFocus() {
+    foundGenerationRef.current += 1;
+    pendingFocusRef.current = null;
+    if (foundTimerRef.current) clearTimeout(foundTimerRef.current);
+    foundTimerRef.current = null;
+    if (itemCardScrollTimeoutRef.current) clearTimeout(itemCardScrollTimeoutRef.current);
+    itemCardScrollTimeoutRef.current = null;
+    if (isMountedRef.current) setFoundItemId(null);
+  }
+
+  function tryFocusRequestedItem() {
+    const request = pendingFocusRef.current;
+    if (!screenFocusedRef.current || !request || request.compartmentId !== compartmentId) return;
+    const item = items.find(candidate => candidate.id === request.id);
+    const y = itemCardYPositions.current[request.id];
+    if (!item || typeof y !== "number" || !Number.isFinite(y)) return;
+    pendingFocusRef.current = null;
+    scrollToItemCard(item.id);
+    if (request.inspection) return;
+    const generation = foundGenerationRef.current;
+    setFoundItemId(item.id);
+    router.setParams({ focusItemId: undefined });
+    AccessibilityInfo.announceForAccessibility(`Found ${item.name}`);
+    foundTimerRef.current = setTimeout(() => {
+      if (!isMountedRef.current || !screenFocusedRef.current || foundGenerationRef.current !== generation) return;
+      foundTimerRef.current = null;
+      setFoundItemId(null);
+    }, 3000);
+  }
 
   async function runWithLock(action: () => Promise<void> | void) {
     if (actionLockRef.current || interactionLocked || !isMountedRef.current) {
@@ -1249,10 +1305,7 @@ export default function CompartmentDetailScreen() {
         key={item.id}
         onLayout={(event) => {
           itemCardYPositions.current[item.id] = event.nativeEvent.layout.y;
-          if (params.focusItemId === item.id && focusedItemRef.current !== item.id) {
-            focusedItemRef.current = item.id;
-            scrollToItemCard(item.id);
-          }
+          tryFocusRequestedItem();
         }}
       >
         <FrostedCard
@@ -1262,8 +1315,14 @@ export default function CompartmentDetailScreen() {
               borderColor: packed ? theme.colors.success : theme.colors.border,
               backgroundColor: theme.colors.card,
             },
+            foundItemId === item.id && { borderColor: theme.colors.primary, borderWidth: 3 },
           ]}
         >
+          {foundItemId === item.id && (
+            <View style={{ alignSelf: "flex-start", backgroundColor: theme.colors.primary, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, marginBottom: 6 }}>
+              <Text style={{ color: "#FFFFFF", fontSize: 12, fontWeight: "700" }}>✓ Found</Text>
+            </View>
+          )}
           {isEditing ? (
             <View style={styles.editWrap}>
               <TextInput

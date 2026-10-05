@@ -30,6 +30,7 @@ function harness(inspection = false) {
   const calls = [];
   const context = {
     compartmentId: 'A', isDuplicateInspection: inspection,
+    screenFocusedRef: { current: false }, positionsCompartmentRef: { current: 'A' }, itemCardYPositions: { current: {} }, clearFoundFocus: () => {},
     isMountedRef: { current: true }, loadVersionRef: { current: 0 },
     useCallback: (fn, deps) => { assert.deepEqual(Array.from(deps), ['A', inspection]); return fn; },
     useFocusEffect: (fn) => { focus = fn; },
