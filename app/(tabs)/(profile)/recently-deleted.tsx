@@ -1,6 +1,6 @@
 import NetInfo from "@react-native-community/netinfo";
 import { useFocusEffect } from "expo-router";
-import { Image as ImageIcon } from "lucide-react-native";
+import { Image as ImageIcon, Trash2 } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -9,7 +9,7 @@ import AppHeader from "../../../components/ui/AppHeader";
 import HapticPressable from "../../../components/ui/HapticPressable";
 import ScreenBackground from "../../../components/ui/ScreenBackground";
 import { ThemedButton, ThemedCard, ThemedText, useThemedValues } from "../../../components/ui/Themed";
-import { getDeletedItems, restoreDeletedItem, permanentlyDeleteDeletedItem, getStorageSpaces, getCompartmentsByVehicle, getRoomsByStorageSpace, type StorageSpace, type RestoreDestination, type Item } from "../../../lib/gearService";
+import { getDeletedItems, restoreDeletedItem, permanentlyDeleteDeletedItem, emptyDeletedItems, getStorageSpaces, getCompartmentsByVehicle, getRoomsByStorageSpace, type StorageSpace, type RestoreDestination, type Item } from "../../../lib/gearService";
 
 function deletionTime(value: unknown): number | null {
   try {
@@ -71,6 +71,8 @@ export default function RecentlyDeletedScreen() {
     return () => { mounted.current = false; };
   }, []);
   const restoringIds = useRef(new Set<string>());
+  const emptyingRef = useRef(false);
+  const [emptying, setEmptying] = useState(false);
   const [deleting, setDeleting] = useState<string[]>([]);
   const [restoring, setRestoring] = useState<string[]>([]);
   const [items, setItems] = useState<Item[]>([]);
@@ -167,7 +169,7 @@ export default function RecentlyDeletedScreen() {
   }
 
   async function handleRestore(itemId: string, destination?: RestoreDestination) {
-    if (offline === true || restoringIds.current.has(itemId)) return;
+    if (emptyingRef.current || offline === true || restoringIds.current.has(itemId)) return;
     restoringIds.current.add(itemId);
     setRestoring([...restoringIds.current]);
     const request = version.current;
@@ -200,7 +202,7 @@ export default function RecentlyDeletedScreen() {
   }
 
   function confirmPermanentDelete(itemId: string) {
-    if (offline === true || restoringIds.current.has(itemId)) return;
+    if (emptyingRef.current || offline === true || restoringIds.current.has(itemId)) return;
     Alert.alert("Delete Permanently?", "Permanently delete this item? This cannot be undone.", [
       { text: "Cancel", style: "cancel" },
       { text: "Delete Permanently", style: "destructive", onPress: () => void handlePermanentDelete(itemId) },
@@ -209,7 +211,7 @@ export default function RecentlyDeletedScreen() {
 
   async function handlePermanentDelete(itemId: string) {
     // The same synchronous lock protects Restore and permanent deletion.
-    if (offline === true || restoringIds.current.has(itemId)) return;
+    if (emptyingRef.current || offline === true || restoringIds.current.has(itemId)) return;
     restoringIds.current.add(itemId);
     setRestoring([...restoringIds.current]);
     setDeleting(previous => [...previous, itemId]);
@@ -242,10 +244,66 @@ export default function RecentlyDeletedScreen() {
     }
   }
 
+  function confirmEmptyTrash() {
+    if (emptyingRef.current || restoringIds.current.size > 0 || offline === true || items.length === 0) return;
+    Alert.alert("Empty Trash?", "Permanently delete all items in Recently Deleted? This cannot be undone.", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Delete All", style: "destructive", onPress: () => void handleEmptyTrash() },
+    ]);
+  }
+
+  function emptyTrashError(code?: string) {
+    return code === "CONNECT_REQUIRED" ? "Connect to empty Recently Deleted."
+      : code === "SYNC_REQUIRED" ? "Let pending inventory changes finish syncing, then try again."
+      : code === "UNAUTHENTICATED" ? "Sign in again to empty Recently Deleted."
+      : code === "NOT_DELETED" ? "An item is active again and was not deleted. Review Recently Deleted and try again."
+      : "Unable to empty Recently Deleted. Check your connection and try again.";
+  }
+
+  async function handleEmptyTrash() {
+    if (emptyingRef.current || restoringIds.current.size > 0 || offline === true || items.length === 0) return;
+    emptyingRef.current = true;
+    setEmptying(true);
+    const request = version.current;
+    try {
+      const result = await emptyDeletedItems();
+      if (request !== version.current) return;
+      if (result.remainingItems !== null) {
+        setItems(sortedDeletedItems(result.remainingItems));
+        setError(false);
+      } else {
+        // Verification failed: offer reload instead of displaying an assumed empty state.
+        setError(true);
+      }
+      if (result.remainingItems?.length === 0 && !result.failureCode) {
+        Alert.alert("Trash emptied", result.cacheUpdated
+          ? "All items in Recently Deleted have been permanently deleted."
+          : "All items were permanently deleted. Local data could not refresh; reconnect and reload if needed.");
+      } else if (result.deletedCount > 0) {
+        Alert.alert("Trash not fully emptied", result.remainingItems === null
+          ? "Some items were permanently deleted, but the remaining list could not be verified. Reconnect and reload before trying again."
+          : "Some items could not be permanently deleted. Review the remaining items and try again.");
+      } else {
+        Alert.alert("Empty Trash unavailable", emptyTrashError(result.failureCode ?? undefined));
+      }
+    } catch (error) {
+      if (request === version.current) Alert.alert("Empty Trash unavailable", emptyTrashError((error as { code?: string })?.code));
+    } finally {
+      emptyingRef.current = false;
+      if (mounted.current) setEmptying(false);
+    }
+  }
+
   return <ScreenBackground>
     <SafeAreaView style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content}>
         <AppHeader title="Recently Deleted" showBackButton />
+        {!loading && !error && items.length > 0 && <View style={styles.actions}>
+          <HapticPressable accessibilityRole="button" accessibilityLabel="Empty Trash" accessibilityState={{ busy: emptying }} style={styles.emptyTrashButton}
+            disabled={emptying || restoring.length > 0 || offline === true} onPress={confirmEmptyTrash}>
+            <Trash2 size={22} color={styles.destructiveText.color} />
+          </HapticPressable>
+        </View>}
         {offline === true && <ThemedText>Showing deleted gear saved on this device. Connect to restore an item.</ThemedText>}
         {loading ? <ActivityIndicator accessibilityLabel="Loading recently deleted gear" color={theme.colors.text} />
           : error ? <ThemedCard><ThemedText>Unable to load recently deleted gear.</ThemedText><ThemedButton onPress={() => setRetry(value => value + 1)}><ThemedText style={styles.buttonText}>Retry</ThemedText></ThemedButton></ThemedCard>
@@ -263,11 +321,11 @@ export default function RecentlyDeletedScreen() {
                 </View>
               </View>
               <View style={styles.actions}>
-                <ThemedButton style={styles.restoreButton} disabled={offline === true || restoring.includes(item.id)} onPress={() => void handleRestore(item.id)}>
+                <ThemedButton style={styles.restoreButton} disabled={emptying || offline === true || restoring.includes(item.id)} onPress={() => void handleRestore(item.id)}>
                   <ThemedText style={styles.buttonText}>{restoring.includes(item.id) && !deleting.includes(item.id) ? "Restoring…" : "Restore"}</ThemedText>
                 </ThemedButton>
                 <HapticPressable accessibilityRole="button" style={styles.restoreButton}
-                  disabled={offline === true || restoring.includes(item.id)} onPress={() => confirmPermanentDelete(item.id)}>
+                  disabled={emptying || offline === true || restoring.includes(item.id)} onPress={() => confirmPermanentDelete(item.id)}>
                   <ThemedText style={styles.destructiveText}>{deleting.includes(item.id) ? "Deleting…" : "Delete Permanently"}</ThemedText>
                 </HapticPressable>
               </View>
@@ -300,7 +358,7 @@ export default function RecentlyDeletedScreen() {
             {pickerLoading && <ActivityIndicator accessibilityLabel="Loading destinations" />}
             <View style={styles.actions}>
               <HapticPressable style={styles.restoreButton} disabled={restoring.includes(pickerItem.id)} onPress={cancelPicker}><ThemedText>Cancel</ThemedText></HapticPressable>
-              <ThemedButton style={styles.restoreButton} disabled={pickerLoading || !selection || offline === true || restoring.includes(pickerItem.id)}
+              <ThemedButton style={styles.restoreButton} disabled={emptying || pickerLoading || !selection || offline === true || restoring.includes(pickerItem.id)}
                 onPress={() => { if (selection && !pickerLoading) void handleRestore(pickerItem.id, { vehicleId: selection.vehicleId, compartmentId: selection.compartmentId, roomId: selection.roomId }); }}>
                 <ThemedText style={styles.buttonText}>{restoring.includes(pickerItem.id) ? "Restoring…" : "Restore"}</ThemedText>
               </ThemedButton>
@@ -317,6 +375,7 @@ const styles = StyleSheet.create({
   modalCard: { maxHeight: "90%", borderRadius: 18, padding: 18, gap: 12 },
   optionList: { maxHeight: 180, flexShrink: 1 },
   option: { minHeight: 44, borderWidth: 1, borderRadius: 10, padding: 12, marginBottom: 8 },
+  emptyTrashButton: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
   destructiveText: { color: "#DC2626", fontWeight: "700" },
   actions: { flexDirection: "row", flexWrap: "wrap", justifyContent: "flex-end", marginTop: 12, gap: 12 },
   restoreButton: { minHeight: 44, paddingHorizontal: 18, paddingVertical: 10 },

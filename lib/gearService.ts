@@ -1488,6 +1488,56 @@ export async function permanentlyDeleteDeletedItem(itemId: string): Promise<{
   }
 }
 
+/** Sequential orchestration; every target still passes the Phase 4A transaction. */
+export async function emptyDeletedItems(): Promise<{
+  deletedCount: number;
+  remainingItems: Item[] | null;
+  failureCode: string | null;
+  cacheUpdated: boolean;
+}> {
+  const uid = auth.currentUser?.uid;
+  if (!uid) throw new PermanentDeleteItemError("UNAUTHENTICATED");
+  const assertAccount = () => {
+    if (auth.currentUser?.uid !== uid) throw new PermanentDeleteItemError("UNAUTHENTICATED");
+  };
+  const network = await NetInfo.fetch();
+  if (network.isConnected !== true || network.isInternetReachable !== true) throw new PermanentDeleteItemError("CONNECT_REQUIRED");
+  const pending = await getOfflineQueue();
+  if (pending.some(op => op.userId === uid && ["createItem", "updateInventoryItem", "deleteInventoryItem"].includes(op.type))) {
+    throw new PermanentDeleteItemError("SYNC_REQUIRED");
+  }
+  const readTrash = async () => {
+    assertAccount();
+    const snapshot = await getDocsFromServer(collection(db, "users", uid, "inventoryItems"));
+    assertAccount();
+    return snapshot.docs.filter(item => item.data().isDeleted === true)
+      .map(item => ({ ...item.data(), id: item.id } as Item));
+  };
+  const targets = await readTrash();
+  let deletedCount = 0;
+  let cacheUpdated = true;
+  let failureCode: string | null = null;
+  for (const item of targets) {
+    try {
+      assertAccount();
+      const result = await permanentlyDeleteDeletedItem(item.id);
+      deletedCount += 1;
+      cacheUpdated = cacheUpdated && result.cacheUpdated;
+    } catch (error) {
+      failureCode = (error as { code?: string })?.code ?? "DELETE_FAILED";
+      break;
+    }
+  }
+  // Never substitute cached data for verification of the destructive operation.
+  let remainingItems: Item[] | null = null;
+  try {
+    remainingItems = await readTrash();
+  } catch {
+    failureCode = failureCode ?? "VERIFY_FAILED";
+  }
+  return { deletedCount, remainingItems, failureCode, cacheUpdated };
+}
+
 export async function deleteItem(id: string) {
   if (id.startsWith("offline-item-")) {
     await cancelOfflineCreatedItem(id);

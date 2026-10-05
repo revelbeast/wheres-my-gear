@@ -35,7 +35,7 @@ function harness(connectivity = async () => ({ isConnected: false }), restore = 
     'expo-router': { useFocusEffect: fn => { focus = fn; } },
     '@react-native-community/netinfo': { default: { fetch: connectivity } },
     'react-native': { Alert: { alert: (...args) => alerts.push(args) }, Modal: 'Modal', ActivityIndicator: 'Spinner', Image: 'Image', ScrollView: 'ScrollView', View: 'View', StyleSheet: { create: x => x } },
-    'react-native-safe-area-context': { SafeAreaView: 'SafeAreaView' }, 'lucide-react-native': { Image: 'Icon' },
+    'react-native-safe-area-context': { SafeAreaView: 'SafeAreaView' }, 'lucide-react-native': { Image: 'Icon', Trash2: 'TrashIcon' },
     '../../../components/auth/AuthProvider': { useAuth: () => ({ user: { uid: 'u' } }) },
     '../../../components/ui/HapticPressable': { default: 'Pressable' },
     '../../../components/ui/AppHeader': { default: 'Header' }, '../../../components/ui/ScreenBackground': { default: 'Background' },
@@ -349,4 +349,63 @@ test('cache failure after document deletion is a success with refresh guidance',
   const h = await deletionHarness(async () => ({ itemDeleted: true, cacheUpdated: false, photoCleanup: 'retained_unverified' }));
   h.deleteButton().props.onPress(); h.alerts[0][2][1].onPress(); await tick();
   assert.equal(h.alerts[1][0], 'Item permanently deleted'); assert.match(h.alerts[1][1], /Local data could not refresh/);
+});
+
+async function emptyHarness(run, extras = {}) {
+  let calls = 0;
+  const h = harness(async () => ({ isConnected: true, isInternetReachable: true }), extras.restore,
+    { emptyDeletedItems: async () => { calls++; return run(); }, permanentlyDeleteDeletedItem: extras.remove ?? (() => assert.fail('Individual deletion must be locked')) });
+  h.render(); h.read(async () => [row('item', null)]); h.focus(); await tick();
+  return { ...h, emptyCalls: () => calls, action: label => nodes(h.render()).find(n => ['Pressable', 'Button'].includes(n.type) && (label === 'Empty Trash' ? n.props.accessibilityLabel === label : text(n) === label)) };
+}
+test('Empty Trash appears only with items and requires destructive confirmation; Cancel does not mutate', async () => {
+  const h = await emptyHarness(() => assert.fail('Cancel must not mutate'));
+  const button = h.action('Empty Trash');
+  assert.equal(button.props.accessibilityRole, 'button');
+  assert.equal(button.props.style.minWidth, 44); assert.equal(button.props.style.minHeight, 44);
+  assert.equal(text(button), '');
+  const icon = nodes(button).find(n => n.type === 'TrashIcon');
+  assert.equal(icon.props.size, 22); assert.equal(icon.props.color, '#DC2626');
+  button.props.onPress(); const [title, message, buttons] = h.alerts[0];
+  assert.equal(title, 'Empty Trash?'); assert.equal(message, 'Permanently delete all items in Recently Deleted? This cannot be undone.');
+  assert.equal(buttons[0].text, 'Cancel'); assert.equal(buttons[0].onPress, undefined);
+  assert.equal(buttons[1].text, 'Delete All'); assert.equal(buttons[1].style, 'destructive'); assert.equal(h.emptyCalls(), 0);
+  h.read(async () => []); h.focus(); await tick(); assert.equal(h.action('Empty Trash'), undefined);
+});
+test('confirmed Empty Trash uses verified result to display empty state and success', async () => {
+  const h = await emptyHarness(async () => ({ deletedCount: 1, remainingItems: [], failureCode: null, cacheUpdated: true }));
+  h.action('Empty Trash').props.onPress(); h.alerts[0][2][1].onPress(); await tick();
+  assert.equal(h.emptyCalls(), 1); assert.equal(h.alerts[1][0], 'Trash emptied'); assert.match(text(h.render()), /No Recently Deleted Gear/);
+});
+test('partial deletion displays remaining cards without claiming full success', async () => {
+  const h = await emptyHarness(async () => ({ deletedCount: 1, remainingItems: [row('remaining', null)], failureCode: 'unavailable', cacheUpdated: true }));
+  h.action('Empty Trash').props.onPress(); h.alerts[0][2][1].onPress(); await tick();
+  assert.equal(h.alerts[1][0], 'Trash not fully emptied'); assert.ok(nodes(h.render()).find(n => n.type === 'Card' && n.props.key === 'remaining'));
+});
+test('failed verification shows reload error, never assumed empty state', async () => {
+  const h = await emptyHarness(async () => ({ deletedCount: 1, remainingItems: null, failureCode: 'VERIFY_FAILED', cacheUpdated: true }));
+  h.action('Empty Trash').props.onPress(); h.alerts[0][2][1].onPress(); await tick();
+  assert.equal(h.alerts[1][0], 'Trash not fully emptied'); assert.match(text(h.render()), /Unable to load recently deleted gear/);
+});
+for (const code of ['CONNECT_REQUIRED', 'SYNC_REQUIRED', 'UNAUTHENTICATED']) test(`Empty Trash preflight ${code} does not claim partial deletion`, async () => {
+  const h = await emptyHarness(async () => { throw { code }; }); h.action('Empty Trash').props.onPress(); h.alerts[0][2][1].onPress(); await tick();
+  assert.equal(h.alerts[1][0], 'Empty Trash unavailable'); assert.ok(h.action('Restore'));
+});
+test('Empty Trash synchronously blocks repeated confirmation, Restore, and individual deletion', async () => {
+  let finish, restores = 0;
+  const h = await emptyHarness(() => new Promise(resolve => { finish = resolve; }), { restore: async () => { restores++; } });
+  const restore = h.action('Restore'); h.action('Delete Permanently').props.onPress(); const individual = h.alerts[0][2][1].onPress;
+  h.action('Empty Trash').props.onPress(); const confirm = h.alerts[1][2][1].onPress;
+  confirm(); confirm(); restore.props.onPress(); individual();
+  assert.equal(h.emptyCalls(), 1); assert.equal(restores, 0); assert.equal(h.action('Restore').props.disabled, true); assert.equal(h.action('Delete Permanently').props.disabled, true);
+  finish({ deletedCount: 1, remainingItems: [], failureCode: null, cacheUpdated: true }); await tick();
+});
+for (const action of ['Restore', 'Delete Permanently']) test(`${action} blocks already-open Empty Trash confirmation`, async () => {
+  let finish;
+  const operation = () => new Promise(resolve => { finish = resolve; });
+  const h = await emptyHarness(() => assert.fail('Empty Trash must be locked'), { restore: operation, remove: operation });
+  h.action('Empty Trash').props.onPress(); const confirm = h.alerts[0][2][1].onPress;
+  h.action(action).props.onPress(); if (action === 'Delete Permanently') h.alerts[1][2][1].onPress();
+  confirm(); assert.equal(h.emptyCalls(), 0); assert.equal(h.action('Empty Trash').props.disabled, true);
+  finish({ cacheUpdated: true, itemDeleted: true }); await tick();
 });
