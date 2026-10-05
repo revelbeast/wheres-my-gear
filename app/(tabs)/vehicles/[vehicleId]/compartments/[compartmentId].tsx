@@ -805,21 +805,25 @@ export default function CompartmentDetailScreen() {
                             return;
                           }
 
-                          await moveCompartment({
-                            compartmentId: compartment.id,
-                            compartmentName: compartment.name,
-                            vehicleId: space.id,
-                            vehicleName: space.name,
-                            roomId: "",
-                            roomName: "",
-                          });
+                          try {
+                            await moveCompartment({
+                              compartmentId: compartment.id,
+                              compartmentName: compartment.name,
+                              vehicleId: space.id,
+                              vehicleName: space.name,
+                              roomId: "",
+                              roomName: "",
+                            });
 
-                          await loadCompartment();
-                          await refreshItems();
-                          Alert.alert(
-                            "Compartment moved",
-                            `"${compartment.name}" moved to ${space.name}.`
-                          );
+                            await loadCompartment();
+                            await refreshItems();
+                            Alert.alert(
+                              "Compartment moved",
+                              `"${compartment.name}" moved to ${space.name}.`
+                            );
+                          } catch (error) {
+                            Alert.alert("Move Failed", error instanceof Error ? error.message : "Unable to move this compartment.");
+                          }
                         },
                       },
                       ...rooms.map((room) => ({
@@ -836,22 +840,26 @@ export default function CompartmentDetailScreen() {
                             return;
                           }
 
-                          await moveCompartment({
-                            compartmentId: compartment.id,
-                            compartmentName: compartment.name,
-                            vehicleId: space.id,
-                            vehicleName: space.name,
-                            roomId: room.id,
-                            roomName: room.name,
-                          });
+                          try {
+                            await moveCompartment({
+                              compartmentId: compartment.id,
+                              compartmentName: compartment.name,
+                              vehicleId: space.id,
+                              vehicleName: space.name,
+                              roomId: room.id,
+                              roomName: room.name,
+                            });
 
-                          await loadCompartment();
-                          await refreshItems();
+                            await loadCompartment();
+                            await refreshItems();
 
-                          Alert.alert(
-                            "Compartment moved",
-                            `"${compartment.name}" moved to ${room.name}.`
-                          );
+                            Alert.alert(
+                              "Compartment moved",
+                              `"${compartment.name}" moved to ${room.name}.`
+                            );
+                          } catch (error) {
+                            Alert.alert("Move Failed", error instanceof Error ? error.message : "Unable to move this compartment.");
+                          }
                         },
                       })),
                       {

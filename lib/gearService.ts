@@ -817,6 +817,14 @@ export async function updateCompartment(
   await updateDoc(compartmentDoc(compartmentId), payload);
 }
 
+export class CompartmentMoveError extends Error {
+  constructor(public code: "CONNECT_REQUIRED" | "MOVE_TOO_LARGE") {
+    super(code === "CONNECT_REQUIRED" ? "Connect to move this compartment."
+      : "This compartment is too large to move safely in one operation.");
+    this.name = "CompartmentMoveError";
+  }
+}
+
 export async function moveCompartment(input: {
   compartmentId: string;
   compartmentName: string;
@@ -844,31 +852,43 @@ export async function moveCompartment(input: {
     throw new Error("Storage space ID is required.");
   }
 
-  const relatedItemsQuery = query(
-    inventoryCol(),
+  const uid = getCurrentUserId();
+  const network = await NetInfo.fetch();
+  if (network.isConnected !== true || network.isInternetReachable !== true) {
+    throw new CompartmentMoveError("CONNECT_REQUIRED");
+  }
+  await requireNoPendingInventory(uid);
+  const ref = doc(db, "users", uid, "compartments", trimmedCompartmentId);
+  const candidates = (await getDocsFromServer(query(
+    collection(db, "users", uid, "inventoryItems"),
     where("compartmentId", "==", trimmedCompartmentId)
-  );
+  ))).docs;
+  if (candidates.length + 1 > 500) throw new CompartmentMoveError("MOVE_TOO_LARGE");
 
-  const relatedItemsSnapshot = await getDocs(relatedItemsQuery);
-  const batch = writeBatch(db);
-
-  batch.update(compartmentDoc(trimmedCompartmentId), {
-    vehicleId: trimmedVehicleId,
-    roomId: trimmedRoomId,
-    roomName: trimmedRoomName,
-    updatedAt: serverTimestamp(),
-  });
-
-  relatedItemsSnapshot.docs.forEach((itemSnapshot) => {
-    batch.update(itemSnapshot.ref, {
-      compartmentName: trimmedCompartmentName,
+  await runTransaction(db, async transaction => {
+    if (auth.currentUser?.uid !== uid) throw new Error("Authentication changed. Please try again.");
+    const compartment = await transaction.get(ref);
+    if (!compartment.exists()) throw new Error("Compartment no longer exists.");
+    const items = await Promise.all(candidates.map(item => transaction.get(item.ref)));
+    await requireNoPendingInventory(uid);
+    transaction.update(ref, {
       vehicleId: trimmedVehicleId,
-      vehicleName: trimmedVehicleName,
+      roomId: trimmedRoomId,
+      roomName: trimmedRoomName,
       updatedAt: serverTimestamp(),
     });
+    for (const snapshot of items) {
+      if (!snapshot.exists()) continue;
+      const item = snapshot.data();
+      if (item.isDeleted === true || item.compartmentId !== trimmedCompartmentId) continue;
+      transaction.update(snapshot.ref, {
+        compartmentName: trimmedCompartmentName,
+        vehicleId: trimmedVehicleId,
+        vehicleName: trimmedVehicleName,
+        updatedAt: serverTimestamp(),
+      });
+    }
   });
-
-  await batch.commit();
 }
 
 export async function deleteCompartment(compartmentId: string) {
