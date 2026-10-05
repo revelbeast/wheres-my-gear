@@ -9,7 +9,7 @@ import AppHeader from "../../../components/ui/AppHeader";
 import HapticPressable from "../../../components/ui/HapticPressable";
 import ScreenBackground from "../../../components/ui/ScreenBackground";
 import { ThemedButton, ThemedCard, ThemedText, useThemedValues } from "../../../components/ui/Themed";
-import { getDeletedItems, restoreDeletedItem, getStorageSpaces, getCompartmentsByVehicle, getRoomsByStorageSpace, type StorageSpace, type RestoreDestination, type Item } from "../../../lib/gearService";
+import { getDeletedItems, restoreDeletedItem, permanentlyDeleteDeletedItem, getStorageSpaces, getCompartmentsByVehicle, getRoomsByStorageSpace, type StorageSpace, type RestoreDestination, type Item } from "../../../lib/gearService";
 
 function deletionTime(value: unknown): number | null {
   try {
@@ -71,6 +71,7 @@ export default function RecentlyDeletedScreen() {
     return () => { mounted.current = false; };
   }, []);
   const restoringIds = useRef(new Set<string>());
+  const [deleting, setDeleting] = useState<string[]>([]);
   const [restoring, setRestoring] = useState<string[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
@@ -198,6 +199,49 @@ export default function RecentlyDeletedScreen() {
     }
   }
 
+  function confirmPermanentDelete(itemId: string) {
+    if (offline === true || restoringIds.current.has(itemId)) return;
+    Alert.alert("Delete Permanently?", "Permanently delete this item? This cannot be undone.", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Delete Permanently", style: "destructive", onPress: () => void handlePermanentDelete(itemId) },
+    ]);
+  }
+
+  async function handlePermanentDelete(itemId: string) {
+    // The same synchronous lock protects Restore and permanent deletion.
+    if (offline === true || restoringIds.current.has(itemId)) return;
+    restoringIds.current.add(itemId);
+    setRestoring([...restoringIds.current]);
+    setDeleting(previous => [...previous, itemId]);
+    const request = version.current;
+    try {
+      const result = await permanentlyDeleteDeletedItem(itemId);
+      if (request !== version.current) return;
+      setItems(previous => previous.filter(item => item.id !== itemId));
+      setRetry(value => value + 1);
+      Alert.alert("Item permanently deleted", result.cacheUpdated
+        ? "The item has been permanently deleted."
+        : "The item was permanently deleted. Local data could not refresh; reconnect and reload if it still appears here.");
+    } catch (error) {
+      if (request !== version.current) return;
+      const code = (error as { code?: string })?.code;
+      const message = code === "CONNECT_REQUIRED" ? "Connect to permanently delete an item."
+        : code === "SYNC_REQUIRED" ? "Let pending inventory changes finish syncing, then try again."
+        : code === "ITEM_NOT_FOUND" ? "This item is no longer available. Reload Recently Deleted."
+        : code === "NOT_DELETED" ? "This item is active and cannot be deleted here. Reload Recently Deleted."
+        : code === "UNAUTHENTICATED" ? "Sign in again to permanently delete this item."
+        : code === "INVALID_ITEM_ID" ? "This item cannot be deleted here. Reload Recently Deleted."
+        : "Unable to permanently delete this item. Check your connection and try again.";
+      Alert.alert("Delete unavailable", message);
+    } finally {
+      restoringIds.current.delete(itemId);
+      if (mounted.current) {
+        setRestoring([...restoringIds.current]);
+        setDeleting(previous => previous.filter(id => id !== itemId));
+      }
+    }
+  }
+
   return <ScreenBackground>
     <SafeAreaView style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content}>
@@ -220,8 +264,12 @@ export default function RecentlyDeletedScreen() {
               </View>
               <View style={styles.actions}>
                 <ThemedButton style={styles.restoreButton} disabled={offline === true || restoring.includes(item.id)} onPress={() => void handleRestore(item.id)}>
-                  <ThemedText style={styles.buttonText}>{restoring.includes(item.id) ? "Restoring…" : "Restore"}</ThemedText>
+                  <ThemedText style={styles.buttonText}>{restoring.includes(item.id) && !deleting.includes(item.id) ? "Restoring…" : "Restore"}</ThemedText>
                 </ThemedButton>
+                <HapticPressable accessibilityRole="button" style={styles.restoreButton}
+                  disabled={offline === true || restoring.includes(item.id)} onPress={() => confirmPermanentDelete(item.id)}>
+                  <ThemedText style={styles.destructiveText}>{deleting.includes(item.id) ? "Deleting…" : "Delete Permanently"}</ThemedText>
+                </HapticPressable>
               </View>
             </ThemedCard>;
           })}
@@ -269,7 +317,8 @@ const styles = StyleSheet.create({
   modalCard: { maxHeight: "90%", borderRadius: 18, padding: 18, gap: 12 },
   optionList: { maxHeight: 180, flexShrink: 1 },
   option: { minHeight: 44, borderWidth: 1, borderRadius: 10, padding: 12, marginBottom: 8 },
-  actions: { flexDirection: "row", justifyContent: "flex-end", marginTop: 12, gap: 12 },
+  destructiveText: { color: "#DC2626", fontWeight: "700" },
+  actions: { flexDirection: "row", flexWrap: "wrap", justifyContent: "flex-end", marginTop: 12, gap: 12 },
   restoreButton: { minHeight: 44, paddingHorizontal: 18, paddingVertical: 10 },
   buttonText: { color: "#FFFFFF", fontWeight: "700" },
   screen: { flex: 1 },

@@ -15,7 +15,7 @@ import {
   where,
   writeBatch,
 } from "firebase/firestore";
-import { auth, db } from "../firebaseConfig";
+import { auth, db, storage } from "../firebaseConfig";
 import { cleanupOldCloudPhotosInFolder, deleteCloudPhotoByStoragePath } from "./cloudPhotoStorage";
 import { downloadPhotoToLocalDocumentStorage, localPhotoExists } from "./localPhotoStorage";
 import { cacheCompartments, cacheInventoryItems, cacheRooms, cacheStorageSpaces, cancelOfflineCreatedItem, enqueueOfflineOperation, getCachedCompartments, getCachedInventoryItems, getCachedInventoryItemsByCompartment, getCachedInventoryItemsByStatus, getCachedRooms, getCachedStorageSpaces, getOfflineCompartments, getOfflineCompartmentById, getOfflineItems, getOfflineItemsByCompartment, getOfflineItemsByStatus, getOfflineStorageSpaces, getOfflineQueue, projectInventoryItems, removeOfflineOperation, updateOfflineCreatedItem } from "./offlineQueue";
@@ -1395,6 +1395,96 @@ export async function restoreDeletedItem(itemId: string, destination?: RestoreDe
   } catch (error) {
     console.warn("Inventory restored on server; local cache refresh failed.", error);
     return { cacheUpdated: false, siriCacheUpdated: siriUpdated };
+  }
+}
+
+export type PermanentDeleteErrorCode = "UNAUTHENTICATED" | "INVALID_ITEM_ID" | "CONNECT_REQUIRED" | "SYNC_REQUIRED" | "ITEM_NOT_FOUND" | "NOT_DELETED";
+
+export class PermanentDeleteItemError extends Error {
+  constructor(public code: PermanentDeleteErrorCode) {
+    super(code);
+    this.name = "PermanentDeleteItemError";
+  }
+}
+
+// Comparison only: matching references never authorizes Storage or filesystem deletion.
+function inventoryPhotoReferences(item: Item): Set<string> {
+  const result = new Set<string>();
+  const path = item.itemPhotoStoragePath;
+  if (typeof path === "string" && path.trim()) {
+    const bucket = storage?.app.options.storageBucket;
+    if (!bucket || path.includes("://") || path.startsWith("/")) return result;
+    result.add(`object:${bucket}/${path}`);
+  }
+  for (const value of [item.itemPhotoUri, item.itemPhotoDownloadUrl]) {
+    if (value == null || value === "") continue;
+    if (typeof value !== "string") return new Set();
+    // Local copies cannot establish cloud ownership, but may accompany a cloud reference.
+    if (/^(file:|content:)/.test(value)) continue;
+    try {
+      const url = new URL(value);
+      const match = url.protocol === "https:" && url.hostname === "firebasestorage.googleapis.com"
+        ? url.pathname.match(/^\/v0\/b\/([^/]+)\/o\/(.+)$/) : null;
+      if (!match) return new Set();
+      result.add(`object:${decodeURIComponent(match[1])}/${decodeURIComponent(match[2])}`);
+    } catch { return new Set(); }
+  }
+  // Conflicting fields are not a reliable canonical identity.
+  return result.size === 1 ? result : new Set();
+}
+
+/** Trash-only, online-only deletion. Phase 4A intentionally never deletes photo files. */
+export async function permanentlyDeleteDeletedItem(itemId: string): Promise<{
+  itemDeleted: true;
+  cacheUpdated: boolean;
+  photoCleanup: "complete" | "retained_shared" | "retained_unverified";
+}> {
+  const uid = auth.currentUser?.uid;
+  if (!uid) throw new PermanentDeleteItemError("UNAUTHENTICATED");
+  if (typeof itemId !== "string" || !itemId.trim() || itemId !== itemId.trim() ||
+    itemId.includes("/") || itemId === "." || itemId === ".." || itemId.startsWith("offline-")) {
+    throw new PermanentDeleteItemError("INVALID_ITEM_ID");
+  }
+  const assertAccount = () => {
+    if (auth.currentUser?.uid !== uid) throw new PermanentDeleteItemError("UNAUTHENTICATED");
+  };
+  const assertNoPending = async () => {
+    const pending = await getOfflineQueue();
+    if (pending.some(op => op.userId === uid && ["createItem", "updateInventoryItem", "deleteInventoryItem"].includes(op.type))) {
+      throw new PermanentDeleteItemError("SYNC_REQUIRED");
+    }
+  };
+  const network = await NetInfo.fetch();
+  if (network.isConnected !== true || network.isInternetReachable !== true) throw new PermanentDeleteItemError("CONNECT_REQUIRED");
+  await assertNoPending();
+  assertAccount();
+  // Raw server records include both active and Trash items, with no recovery or cache fallback.
+  const inventory = await getDocsFromServer(collection(db, "users", uid, "inventoryItems"));
+  const target = doc(db, "users", uid, "inventoryItems", itemId);
+  const deleted = await runTransaction(db, async transaction => {
+    assertAccount();
+    const snapshot = await transaction.get(target);
+    if (!snapshot.exists()) throw new PermanentDeleteItemError("ITEM_NOT_FOUND");
+    const item = snapshot.data() as Item;
+    if (item.isDeleted !== true) throw new PermanentDeleteItemError("NOT_DELETED");
+    await assertNoPending();
+    assertAccount();
+    transaction.delete(target);
+    return item;
+  });
+  const references = inventoryPhotoReferences(deleted);
+  const shared = inventory.docs.some(snapshot => snapshot.id !== itemId &&
+    [...inventoryPhotoReferences(snapshot.data() as Item)].some(value => references.has(value)));
+  const hasPhoto = [deleted.itemPhotoUri, deleted.itemPhotoStoragePath, deleted.itemPhotoDownloadUrl]
+    .some(value => value != null && value !== "");
+  const photoCleanup = shared ? "retained_shared" : hasPhoto ? "retained_unverified" : "complete";
+  try {
+    const cached = (await getCachedInventoryItems(uid)) as Item[];
+    await cacheInventoryItems(uid, cached.filter(item => item.id !== itemId));
+    return { itemDeleted: true, cacheUpdated: true, photoCleanup };
+  } catch (error) {
+    console.warn("Inventory permanently deleted on server; local cache refresh failed.", error);
+    return { itemDeleted: true, cacheUpdated: false, photoCleanup };
   }
 }
 

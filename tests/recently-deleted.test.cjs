@@ -288,3 +288,65 @@ test('stale selection clears and reloads; network failure preserves selected IDs
     }
   }
 });
+
+async function deletionHarness(remove = async () => ({ itemDeleted: true, cacheUpdated: true, photoCleanup: 'retained_unverified' }), restore) {
+  const calls = [];
+  const h = harness(async () => ({ isConnected: true, isInternetReachable: true }), restore,
+    { permanentlyDeleteDeletedItem: async id => { calls.push(id); return remove(id); } });
+  h.render(); h.read(async () => [row('item', null)]); h.focus(); await tick();
+  return { ...h, deleteCalls: calls,
+    deleteButton: () => nodes(h.render()).find(n => n.type === 'Pressable' && text(n) === 'Delete Permanently'),
+    restoreButton: () => nodes(h.render()).find(n => n.type === 'Button' && text(n) === 'Restore'),
+  };
+}
+test('permanent deletion exposes compact action and requires destructive confirmation; Cancel does nothing', async () => {
+  const h = await deletionHarness(); assert.ok(h.restoreButton());
+  const button = h.deleteButton(); assert.equal(button.props.style.minHeight, 44); assert.equal(button.props.style.width, undefined);
+  button.props.onPress(); assert.equal(h.deleteCalls.length, 0);
+  const [title, message, buttons] = h.alerts[0];
+  assert.equal(title, 'Delete Permanently?'); assert.equal(message, 'Permanently delete this item? This cannot be undone.');
+  assert.equal(buttons[0].style, 'cancel'); assert.equal(buttons[0].onPress, undefined); assert.equal(buttons[1].style, 'destructive');
+  assert.equal(h.deleteCalls.length, 0);
+});
+for (const photoCleanup of ['complete', 'retained_shared', 'retained_unverified']) test(`confirmed deletion refreshes and treats ${photoCleanup} as success`, async () => {
+  const h = await deletionHarness(async () => ({ itemDeleted: true, cacheUpdated: true, photoCleanup }));
+  h.deleteButton().props.onPress(); h.alerts[0][2][1].onPress(); await tick();
+  assert.deepEqual(h.deleteCalls, ['item']); assert.equal(h.alerts[1][0], 'Item permanently deleted');
+  assert.equal(nodes(h.render()).filter(n => n.type === 'Card' && n.props.key === 'item').length, 0);
+  h.read(async () => []); h.focus(); await tick(); assert.equal(h.calls(), 2);
+});
+test('delete lock synchronously blocks repeated confirmation and Restore; both actions disabled', async () => {
+  let done, restores = 0;
+  const h = await deletionHarness(() => new Promise(resolve => { done = resolve; }), async () => { restores++; });
+  const restore = h.restoreButton(); h.deleteButton().props.onPress();
+  const confirm = h.alerts[0][2][1].onPress; confirm(); confirm(); restore.props.onPress();
+  assert.equal(h.deleteCalls.length, 1); assert.equal(restores, 0);
+  assert.equal(h.restoreButton().props.disabled, true);
+  const deleting = nodes(h.render()).find(n => n.type === 'Pressable' && text(n) === 'Deleting…'); assert.equal(deleting.props.disabled, true);
+  done({ itemDeleted: true, cacheUpdated: true, photoCleanup: 'retained_unverified' }); await tick();
+});
+test('Restore lock blocks an already-open delete confirmation', async () => {
+  let done;
+  const h = await deletionHarness(undefined, () => new Promise(resolve => { done = resolve; }));
+  h.deleteButton().props.onPress(); h.restoreButton().props.onPress(); h.alerts[0][2][1].onPress();
+  assert.equal(h.deleteCalls.length, 0); assert.equal(h.deleteButton().props.disabled, true);
+  done({ cacheUpdated: true }); await tick();
+});
+for (const [code, message] of [
+  ['CONNECT_REQUIRED', 'Connect to permanently delete an item.'],
+  ['SYNC_REQUIRED', 'Let pending inventory changes finish syncing, then try again.'],
+  ['ITEM_NOT_FOUND', 'This item is no longer available. Reload Recently Deleted.'],
+  ['NOT_DELETED', 'This item is active and cannot be deleted here. Reload Recently Deleted.'],
+  ['UNAUTHENTICATED', 'Sign in again to permanently delete this item.'],
+  ['INVALID_ITEM_ID', 'This item cannot be deleted here. Reload Recently Deleted.'],
+]) test(`permanent deletion maps ${code} and retains failed card`, async () => {
+  const h = await deletionHarness(async () => { throw { code }; });
+  h.deleteButton().props.onPress(); h.alerts[0][2][1].onPress(); await tick();
+  assert.equal(h.alerts[1][0], 'Delete unavailable'); assert.equal(h.alerts[1][1], message);
+  assert.ok(nodes(h.render()).find(n => n.type === 'Card' && n.props.key === 'item')); assert.equal(h.deleteButton().props.disabled, false);
+});
+test('cache failure after document deletion is a success with refresh guidance', async () => {
+  const h = await deletionHarness(async () => ({ itemDeleted: true, cacheUpdated: false, photoCleanup: 'retained_unverified' }));
+  h.deleteButton().props.onPress(); h.alerts[0][2][1].onPress(); await tick();
+  assert.equal(h.alerts[1][0], 'Item permanently deleted'); assert.match(h.alerts[1][1], /Local data could not refresh/);
+});
