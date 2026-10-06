@@ -9,6 +9,10 @@ import { SyncProvider } from "../components/sync/SyncProvider";
 import AppLockGate from "../components/security/AppLockGate";
 import { setHapticsEnabled } from "../lib/haptics";
 import { getProfileSettings } from "../lib/settingsService";
+import { getAvailability } from "../lib/appleGearRecognizer";
+
+// Temporary Phase 1A probe; once per JS module load, including Strict Mode remounts.
+let appleAvailabilityProbeStarted = false;
 
 
 function routeFromAppIntentUrl(url: string): string | Record<string, unknown> | null {
@@ -120,6 +124,14 @@ function RootLayoutInner() {
 }
 
 export default function RootLayout() {
+  useEffect(() => {
+    if (!__DEV__ || appleAvailabilityProbeStarted) return;
+    appleAvailabilityProbeStarted = true;
+    void getAvailability().then((result) => {
+      console.log("APPLE GEAR AVAILABILITY PROBE:", JSON.stringify(result));
+    });
+  }, []);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthProvider>

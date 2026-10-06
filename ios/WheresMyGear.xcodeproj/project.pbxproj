@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		D27000000000000000000001 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = D27000000000000000000002 /* SceneDelegate.swift */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		3C8F8F0F563724E5B9B24C9B /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55707E6463C2283BA7F6F554 /* ExpoModulesProvider.swift */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
@@ -18,6 +19,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		D27000000000000000000002 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SceneDelegate.swift; path = WheresMyGear/SceneDelegate.swift; sourceTree = "<group>"; };
 		07C7D681C16C99E3BD9E3C7F /* Pods-WheresMyGear.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-WheresMyGear.debug.xcconfig"; path = "Target Support Files/Pods-WheresMyGear/Pods-WheresMyGear.debug.xcconfig"; sourceTree = "<group>"; };
 		0B7027B6A39A1DE9BC604C1B /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = WheresMyGear/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* WheresMyGear.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WheresMyGear.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -50,6 +52,7 @@
 			isa = PBXGroup;
 			children = (
 				F11748412D0307B40044C1D9 /* AppDelegate.swift */,
+				D27000000000000000000002 /* SceneDelegate.swift */,
 				A1B2C3D4E5F60718293A4B5D /* AppIntents.swift */,
 				F11748442D0722820044C1D9 /* WheresMyGear-Bridging-Header.h */,
 				BB2F792B24A3F905000567C9 /* Supporting */,
@@ -370,6 +373,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
+				D27000000000000000000001 /* SceneDelegate.swift in Sources */,
 				A1B2C3D4E5F60718293A4B5C /* AppIntents.swift in Sources */,
 				3C8F8F0F563724E5B9B24C9B /* ExpoModulesProvider.swift in Sources */,
 			);

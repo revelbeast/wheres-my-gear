@@ -5,6 +5,7 @@ import ReactAppDependencyProvider
 @UIApplicationMain
 class AppDelegate: ExpoAppDelegate {
   var window: UIWindow?
+  var initialLaunchOptions: [UIApplication.LaunchOptionsKey: Any]?
 
   var reactNativeDelegate: ExpoReactNativeFactoryDelegate?
   var reactNativeFactory: RCTReactNativeFactory?
@@ -24,13 +25,7 @@ class AppDelegate: ExpoAppDelegate {
     reactNativeDelegate = delegate
     reactNativeFactory = factory
 
-#if os(iOS) || os(tvOS)
-    window = UIWindow(frame: UIScreen.main.bounds)
-    factory.startReactNative(
-      withModuleName: "main",
-      in: window,
-      launchOptions: launchOptions)
-#endif
+    initialLaunchOptions = launchOptions
 
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
