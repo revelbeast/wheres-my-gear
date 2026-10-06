@@ -80,3 +80,26 @@ test('unidentified result with null fields remains a successful analysis', async
   const result = { ok: true, identified: false, itemName: null, brand: null, model: null, description: null };
   assert.deepEqual(await recognize(() => ({ recognizeImage: async () => result }))(), result);
 });
+
+test('recognition converts whole-field textual absence markers to null', async () => {
+  for (const marker of ['nil', ' NULL ', 'N/A', 'Unknown', 'none', '']) {
+    const result = { ...success, brand: marker, model: marker, description: marker };
+    assert.deepEqual(await recognize(() => ({ recognizeImage: async () => result }))(),
+      { ...success, itemName: 'Hammer', brand: null, model: null, description: null });
+  }
+});
+test('recognition preserves legitimate text containing absence-marker words', async () => {
+  const result = { ok: true, identified: true, itemName: 'Vanilla bottle',
+    brand: 'None Such', model: 'N/A-42', description: 'Unknown model; visible black handle.' };
+  assert.deepEqual(await recognize(() => ({ recognizeImage: async () => result }))(), result);
+});
+test('absence-marker item names cannot masquerade as identified items', async () => {
+  for (const itemName of ['nil', 'null', 'N/A', 'unknown', 'none']) {
+    const result = { ...success, itemName };
+    assert.deepEqual(await recognize(() => ({ recognizeImage: async () => result }))(),
+      { ok: false, reason: 'invalid_native_response' });
+  }
+  const result = { ...success, identified: false, itemName: 'nil', brand: null, model: null, description: null };
+  assert.deepEqual(await recognize(() => ({ recognizeImage: async () => result }))(),
+    { ...result, itemName: null });
+});

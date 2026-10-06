@@ -64,7 +64,12 @@ export async function recognizeImage(imageUri: string, requestId: string): Promi
         keys.some(key => result[key] !== null && typeof result[key] !== 'string')) {
       return failure('invalid_native_response');
     }
-    const clean = (value: unknown): string | null => typeof value === 'string' ? value.trim() || null : null;
+    const clean = (value: unknown): string | null => {
+      if (typeof value !== 'string') return null;
+      const text = value.trim();
+      // Whole-field markers only: preserve legitimate names/descriptions containing these words.
+      return !text || /^(nil|null|n\/a|unknown|none)$/i.test(text) ? null : text;
+    };
     const itemName = clean(result.itemName);
     if (result.identified && !itemName) return failure('invalid_native_response');
     return { ok: true, identified: result.identified, itemName, brand: clean(result.brand),
