@@ -136,6 +136,51 @@ function ProfileRow({
 }
 
 export default function ProfileScreen() {
+  // Temporary isolated Apple recognition harness; remove after device validation.
+  const appleTestLocked = useRef(false);
+  const [appleTestRunning, setAppleTestRunning] = useState(false);
+  const runAppleRecognitionTest = async () => {
+    if (!__DEV__ || Platform.OS !== "ios" || appleTestLocked.current) return;
+    appleTestLocked.current = true;
+    setAppleTestRunning(true);
+    let testPhoto: string | null = null;
+    try {
+      const ImagePicker = await import("expo-image-picker");
+      const Crypto = await import("expo-crypto");
+      const { recognizeImage } = await import("../../../lib/appleGearRecognizer");
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert("Apple recognition test", "Camera permission is required.");
+        return;
+      }
+      const capture = await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: 0.55 });
+      if (capture.canceled) return;
+      const imageUri = capture.assets[0]?.uri;
+      if (!imageUri) throw new Error("Camera returned no photo.");
+      testPhoto = imageUri;
+      const requestId = Crypto.randomUUID();
+      console.log("APPLE GEAR RECOGNITION TEST START:", JSON.stringify({ requestId, imageUri }));
+      const start = Date.now();
+      const result = await recognizeImage(imageUri, requestId);
+      console.log("APPLE GEAR RECOGNITION TEST RESULT:", JSON.stringify(result));
+      console.log("APPLE GEAR RECOGNITION TEST ELAPSED_MS:", Date.now() - start);
+      Alert.alert("Apple recognition test", result.ok
+        ? `Identified: ${result.identified}\nItem Name: ${result.itemName ?? "—"}\nBrand: ${result.brand ?? "—"}\nModel: ${result.model ?? "—"}\nDescription: ${result.description ?? "—"}`
+        : `Reason: ${result.reason}\nMessage: ${result.message ?? "—"}`);
+    } catch (error) {
+      const result = { ok: false, reason: "test_harness_failed", message: error instanceof Error ? error.message : "Unknown error" };
+      console.log("APPLE GEAR RECOGNITION TEST RESULT:", JSON.stringify(result));
+      Alert.alert("Apple recognition test", `Reason: ${result.reason}\nMessage: ${result.message}`);
+    } finally {
+      // Only the new camera-cache photo owned by this test is eligible for cleanup.
+      if (testPhoto && FileSystem.cacheDirectory && testPhoto.startsWith(FileSystem.cacheDirectory)) {
+        await FileSystem.deleteAsync(testPhoto, { idempotent: true }).catch(() => {});
+      }
+      appleTestLocked.current = false;
+      setAppleTestRunning(false);
+    }
+  };
+
   const { user, initializing, signOutUser } = useAuth();
   const theme = useThemedValues();
   const { isTablet, isLandscape } = useDeviceLayout();
@@ -1132,6 +1177,16 @@ export default function ProfileScreen() {
           ]}
           showsVerticalScrollIndicator={false}
         >
+          {__DEV__ && Platform.OS === "ios" && (
+            <HapticPressable
+              onPress={runAppleRecognitionTest}
+              disabled={appleTestRunning}
+              accessibilityRole="button"
+              style={{ padding: 12, minHeight: 44 }}
+            >
+              <ThemedText>{appleTestRunning ? "Apple recognition test running…" : "DEV: Test Apple gear recognition"}</ThemedText>
+            </HapticPressable>
+          )}
           {isTablet && isLandscape ? (
             <>
               <ThemedText
