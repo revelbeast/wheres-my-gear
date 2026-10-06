@@ -103,3 +103,75 @@ test('absence-marker item names cannot masquerade as identified items', async ()
   assert.deepEqual(await recognize(() => ({ recognizeImage: async () => result }))(),
     { ...result, itemName: null });
 });
+
+test('native evidence helper enforces conservative brand matching and failure results', () => {
+  const { execFileSync } = require('node:child_process');
+  const helper = fs.readFileSync('modules/apple-gear-recognizer/ios/AppleGearEvidence.swift', 'utf8');
+  const checks = `
+func evidence(_ text: String, _ confidence: Float = 0.95) -> [AppleGearEvidence.Observation] {
+  [.init(text: text, confidence: confidence)]
+}
+func accepted(_ proposed: String, _ observed: String, _ confidence: Float = 0.95) -> Bool {
+  AppleGearEvidence.acceptedBrand(proposed, observations: evidence(observed, confidence)) != nil
+}
+precondition(accepted("DEWALT", "DEWALT"))
+precondition(accepted("DeWalt", "dewalt"))
+precondition(accepted(" Invisible  Glass ", "\\nInvisible\\tGlass  "))
+precondition(!accepted("CARPEZETOCH", "EBERLESTOCK"))
+precondition(!accepted("MARKLE & CO", "EBERLESTOCK"))
+precondition(!accepted("DEWALT", "DEWALT TOOLS"))
+precondition(!accepted("DEWALT TOOLS", "DEWALT"))
+precondition(!accepted("MARKLE & CO", "MARKLE CO"))
+precondition(!accepted("DEWALT", "DEWALT", 0.89))
+precondition(accepted("DEWALT", "DEWALT", AppleGearEvidence.minimumBrandOCRConfidence))
+precondition(!accepted("DEWALT", "DEWALT", .nan))
+precondition(!accepted("DEWALT", "DEWALT", .infinity))
+precondition(!accepted("DEWALT", "DEWALT", 1.1))
+precondition(!accepted("  ", " "))
+precondition(accepted("Café", "Cafe\\u{301}"))
+precondition(!accepted("Café", "Cafe"))
+precondition(accepted("工具", "工具"))
+precondition(!accepted("工具", "工"))
+precondition(AppleGearEvidence.acceptedBrand("DEWALT", observations: []) == nil)
+precondition(AppleGearEvidence.acceptedBrand(nil, observations: evidence("DEWALT")) == nil)
+precondition(AppleGearEvidence.acceptedBrand("Invisible Glass",
+  observations: [.init(text: "Invisible", confidence: 1), .init(text: "Glass", confidence: 1)]) == nil)
+for observations: [AppleGearEvidence.Observation]? in [nil, [], evidence("DEWALT")] {
+  let result = AppleGearEvidence.result(identified: true, itemName: "impact driver",
+    proposedBrand: "DEWALT", description: "yellow impact driver", observations: observations)
+  precondition(result["ok"] as? Bool == true)
+  precondition(result["identified"] as? Bool == true)
+  precondition(result["itemName"] as? String == "impact driver")
+  precondition(result["description"] as? String == "yellow impact driver")
+  precondition(result["model"] is NSNull)
+  if observations?.isEmpty != false { precondition(result["brand"] is NSNull) }
+  else { precondition(result["brand"] as? String == "DEWALT") }
+}
+print("Native evidence assertions passed")
+`;
+  const output = execFileSync('xcrun', ['swift', '-'], {
+    input: helper + checks, encoding: 'utf8', timeout: 120000,
+  });
+  assert.match(output, /Native evidence assertions passed/);
+});
+
+test('OCR-filtered success preserves useful recognition fields through the JS wrapper', async () => {
+  const result = { ok: true, identified: true, itemName: 'sling bag',
+    brand: null, model: null, description: 'green bag with a black zipper' };
+  assert.deepEqual(await recognize(() => ({ recognizeImage: async () => result }))(), result);
+});
+
+test('native wiring uses one independent OCR pass after generation and suppresses model output', () => {
+  const source = fs.readFileSync('modules/apple-gear-recognizer/ios/AppleGearRecognizerModule.swift', 'utf8');
+  assert.equal((source.match(/session\.respond\(/g) || []).length, 1);
+  assert.equal((source.match(/handler\.perform\(\[request\]\)/g) || []).length, 1);
+  assert.ok(source.indexOf('await recognizeText(') > source.indexOf('session.respond('));
+  assert.match(source, /request\.recognitionLevel = \.accurate/);
+  assert.match(source, /request\.usesLanguageCorrection = false/);
+  assert.match(source, /topCandidates\(1\)/);
+  assert.match(source, /VNImageRequestHandler\(url: url, orientation: orientation/);
+  assert.match(source, /continuation\.resume\(returning: nil\)/);
+  assert.doesNotMatch(source, /request\.customWords\s*=/);
+  assert.doesNotMatch(source, /clean\(result\.model\)/);
+  assert.match(source, /return output/);
+});

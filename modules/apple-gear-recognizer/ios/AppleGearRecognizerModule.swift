@@ -1,6 +1,7 @@
 import ExpoModulesCore
 import FoundationModels
 import ImageIO
+import Vision
 
 public final class AppleGearRecognizerModule: Module {
   public func definition() -> ModuleDefinition {
@@ -126,11 +127,29 @@ extension AppleGearRecognizerModule {
       }
       let name = clean(result.itemName)
       guard !result.identified || name != nil else { return failure("invalid_model_output") }
-      return ["ok": true, "identified": result.identified,
-              "itemName": name as Any? ?? NSNull(),
-              "brand": clean(result.brand) as Any? ?? NSNull(),
-              "model": clean(result.model) as Any? ?? NSNull(),
-              "description": clean(result.description) as Any? ?? NSNull()]
+      let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
+      let orientationValue = (properties?[kCGImagePropertyOrientation] as? NSNumber)?.uint32Value ?? 1
+      let orientation = CGImagePropertyOrientation(rawValue: orientationValue) ?? .up
+      let ocrStart = ProcessInfo.processInfo.systemUptime
+      let observations = await recognizeText(at: url, orientation: orientation)
+      try Task.checkCancellation()
+      let output = AppleGearEvidence.result(
+        identified: result.identified, itemName: name, proposedBrand: clean(result.brand),
+        description: clean(result.description), observations: observations
+      )
+      #if DEBUG
+      let exactMatch = observations?.contains {
+        AppleGearEvidence.normalized($0.text) == AppleGearEvidence.normalized(result.brand ?? "")
+      } ?? false
+      print("APPLE GEAR OCR EVIDENCE:", [
+        "proposedBrand": clean(result.brand) as Any? ?? NSNull(),
+        "exactTextMatch": exactMatch,
+        "acceptedBrand": output["brand"] ?? NSNull(),
+        "ocrFailed": observations == nil,
+        "ocrElapsedMs": Int((ProcessInfo.processInfo.systemUptime - ocrStart) * 1000)
+      ])
+      #endif
+      return output
     } catch is CancellationError {
       return failure("cancelled")
     } catch let error as SystemLanguageModel.Error {
@@ -153,6 +172,33 @@ extension AppleGearRecognizerModule {
       }
     } catch {
       return failure("recognition_failed")
+    }
+  }
+}
+
+extension AppleGearRecognizerModule {
+  private func recognizeText(at url: URL, orientation: CGImagePropertyOrientation) async
+    -> [AppleGearEvidence.Observation]? {
+    await withCheckedContinuation { continuation in
+      DispatchQueue.global(qos: .userInitiated).async {
+        do {
+          let request = VNRecognizeTextRequest()
+          request.recognitionLevel = .accurate
+          request.usesLanguageCorrection = false
+          // Independent evidence: never seed customWords with the generated brand.
+          request.recognitionLanguages = ["en-US"]
+          let handler = VNImageRequestHandler(url: url, orientation: orientation, options: [:])
+          try handler.perform([request])
+          let observations = (request.results ?? []).compactMap { observation -> AppleGearEvidence.Observation? in
+            guard let candidate = observation.topCandidates(1).first else { return nil }
+            return AppleGearEvidence.Observation(text: candidate.string, confidence: candidate.confidence)
+          }
+          continuation.resume(returning: observations)
+        } catch {
+          // OCR failure must not discard a successful Foundation Models analysis.
+          continuation.resume(returning: nil)
+        }
+      }
     }
   }
 }
