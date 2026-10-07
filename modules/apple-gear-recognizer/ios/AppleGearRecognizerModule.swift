@@ -4,14 +4,28 @@ import ImageIO
 import Vision
 
 public final class AppleGearRecognizerModule: Module {
+  private let requests = AppleGearRequestCoordinator()
+
+  deinit { requests.shutdown() }
+
   public func definition() -> ModuleDefinition {
     Name("AppleGearRecognizer")
+
+    OnDestroy { self.requests.shutdown() }
+    OnAppContextDestroys { self.requests.shutdown() }
+
+    AsyncFunction("cancelRecognition") { (requestId: String) in
+      self.requests.cancel(requestId)
+    }
 
     AsyncFunction("recognizeImage") { (imageUri: String, requestId: String) async -> [String: Any] in
       guard #available(iOS 27.0, *) else {
         return ["ok": false, "reason": "ios_27_required"]
       }
-      return await self.recognize(imageUri: imageUri, requestId: requestId)
+      let result = await self.requests.run(id: requestId) { context in
+        await self.recognize(imageUri: imageUri, requestId: requestId, context: context)
+      }
+      return result.dictionary
     }
 
     AsyncFunction("getAvailability") { () -> [String: Any] in
@@ -65,8 +79,9 @@ private struct GearRecognition {
 
 extension AppleGearRecognizerModule {
   @available(iOS 27.0, *)
-  private func recognize(imageUri: String, requestId: String) async -> [String: Any] {
-    func failure(_ reason: String) -> [String: Any] { ["ok": false, "reason": reason] }
+  private func recognize(imageUri: String, requestId: String,
+                         context: AppleGearRequestContext) async -> AppleGearRequestResult {
+    func failure(_ reason: String) -> AppleGearRequestResult { .failure(reason) }
     guard !requestId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
       return failure("invalid_request_id")
     }
@@ -83,7 +98,7 @@ extension AppleGearRecognizerModule {
       return failure("invalid_image_uri")
     }
     do {
-      try Task.checkCancellation()
+      try context.checkCancellation()
       let session = LanguageModelSession(model: SystemLanguageModel.default, instructions: """
         Identify the primary physical item in the photo for an inventory app.
         Separate the primary item from attached batteries, cases, cables, and other accessories.
@@ -113,13 +128,14 @@ extension AppleGearRecognizerModule {
         "Identify this primary gear item using only what the photo supports."
         Attachment(imageURL: url)
       }
+      try context.checkCancellation()
       let response = try await session.respond(
         to: prompt, generating: GearRecognition.self,
         options: GenerationOptions(maximumResponseTokens: 256),
         contextOptions: ContextOptions(includeSchemaInPrompt: true),
         metadata: ["requestId": requestId]
       )
-      try Task.checkCancellation()
+      try context.checkCancellation()
       let result = response.content
       func clean(_ value: String?) -> String? {
         guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else { return nil }
@@ -131,8 +147,9 @@ extension AppleGearRecognizerModule {
       let orientationValue = (properties?[kCGImagePropertyOrientation] as? NSNumber)?.uint32Value ?? 1
       let orientation = CGImagePropertyOrientation(rawValue: orientationValue) ?? .up
       let ocrStart = ProcessInfo.processInfo.systemUptime
-      let observations = await recognizeText(at: url, orientation: orientation)
-      try Task.checkCancellation()
+      try context.checkCancellation()
+      let observations = await recognizeText(at: url, orientation: orientation, context: context)
+      try context.checkCancellation()
       let output = AppleGearEvidence.result(
         identified: result.identified, itemName: name, proposedBrand: clean(result.brand),
         description: clean(result.description), observations: observations
@@ -149,7 +166,9 @@ extension AppleGearRecognizerModule {
         "ocrElapsedMs": Int((ProcessInfo.processInfo.systemUptime - ocrStart) * 1000)
       ])
       #endif
-      return output
+      try context.checkCancellation()
+      return AppleGearRequestResult(reason: nil, identified: result.identified,
+        itemName: name, brand: output["brand"] as? String, description: clean(result.description))
     } catch is CancellationError {
       return failure("cancelled")
     } catch let error as SystemLanguageModel.Error {
@@ -177,18 +196,24 @@ extension AppleGearRecognizerModule {
 }
 
 extension AppleGearRecognizerModule {
-  private func recognizeText(at url: URL, orientation: CGImagePropertyOrientation) async
+  private func recognizeText(at url: URL, orientation: CGImagePropertyOrientation,
+                             context: AppleGearRequestContext) async
     -> [AppleGearEvidence.Observation]? {
     await withCheckedContinuation { continuation in
       DispatchQueue.global(qos: .userInitiated).async {
         do {
+          try context.checkCancellation()
           let request = VNRecognizeTextRequest()
           request.recognitionLevel = .accurate
           request.usesLanguageCorrection = false
           // Independent evidence: never seed customWords with the generated brand.
           request.recognitionLanguages = ["en-US"]
           let handler = VNImageRequestHandler(url: url, orientation: orientation, options: [:])
+          guard context.beginVision(cancel: { request.cancel() }) else { throw CancellationError() }
+          defer { context.endVision() }
+          try context.checkCancellation()
           try handler.perform([request])
+          try context.checkCancellation()
           let observations = (request.results ?? []).compactMap { observation -> AppleGearEvidence.Observation? in
             guard let candidate = observation.topCandidates(1).first else { return nil }
             return AppleGearEvidence.Observation(text: candidate.string, confidence: candidate.confidence)

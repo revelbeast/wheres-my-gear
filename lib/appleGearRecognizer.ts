@@ -9,6 +9,7 @@ export type AppleGearAvailability = {
 
 type NativeRecognizer = {
   getAvailability(): Promise<unknown>;
+  cancelRecognition?(requestId: string): Promise<unknown>;
   recognizeImage(imageUri: string, requestId: string): Promise<unknown>;
 };
 const unavailable = (reason: string): AppleGearAvailability => ({
@@ -76,5 +77,17 @@ export async function recognizeImage(imageUri: string, requestId: string): Promi
       model: clean(result.model), description: clean(result.description) };
   } catch {
     return failure('native_recognition_failed');
+  }
+}
+
+// Acknowledgement only. The original recognizeImage Promise remains the settlement barrier.
+export async function cancelRecognition(requestId: string): Promise<void> {
+  if (typeof requestId !== 'string' || !requestId.trim() || requestId.length > 128) return;
+  try {
+    const native = requireOptionalNativeModule<NativeRecognizer>('AppleGearRecognizer');
+    if (typeof native?.cancelRecognition === 'function') await native.cancelRecognition(requestId);
+  } catch {
+    // Missing/older native modules and harmless cancellation failures must not crash callers.
+    // This does not establish settlement: callers must still observe recognizeImage.
   }
 }
