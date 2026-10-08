@@ -5,7 +5,7 @@ import {
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import * as Crypto from "expo-crypto";
 import * as FileSystem from "expo-file-system/legacy";
-import { Alert } from "react-native";
+import { Alert, AppState, Platform } from "react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Dimensions, StyleSheet, Text, View } from "react-native";
 import { useAuth } from "../components/auth/AuthProvider";
@@ -15,6 +15,22 @@ import { resolveBarcode } from "../lib/barcodeResolver";
 import { getCompartmentById, getItemsByCompartment, getRoomById, getStorageSpaceById } from "../lib/gearService";
 
 import { isOwnedBarcodePhoto, selectBarcodePhoto } from "../lib/barcodePhoto";
+
+import { recognizeScanPhoto, type ScanAiResult } from "../lib/scanAiRecognition";
+import { cancelRecognition } from "../lib/appleGearRecognizer";
+
+type AiScanAttempt = {
+  requestId: string;
+  active: boolean;
+  photoUri: string | null;
+  appleStarted: boolean;
+  appleSettled: boolean;
+  awsController: AbortController | null;
+  navigationStarted: boolean;
+  transferred: boolean;
+  cleaned: boolean;
+  completed: boolean;
+};
 
 export default function ScanItemScreen() {
   const { mode } = useLocalSearchParams();
@@ -32,21 +48,48 @@ export default function ScanItemScreen() {
   };
   const autoAiScanStartedRef = React.useRef(false);
   const autoAiTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  const aiRequestRef = React.useRef<AbortController | null>(null);
-  const aiPhotoRef = React.useRef<string | null>(null);
+  const appStateRef = React.useRef(AppState.currentState);
+  const currentAttemptRef = React.useRef<AiScanAttempt | null>(null);
   const aiCaptureLockedRef = React.useRef(false);
   const aiReviewOpenedRef = React.useRef(false);
   const [cameraReady, setCameraReady] = useState(false);
 
-  const discardTemporaryAiPhoto = () => {
-    const uri = aiPhotoRef.current;
-    aiPhotoRef.current = null;
-    if (uri) {
-      void FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => {
-        // A cache file can be reclaimed by the OS if immediate cleanup fails.
-      });
-    }
+  const cleanupAiPhoto = (attempt: AiScanAttempt) => {
+    if (attempt.transferred || attempt.cleaned || !attempt.photoUri ||
+        (attempt.appleStarted && !attempt.appleSettled)) return;
+    const uri = attempt.photoUri;
+    attempt.cleaned = true;
+    attempt.photoUri = null;
+    void FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => {});
   };
+  const invalidateAiAttempt = () => {
+    const attempt = currentAttemptRef.current;
+    if (!attempt || !attempt.active) return;
+    attempt.active = false;
+    if (attempt.appleStarted && !attempt.appleSettled) void cancelRecognition(attempt.requestId);
+    attempt.awsController?.abort();
+    // Pending capture/recognition retains ownership until its original operation ends.
+    if (attempt.completed) cleanupAiPhoto(attempt);
+  };
+  const discardTemporaryAiPhoto = () => {
+    invalidateAiAttempt();
+  };
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      appStateRef.current = state;
+      if (state !== "active") {
+        if (isAiMode) autoAiScanStartedRef.current = true;
+        if (autoAiTimerRef.current) {
+          clearTimeout(autoAiTimerRef.current);
+          autoAiTimerRef.current = null;
+        }
+        invalidateAiAttempt();
+      }
+      // Foregrounding never reactivates an interrupted attempt or rearms capture.
+    });
+    return () => subscription.remove();
+  }, [isAiMode]);
+
   const { user } = useAuth();
   const [hasPremiumPlusAccess, setHasPremiumPlusAccess] = useState(false);
   const [checkingPremiumPlusAccess, setCheckingPremiumPlusAccess] = useState(true);
@@ -135,118 +178,85 @@ export default function ScanItemScreen() {
     };
   };
 
+  const openAiReview = (attempt: AiScanAttempt, result: ScanAiResult) => {
+    if (appStateRef.current !== "active" || currentAttemptRef.current !== attempt || !attempt.active || attempt.navigationStarted) return;
+    attempt.navigationStarted = true;
+    aiReviewOpenedRef.current = true;
+    attempt.transferred = true;
+    try {
+      router.replace({ pathname: "/scan-result", params: {
+        scanId: attempt.requestId, code: attempt.requestId, found: String(result.found),
+        suggestedName: result.suggestedName, source: result.source, brand: result.brand,
+        image: result.image, description: result.description,
+        matchConfidence: result.matchConfidence, matchStatus: result.matchStatus,
+      } });
+    } catch (error) {
+      attempt.transferred = false;
+      if (currentAttemptRef.current === attempt) aiReviewOpenedRef.current = false;
+      cleanupAiPhoto(attempt);
+      throw error;
+    }
+  };
+
   const handleAnalyzeImageWithAI = async () => {
     if (isScanning || aiCaptureLockedRef.current || aiReviewOpenedRef.current) return;
-    if (!cameraRef.current || !cameraActive || !cameraReady) return;
+    if (appStateRef.current !== "active" || !scanSessionRef.current.active || !cameraRef.current || !cameraActive || !cameraReady) return;
 
     aiCaptureLockedRef.current = true;
     autoAiScanStartedRef.current = true;
     if (autoAiTimerRef.current) clearTimeout(autoAiTimerRef.current);
-    const controller = new AbortController();
-    aiRequestRef.current = controller;
-    let timeout: ReturnType<typeof setTimeout> | undefined;
-
+    discardTemporaryAiPhoto();
+    const attempt: AiScanAttempt = {
+      requestId: `ai-${Crypto.randomUUID()}`, active: true, photoUri: null,
+      appleStarted: false, appleSettled: false, awsController: null,
+      navigationStarted: false, transferred: false, cleaned: false, completed: false,
+    };
+    currentAttemptRef.current = attempt;
+    const isActive = () => appStateRef.current === "active" && currentAttemptRef.current === attempt && attempt.active;
+    let overlayOwnsPhoto = false;
     try {
       setIsScanning(true);
-      discardTemporaryAiPhoto();
-
       const photo = await cameraRef.current.takePictureAsync({
         base64: true,
         quality: 0.55,
         skipProcessing: true,
       });
-      aiPhotoRef.current = photo?.uri ?? null;
-      if (controller.signal.aborted || !scanSessionRef.current.active) return;
-
-      if (!photo?.base64 || !photo.uri) {
-        Alert.alert("AI Scan Failed", "Could not capture an image for AI analysis.");
-        discardTemporaryAiPhoto();
-        return;
-      }
-
-      timeout = setTimeout(() => controller.abort(), 35000);
-      const response = await fetch(
-        "https://us-central1-wheres-my-gear-ab7a7.cloudfunctions.net/analyzeGearImageWithRekognition",
-        {
-          method: "POST",
-          signal: controller.signal,
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            imageBase64: photo.base64,
-          }),
-        }
-      );
-
-      if (!response.ok) throw new Error("AI request failed");
-      const result = await response.json();
-      if (controller.signal.aborted || !scanSessionRef.current.active) return;
-      if (result?.error || !result?.found || typeof result.title !== "string" || !result.title.trim()) {
-        throw new Error("No usable AI result");
-      }
-
-      const aiResult = {
-        type: "ai",
-        code: `ai-${Crypto.randomUUID()}`,
-        found: !!result.found,
-        suggestedName: result.title,
-        source: "AWS Rekognition",
-        brand: result?.brand ?? "",
-        image: photo.uri,
-        description: result?.description ?? "",
-        matchConfidence: result?.confidence != null ? String(result.confidence) : "",
-        matchStatus: "possible",
-      };
+      attempt.photoUri = photo?.uri ?? null;
+      if (!isActive()) return;
+      if (!photo?.uri) throw new Error("Could not capture image");
+      const result = await recognizeScanPhoto({
+        platform: Platform.OS, photo, requestId: attempt.requestId, isActive,
+        appleStarted: () => { attempt.appleStarted = true; },
+        appleSettled: () => { attempt.appleSettled = true; },
+        awsStarted: (controller) => { attempt.awsController = controller; },
+      });
+      if (!isActive() || !result) return;
+      const aiResult = { type: "ai", code: attempt.requestId, ...result };
       if (isAiMode) {
-        // Commit the handoff before navigation can blur/unmount the camera.
-        aiReviewOpenedRef.current = true;
-        aiPhotoRef.current = null;
-        try {
-          router.replace({
-            pathname: "/scan-result",
-            params: {
-              scanId: aiResult.code,
-              code: aiResult.code,
-              found: String(aiResult.found),
-              suggestedName: aiResult.suggestedName,
-              source: aiResult.source,
-              brand: aiResult.brand,
-              image: aiResult.image,
-              description: aiResult.description,
-              matchConfidence: aiResult.matchConfidence,
-              matchStatus: aiResult.matchStatus,
-            },
-          });
-        } catch (error) {
-          aiReviewOpenedRef.current = false;
-          aiPhotoRef.current = photo.uri;
-          throw error;
-        }
+        openAiReview(attempt, result);
         return;
       }
       setArOverlay(aiResult);
-      // The overlay now owns this photo until it is dismissed or handed to review.
-      return;
+      overlayOwnsPhoto = true;
     } catch {
-      if (scanSessionRef.current.active) {
-        Alert.alert(
-          "AI Scan Failed",
-          "Where's My Gear could not analyze this image. You can still scan a barcode or add the item manually."
-        );
+      if (isActive()) {
+        Alert.alert("AI Scan Failed",
+          "Where's My Gear could not analyze this image. You can still scan a barcode or add the item manually.");
       }
-      discardTemporaryAiPhoto();
     } finally {
-      if (timeout) clearTimeout(timeout);
-      if (controller.signal.aborted || !scanSessionRef.current.active) discardTemporaryAiPhoto();
-      aiRequestRef.current = null;
-      aiCaptureLockedRef.current = false;
-      setIsScanning(false);
+      attempt.completed = true;
+      if (!overlayOwnsPhoto || !isActive()) cleanupAiPhoto(attempt);
+      if (currentAttemptRef.current === attempt) {
+        if (!overlayOwnsPhoto || !attempt.active) currentAttemptRef.current = null;
+        aiCaptureLockedRef.current = false;
+        if (scanSessionRef.current.active) setIsScanning(false);
+      }
     }
   };
 
   useEffect(() => {
     if (!isAiMode) return;
+    if (appStateRef.current !== "active") return;
     if (autoAiScanStartedRef.current) return;
     if (checkingPremiumPlusAccess) return;
     if (!hasPremiumPlusAccess) return;
@@ -351,13 +361,13 @@ export default function ScanItemScreen() {
       setBarcodeProcessing(false);
       setCameraActive(true);
       scanSessionRef.current.active = true;
+      if (isAiMode) setIsScanning(aiCaptureLockedRef.current);
 
       return () => {
         barcodeSessionRef.current += 1;
         discardBarcodePhoto();
         setCameraActive(false);
         scanSessionRef.current.active = false;
-        aiRequestRef.current?.abort();
         if (autoAiTimerRef.current) clearTimeout(autoAiTimerRef.current);
         discardTemporaryAiPhoto();
 
@@ -868,8 +878,16 @@ export default function ScanItemScreen() {
               }
 
               if (arOverlay?.type === "ai") {
-                // Transfer cache-photo ownership before scanner cleanup runs.
-                aiPhotoRef.current = null;
+                const attempt = currentAttemptRef.current;
+                if (attempt) {
+                  try { openAiReview(attempt, arOverlay); }
+                  catch {
+                    if (currentAttemptRef.current === attempt && attempt.active) {
+                      Alert.alert("AI Scan Failed", "Could not open the scan review. Please try again.");
+                    }
+                  }
+                }
+                return;
               }
               router.replace({
                 pathname: "/scan-result",
