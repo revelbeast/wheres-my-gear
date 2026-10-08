@@ -193,3 +193,49 @@ test('push leaves edited review and photo intact across rerender before return',
 });
 
 module.exports = { harness, barcodePhoto, load, identity, matching };
+
+test('root inspection push/pop retains pending edited review, selections and photo until explicit Save', async () => {
+  const { StackRouter, StackActions } = await import('@react-navigation/routers');
+  const route = fs.readFileSync(path.join(root, 'app/duplicate-inspection.tsx'), 'utf8');
+  assert.match(route, /export \{ default \} from "\.\/\(tabs\)\/vehicles\/\[vehicleId\]\/compartments\/\[compartmentId\]"/);
+  const rootLayout = fs.readFileSync(path.join(root, 'app/_layout.tsx'), 'utf8');
+  assert.match(rootLayout, /<Stack/);
+  const header = fs.readFileSync(path.join(root, 'components/ui/AppHeader.tsx'), 'utf8');
+  assert.match(header, /router\.back\(\)/);
+
+  const h = harness({ items: [item('permanent-b', 'Drill')] });
+  await h.settle();
+  await h.edit('Drill');
+  await h.press('Select a storage space first.⌄'); await h.press('Garage');
+  await h.press('Select a compartment first.⌄'); await h.press('Tool Chest');
+  await h.press('View existing item in compartment');
+  const pushed = h.calls.pushes[0];
+  assert.equal(pushed.pathname, '/duplicate-inspection');
+  assert.equal(pushed.params.focusItemId, 'permanent-b');
+  assert.equal(pushed.params.duplicateInspection, 'true');
+  assert.equal(pushed.params.vehicleId, 'garage');
+  assert.equal(pushed.params.compartmentId, 'tools');
+
+  // Exercise the installed navigation router, not a hand-written push/pop model.
+  const router = StackRouter({ initialRouteName: 'scan-result' });
+  const options = { routeNames: ['scan-result', 'duplicate-inspection'], routeParamList: {}, routeGetIdList: {} };
+  const initial = router.getInitialState(options);
+  const reviewKey = initial.routes[0].key;
+  const inspecting = router.getStateForAction(initial,
+    StackActions.push(pushed.pathname.slice(1), pushed.params), options);
+  assert.equal(inspecting.routes[0].key, reviewKey);
+  assert.equal(inspecting.routes[inspecting.index].name, 'duplicate-inspection');
+  const returned = router.getStateForAction(inspecting, { type: 'GO_BACK' }, options);
+  assert.equal(returned.routes[returned.index].key, reviewKey);
+  assert.equal(returned.routes[returned.index].name, 'scan-result');
+  await h.settle();
+  assert.ok(h.nodes().some(n => n.type === 'TextInput' && n.props.value === 'Drill'));
+  assert.match(h.text(), /Garage/); assert.match(h.text(), /Tool Chest/);
+  assert.equal(h.calls.creates.length + h.calls.drafts.length + h.calls.copies.length + h.calls.deletes.length, 0);
+  await h.press('Save');
+  assert.equal(h.calls.creates.length, 1);
+  assert.equal(h.calls.creates[0].name, 'Drill');
+  assert.equal(h.calls.creates[0].vehicleId, 'garage');
+  assert.equal(h.calls.creates[0].compartmentId, 'tools');
+  assert.deepEqual(h.calls.copies, ['file:///cache/Camera/new.jpg']);
+});

@@ -254,7 +254,6 @@ export default function CompartmentDetailScreen() {
     if (!item || typeof y !== "number" || !Number.isFinite(y)) return;
     pendingFocusRef.current = null;
     scrollToItemCard(item.id);
-    if (request.inspection) return;
     const generation = foundGenerationRef.current;
     setFoundItemId(item.id);
     router.setParams({ focusItemId: undefined });

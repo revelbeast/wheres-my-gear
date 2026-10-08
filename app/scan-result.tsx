@@ -521,7 +521,7 @@ export default function ScanResultScreen() {
                               : barcodeSaveLockedRef.current || barcodeSaveCompletedRef.current || !barcodeReviewActiveRef.current || (hasBarcodeFallbackPhoto && barcodeWriteStartedRef.current)) return;
                             // Push, never replace: Back returns to the mounted review and its photo.
                             router.push({
-                              pathname: "/vehicles/[vehicleId]/compartments/[compartmentId]",
+                              pathname: "/duplicate-inspection",
                               params: { vehicleId: match.vehicleId, compartmentId: match.compartmentId, focusItemId: match.id, duplicateInspection: "true" },
                             });
                           }}

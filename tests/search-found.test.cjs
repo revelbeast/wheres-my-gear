@@ -85,9 +85,10 @@ test('compartment change clears pending focus and stale positions', () => {
 test('missing ID never falls back to same-name item; ordinary entry never highlights', () => {
   const h = harness(); h.data(items); h.layout('a', 100); assert.equal(h.found(), null); h.request('missing'); assert.equal(h.found(), null); assert.equal(h.announcements.length, 0);
 });
-test('duplicate inspection still scrolls once but never highlights or announces', () => {
+test('duplicate inspection highlights only the exact ID, consumes focus and expires at 3000ms', () => {
   const h = harness(true); h.data(items); h.layout('b', 500); h.request('b'); h.layout('b', 500); h.advance(180);
-  assert.equal(h.scrolls.length, 1); assert.equal(h.found(), null); assert.equal(h.announcements.length, 0); assert.equal(h.params.length, 0);
+  assert.equal(h.scrolls.length, 1); assert.equal(h.found(), 'b'); assert.equal(h.announcements.length, 1); assert.equal(h.params.length, 1);
+  h.advance(2819); assert.equal(h.found(), 'b'); h.advance(1); assert.equal(h.found(), null);
 });
 test('presentation introduces no additional inventory load or mutation', () => {
   const h = harness(); h.data(items); h.layout('a', 100); h.request('a'); h.advance(3000);
