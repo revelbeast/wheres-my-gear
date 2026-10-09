@@ -59,7 +59,7 @@ test('preview module imports only pure storage options and has no writes; setup 
  assert.match(dashboard.slice(start,end),/return;/);
  assert.doesNotMatch(dashboard.slice(start,end),/await create|addDoc|setDoc/);
  assert.match(dashboard,/Smart Setup preview — not saved/);
- assert.match(dashboard,/Creation is not available yet/);
+ assert.match(dashboard,/onPress=\{requestSetupCreation\}/);
  assert.match(dashboard,/onPress=\{discardSetupPreview\}/);
 });
 test('Assistant has one shared command field before preview and a themed submit pill',()=>{
@@ -113,7 +113,7 @@ test('actual removal and discard handlers wait for confirmation; Cancel changes 
  const s=fs.readFileSync('app/(tabs)/index.tsx','utf8');
  const start=s.indexOf('  function requestSetupRemoval('),end=s.indexOf('  const [assistantText',start);
  let preview=parseSetup(cases[1][0]),undo=null,edited=true,alert;
- const c={setupPreview:preview,setupPreviewRef:{current:preview},setupEdited:edited,
+ const c={setupController:{locked:()=>false,reset(){}},setupPreview:preview,setupPreviewRef:{current:preview},setupEdited:edited,
  prepareSetupRemoval:moduleValue.exports.prepareSetupRemoval,
  setSetupPreview:v=>preview=typeof v==='function'?v(preview):v,
  setSetupUndo:v=>undo=v,setSetupEdited:v=>edited=v,setAssistantText(){},setVoiceTranscript(){},

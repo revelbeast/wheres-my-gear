@@ -54,7 +54,7 @@ test('offline notice and service errors',async()=>{
 });
 test('Dashboard shared routing guards speech, stale responses, loading and save previews',()=>{
  const s=fs.readFileSync('app/(tabs)/index.tsx','utf8');
- assert.match(s,/if \(!assistantSpeechEnabled.current\) return/);
+ assert.match(s,/if \(setupController.locked\(\) \|\| !assistantSpeechEnabled.current\) return/);
  assert.match(s,/processAssistantText\(transcript\)/);
  assert.match(s,/processAssistantText\(assistantText\)/);
  assert.ok(s.indexOf('classifyAssistantIntent(transcript)')<s.indexOf('const nextReview = buildVoiceAddReview(transcript)'));
@@ -67,7 +67,7 @@ test('actual shared handler preserves add preview and rejects late question answ
  const start=source.indexOf('  async function processAssistantText(');
  const end=source.indexOf('\n  useSpeechRecognitionEvent("result"',start);
  let resolve,preview,answer,loading,parsed=0,selected,proposal;
- const context={isSavingVoiceItems:false,assistantRequest:{current:0},
+ const context={setupController:{locked:()=>false,reset(){}},isSavingVoiceItems:false,assistantRequest:{current:0},
  setSetupUndo(){},setSetupEdited(){},setSetupPreview:v=>proposal=v,parseSetup:setup.parseSetup,assistantSpeechEnabled:{current:true},ExpoSpeechRecognitionModule:{stop(){}},setAssistantItems(){},setVoiceTranscript(){},setVoiceAddReview:v=>preview=v,setSelectedVoiceLocationId:v=>selected=v,
  setAssistantAnswer:v=>answer=v,setAssistantLoading:v=>loading=v,
  classifyAssistantIntent:h.classifyAssistantIntent,

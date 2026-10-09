@@ -1,3 +1,5 @@
+import { ActivityIndicator } from "react-native";
+import { createSetupController, canCreateSetup, type SetupCreationState } from "../../lib/gearAssistantSetupController";
 import { STORAGE_CATEGORIES, storageSubtypes } from "../../lib/storageOptions";
 import { parseSetup, validateSetup, storageMetadataErrors, editSetupStorage, editSetup, prepareSetupRemoval, undoSetupRemoval, type SetupRemoval, type SetupPreview } from "../../lib/gearAssistantSetup";
 import { classifyAssistantIntent, loadInventoryAnswer, resolveAssistantItem, type AssistantItem } from "../../lib/gearAssistant";
@@ -703,12 +705,48 @@ export default function DashboardScreen() {
   const [setupEdited, setSetupEdited] = useState(false);
   const setupPreviewRef = useRef(setupPreview);
   setupPreviewRef.current = setupPreview;
+  const [setupCreation, setSetupCreation] = useState<SetupCreationState>({ phase: "idle", message: "" });
+  const setupContext = useRef({ uid: user?.uid, premiumPlus: isPremiumPlus });
+  setupContext.current = { uid: user?.uid, premiumPlus: isPremiumPlus };
+  const setupSuccess = useRef<() => Promise<void>>(async () => {});
+  const [setupController] = useState(() => createSetupController({
+    uid: () => setupContext.current.uid,
+    premiumPlus: () => setupContext.current.premiumPlus,
+    changed: state => { if (isMountedRef.current) setSetupCreation(state); },
+    success: () => setupSuccess.current(),
+  }));
+  setupSuccess.current = async () => {
+    if (!isMountedRef.current || !setupContext.current.uid) return;
+    setSetupPreview(null); setSetupUndo(null); setSetupEdited(false);
+    setAssistantText(""); setVoiceTranscript("");
+    const uid = setupContext.current.uid;
+    const version = ++dashboardLoadVersionRef.current;
+    await loadDashboardData(uid, version, () => isMountedRef.current && setupContext.current.uid === uid);
+  };
+  const setupLocked = setupController.locked();
+  function requestSetupCreation() {
+    if (!setupPreview || setupController.locked()) return;
+    const parent = setupPreview.parentKind === "room" ? allRooms.find(r => r.id === setupPreview.parentId) : undefined;
+    const parentLabel = setupPreview.parentKind === "room"
+      ? `${storageNameById.get(parent?.storageSpaceId ?? "") ?? "Unknown storage"} → ${parent?.name ?? "Unknown room"}`
+      : storageNameById.get(setupPreview.parentId ?? "") ?? "Unknown storage";
+    const summary = setupController.begin(setupPreview, parentLabel);
+    if (!summary) return;
+    assistantRequest.current++; assistantSpeechEnabled.current = false;
+    try { ExpoSpeechRecognitionModule.stop(); } catch {}
+    Keyboard.dismiss();
+    Alert.alert("Create Storage Structure?", summary, [
+      { text: "Cancel", style: "cancel", onPress: () => setupController.cancel() },
+      { text: "Confirm and Save", onPress: () => { void setupController.confirm(); } },
+    ], { cancelable: false });
+  }
   function requestSetupRemoval(id: string) {
+    if (setupController.locked()) return;
     if (!setupPreview) return;
     const snapshot = setupPreview;
     const removal = prepareSetupRemoval(snapshot, id);
     const apply = () => {
-      if (setupPreviewRef.current !== snapshot) return;
+      if (setupController.locked() || setupPreviewRef.current !== snapshot) return;
       setSetupPreview(current => current === snapshot ? removal.after : current);
       setSetupUndo(removal.undo);
       setSetupEdited(true);
@@ -720,7 +758,8 @@ export default function DashboardScreen() {
     } else apply();
   }
   function discardSetupPreview() {
-    const discard = () => { setSetupPreview(null); setSetupUndo(null); setSetupEdited(false); setAssistantText(""); setVoiceTranscript(""); };
+    if (setupController.locked()) return;
+    const discard = () => { if (setupController.locked()) return; setupController.reset(); setSetupPreview(null); setSetupUndo(null); setSetupEdited(false); setAssistantText(""); setVoiceTranscript(""); };
     if (setupEdited) Alert.alert("Discard edited preview?", "Your preview edits will be lost. Nothing has been saved.", [
       { text: "Keep preview", style: "cancel" }, { text: "Discard", style: "destructive", onPress: discard },
     ]);
@@ -1108,6 +1147,8 @@ export default function DashboardScreen() {
   }
 
   async function processAssistantText(transcript: string) {
+    if (setupController.locked()) return;
+    setupController.reset();
     if (isSavingVoiceItems) return;
     const request = ++assistantRequest.current;
     setSetupPreview(null);
@@ -1195,7 +1236,7 @@ export default function DashboardScreen() {
   }
 
   useSpeechRecognitionEvent("result", (event) => {
-    if (!assistantSpeechEnabled.current) return;
+    if (setupController.locked() || !assistantSpeechEnabled.current) return;
     const transcript = event.results.map(result => result.transcript?.trim() ?? "")
       .filter(Boolean).sort((a, b) => b.length - a.length)[0] ?? "";
     setAssistantText(transcript);
@@ -1204,7 +1245,7 @@ export default function DashboardScreen() {
   });
 
   useSpeechRecognitionEvent("error", (event) => {
-    if (!assistantSpeechEnabled.current) return;
+    if (setupController.locked() || !assistantSpeechEnabled.current) return;
     console.log("VOICE ADD ERROR:", event.error, event.message);
     setIsVoiceListening(false);
 
@@ -2358,6 +2399,8 @@ export default function DashboardScreen() {
   }
 
   async function handleCloseVoiceAddModal() {
+    if (setupController.locked()) return;
+    setupController.reset();
     setSetupPreview(null);
     setSetupUndo(null);
     setSetupEdited(false);
@@ -2383,6 +2426,7 @@ export default function DashboardScreen() {
   }
 
   async function handleSaveVoiceItems() {
+    if (setupController.locked()) return;
     if (!voiceAddReview || voiceAddReview.items.length === 0) {
       Alert.alert("Nothing to Save", "Gear Assistant did not detect any items yet.");
       return;
@@ -2476,6 +2520,7 @@ export default function DashboardScreen() {
   }
 
   async function handleVoiceMicPress() {
+    if (setupController.locked()) return;
     setSetupPreview(null);
     setSetupUndo(null);
     setSetupEdited(false);
@@ -2491,6 +2536,7 @@ export default function DashboardScreen() {
       const result =
         await ExpoSpeechRecognitionModule.requestPermissionsAsync();
 
+      if (setupController.locked()) return;
       console.log("VOICE PERMISSION RESULT:", result);
 
       if (!result.granted) {
@@ -4375,6 +4421,7 @@ export default function DashboardScreen() {
                   styles.voiceAddIconWrap,
                   isVoiceListening ? styles.voiceAddIconWrapListening : null,
                 ]}
+                disabled={setupLocked}
                 onPress={handleVoiceMicPress}
               >
                 <Mic size={34} color="#FFFFFF" />
@@ -4398,8 +4445,10 @@ export default function DashboardScreen() {
                 accessibilityLabel="Gear Assistant command"
                 placeholder="Ask about gear or type Add…"
                 value={assistantText}
-                editable={!isSavingVoiceItems}
+                editable={!isSavingVoiceItems && !setupLocked}
                 onChangeText={(text) => {
+                  if (setupController.locked()) return;
+                  setupController.reset();
                   assistantSpeechEnabled.current = false;
                   assistantRequest.current++;
                   setAssistantLoading(false);
@@ -4413,7 +4462,7 @@ export default function DashboardScreen() {
                 }}
                 style={{ borderWidth: 1, borderColor: theme.colors.border, color: theme.colors.text, borderRadius: 10, padding: 12 }}
               />
-              <HapticPressable accessibilityRole="button" disabled={!assistantText.trim() || isSavingVoiceItems}
+              <HapticPressable accessibilityRole="button" disabled={!assistantText.trim() || isSavingVoiceItems || setupLocked}
                 style={{ alignSelf: "flex-start", backgroundColor: theme.colors.primary, borderRadius: 999, minHeight: 44, paddingHorizontal: 18, paddingVertical: 10, justifyContent: "center", alignItems: "center", opacity: !assistantText.trim() || isSavingVoiceItems ? 0.5 : 1 }}
                 onPress={() => {
                   assistantSpeechEnabled.current = false;
@@ -4424,7 +4473,7 @@ export default function DashboardScreen() {
               </HapticPressable>
               {setupPreview ? (
                 <ScrollView style={{ maxHeight: 340 }} contentContainerStyle={{ paddingVertical: 12, gap: 16 }} keyboardShouldPersistTaps="handled">
-                  <ThemedText variant="bodyStrong">Smart Setup preview — not saved</ThemedText>
+                  <ThemedText variant="bodyStrong">{setupCreation.phase === "uncertain" || setupCreation.phase === "reconciling" ? "Smart Setup — save status unconfirmed" : "Smart Setup preview — not saved"}</ThemedText>
                   <ThemedText>{setupPreview.nodes.filter(n => n.kind === "storage").length} storage spaces · {setupPreview.nodes.filter(n => n.kind === "room").length} rooms · {setupPreview.nodes.filter(n => n.kind === "compartment").length} compartments</ThemedText>
                   {setupPreview.parentKind ? (
                     <View>
@@ -4433,8 +4482,9 @@ export default function DashboardScreen() {
                         ? sortedStorageSpaces.filter(s => !s.isArchived).map(s => ({ id: s.id, label: s.name }))
                         : allRooms.filter(r => !r.isArchived && sortedStorageSpaces.some(s => s.id === r.storageSpaceId && !s.isArchived)).map(r => ({ id: r.id, label: `${storageNameById.get(r.storageSpaceId) ?? "Unknown storage"} → ${r.name}` }))
                       ).map(parent => (
-                        <HapticPressable key={parent.id} accessibilityRole="button"
+                        <HapticPressable disabled={setupLocked} key={parent.id} accessibilityRole="button"
                           onPress={() => {
+                            if (setupController.locked()) return;
                             const sameLabel = setupPreview.parentKind === "storage"
                               ? sortedStorageSpaces.filter(s => !s.isArchived && s.name.trim().toLowerCase() === parent.label.trim().toLowerCase())
                               : allRooms.filter(r => !r.isArchived && `${storageNameById.get(r.storageSpaceId) ?? "Unknown storage"} → ${r.name}`.trim().toLowerCase() === parent.label.trim().toLowerCase());
@@ -4456,20 +4506,21 @@ export default function DashboardScreen() {
                     return (
                       <View key={node.id} style={{ marginLeft: parent ? (parent.parentId ? 24 : 12) : 0, padding: 12, gap: 12, borderWidth: 1, borderColor: theme.colors.border, borderRadius: 12 }}>
                         <ThemedText>{node.kind}{parent ? ` in ${parent.name}` : ""}</ThemedText>
-                        <TextInput accessibilityLabel={`Proposed ${node.kind} name`} value={node.name} maxLength={60}
+                        <TextInput editable={!setupLocked} accessibilityLabel={`Proposed ${node.kind} name`} value={node.name} maxLength={60}
                           inputAccessoryViewID={Platform.OS === "ios" ? setupAccessoryId(node.id, "name") : undefined}
                           onFocus={() => setSetupAccessoryVersion(version => version + 1)}
-                          onChangeText={name => { setSetupEdited(true); setSetupPreview(current => current ? editSetup(current, node.id, name) : null); }}
+                          onChangeText={name => { if (setupController.locked()) return; setSetupEdited(true); setSetupPreview(current => current ? editSetup(current, node.id, name) : null); }}
                           style={{ borderWidth: 1, borderColor: theme.colors.border, color: theme.colors.text, borderRadius: 8, padding: 10 }} />
                         {node.kind === "storage" ? (
                           <View style={{ gap: 12 }}>
                             <ThemedText>Category</ThemedText>
                             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
                               {STORAGE_CATEGORIES.map(option => (
-                                <HapticPressable key={option.value} accessibilityRole="button" accessibilityLabel={`${node.name} category: ${option.label}`}
+                                <HapticPressable disabled={setupLocked} key={option.value} accessibilityRole="button" accessibilityLabel={`${node.name} category: ${option.label}`}
                                   accessibilityState={{ selected: node.category === option.value }}
                                   style={{ minHeight: 44, paddingHorizontal: 14, justifyContent: "center", borderRadius: 999, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: node.category === option.value ? theme.colors.primary : "transparent" }}
-                                  onPress={() => { setSetupEdited(true); setSetupPreview(current => current ? editSetupStorage(current, node.id, { category: option.value }) : current); }}>
+                                  onPress={() => {
+                            if (setupController.locked()) return; setSetupEdited(true); setSetupPreview(current => current ? editSetupStorage(current, node.id, { category: option.value }) : current); }}>
                                   <ThemedText style={node.category === option.value ? { color: "#FFFFFF" } : undefined}>{option.label}</ThemedText>
                                 </HapticPressable>
                               ))}
@@ -4477,26 +4528,27 @@ export default function DashboardScreen() {
                             <ThemedText>Subtype — required (scroll for options)</ThemedText>
                             <ScrollView horizontal keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 12 }}>
                               {storageSubtypes(node.category ?? "storage").map(option => (
-                                <HapticPressable key={option} accessibilityRole="button" accessibilityLabel={`${node.name} subtype: ${option}`}
+                                <HapticPressable disabled={setupLocked} key={option} accessibilityRole="button" accessibilityLabel={`${node.name} subtype: ${option}`}
                                   accessibilityState={{ selected: node.subtype === option }}
                                   style={{ minHeight: 44, paddingHorizontal: 14, justifyContent: "center", borderRadius: 999, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: node.subtype === option ? theme.colors.primary : "transparent" }}
-                                  onPress={() => { setSetupEdited(true); setSetupPreview(current => current ? editSetupStorage(current, node.id, { subtype: option }) : current); }}>
+                                  onPress={() => {
+                            if (setupController.locked()) return; setSetupEdited(true); setSetupPreview(current => current ? editSetupStorage(current, node.id, { subtype: option }) : current); }}>
                                   <ThemedText style={node.subtype === option ? { color: "#FFFFFF" } : undefined}>{option}</ThemedText>
                                 </HapticPressable>
                               ))}
                             </ScrollView>
                             {node.subtype === "Other" ? (
-                              <TextInput accessibilityLabel={`Custom subtype for ${node.name}`} placeholder="Enter custom subtype" placeholderTextColor={theme.colors.textSecondary}
+                              <TextInput editable={!setupLocked} accessibilityLabel={`Custom subtype for ${node.name}`} placeholder="Enter custom subtype" placeholderTextColor={theme.colors.textSecondary}
                                 value={node.customSubtype ?? ""} maxLength={60}
                                 inputAccessoryViewID={Platform.OS === "ios" ? setupAccessoryId(node.id, "subtype") : undefined}
                                 onFocus={() => setSetupAccessoryVersion(version => version + 1)}
-                                onChangeText={customSubtype => { setSetupEdited(true); setSetupPreview(current => current ? editSetupStorage(current, node.id, { customSubtype }) : current); }}
+                                onChangeText={customSubtype => { if (setupController.locked()) return; setSetupEdited(true); setSetupPreview(current => current ? editSetupStorage(current, node.id, { customSubtype }) : current); }}
                                 style={{ borderWidth: 1, borderColor: theme.colors.border, color: theme.colors.text, borderRadius: 8, padding: 10, minHeight: 44 }} />
                             ) : null}
                             {storageMetadataErrors(node).map(message => <ThemedText key={message} accessibilityLiveRegion="polite">{message}</ThemedText>)}
                           </View>
                         ) : null}
-                        <HapticPressable accessibilityRole="button" accessibilityLabel={`Remove ${node.name}`}
+                        <HapticPressable disabled={setupLocked} accessibilityRole="button" accessibilityLabel={`Remove ${node.name}`}
                           style={{ minHeight: 44, justifyContent: "center", alignSelf: "flex-start" }}
                           onPress={() => requestSetupRemoval(node.id)}>
                           <ThemedText>Remove {node.kind}</ThemedText>
@@ -4505,9 +4557,10 @@ export default function DashboardScreen() {
                     );
                   })}
                   {setupUndo ? (
-                    <HapticPressable accessibilityRole="button" accessibilityLabel="Undo last preview removal"
+                    <HapticPressable disabled={setupLocked} accessibilityRole="button" accessibilityLabel="Undo last preview removal"
                       style={{ backgroundColor: theme.colors.primary, borderRadius: 999, paddingHorizontal: 18, minHeight: 44, justifyContent: "center", alignSelf: "flex-start" }}
                       onPress={() => {
+                            if (setupController.locked()) return;
                         setSetupPreview(current => current ? undoSetupRemoval(current, setupUndo) : current);
                         setSetupUndo(null);
                       }}>
@@ -4515,13 +4568,26 @@ export default function DashboardScreen() {
                     </HapticPressable>
                   ) : null}
                   {validateSetup(setupPreview, false).map(message => <ThemedText key={message}>{message}</ThemedText>)}
-                  <ThemedText>Preview only. Creation is not available yet.</ThemedText>
-                  <HapticPressable accessibilityRole="button" onPress={discardSetupPreview}>
+                  {!setupLocked && canCreateSetup(setupPreview) ? (
+                    <HapticPressable accessibilityRole="button" accessibilityLabel="Create Storage Structure"
+                      onPress={requestSetupCreation}
+                      style={{ backgroundColor: theme.colors.primary, borderRadius: 999, minHeight: 44, padding: 12, alignItems: "center" }}>
+                      <ThemedText style={{ color: "#FFFFFF", fontWeight: "700" }}>Create Storage Structure</ThemedText>
+                    </HapticPressable>
+                  ) : null}
+                  <HapticPressable disabled={setupLocked} accessibilityRole="button" onPress={discardSetupPreview}>
                     <ThemedText>Discard preview</ThemedText>
                   </HapticPressable>
                 </ScrollView>
               ) : null}
 
+              {setupCreation.message ? <ThemedText accessibilityLiveRegion="polite" accessibilityRole="alert">{setupCreation.message}</ThemedText> : null}
+              {setupCreation.phase === "saving" || setupCreation.phase === "reconciling" ? <ActivityIndicator accessibilityLabel="Storage structure operation in progress" accessibilityState={{ busy: true }} color={theme.colors.primary} /> : null}
+              {setupCreation.phase === "uncertain" ? (
+                <HapticPressable accessibilityRole="button" onPress={() => { void setupController.reconcile(); }} style={{ minHeight: 44, justifyContent: "center" }}>
+                  <ThemedText>Check creation status (no new writes)</ThemedText>
+                </HapticPressable>
+              ) : null}
               {assistantLoading ? <ThemedText>Reading available inventory…</ThemedText> : null}
               {assistantAnswer ? <ThemedText accessibilityLiveRegion="polite">{assistantAnswer}</ThemedText> : null}
               {assistantItems.map(item => (
@@ -4663,7 +4729,7 @@ export default function DashboardScreen() {
                     ? handleSaveVoiceItems
                     : handleVoiceMicPress
                 }
-                disabled={isSavingVoiceItems}
+                disabled={isSavingVoiceItems || setupLocked}
               >
                 <ThemedText style={styles.exportModalPrimaryButtonText}>
                   {isSavingVoiceItems
@@ -4680,7 +4746,7 @@ export default function DashboardScreen() {
                 </ThemedText>
               </HapticPressable>
 
-              <HapticPressable accessibilityRole="button" accessibilityLabel="Cancel Gear Assistant" onPress={handleCloseVoiceAddModal}
+              <HapticPressable accessibilityRole="button" accessibilityLabel="Cancel Gear Assistant" disabled={setupLocked} onPress={handleCloseVoiceAddModal}
                 style={{ alignSelf: "center", borderWidth: 1, borderColor: theme.colors.primary, borderRadius: 999, minHeight: 44, paddingHorizontal: 28, paddingVertical: 12, marginTop: 8, alignItems: "center", justifyContent: "center" }}>
                 <ThemedText style={{ color: theme.colors.primary, fontWeight: "700" }}>
                   Cancel
