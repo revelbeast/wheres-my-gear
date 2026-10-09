@@ -1,3 +1,4 @@
+import { classifyAssistantIntent, loadInventoryAnswer, resolveAssistantItem, type AssistantItem } from "../../lib/gearAssistant";
 import NetInfo from "@react-native-community/netinfo";
 import { Document, Packer, Paragraph, TextRun } from "docx";
 import { BlurView } from "expo-blur";
@@ -687,6 +688,21 @@ export default function DashboardScreen() {
     }
   }, [params.quickAction]);
 
+  const [assistantText, setAssistantText] = useState("");
+  const [assistantItems, setAssistantItems] = useState<AssistantItem[]>([]);
+  const assistantViewing = useRef(false);
+  const assistantReturn = useRef(false);
+  useFocusEffect(useCallback(() => {
+    if (assistantReturn.current) {
+      assistantReturn.current = false;
+      setVoiceAddModalVisible(true);
+    }
+  }, []));
+  const [assistantAnswer, setAssistantAnswer] = useState("");
+  const [assistantLoading, setAssistantLoading] = useState(false);
+  const assistantRequest = useRef(0);
+  const assistantSpeechEnabled = useRef(false);
+  useEffect(() => () => { assistantRequest.current++; assistantSpeechEnabled.current = false; }, [user?.uid]);
   const [voiceTranscript, setVoiceTranscript] = useState("");
   const [voiceAddReview, setVoiceAddReview] = useState<VoiceAddReview | null>(
     null
@@ -1053,14 +1069,34 @@ export default function DashboardScreen() {
     };
   }
 
-  useSpeechRecognitionEvent("result", (event) => {
-    const transcript = event.results
-      .map((result) => result.transcript?.trim() ?? "")
-      .filter(Boolean)
-      .sort((a, b) => b.length - a.length)[0] ?? "";
-
-    console.log("VOICE ADD TRANSCRIPT:", transcript);
-
+  async function processAssistantText(transcript: string) {
+    if (isSavingVoiceItems) return;
+    const request = ++assistantRequest.current;
+    setVoiceTranscript(transcript);
+    setVoiceAddReview(null);
+    setSelectedVoiceLocationId(null);
+    setAssistantAnswer("");
+    setAssistantItems([]);
+    setAssistantLoading(false);
+    const intent = classifyAssistantIntent(transcript);
+    if (intent.kind === "unsupported") {
+      setAssistantAnswer('Unsupported request. Ask how many items you have, where they are, or say "Add two flashlights to my RV".');
+      return;
+    }
+    if (intent.kind === "question") {
+      setAssistantLoading(true);
+      try {
+        const answer = await loadInventoryAnswer(intent, items => {
+          if (request === assistantRequest.current) setAssistantItems(items);
+        });
+        if (request === assistantRequest.current) setAssistantAnswer(answer);
+      } catch {
+        if (request === assistantRequest.current) setAssistantAnswer("Unable to read inventory. Please try again; no items were saved.");
+      } finally {
+        if (request === assistantRequest.current) setAssistantLoading(false);
+      }
+      return;
+    }
     const nextReview = buildVoiceAddReview(transcript);
     const normalizedDestination = nextReview?.destinationName
       .toLowerCase()
@@ -1085,9 +1121,39 @@ export default function DashboardScreen() {
     setVoiceTranscript(transcript);
     setVoiceAddReview(nextReview);
     setSelectedVoiceLocationId(matchedLocation?.id ?? null);
+  }
+
+  async function handleViewAssistantItem(id: string) {
+    if (assistantViewing.current) return;
+    assistantViewing.current = true;
+    const request = assistantRequest.current;
+    try {
+      const route = await resolveAssistantItem(id);
+      if (request !== assistantRequest.current) return;
+      if (!route) { Alert.alert("Item unavailable", "This item or its location is no longer available. Ask again to refresh."); return; }
+      assistantSpeechEnabled.current = false;
+      try { ExpoSpeechRecognitionModule.stop(); } catch {}
+      assistantReturn.current = true;
+      setVoiceAddModalVisible(false);
+      router.push(route);
+    } catch {
+      assistantReturn.current = false;
+      if (request === assistantRequest.current) {
+        setVoiceAddModalVisible(true);
+        Alert.alert("Unable to open item", "Please try again.");
+      }
+    } finally { assistantViewing.current = false; }
+  }
+
+  useSpeechRecognitionEvent("result", (event) => {
+    if (!assistantSpeechEnabled.current) return;
+    const transcript = event.results.map(result => result.transcript?.trim() ?? "")
+      .filter(Boolean).sort((a, b) => b.length - a.length)[0] ?? "";
+    void processAssistantText(transcript);
   });
 
   useSpeechRecognitionEvent("error", (event) => {
+    if (!assistantSpeechEnabled.current) return;
     console.log("VOICE ADD ERROR:", event.error, event.message);
     setIsVoiceListening(false);
 
@@ -2241,6 +2307,13 @@ export default function DashboardScreen() {
   }
 
   async function handleCloseVoiceAddModal() {
+    assistantReturn.current = false;
+    assistantRequest.current++;
+    assistantSpeechEnabled.current = false;
+    setAssistantLoading(false);
+    setAssistantAnswer("");
+    setAssistantItems([]);
+    setAssistantText("");
     try {
       await ExpoSpeechRecognitionModule.stop();
     } catch {
@@ -2349,6 +2422,12 @@ export default function DashboardScreen() {
   }
 
   async function handleVoiceMicPress() {
+    if (isSavingVoiceItems) return;
+    assistantSpeechEnabled.current = true;
+    assistantRequest.current++;
+    setAssistantAnswer("");
+    setAssistantItems([]);
+    setAssistantLoading(false);
     try {
       console.log("VOICE ADD MIC PRESSED");
 
@@ -4251,6 +4330,47 @@ export default function DashboardScreen() {
               <ThemedText color="secondary">
                 {isVoiceListening ? "Listening..." : "Tap the mic to start listening."}
               </ThemedText>
+
+              <TextInput
+                accessibilityLabel="Gear Assistant command"
+                placeholder="Ask about gear or type Add…"
+                value={assistantText}
+                editable={!isSavingVoiceItems}
+                onChangeText={(text) => {
+                  assistantSpeechEnabled.current = false;
+                  assistantRequest.current++;
+                  setAssistantLoading(false);
+                  setVoiceAddReview(null);
+                  setAssistantAnswer("");
+    setAssistantItems([]);
+                  setAssistantText(text);
+                }}
+                style={{ borderWidth: 1, borderColor: theme.colors.border, color: theme.colors.text, borderRadius: 10, padding: 12 }}
+              />
+              <HapticPressable accessibilityRole="button" disabled={!assistantText.trim() || isSavingVoiceItems}
+                onPress={() => {
+                  assistantSpeechEnabled.current = false;
+                  try { ExpoSpeechRecognitionModule.stop(); } catch { /* Already stopped. */ }
+                  void processAssistantText(assistantText);
+                }}>
+                <ThemedText>Submit request</ThemedText>
+              </HapticPressable>
+              {assistantLoading ? <ThemedText>Reading available inventory…</ThemedText> : null}
+              {assistantAnswer ? <ThemedText accessibilityLiveRegion="polite">{assistantAnswer}</ThemedText> : null}
+              {assistantItems.map(item => (
+                <View key={item.id} style={{ paddingVertical: 8 }}>
+                  <ThemedText>{item.name} — {item.quantity ?? "Unknown"} recorded {item.quantity === 1 ? "unit" : "units"}</ThemedText>
+                  <ThemedText color="secondary">{item.location}</ThemedText>
+                  {item.compartmentId && !item.id.startsWith("offline-") ? (
+                    <HapticPressable accessibilityRole="button" accessibilityLabel={`View ${item.name} in ${item.location}`}
+                      style={{ alignSelf: "flex-start", backgroundColor: theme.colors.primary, borderRadius: 999, minHeight: 44, paddingHorizontal: 18, paddingVertical: 10, justifyContent: "center", alignItems: "center" }}
+                      onPress={() => { void handleViewAssistantItem(item.id); }}>
+                      <ThemedText style={{ color: "#FFFFFF", fontWeight: "700" }}>View Item</ThemedText>
+                    </HapticPressable>
+                  ) : null}
+                </View>
+              ))}
+
 
               {voiceTranscript ? (
                 <View
