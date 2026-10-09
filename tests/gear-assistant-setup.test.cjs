@@ -1,8 +1,11 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript');
+const optionsModule={exports:{}};
+vm.runInNewContext(ts.transpileModule(fs.readFileSync('lib/storageOptions.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{module:optionsModule,exports:optionsModule.exports});
+const requireOptions=id=>{assert.equal(id,'./storageOptions');return optionsModule.exports;};
 const moduleValue={exports:{}};
 const source=fs.readFileSync('lib/gearAssistantSetup.ts','utf8');
-vm.runInNewContext(ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{module:moduleValue,exports:moduleValue.exports});
+vm.runInNewContext(ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{module:moduleValue,exports:moduleValue.exports,require:requireOptions});
 const {parseSetup,editSetup,removeSetup,validateSetup,isSetupRequest}=moduleValue.exports;
 const cases=[
  ['Create a storage space called Garage.',1,0,0],
@@ -15,7 +18,7 @@ const cases=[
 for(const [command,storage,rooms,compartments] of cases)test(command,()=>{
  const p=parseSetup(command);assert.equal(typeof p,'object');
  for(const [kind,n] of [['storage',storage],['room',rooms],['compartment',compartments]])assert.equal(p.nodes.filter(v=>v.kind===kind).length,n);
- assert.equal(validateSetup(p).length,0);
+ assert.equal(validateSetup(p, false).length,0);
  if(command.startsWith('Add')){assert.ok(p.parentQuery);assert.equal(p.parentId,undefined);}
 });
 test('named children and placeholders have exact proposed parents',()=>{
@@ -45,8 +48,10 @@ test('preview edits and cascading removal are immutable and validated',()=>{
  assert.ok(validateSetup(editSetup(p,room.id,'')).length);
  assert.ok(validateSetup({...p,nodes:Array.from({length:31},(_,i)=>({...room,id:String(i)}))}).length);
 });
-test('preview module has no imports/writes; setup routing returns before add parser',()=>{
- assert.doesNotMatch(source,/import |require\(|createItem\(|addDoc\(|setDoc\(/);
+test('preview module imports only pure storage options and has no writes; setup routing returns before add parser',()=>{
+ assert.doesNotMatch(source,/createItem\(|addDoc\(|setDoc\(/);
+ assert.equal((source.match(/^import /gm)||[]).length,1);
+ assert.match(source,/from "\.\/storageOptions"/);
  const dashboard=fs.readFileSync('app/(tabs)/index.tsx','utf8');
  const start=dashboard.indexOf('if (intent.kind === "setup")');
  const end=dashboard.indexOf('if (intent.kind === "unsupported")',start);
@@ -125,4 +130,75 @@ test('actual removal and discard handlers wait for confirmation; Cancel changes 
 test('empty compartment removal requires no confirmation',()=>{
  const p=parseSetup(cases[1][0]);
  assert.equal(moduleValue.exports.prepareSetupRemoval(p,p.nodes.at(-1).id).requiresConfirmation,false);
+});
+test('new storage defaults without guessing and requires compatible metadata',()=>{
+ const p=parseSetup(cases[0][0]),node=p.nodes[0];
+ assert.equal(node.category,'storage');assert.equal(node.subtype,'');
+ assert.match(validateSetup(p).join(' '),/Choose a subtype/);
+ const {editSetupStorage}=moduleValue.exports;
+ const valid=editSetupStorage(p,node.id,{subtype:'Garage'});
+ assert.equal(validateSetup(valid).length,0);
+ assert.equal(p.nodes[0].subtype,'');
+ assert.match(validateSetup(editSetupStorage(valid,node.id,{subtype:'Car'})).join(' '),/subtype/);
+ assert.match(validateSetup({...valid,nodes:[{...valid.nodes[0],category:'home'}]}).join(' '),/category/);
+ assert.equal(parseSetup(cases[5][0]).nodes[0].category,'storage');
+});
+test('category changes reset incompatible selections and preserve compatible Other',()=>{
+ const {editSetupStorage}=moduleValue.exports;
+ let p=parseSetup(cases[0][0]),id=p.nodes[0].id;
+ p=editSetupStorage(p,id,{subtype:'Garage'});
+ p=editSetupStorage(p,id,{category:'vehicle'});
+ assert.equal(p.nodes[0].subtype,'');assert.equal(p.nodes[0].name,'Garage');
+ p=editSetupStorage(p,id,{subtype:'Other',customSubtype:'  Custom RV  '});
+ assert.equal(validateSetup(p).length,0);
+ p=editSetupStorage(p,id,{category:'office'});
+ assert.equal(p.nodes[0].subtype,'Other');assert.equal(p.nodes[0].customSubtype,'  Custom RV  ');
+ for(const customSubtype of ['', '   ', 'x'.repeat(61)])assert.match(validateSetup(editSetupStorage(p,id,{customSubtype})).join(' '),/Custom subtype/);
+ p=editSetupStorage(p,id,{subtype:'Desk'});assert.equal(p.nodes[0].customSubtype,'');
+});
+test('existing parents receive no metadata; edits and subtree Undo preserve metadata',()=>{
+ const {editSetupStorage,prepareSetupRemoval,undoSetupRemoval}=moduleValue.exports;
+ const existing={...parseSetup(cases[3][0]),parentId:'existing-storage'};
+ const unchanged=editSetupStorage(existing,'existing-storage',{category:'vehicle',subtype:'Truck'});
+ assert.equal(JSON.stringify(unchanged),JSON.stringify(existing));
+ assert.equal(validateSetup(existing).length,0);
+ assert.ok(existing.nodes.every(n=>n.category===undefined));
+ let p=parseSetup(cases[1][0]);
+ p=editSetupStorage(p,p.nodes[0].id,{subtype:'Other',customSubtype:'Home'});
+ p=editSetup(p,p.nodes[0].id,'Edited Garage');
+ const removal=prepareSetupRemoval(p,p.nodes[0].id);
+ assert.deepEqual(undoSetupRemoval(removal.after,removal.undo),p);
+ const roomRemoval=prepareSetupRemoval(p,p.nodes[1].id);
+ assert.deepEqual(undoSetupRemoval(roomRemoval.after,roomRemoval.undo),p);
+});
+test('metadata UI is confined to proposed storage nodes and stays preview-only',()=>{
+ const s=fs.readFileSync('app/(tabs)/index.tsx','utf8');
+ const start=s.indexOf('{node.kind === "storage" ? (');
+ const controls=s.slice(start,s.indexOf('accessibilityLabel={`Remove ${node.name}`}',start));
+ assert.match(controls,/STORAGE_CATEGORIES.map/);assert.match(controls,/storageSubtypes/);
+ assert.match(controls,/accessibilityState=\{\{ selected:/);
+ assert.match(controls,/storageMetadataErrors\(node\)/);
+ assert.match(controls,/setSetupEdited\(true\)/);
+ assert.doesNotMatch(controls,/createStorageSpace|addDoc|setDoc/);
+});
+test('dynamic preview name and custom subtype inputs have unique focus-refreshed iOS accessories',()=>{
+ const s=fs.readFileSync('app/(tabs)/index.tsx','utf8');
+ assert.match(s,/setupKeyboardPrefix = "smart-setup-keyboard-" \+ React.useId\(\)/);
+ const declaration=s.slice(s.indexOf('  const setupAccessoryId ='),s.indexOf('  const shouldUseDashboardSearchAccessory'));
+ const c={setupKeyboardPrefix:'unique-mount'};vm.createContext(c);
+ vm.runInContext(ts.transpileModule(declaration+'\nglobalThis.getId=setupAccessoryId;', {compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,c);
+ const ids=['proposal-0','proposal-1','proposal-2'].flatMap(id=>['name','subtype'].map(field=>c.getId(id,field)));
+ assert.equal(new Set(ids).size,6);
+ for(const field of ['name','subtype']){
+ assert.ok(s.includes(`inputAccessoryViewID={Platform.OS === "ios" ? setupAccessoryId(node.id, "${field}") : undefined}`));
+ assert.ok(s.includes(`nativeID={setupAccessoryId(node.id, "${field}")}`));
+ assert.ok(s.includes('key={`${setupAccessoryId(node.id, "'+field+'")}-${setupAccessoryVersion}`}'));
+ }
+ assert.equal((s.match(/onFocus=\{\(\) => setSetupAccessoryVersion\(version => version \+ 1\)\}/g)||[]).length,2);
+ const accessories=s.slice(s.indexOf('{Platform.OS === "ios" && setupPreview ?'),s.indexOf('</Modal>',s.indexOf('{Platform.OS === "ios" && setupPreview ?')));
+ assert.match(accessories,/node.kind === "storage" && node.subtype === "Other"/);
+ assert.doesNotMatch(accessories,/onDismiss=|setSetupPreview|setSetupEdited/);
+ const accessory=fs.readFileSync('components/ui/KeyboardDismissAccessory.tsx','utf8');
+ assert.match(accessory,/Keyboard.dismiss\(\)/);
+ assert.match(accessory,/accessibilityLabel="Dismiss keyboard"/);
 });

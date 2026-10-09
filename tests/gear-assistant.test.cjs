@@ -1,8 +1,11 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript');
+const optionsModule={exports:{}};
+vm.runInNewContext(ts.transpileModule(fs.readFileSync('lib/storageOptions.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{module:optionsModule,exports:optionsModule.exports});
+const requireOptions=id=>{assert.equal(id,'./storageOptions');return optionsModule.exports;};
 const setupModule={exports:{}};
-vm.runInNewContext(ts.transpileModule(fs.readFileSync('lib/gearAssistantSetup.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{module:setupModule,exports:setupModule.exports});
+vm.runInNewContext(ts.transpileModule(fs.readFileSync('lib/gearAssistantSetup.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{module:setupModule,exports:setupModule.exports,require:requireOptions});
 const setup=setupModule.exports;
 function load(overrides={}) {
  const calls=[];

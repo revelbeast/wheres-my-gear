@@ -1,3 +1,4 @@
+import { VEHICLE_SUBTYPES, STORAGE_SUBTYPES, OFFICE_SUBTYPES, type StorageCategory } from "../../../lib/storageOptions";
 import { BlurView } from "expo-blur";
 import { router, useLocalSearchParams } from "expo-router";
 import { ChevronDown, ChevronLeft } from "lucide-react-native";
@@ -27,63 +28,6 @@ import { useInteractionLock } from "../../../lib/useInteractionLock";
 
 const KEYBOARD_ACCESSORY_ID = "storage-edit-keyboard-accessory";
 
-const VEHICLE_SUBTYPES = [
-  "ATV / UTV",
-  "Boat",
-  "Car",
-  "Class A",
-  "Class B",
-  "Class C",
-  "Fifth Wheel",
-  "Motorcycle",
-  "Other",
-  "SUV",
-  "Toy Hauler",
-  "Trailer",
-  "Truck",
-  "Van",
-] as const;
-
-const STORAGE_SUBTYPES = [
-  "Backpack",
-  "Bag",
-  "Bin",
-  "Cabinet",
-  "Cargo Box",
-  "Cooler",
-  "Drawer",
-  "Garage",
-  "Luggage",
-  "Overhead",
-  "Other",
-  "Roof Box",
-  "Shed",
-  "Shelf",
-  "Storage Unit",
-  "Toolbox",
-  "Tote",
-  "Trailer Storage",
-  "Trunk",
-  "Under Seat",
-  "Warehouse",
-] as const;
-
-const OFFICE_SUBTYPES = [
-  "Home Office",
-  "Corporate Office",
-  "Desk",
-  "Filing Cabinet",
-  "Storage Closet",
-  "Supply Room",
-  "Warehouse Office",
-  "Server Room / IT Closet",
-  "Tool Room",
-  "Classroom / Training Room",
-  "Break Room",
-  "Other",
-] as const;
-
-type StorageCategory = "storage" | "office" | "vehicle";
 
 export default function EditStorageScreen() {
   const theme = useThemedValues();

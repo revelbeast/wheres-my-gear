@@ -1,4 +1,5 @@
-import { parseSetup, validateSetup, editSetup, prepareSetupRemoval, undoSetupRemoval, type SetupRemoval, type SetupPreview } from "../../lib/gearAssistantSetup";
+import { STORAGE_CATEGORIES, storageSubtypes } from "../../lib/storageOptions";
+import { parseSetup, validateSetup, storageMetadataErrors, editSetupStorage, editSetup, prepareSetupRemoval, undoSetupRemoval, type SetupRemoval, type SetupPreview } from "../../lib/gearAssistantSetup";
 import { classifyAssistantIntent, loadInventoryAnswer, resolveAssistantItem, type AssistantItem } from "../../lib/gearAssistant";
 import NetInfo from "@react-native-community/netinfo";
 import { Document, Packer, Paragraph, TextRun } from "docx";
@@ -624,6 +625,9 @@ export default function DashboardScreen() {
   const dashboardSearchAccessoryId = DASHBOARD_SEARCH_KEYBOARD_ACCESSORY_ID + React.useId();
   const [dashboardSearchLaidOut, setDashboardSearchLaidOut] = useState(false);
   const [assistantAccessoryVersion, setAssistantAccessoryVersion] = useState(0);
+  const setupKeyboardPrefix = "smart-setup-keyboard-" + React.useId();
+  const [setupAccessoryVersion, setSetupAccessoryVersion] = useState(0);
+  const setupAccessoryId = (id: string, field: "name" | "subtype") => `${setupKeyboardPrefix}-${id}-${field}`;
   const shouldUseDashboardSearchAccessory = Platform.OS === "ios" && !isTablet;
   const isTabletLandscape = isTablet && isLandscape;
   const {
@@ -4453,8 +4457,45 @@ export default function DashboardScreen() {
                       <View key={node.id} style={{ marginLeft: parent ? (parent.parentId ? 24 : 12) : 0, padding: 12, gap: 12, borderWidth: 1, borderColor: theme.colors.border, borderRadius: 12 }}>
                         <ThemedText>{node.kind}{parent ? ` in ${parent.name}` : ""}</ThemedText>
                         <TextInput accessibilityLabel={`Proposed ${node.kind} name`} value={node.name} maxLength={60}
+                          inputAccessoryViewID={Platform.OS === "ios" ? setupAccessoryId(node.id, "name") : undefined}
+                          onFocus={() => setSetupAccessoryVersion(version => version + 1)}
                           onChangeText={name => { setSetupEdited(true); setSetupPreview(current => current ? editSetup(current, node.id, name) : null); }}
                           style={{ borderWidth: 1, borderColor: theme.colors.border, color: theme.colors.text, borderRadius: 8, padding: 10 }} />
+                        {node.kind === "storage" ? (
+                          <View style={{ gap: 12 }}>
+                            <ThemedText>Category</ThemedText>
+                            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
+                              {STORAGE_CATEGORIES.map(option => (
+                                <HapticPressable key={option.value} accessibilityRole="button" accessibilityLabel={`${node.name} category: ${option.label}`}
+                                  accessibilityState={{ selected: node.category === option.value }}
+                                  style={{ minHeight: 44, paddingHorizontal: 14, justifyContent: "center", borderRadius: 999, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: node.category === option.value ? theme.colors.primary : "transparent" }}
+                                  onPress={() => { setSetupEdited(true); setSetupPreview(current => current ? editSetupStorage(current, node.id, { category: option.value }) : current); }}>
+                                  <ThemedText style={node.category === option.value ? { color: "#FFFFFF" } : undefined}>{option.label}</ThemedText>
+                                </HapticPressable>
+                              ))}
+                            </View>
+                            <ThemedText>Subtype — required (scroll for options)</ThemedText>
+                            <ScrollView horizontal keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 12 }}>
+                              {storageSubtypes(node.category ?? "storage").map(option => (
+                                <HapticPressable key={option} accessibilityRole="button" accessibilityLabel={`${node.name} subtype: ${option}`}
+                                  accessibilityState={{ selected: node.subtype === option }}
+                                  style={{ minHeight: 44, paddingHorizontal: 14, justifyContent: "center", borderRadius: 999, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: node.subtype === option ? theme.colors.primary : "transparent" }}
+                                  onPress={() => { setSetupEdited(true); setSetupPreview(current => current ? editSetupStorage(current, node.id, { subtype: option }) : current); }}>
+                                  <ThemedText style={node.subtype === option ? { color: "#FFFFFF" } : undefined}>{option}</ThemedText>
+                                </HapticPressable>
+                              ))}
+                            </ScrollView>
+                            {node.subtype === "Other" ? (
+                              <TextInput accessibilityLabel={`Custom subtype for ${node.name}`} placeholder="Enter custom subtype" placeholderTextColor={theme.colors.textSecondary}
+                                value={node.customSubtype ?? ""} maxLength={60}
+                                inputAccessoryViewID={Platform.OS === "ios" ? setupAccessoryId(node.id, "subtype") : undefined}
+                                onFocus={() => setSetupAccessoryVersion(version => version + 1)}
+                                onChangeText={customSubtype => { setSetupEdited(true); setSetupPreview(current => current ? editSetupStorage(current, node.id, { customSubtype }) : current); }}
+                                style={{ borderWidth: 1, borderColor: theme.colors.border, color: theme.colors.text, borderRadius: 8, padding: 10, minHeight: 44 }} />
+                            ) : null}
+                            {storageMetadataErrors(node).map(message => <ThemedText key={message} accessibilityLiveRegion="polite">{message}</ThemedText>)}
+                          </View>
+                        ) : null}
                         <HapticPressable accessibilityRole="button" accessibilityLabel={`Remove ${node.name}`}
                           style={{ minHeight: 44, justifyContent: "center", alignSelf: "flex-start" }}
                           onPress={() => requestSetupRemoval(node.id)}>
@@ -4473,7 +4514,7 @@ export default function DashboardScreen() {
                       <ThemedText style={{ color: "#FFFFFF", fontWeight: "700" }}>Undo removal</ThemedText>
                     </HapticPressable>
                   ) : null}
-                  {validateSetup(setupPreview).map(message => <ThemedText key={message}>{message}</ThemedText>)}
+                  {validateSetup(setupPreview, false).map(message => <ThemedText key={message}>{message}</ThemedText>)}
                   <ThemedText>Preview only. Creation is not available yet.</ThemedText>
                   <HapticPressable accessibilityRole="button" onPress={discardSetupPreview}>
                     <ThemedText>Discard preview</ThemedText>
@@ -4660,6 +4701,20 @@ export default function DashboardScreen() {
               nativeID="gear-assistant-keyboard"
             />
           ) : null}
+          {Platform.OS === "ios" && setupPreview ? setupPreview.nodes.map(node => (
+            <React.Fragment key={node.id}>
+              <KeyboardDismissAccessory
+                key={`${setupAccessoryId(node.id, "name")}-${setupAccessoryVersion}`}
+                nativeID={setupAccessoryId(node.id, "name")}
+              />
+              {node.kind === "storage" && node.subtype === "Other" ? (
+                <KeyboardDismissAccessory
+                  key={`${setupAccessoryId(node.id, "subtype")}-${setupAccessoryVersion}`}
+                  nativeID={setupAccessoryId(node.id, "subtype")}
+                />
+              ) : null}
+            </React.Fragment>
+          )) : null}
         </Modal>
 
       </SafeAreaView>
