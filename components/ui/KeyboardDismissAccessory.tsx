@@ -26,6 +26,8 @@ export default function KeyboardDismissAccessory({
     <InputAccessoryView nativeID={nativeID}>
       <View style={styles.keyboardAccessory}>
         <HapticPressable
+          accessibilityRole="button"
+          accessibilityLabel="Dismiss keyboard"
           onPress={() => {
             Keyboard.dismiss();
             onDismiss?.();

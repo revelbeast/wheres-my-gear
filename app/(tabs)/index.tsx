@@ -1,3 +1,4 @@
+import { parseSetup, validateSetup, editSetup, prepareSetupRemoval, undoSetupRemoval, type SetupRemoval, type SetupPreview } from "../../lib/gearAssistantSetup";
 import { classifyAssistantIntent, loadInventoryAnswer, resolveAssistantItem, type AssistantItem } from "../../lib/gearAssistant";
 import NetInfo from "@react-native-community/netinfo";
 import { Document, Packer, Paragraph, TextRun } from "docx";
@@ -29,6 +30,8 @@ import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
+  Keyboard,
+  KeyboardAvoidingView,
   Image,
   Modal,
   Share as NativeShare,
@@ -618,6 +621,9 @@ export default function DashboardScreen() {
   }>();
   const theme = useThemedValues();
   const { isTablet, isLandscape } = useDeviceLayout();
+  const dashboardSearchAccessoryId = DASHBOARD_SEARCH_KEYBOARD_ACCESSORY_ID + React.useId();
+  const [dashboardSearchLaidOut, setDashboardSearchLaidOut] = useState(false);
+  const [assistantAccessoryVersion, setAssistantAccessoryVersion] = useState(0);
   const shouldUseDashboardSearchAccessory = Platform.OS === "ios" && !isTablet;
   const isTabletLandscape = isTablet && isLandscape;
   const {
@@ -688,6 +694,34 @@ export default function DashboardScreen() {
     }
   }, [params.quickAction]);
 
+  const [setupPreview, setSetupPreview] = useState<SetupPreview | null>(null);
+  const [setupUndo, setSetupUndo] = useState<SetupRemoval | null>(null);
+  const [setupEdited, setSetupEdited] = useState(false);
+  const setupPreviewRef = useRef(setupPreview);
+  setupPreviewRef.current = setupPreview;
+  function requestSetupRemoval(id: string) {
+    if (!setupPreview) return;
+    const snapshot = setupPreview;
+    const removal = prepareSetupRemoval(snapshot, id);
+    const apply = () => {
+      if (setupPreviewRef.current !== snapshot) return;
+      setSetupPreview(current => current === snapshot ? removal.after : current);
+      setSetupUndo(removal.undo);
+      setSetupEdited(true);
+    };
+    if (removal.requiresConfirmation) {
+      Alert.alert("Remove this group?", "This also removes its proposed rooms and compartments. You can Undo afterward.", [
+        { text: "Cancel", style: "cancel" }, { text: "Remove", style: "destructive", onPress: apply },
+      ]);
+    } else apply();
+  }
+  function discardSetupPreview() {
+    const discard = () => { setSetupPreview(null); setSetupUndo(null); setSetupEdited(false); setAssistantText(""); setVoiceTranscript(""); };
+    if (setupEdited) Alert.alert("Discard edited preview?", "Your preview edits will be lost. Nothing has been saved.", [
+      { text: "Keep preview", style: "cancel" }, { text: "Discard", style: "destructive", onPress: discard },
+    ]);
+    else discard();
+  }
   const [assistantText, setAssistantText] = useState("");
   const [assistantItems, setAssistantItems] = useState<AssistantItem[]>([]);
   const assistantViewing = useRef(false);
@@ -1072,6 +1106,9 @@ export default function DashboardScreen() {
   async function processAssistantText(transcript: string) {
     if (isSavingVoiceItems) return;
     const request = ++assistantRequest.current;
+    setSetupPreview(null);
+    setSetupUndo(null);
+    setSetupEdited(false);
     setVoiceTranscript(transcript);
     setVoiceAddReview(null);
     setSelectedVoiceLocationId(null);
@@ -1079,6 +1116,14 @@ export default function DashboardScreen() {
     setAssistantItems([]);
     setAssistantLoading(false);
     const intent = classifyAssistantIntent(transcript);
+    if (intent.kind === "setup") {
+      assistantSpeechEnabled.current = false;
+      try { ExpoSpeechRecognitionModule.stop(); } catch {}
+      const proposal = parseSetup(intent.text);
+      if (typeof proposal === "string") setAssistantAnswer(proposal);
+      else setSetupPreview(proposal);
+      return;
+    }
     if (intent.kind === "unsupported") {
       setAssistantAnswer('Unsupported request. Ask how many items you have, where they are, or say "Add two flashlights to my RV".');
       return;
@@ -1149,6 +1194,8 @@ export default function DashboardScreen() {
     if (!assistantSpeechEnabled.current) return;
     const transcript = event.results.map(result => result.transcript?.trim() ?? "")
       .filter(Boolean).sort((a, b) => b.length - a.length)[0] ?? "";
+    setAssistantText(transcript);
+    if (classifyAssistantIntent(transcript).kind === "setup" && !event.isFinal) return;
     void processAssistantText(transcript);
   });
 
@@ -2307,6 +2354,9 @@ export default function DashboardScreen() {
   }
 
   async function handleCloseVoiceAddModal() {
+    setSetupPreview(null);
+    setSetupUndo(null);
+    setSetupEdited(false);
     assistantReturn.current = false;
     assistantRequest.current++;
     assistantSpeechEnabled.current = false;
@@ -2422,6 +2472,9 @@ export default function DashboardScreen() {
   }
 
   async function handleVoiceMicPress() {
+    setSetupPreview(null);
+    setSetupUndo(null);
+    setSetupEdited(false);
     if (isSavingVoiceItems) return;
     assistantSpeechEnabled.current = true;
     assistantRequest.current++;
@@ -3144,6 +3197,7 @@ export default function DashboardScreen() {
               <TextInput
                 value={searchQuery}
                 onChangeText={setSearchQuery}
+                onLayout={() => setDashboardSearchLaidOut(true)}
                 placeholder="Search gear, checklist items, templates..."
                 placeholderTextColor={theme.colors.textMuted}
                 selectionColor={theme.isLight ? "#007AFF" : "#00E5FF"}
@@ -3160,7 +3214,7 @@ export default function DashboardScreen() {
                 returnKeyType="search"
                 inputAccessoryViewID={
                   shouldUseDashboardSearchAccessory
-                    ? DASHBOARD_SEARCH_KEYBOARD_ACCESSORY_ID
+                    ? dashboardSearchAccessoryId
                     : undefined
                 }
                 editable={!initializing && !!user && !navigationDisabled}
@@ -4309,8 +4363,9 @@ export default function DashboardScreen() {
           animationType="fade"
           onRequestClose={handleCloseVoiceAddModal}
         >
-          <View style={styles.exportModalOverlay} pointerEvents="auto">
-            <View style={styles.exportModalCard}>
+          <KeyboardAvoidingView style={styles.exportModalOverlay} behavior={Platform.OS === "ios" ? "padding" : "height"} pointerEvents="auto">
+            <View style={[styles.exportModalCard, { maxHeight: "90%" }]} >
+            <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={{ paddingBottom: 12, gap: 16 }}>
               <Pressable
                 style={[
                   styles.voiceAddIconWrap,
@@ -4332,6 +4387,10 @@ export default function DashboardScreen() {
               </ThemedText>
 
               <TextInput
+                inputAccessoryViewID={Platform.OS === "ios" ? "gear-assistant-keyboard" : undefined}
+                onFocus={() => setAssistantAccessoryVersion(version => version + 1)}
+                selectionColor={theme.isLight ? "#2563EB" : "#FFFFFF"}
+                cursorColor={theme.isLight ? "#2563EB" : "#FFFFFF"}
                 accessibilityLabel="Gear Assistant command"
                 placeholder="Ask about gear or type Add…"
                 value={assistantText}
@@ -4343,18 +4402,85 @@ export default function DashboardScreen() {
                   setVoiceAddReview(null);
                   setAssistantAnswer("");
     setAssistantItems([]);
+                  setSetupPreview(null);
+    setSetupUndo(null);
+    setSetupEdited(false);
                   setAssistantText(text);
                 }}
                 style={{ borderWidth: 1, borderColor: theme.colors.border, color: theme.colors.text, borderRadius: 10, padding: 12 }}
               />
               <HapticPressable accessibilityRole="button" disabled={!assistantText.trim() || isSavingVoiceItems}
+                style={{ alignSelf: "flex-start", backgroundColor: theme.colors.primary, borderRadius: 999, minHeight: 44, paddingHorizontal: 18, paddingVertical: 10, justifyContent: "center", alignItems: "center", opacity: !assistantText.trim() || isSavingVoiceItems ? 0.5 : 1 }}
                 onPress={() => {
                   assistantSpeechEnabled.current = false;
                   try { ExpoSpeechRecognitionModule.stop(); } catch { /* Already stopped. */ }
                   void processAssistantText(assistantText);
                 }}>
-                <ThemedText>Submit request</ThemedText>
+                <ThemedText style={{ color: "#FFFFFF", fontWeight: "700" }}>Submit request</ThemedText>
               </HapticPressable>
+              {setupPreview ? (
+                <ScrollView style={{ maxHeight: 340 }} contentContainerStyle={{ paddingVertical: 12, gap: 16 }} keyboardShouldPersistTaps="handled">
+                  <ThemedText variant="bodyStrong">Smart Setup preview — not saved</ThemedText>
+                  <ThemedText>{setupPreview.nodes.filter(n => n.kind === "storage").length} storage spaces · {setupPreview.nodes.filter(n => n.kind === "room").length} rooms · {setupPreview.nodes.filter(n => n.kind === "compartment").length} compartments</ThemedText>
+                  {setupPreview.parentKind ? (
+                    <View>
+                      <ThemedText>Choose the existing {setupPreview.parentKind === "storage" ? "storage space" : "room"} for “{setupPreview.parentQuery}”:</ThemedText>
+                      {(setupPreview.parentKind === "storage"
+                        ? sortedStorageSpaces.filter(s => !s.isArchived).map(s => ({ id: s.id, label: s.name }))
+                        : allRooms.filter(r => !r.isArchived && sortedStorageSpaces.some(s => s.id === r.storageSpaceId && !s.isArchived)).map(r => ({ id: r.id, label: `${storageNameById.get(r.storageSpaceId) ?? "Unknown storage"} → ${r.name}` }))
+                      ).map(parent => (
+                        <HapticPressable key={parent.id} accessibilityRole="button"
+                          onPress={() => {
+                            const sameLabel = setupPreview.parentKind === "storage"
+                              ? sortedStorageSpaces.filter(s => !s.isArchived && s.name.trim().toLowerCase() === parent.label.trim().toLowerCase())
+                              : allRooms.filter(r => !r.isArchived && `${storageNameById.get(r.storageSpaceId) ?? "Unknown storage"} → ${r.name}`.trim().toLowerCase() === parent.label.trim().toLowerCase());
+                            if (sameLabel.length !== 1) {
+                              Alert.alert("Ambiguous parent", "These locations have the same name. Rename one in Inventory before selecting it.");
+                              return;
+                            }
+                            setSetupEdited(true);
+                            setSetupPreview(current => current ? { ...current, parentId: parent.id } : null);
+                          }}>
+                          <ThemedText style={{ color: theme.colors.primary }}>{setupPreview.parentId === parent.id ? "✓ " : ""}{parent.label}</ThemedText>
+                        </HapticPressable>
+                      ))}
+                      {!setupPreview.parentId ? <ThemedText>Parent selection required. Nothing will be created.</ThemedText> : null}
+                    </View>
+                  ) : null}
+                  {setupPreview.nodes.map(node => {
+                    const parent = setupPreview.nodes.find(n => n.id === node.parentId);
+                    return (
+                      <View key={node.id} style={{ marginLeft: parent ? (parent.parentId ? 24 : 12) : 0, padding: 12, gap: 12, borderWidth: 1, borderColor: theme.colors.border, borderRadius: 12 }}>
+                        <ThemedText>{node.kind}{parent ? ` in ${parent.name}` : ""}</ThemedText>
+                        <TextInput accessibilityLabel={`Proposed ${node.kind} name`} value={node.name} maxLength={60}
+                          onChangeText={name => { setSetupEdited(true); setSetupPreview(current => current ? editSetup(current, node.id, name) : null); }}
+                          style={{ borderWidth: 1, borderColor: theme.colors.border, color: theme.colors.text, borderRadius: 8, padding: 10 }} />
+                        <HapticPressable accessibilityRole="button" accessibilityLabel={`Remove ${node.name}`}
+                          style={{ minHeight: 44, justifyContent: "center", alignSelf: "flex-start" }}
+                          onPress={() => requestSetupRemoval(node.id)}>
+                          <ThemedText>Remove {node.kind}</ThemedText>
+                        </HapticPressable>
+                      </View>
+                    );
+                  })}
+                  {setupUndo ? (
+                    <HapticPressable accessibilityRole="button" accessibilityLabel="Undo last preview removal"
+                      style={{ backgroundColor: theme.colors.primary, borderRadius: 999, paddingHorizontal: 18, minHeight: 44, justifyContent: "center", alignSelf: "flex-start" }}
+                      onPress={() => {
+                        setSetupPreview(current => current ? undoSetupRemoval(current, setupUndo) : current);
+                        setSetupUndo(null);
+                      }}>
+                      <ThemedText style={{ color: "#FFFFFF", fontWeight: "700" }}>Undo removal</ThemedText>
+                    </HapticPressable>
+                  ) : null}
+                  {validateSetup(setupPreview).map(message => <ThemedText key={message}>{message}</ThemedText>)}
+                  <ThemedText>Preview only. Creation is not available yet.</ThemedText>
+                  <HapticPressable accessibilityRole="button" onPress={discardSetupPreview}>
+                    <ThemedText>Discard preview</ThemedText>
+                  </HapticPressable>
+                </ScrollView>
+              ) : null}
+
               {assistantLoading ? <ThemedText>Reading available inventory…</ThemedText> : null}
               {assistantAnswer ? <ThemedText accessibilityLiveRegion="polite">{assistantAnswer}</ThemedText> : null}
               {assistantItems.map(item => (
@@ -4371,20 +4497,6 @@ export default function DashboardScreen() {
                 </View>
               ))}
 
-
-              {voiceTranscript ? (
-                <View
-                  style={[
-                    styles.voiceTranscriptCard,
-                    {
-                      backgroundColor: theme.colors.card,
-                      borderColor: theme.colors.border,
-                    },
-                  ]}
-                >
-                  <ThemedText>{voiceTranscript}</ThemedText>
-                </View>
-              ) : null}
 
               {voiceAddReview ? (
                 <View
@@ -4527,20 +4639,34 @@ export default function DashboardScreen() {
                 </ThemedText>
               </HapticPressable>
 
-              <HapticPressable onPress={handleCloseVoiceAddModal}>
-                <ThemedText style={styles.exportModalCancelText}>
+              <HapticPressable accessibilityRole="button" accessibilityLabel="Cancel Gear Assistant" onPress={handleCloseVoiceAddModal}
+                style={{ alignSelf: "center", borderWidth: 1, borderColor: theme.colors.primary, borderRadius: 999, minHeight: 44, paddingHorizontal: 28, paddingVertical: 12, marginTop: 8, alignItems: "center", justifyContent: "center" }}>
+                <ThemedText style={{ color: theme.colors.primary, fontWeight: "700" }}>
                   Cancel
                 </ThemedText>
               </HapticPressable>
+            </ScrollView>
+            {Platform.OS !== "ios" ? (
+              <HapticPressable accessibilityRole="button" accessibilityLabel="Dismiss keyboard"
+                onPress={() => Keyboard.dismiss()} style={{ alignSelf: "flex-end", minWidth: 44, minHeight: 44, justifyContent: "center", alignItems: "center" }}>
+                <ChevronDown size={22} color={theme.colors.primary} />
+              </HapticPressable>
+            ) : null}
             </View>
-          </View>
+          </KeyboardAvoidingView>
+          {Platform.OS === "ios" ? (
+            <KeyboardDismissAccessory
+              key={`assistant-keyboard-${assistantAccessoryVersion}`}
+              nativeID="gear-assistant-keyboard"
+            />
+          ) : null}
         </Modal>
 
       </SafeAreaView>
 
-      {shouldUseDashboardSearchAccessory ? (
+      {shouldUseDashboardSearchAccessory && dashboardSearchLaidOut ? (
         <KeyboardDismissAccessory
-          nativeID={DASHBOARD_SEARCH_KEYBOARD_ACCESSORY_ID}
+          nativeID={dashboardSearchAccessoryId}
         />
       ) : null}
     </ScreenBackground >

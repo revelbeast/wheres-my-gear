@@ -1,8 +1,9 @@
+import { isSetupRequest } from './gearAssistantSetup';
 import NetInfo from '@react-native-community/netinfo';
 import { getAllItems, getStorageSpaces, getAllCompartments, getRoomsByStorageSpace, getArchivedStorageSpaces,
   type Item, type StorageSpace, type Compartment, type Room } from './gearService';
 
-export type AssistantIntent = { kind: 'add'; text: string } |
+export type AssistantIntent = { kind: 'setup'; text: string } | { kind: 'add'; text: string } |
   { kind: 'question'; item: string; location?: string } | { kind: 'unsupported' };
 const normalize = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
 const singular = (s: string) => s.split(' ').map(word =>
@@ -11,6 +12,7 @@ const singular = (s: string) => s.split(' ').map(word =>
 
 export function classifyAssistantIntent(text: string): AssistantIntent {
   const clean = normalize(text).replace(/[?.!]+$/, '');
+  if (isSetupRequest(text)) return { kind: 'setup', text };
   if (/^add\s+\S/.test(clean)) return { kind: 'add', text };
   const match = clean.match(/^how many (.+?)(?: do i have(?: on hand)?)?$/) ||
     clean.match(/^where (?:are|is) (?:my |the )?(.+)$/) ||

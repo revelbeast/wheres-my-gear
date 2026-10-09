@@ -1,12 +1,15 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript');
+const setupModule={exports:{}};
+vm.runInNewContext(ts.transpileModule(fs.readFileSync('lib/gearAssistantSetup.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{module:setupModule,exports:setupModule.exports});
+const setup=setupModule.exports;
 function load(overrides={}) {
  const calls=[];
  const service={getAllItems:async options=>{calls.push(options);return [];},getStorageSpaces:async()=>[],getAllCompartments:async()=>[],getRoomsByStorageSpace:async()=>[],getArchivedStorageSpaces:async()=>[],...overrides};
  const module={exports:{}};
  vm.runInNewContext(ts.transpileModule(fs.readFileSync('lib/gearAssistant.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,esModuleInterop:true,target:ts.ScriptTarget.ES2022}}).outputText,
- {module,exports:module.exports,require:id=>id.includes('netinfo')?{fetch:async()=>({isConnected:true,...overrides.network})}:service});
+ {module,exports:module.exports,require:id=>id === './gearAssistantSetup' ? setup : id.includes('netinfo')?{fetch:async()=>({isConnected:true,...overrides.network})}:service});
  return {...module.exports,calls};
 }
 const h=load(),spaces=[{id:'s',name:'RV'},{id:'old',name:'Archive',isArchived:true}],compartments=[{id:'c',name:'Box',vehicleId:'s'}];
@@ -60,9 +63,9 @@ test('actual shared handler preserves add preview and rejects late question answ
  const source=fs.readFileSync('app/(tabs)/index.tsx','utf8');
  const start=source.indexOf('  async function processAssistantText(');
  const end=source.indexOf('\n  useSpeechRecognitionEvent("result"',start);
- let resolve,preview,answer,loading,parsed=0,selected;
+ let resolve,preview,answer,loading,parsed=0,selected,proposal;
  const context={isSavingVoiceItems:false,assistantRequest:{current:0},
- setAssistantItems(){},setVoiceTranscript(){},setVoiceAddReview:v=>preview=v,setSelectedVoiceLocationId:v=>selected=v,
+ setSetupUndo(){},setSetupEdited(){},setSetupPreview:v=>proposal=v,parseSetup:setup.parseSetup,assistantSpeechEnabled:{current:true},ExpoSpeechRecognitionModule:{stop(){}},setAssistantItems(){},setVoiceTranscript(){},setVoiceAddReview:v=>preview=v,setSelectedVoiceLocationId:v=>selected=v,
  setAssistantAnswer:v=>answer=v,setAssistantLoading:v=>loading=v,
  classifyAssistantIntent:h.classifyAssistantIntent,
  loadInventoryAnswer:()=>new Promise(r=>resolve=r),
@@ -77,6 +80,8 @@ test('actual shared handler preserves add preview and rejects late question answ
  resolve('stale answer');await pending;assert.notEqual(answer,'stale answer');
  await context.process('Delete everything');
  assert.equal(preview,null);assert.equal(parsed,1);assert.match(answer,/Unsupported/);
+ await context.process('Add three rooms to my RV');
+ assert.equal(proposal.nodes.length,3);assert.equal(parsed,1);assert.equal(preview,null);
 });
 test('concise separate item results use current location names without document IDs',()=>{
  const rows=[];
